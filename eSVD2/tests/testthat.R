@@ -1,4 +1,4 @@
 library(testthat)
-library(nameHere)
+library(eSVD2)
 
-test_check("nameHere")
+test_check("eSVD2")
