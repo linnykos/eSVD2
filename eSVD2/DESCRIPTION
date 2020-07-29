@@ -1,0 +1,15 @@
+Package: nameHere
+Title: Name Here
+Version: 1.0.0.0000
+Authors@R: person("First", "Last", email = "first.last@example.com", role = c("aut", "cre"))
+Description: Something something something
+Depends:
+    R (>= 3.3.0)
+License: MIT +file LICENSE
+Encoding: UTF-8
+LazyData: true
+Imports:
+    MASS
+Suggests:
+    testthat
+RoxygenNote: 6.1.1
