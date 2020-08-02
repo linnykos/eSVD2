@@ -1,6 +1,17 @@
-initialization <- function(dat, k, nuisance_param_vec = NA, library_size_vec = NA){
+initialize_esvd <- function(dat, family, k, nuisance_param_vec = NA, library_size_vec = NA,
+                            config = initalization_default()){
  
+ dat <- .matrix_completion(dat, k = k)
+ init_mat <- .determine_initial_matrix(dat, family = family, k = k, max_val = config$max_val,
+                                       tol = config$tol)
+ 
+ # put method here
 }
+
+initalization_default <- function(method = "nnsvd", max_val = NA, tol = 1e-3){
+ list(method = method, max_val = max_val, tol = tol)
+}
+
 
 ################
 
@@ -45,7 +56,5 @@ initialization <- function(dat, k, nuisance_param_vec = NA, library_size_vec = N
 .determine_initial_matrix <- function(dat, family, k, max_val = NA, tol = 1e-3, ...){
  dat[which(dat <= tol)] <- tol/2
  nat_mat <- .mean_transformation(dat, family, ...)
- direction <- .dictate_direction(family)
- 
- ## INSERT HERE: many options to construct initial matrix
+ domain <- .determine_domain(family, tol)
 }
