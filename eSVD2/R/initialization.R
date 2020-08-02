@@ -5,10 +5,16 @@ initialize_esvd <- function(dat, family, k, nuisance_param_vec = NA, library_siz
  init_mat <- .determine_initial_matrix(dat, family = family, k = k, max_val = config$max_val,
                                        tol = config$tol)
  
- # put method here
+ if(config$method == "nnsvd"){
+  res <- .initialization_nnsvd(dat, k = k)
+ }
+ 
+ res
 }
 
 initalization_default <- function(method = "nnsvd", max_val = NA, tol = 1e-3){
+ stopifnot(method %in% c("nnsvd", "sbm", "kmean_row", "kmean_column"))
+ 
  list(method = method, max_val = max_val, tol = tol)
 }
 

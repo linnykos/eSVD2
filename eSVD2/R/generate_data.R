@@ -23,7 +23,10 @@ generate_data <- function(nat_mat, family, nuisance_param_vec = NA, library_size
  if(family == "gaussian") return(nat_mat)
  if(family == "curved_gaussian") return(1/nat_mat)
  if(family == "exponential") return(-nat_mat)
- if(family %in% c("poisson", "neg_binom")) return(exp(nat_mat))
+ if(family %in% c("poisson", "neg_binom")) {
+  if(any(nat_mat >= 10)) warning("Potential large values generated")
+  return(exp(nat_mat))
+ }
 }
 
 # TODO: for now, assume length(nuisance_param_vec) == 1 and there is no library_size_vec
