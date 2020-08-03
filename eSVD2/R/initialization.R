@@ -1,13 +1,18 @@
 initialize_esvd <- function(dat, family, k, nuisance_param_vec = NA, library_size_vec = NA,
                             config = initalization_default()){
+ stopifnot(all(dat[!is.na(dat)] >= 0))
  
  dat <- .matrix_completion(dat, k = k)
- init_mat <- .determine_initial_matrix(dat, family = family, k = k, max_val = config$max_val,
+ nat_mat <- .determine_initial_matrix(dat, family = family, k = k, max_val = config$max_val,
                                        tol = config$tol)
  
- if(config$method == "nnsvd"){
-  res <- .initialization_nnsvd(dat, k = k)
+ if(config$method == "nndsvd"){
+  nat_mat <- .initialization_nndsvd(nat_mat, k = k)
  }
+ 
+ ## WARNING: need to fix max_val
+ 
+ # reparameterize
  
  res
 }
@@ -60,7 +65,15 @@ initalization_default <- function(method = "nnsvd", max_val = NA, tol = 1e-3){
 #'
 #' @return \code{n} by \code{p} matrix
 .determine_initial_matrix <- function(dat, family, k, max_val = NA, tol = 1e-3, ...){
+ stopifnot((is.na(max_val) || max_val >= 0), all(dat >= 0))
+ 
+ domain <- .determine_domain(family, tol)
+ if(!is.na(max_val)) domain <- .intersect_intervals(domain, c(-max_val, max_val))
+ 
  dat[which(dat <= tol)] <- tol/2
  nat_mat <- .mean_transformation(dat, family, ...)
- domain <- .determine_domain(family, tol)
+ nat_mat <- pmax(nat_mat, domain[1])
+ nat_mat <- pmin(nat_mat, domain[2])
+ 
+ list(nat_mat = nat_mat, domain = domain)
 }
