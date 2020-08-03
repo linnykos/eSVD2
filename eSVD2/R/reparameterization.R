@@ -78,5 +78,17 @@
  } else {
   list(x_mat = x_mat %*% t(res), y_mat = y_mat %*% solve(res))
  }
- 
 }
+
+.factorize_matrix <- function(mat, k, equal_covariance = F){
+  stopifnot(k <= min(dim(mat)))
+  
+  svd_res <- RSpectra::svds(mat, k = k)
+  x_mat <- svd_res$u[,1:k, drop = F] %*% .diag_matrix(sqrt(svd_res$d[1:k]))
+  y_mat <- svd_res$v[,1:k, drop = F] %*% .diag_matrix(sqrt(svd_res$d[1:k]))
+  
+  .reparameterize(x_mat, y_mat, equal_covariance = equal_covariance)
+}
+
+
+
