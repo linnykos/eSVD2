@@ -2,7 +2,7 @@
 .fix_domain <- function(nat_mat, dat, family, domain, ...){
  if(abs(domain[2]) > abs(domain[1])) nat_mat <- -nat_mat
  max_val <- abs(max(domain))
- 
+  
  while(TRUE){
   bool_mat <- (nat_mat >= max_val)
   if(sum(bool_mat) == 0) break()
