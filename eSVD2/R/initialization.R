@@ -6,10 +6,8 @@ initialize_esvd <- function(dat, family, k, nuisance_param_vec = NA, library_siz
  init_res <- .determine_initial_matrix(dat, family = family, k = k, max_val = config$max_val,
                                        tol = config$tol)
  
- if(config$method == "nndsvd"){
-  nat_mat <- .initialization_nndsvd(init_res$nat_mat, k = k)
-  nat_mat <- .fix_domain(nat_mat, dat, family = family, domain = init_res$domain)
-  # WARNING: this might not fully fix the problem
+ if(config$method == "kmean_row"){
+  nat_mat <- .initialization_kmean(init_res$nat_mat, k = k, domain = domain, row = T)
  } else {
    stop("config method not found")
  }
@@ -19,8 +17,8 @@ initialize_esvd <- function(dat, family, k, nuisance_param_vec = NA, library_siz
  .factorize_matrix(nat_mat, k = k, equal_covariance = T)
 }
 
-initalization_default <- function(method = "nnsvd", max_val = NA, tol = 1e-3){
- stopifnot(method %in% c("nnsvd", "sbm", "kmean_row", "kmean_column"), tol > 0, tol <= 1)
+initalization_default <- function(method = "kmean_row", max_val = NA, tol = 1e-3){
+ stopifnot(method %in% c("kmean_row"), tol > 0, tol <= 1)
  
  structure(list(method = method, max_val = max_val, tol = tol), class = "initialization_param")
 }
@@ -78,4 +76,8 @@ initalization_default <- function(method = "nnsvd", max_val = NA, tol = 1e-3){
  nat_mat <- pmin(nat_mat, domain[2])
  
  list(nat_mat = nat_mat, domain = domain)
+}
+
+.initialization_kmean <- function(mat, k, domain, row = T){
+  .projection_kmeans(mat, k = k, domain = domain, row = row)
 }
