@@ -9,19 +9,20 @@ initialize_esvd <- function(dat, family, k, nuisance_param_vec = NA, library_siz
  if(config$method == "nndsvd"){
   nat_mat <- .initialization_nndsvd(init_res$nat_mat, k = k)
   nat_mat <- .fix_domain(nat_mat, dat, family = family, domain = init_res$domain)
-  # WARNING: this might not fully fix the problem...
+  # WARNING: this might not fully fix the problem
  } else {
    stop("config method not found")
  }
 
+ 
  # reparameterize
  .factorize_matrix(nat_mat, k = k, equal_covariance = T)
 }
 
 initalization_default <- function(method = "nnsvd", max_val = NA, tol = 1e-3){
- stopifnot(method %in% c("nnsvd", "sbm", "kmean_row", "kmean_column"))
+ stopifnot(method %in% c("nnsvd", "sbm", "kmean_row", "kmean_column"), tol > 0, tol <= 1)
  
- list(method = method, max_val = max_val, tol = tol)
+ structure(list(method = method, max_val = max_val, tol = tol), class = "initialization_param")
 }
 
 
