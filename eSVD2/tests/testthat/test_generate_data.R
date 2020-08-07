@@ -50,14 +50,14 @@ test_that("generate_data works for poisson", {
 test_that("generate_data has the correct mean and variance for poisson", {
  set.seed(5)
  canon_vec <- seq(10, 50, length.out = 5)
- nat_mat <- sapply(log(canon_vec), function(x){rep(x, 1000)})
+ nat_mat <- sapply(log(canon_vec), function(x){rep(x, 5000)})
  res <- generate_data(nat_mat, family = "poisson")
  
  mean_vec <- colMeans(res)
  expect_true(all(abs(mean_vec - canon_vec) <= 2))
  
  var_vec <- apply(res, 2, stats::var)
- expect_true(all(abs(var_vec - canon_vec) <= 2))
+ expect_true(all(abs(var_vec - canon_vec) <= 5))
 })
 
 ############
