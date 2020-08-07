@@ -86,7 +86,38 @@ test_that("initialize_esvd works", {
  
  expect_true(is.list(res))
  expect_true(class(res) == "eSVD")
- expect_true(all(sort(names(res)) == sort(c("x_mat", "y_mat"))))
+ expect_true(all(sort(names(res)) == sort(c("x_mat", "y_mat", "domain"))))
  expect_true(all(dim(res$x_mat) == c(nrow(dat), 2)))
  expect_true(all(dim(res$y_mat) == c(ncol(dat), 2)))
+})
+
+test_that("initialize_esvd does not suffer from a strange numeric issue with domain", {
+ set.seed(10)
+ 
+ n <- 100; p <- 150; k <- 5
+ x_mat <- matrix(abs(stats::rnorm(n*k)), nrow = n, ncol = k)
+ y_mat <- matrix(abs(stats::rnorm(p*k)), nrow = p, ncol = k)
+ nat_mat <- (x_mat %*% t(y_mat))/10
+ 
+ dat <- eSVD2::generate_data(nat_mat, family = "poisson", nuisance_param_vec = NA, library_size_vec = NA)
+ 
+ init_res <- eSVD2::initialize_esvd(dat, k = k, family = "poisson", nuisance_param_vec = NA, library_size_vec = NA,
+                                    config = eSVD2::initalization_default())
+ 
+ nat_mat <- init_res$x_mat %*% t(init_res$y_mat)
+ expect_true(.check_domain(nat_mat, init_res$domain))
+ 
+ ## this is what happens when you don't use .check_domain
+ # expect_true(min(nat_mat) >= init_res$domain[1])
+})
+
+test_that("initialize_esvd domain is not check for gaussian", {
+  set.seed(10)
+  dat <- matrix(stats::rnorm(1:40/10), nrow = 10, ncol = 4)
+  expect_true(min(dat) < 0)
+  
+  res <- initialize_esvd(dat, k = 2, family = "gaussian")
+  expect_true(class(res) == "eSVD")
+  
+  expect_error(initialize_esvd(dat, k = 2, family = "curved_gaussian"))
 })

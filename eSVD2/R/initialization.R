@@ -16,7 +16,7 @@
 #' @export
 initialize_esvd <- function(dat, k, family, nuisance_param_vec = NA, library_size_vec = NA,
                             config = initalization_default()){
- stopifnot(all(dat[!is.na(dat)] >= 0))
+ if(family != "gaussian") stopifnot(all(dat[!is.na(dat)] >= 0))
  
  dat <- .matrix_completion(dat, k = k)
  init_res <- .determine_initial_matrix(dat, family = family, k = k, max_val = config$max_val,
@@ -24,6 +24,7 @@ initialize_esvd <- function(dat, k, family, nuisance_param_vec = NA, library_siz
  domain <- init_res$domain
  
  if(config$method == "kmean_rows"){
+  # for numeric reasons, loosen the domain
   nat_mat <- .initialization_kmean(init_res$nat_mat, k = k, domain = domain, row = T)
  } else {
    stop("config method not found")
@@ -33,7 +34,7 @@ initialize_esvd <- function(dat, k, family, nuisance_param_vec = NA, library_siz
  res <- .factorize_matrix(nat_mat, k = k, equal_covariance = T)
  res <- .fix_rank_defficiency(res$x_mat, res$y_mat, domain = domain)
  
- structure(list(x_mat = res$x_mat, y_mat = res$y_mat), class = "eSVD")
+ structure(list(x_mat = res$x_mat, y_mat = res$y_mat, domain = domain), class = "eSVD")
 }
 
 #' Initialization defaults
@@ -133,7 +134,7 @@ initalization_default <- function(method = "kmean_rows", max_val = NA, tol = 1e-
 .fix_rank_defficiency <- function(x_mat, y_mat, domain){
  k <- ncol(x_mat)
  nat_mat <- x_mat %*% t(y_mat)
- stopifnot(all(nat_mat >= domain[1]), all(nat_mat <= domain[2]))
+ stopifnot(.check_domain(nat_mat, domain))
  k2 <- as.numeric(Matrix::rankMatrix(nat_mat)) 
  
  if(k != k2){

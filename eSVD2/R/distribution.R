@@ -57,6 +57,18 @@ compute_mean <- function(nat_mat, family, ...){
  domain
 }
 
+.check_domain <- function(nat_mat, domain){
+  idx <- which.min(abs(domain))
+  
+  domain_modified <- domain
+  domain_modified[idx] <- sign(domain_modified[idx])*(abs(domain_modified[idx])-.Machine$double.eps*1e2)
+  if(abs(domain_modified[-idx]) != Inf){
+    domain_modified[-idx] <- sign(domain_modified[-idx])*(abs(domain_modified[-idx])+.Machine$double.eps*1e2)
+  }
+  
+  all(nat_mat >= domain_modified[1]) & all(nat_mat <= domain_modified[2])
+}
+
 .mean_transformation <- function(dat, family, tol = 1e-3, ...){
  if(family == "exponential"){
   dat <- -1/(dat+1)

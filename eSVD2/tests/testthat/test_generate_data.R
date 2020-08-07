@@ -84,6 +84,20 @@ test_that("generate_data has the correct mean and variance for curved guassian",
  expect_true(all(abs(sd_vec - canon_vec/2) <= 2))
 })
 
+test_that("generate_data for curved gaussian respects tol", {
+ set.seed(5)
+ nat_mat <- matrix(1/c(1:30), 5, 6)
+ res <- generate_data(nat_mat, family = "curved_gaussian", nuisance_param_vec = 2, tol = 1e-3)
+ 
+ expect_true(all(res > 0))
+ 
+ set.seed(5)
+ res <- generate_data(nat_mat, family = "curved_gaussian", nuisance_param_vec = 2, tol = NA)
+ 
+ expect_true(!all(res > 0))
+})
+
+
 ############
 
 test_that("generate_data works for exponential", {
@@ -95,7 +109,7 @@ test_that("generate_data works for exponential", {
  expect_true(all(dim(res) == dim(nat_mat)))
 })
 
-test_that("generate_data has the correct mean and variance for curved guassian", {
+test_that("generate_data has the correct mean and variance for exponential", {
  set.seed(5)
  canon_vec <- seq(10, 50, length.out = 5)
  nat_mat <- sapply(-1/canon_vec, function(x){rep(x, 2000)})

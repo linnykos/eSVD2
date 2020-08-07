@@ -1,4 +1,18 @@
-generate_data <- function(nat_mat, family, nuisance_param_vec = NA, library_size_vec = NA){
+#' Generate data
+#'
+#' @param nat_mat matrix of natural parameters where the \code{n} rows represent cells and \code{d} columns represent genes
+#' @param family character (\code{"gaussian"}, \code{"exponential"}, \code{"poisson"}, \code{"neg_binom"},
+#' or \code{"curved_gaussian"})
+#' @param nuisance_param_vec either \code{NA} or a single numeric or a length-\code{p} 
+#' vector of numerics representing nuisance parameters (for \code{family = "neg_binom"} or 
+#' \code{family = "curved_gausian"}). It is only required if \code{family \%in\% c("neg_binom", "curved_gaussian")}
+#' @param library_size_vec either \code{NA} or a length-\code{n} vector of numerics 
+#' @param tol small positive value to determine the smallest possible value in the output matrix, 
+#' useful for only \code{family="curved_gaussian"}
+#'
+#' @return matrix
+#' @export
+generate_data <- function(nat_mat, family, nuisance_param_vec = NA, library_size_vec = NA, tol = 1e-3){
  stopifnot(is.matrix(nat_mat), 
            family %in% c("gaussian", "curved_gaussian", "exponential", "poisson", "neg_binom"),
            length(nuisance_param_vec) %in% c(1, ncol(nat_mat)),
@@ -8,8 +22,13 @@ generate_data <- function(nat_mat, family, nuisance_param_vec = NA, library_size
  vec <- .generate_values(nat_mat, family, nuisance_param_vec, library_size_vec)
  dat <- matrix(vec, ncol = ncol(nat_mat), nrow = nrow(nat_mat))
  
+ if(family == "curved_gaussian" & !is.na(tol)){
+   dat[dat < tol] <- tol
+ }
+ 
  dat
 }
+
 
 #####################
 

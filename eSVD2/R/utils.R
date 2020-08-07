@@ -26,3 +26,5 @@
   
   new_vec
 }
+
+.rotate = function(a) { t(a[nrow(a):1,]) }
