@@ -80,7 +80,7 @@
  }
 }
 
-.factorize_matrix <- function(mat, k, equal_covariance = F){
+.factorize_matrix <- function(mat, k, equal_covariance = T){
   stopifnot(k <= min(dim(mat)))
   
   svd_res <- RSpectra::svds(mat, k = k)

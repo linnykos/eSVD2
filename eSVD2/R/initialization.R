@@ -1,24 +1,53 @@
-initialize_esvd <- function(dat, family, k, nuisance_param_vec = NA, library_size_vec = NA,
+#' Initialize eSVD
+#'
+#' @param dat dataset where the \code{n} rows represent cells and \code{d} columns represent genes
+#' @param k positive integer less than \code{min(c(nrow(dat), ncol(dat)))}
+#' @param family character (\code{"gaussian"}, \code{"exponential"}, \code{"poisson"}, \code{"neg_binom"},
+#' or \code{"curved_gaussian"})
+#' @param nuisance_param_vec either \code{NA} or a single numeric or a length-\code{p} 
+#' vector of numerics representing nuisance parameters (for \code{family = "neg_binom"} or 
+#' \code{family = "curved_gausian"})
+#' @param library_size_vec either \code{NA} or a length-\code{n} vector of numerics 
+#' @param config additional parameters for the initialization, whose defaults can be
+#' set with \code{eSVD2::initialization_default()}
+#'
+#' @return a list with elements \code{x_mat} and \code{y_mat}, representing the two
+#' latent matrices
+#' @export
+initialize_esvd <- function(dat, k, family, nuisance_param_vec = NA, library_size_vec = NA,
                             config = initalization_default()){
  stopifnot(all(dat[!is.na(dat)] >= 0))
  
  dat <- .matrix_completion(dat, k = k)
  init_res <- .determine_initial_matrix(dat, family = family, k = k, max_val = config$max_val,
                                        tol = config$tol)
+ domain <- init_res$domain
  
- if(config$method == "kmean_row"){
-  nat_mat <- .initialization_kmean(init_res$nat_mat, k = k, domain = init_res$domain, row = T)
+ if(config$method == "kmean_rows"){
+  nat_mat <- .initialization_kmean(init_res$nat_mat, k = k, domain = domain, row = T)
  } else {
    stop("config method not found")
  }
 
  # reparameterize
  res <- .factorize_matrix(nat_mat, k = k, equal_covariance = T)
- .fix_rank_defficiency_initialization(res$x_mat, res$y_mat, domain = domain)
+ res <- .fix_rank_defficiency(res$x_mat, res$y_mat, domain = domain)
+ 
+ structure(list(x_mat = res$x_mat, y_mat = res$y_mat), class = "eSVD")
 }
 
-initalization_default <- function(method = "kmean_row", max_val = NA, tol = 1e-3){
- stopifnot(method %in% c("kmean_row"), tol > 0, tol <= 1)
+#' Initialization defaults
+#'
+#' @param method character (\code{"kmean_rows"})
+#' @param max_val maximum magnitude of the inner product (positive numeric). This parameter
+#' could be \code{NA}.
+#' @param tol small positive value, which also controls (amongst other numerical things)
+#' the smallest magnitude of the inner product
+#'
+#' @return a list of values, of class \code{initialization_param}
+#' @export
+initalization_default <- function(method = "kmean_rows", max_val = NA, tol = 1e-3){
+ stopifnot(method %in% c("kmean_rows"), tol > 0, tol <= 1, (is.na(max_val) | max_val > 0))
  
  structure(list(method = method, max_val = max_val, tol = tol), class = "initialization_param")
 }
@@ -92,16 +121,20 @@ initalization_default <- function(method = "kmean_row", max_val = NA, tol = 1e-3
 #' rank. This function is needed since sometimes upstream, the matrices \code{x_mat} and \code{y_mat}
 #' do not actually have the rank equal to the number of columns (i.e., empirically we have
 #' observed that \code{x_mat} might have a column that is all constant).
+#' 
+#' Here, \code{domain} represents the domain where all the inner products in
+#' \code{x_mat \%*\% t(y_mat)} are assumed to lie between
 #'
 #' @param x_mat a numeric matrix
 #' @param y_mat a numeric matrix with the same number of columns as \code{x_mat}
-#' @param direction character either \code{"<="} or \code{">="} or \code{NA}
+#' @param domain a vector where \code{domain[1] < domain[2]}
 #'
 #' @return a list of \code{x_mat} and \code{y_mat}
-.fix_rank_defficiency_initialization <- function(x_mat, y_mat, domain){
+.fix_rank_defficiency <- function(x_mat, y_mat, domain){
  k <- ncol(x_mat)
  nat_mat <- x_mat %*% t(y_mat)
- k2 <- as.numeric(Matrix::rankMatrix(nat_mat))
+ stopifnot(all(nat_mat >= domain[1]), all(nat_mat <= domain[2]))
+ k2 <- as.numeric(Matrix::rankMatrix(nat_mat)) 
  
  if(k != k2){
   stopifnot(k2 < k)
@@ -114,5 +147,15 @@ initalization_default <- function(method = "kmean_row", max_val = NA, tol = 1e-3
   }
  }
  
- list(x_mat = x_mat, y_mat = y_mat)
+ # fix any remaining issue with lying within domain
+ nat_mat <- x_mat %*% t(y_mat)
+ mag <- max(abs(domain))
+ if(max(abs(nat_mat)) > mag){
+  nat_mat <- nat_mat * (mag/max(abs(nat_mat)))
+  res <- .factorize_matrix(nat_mat, k = k, equal_covariance = T)
+ } else {
+  res <- .reparameterize(x_mat, y_mat, equal_covariance = T)
+ }
+ 
+ list(x_mat = res$x_mat, y_mat = res$y_mat)
 }
