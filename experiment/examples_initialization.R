@@ -1,5 +1,7 @@
 rm(list=ls())
 
+devtools::install_github("linnykos/eSVD2", subdir = "eSVD2")
+
 library(eSVD2)
 session_info()
 

@@ -8,9 +8,9 @@ test_that(".identification works", {
 })
 
 test_that(".identification works on an instance where you need to worry about underflow", {
- load("../assets/identification1.RData")
+ load("../assets/identification1.rda") # loads lis
  
- res <- .identification(cov_x, cov_y)
+ res <- .identification(lis$cov_x, lis$cov_y)
  expect_true(sum(abs(Im(res))) == 0)
 })
 
