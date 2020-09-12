@@ -1,7 +1,7 @@
-# distribution: one-parameter Gaussian where var = mean/scalar
+# distribution: one-parameter Gaussian where sd = mean/scalar
 # natural parameter: m_{ij} = u_i^Tv_j
 # relation to canonical parameters: m_{ij} = 1/mu_{ij}
-# optimization problem: -log(m_{ij}) - scalar^2*a_{ij}^2*(-m_{ij}^2)/n - scalar^2*a_{ij}*m_{ij}
+# optimization problem: -log(m_{ij}) - scalar^2*a_{ij}^2*(-m_{ij}^2)/2 - scalar^2*a_{ij}*m_{ij}
 
 .evaluate_objective.curved_gaussian <- function(dat, u_mat, v_mat, scalar = 2, ...){
   stopifnot(ncol(u_mat) == ncol(v_mat), nrow(u_mat) == nrow(dat), nrow(v_mat) == ncol(dat))
