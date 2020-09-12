@@ -67,6 +67,70 @@
     colSums(grad) / length(dat_vec)
 }
 
+
+
+### Test correctness ###
+# tests = function(dat, u_mat, v_mat, scalar)
+# {
+#     n = nrow(dat)
+#     p = ncol(dat)
+#
+#     # Test objective functions
+#     loss1 = .evaluate_objective.curved_gaussian(dat, u_mat, v_mat, scalar = scalar)
+#     loss2 = numeric(n)
+#     for(i in 1:n)
+#     {
+#         loss2[i] = .evaluate_objective_single.curved_gaussian(
+#             dat[i, ], u_mat[i, ], v_mat, scalar = scalar
+#         )
+#     }
+#     loss3 = numeric(p)
+#     for(j in 1:p)
+#     {
+#         loss3[j] = .evaluate_objective_single.curved_gaussian(
+#             dat[, j], v_mat[j, ], u_mat, scalar = scalar
+#         )
+#     }
+#     stopifnot(
+#         abs(loss1 - mean(loss2)) < 1e-8,
+#         abs(loss1 - mean(loss3)) < 1e-8
+#     )
+#
+#     # Test gradients
+#     for(i in 1:n)
+#     {
+#         grad1 = .gradient_vec.curved_gaussian(
+#             dat[i, ], u_mat[i, ], v_mat, scalar = scalar
+#         )
+#         grad2 = numDeriv::grad(function(x) {
+#             .evaluate_objective_single.curved_gaussian(dat[i, ], x, v_mat, scalar = scalar)
+#         }, u_mat[i, ])
+#         stopifnot(max(abs(grad1 - grad2)) < 1e-6)
+#     }
+# }
+# # Simulate data
+# set.seed(123)
+# n = 10
+# p = 15
+# k = 2
+# scalar = 2
+# u_mat = matrix(abs(rnorm(n * k)), nrow = n, ncol = k)
+# v_mat = matrix(abs(rnorm(p * k)), nrow = p, ncol = k)
+# nat_mat = tcrossprod(u_mat, v_mat)
+# dat = eSVD2::generate_data(
+#     nat_mat, family = "curved_gaussian", nuisance_param_vec = scalar,
+#     library_size_vec = NA, tol = 1e-3
+# )
+#
+# # Test
+# tests(dat, u_mat, v_mat, scalar = scalar)
+#
+# # Test missing values
+# dat[sample(length(dat), n * p * 0.1)] = NA
+# tests(dat, u_mat, v_mat, scalar = scalar)
+
+
+
 .evaluate_objective_mat.curved_gaussian <- function(dat, nat_mat, scalar = 2, ...){
   stopifnot(all(dim(dat) == dim(nat_mat)), all(nat_mat > 0))
 
