@@ -67,6 +67,27 @@
     colSums(grad) / length(dat_vec)
 }
 
+.hessian_vec.curved_gaussian <- function(dat_vec, current_vec, other_mat, scalar = 2, ...) {
+    stopifnot(
+        length(current_vec) == ncol(other_mat),
+        length(dat_vec) == nrow(other_mat)
+    )
+
+    nat_vec <- c(other_mat %*% current_vec)
+    stopifnot(all(nat_vec > 0))
+    idx <- which(!is.na(dat_vec))
+    stopifnot(length(idx) > 0)
+
+    nat_vals <- nat_vec[idx]
+    dat_vals <- dat_vec[idx]
+    other_vals <- other_mat[idx, , drop = FALSE]
+
+    term1 <- t(other_vals) %*% diag(1 / nat_vals^2) %*% other_vals
+    term2 <- scalar^2 * t(other_vals) %*% diag(dat_vals^2) %*% other_vals
+
+    (term1 + term2) / length(dat_vec)
+}
+
 
 
 ### Test correctness ###
@@ -106,6 +127,38 @@
 #             .evaluate_objective_single.curved_gaussian(dat[i, ], x, v_mat, scalar = scalar)
 #         }, u_mat[i, ])
 #         stopifnot(max(abs(grad1 - grad2)) < 1e-6)
+#     }
+#     for(j in 1:p)
+#     {
+#         grad1 = .gradient_vec.curved_gaussian(
+#             dat[, j], v_mat[j, ], u_mat, scalar = scalar
+#         )
+#         grad2 = numDeriv::grad(function(x) {
+#             .evaluate_objective_single.curved_gaussian(dat[, j], x, u_mat, scalar = scalar)
+#         }, v_mat[j, ])
+#         stopifnot(max(abs(grad1 - grad2)) < 1e-6)
+#     }
+#
+#     # Test Hessians
+#     for(i in 1:n)
+#     {
+#         hess1 = .hessian_vec.curved_gaussian(
+#             dat[i, ], u_mat[i, ], v_mat, scalar = scalar
+#         )
+#         hess2 = numDeriv::hessian(function(x) {
+#             .evaluate_objective_single.curved_gaussian(dat[i, ], x, v_mat, scalar = scalar)
+#         }, u_mat[i, ])
+#         stopifnot(max(abs(hess1 - hess2)) < 1e-6)
+#     }
+#     for(j in 1:p)
+#     {
+#         hess1 = .hessian_vec.curved_gaussian(
+#             dat[, j], v_mat[j, ], u_mat, scalar = scalar
+#         )
+#         hess2 = numDeriv::hessian(function(x) {
+#             .evaluate_objective_single.curved_gaussian(dat[, j], x, u_mat, scalar = scalar)
+#         }, v_mat[j, ])
+#         stopifnot(max(abs(hess1 - hess2)) < 1e-6)
 #     }
 # }
 # # Simulate data
