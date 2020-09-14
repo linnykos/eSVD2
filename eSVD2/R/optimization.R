@@ -99,3 +99,79 @@ constr_newton <- function(x0, f, gr, hn, feas,
 
     list(x = x, fn = fx, grad = grad)
 }
+
+
+
+# Optimization for eSVD
+
+# Optimize u given v
+opt_u_given_v <- function(u0, v_mat, dat, family, verbose = 0, ...)
+{
+    n <- nrow(dat)
+    p <- ncol(dat)
+    u_mat <- u0
+    for(i in 1:n)
+    {
+        if(verbose >= 2)
+            cat("===== Optimizing Row ", i, " of U =====\n", sep = "")
+        opt <- constr_newton(
+            u0[i, ], family$objfn, family$grad, family$hessian, family$feas,
+            eps_rel = 1e-3, verbose = (verbose >= 3),
+            other_mat = v_mat, dat_vec = dat[i, ], ...
+        )
+        u_mat[i, ] <- opt$x
+        if(verbose >= 3)
+            cat("==========\n\n")
+    }
+    u_mat
+}
+# Optimize v given u
+opt_v_given_u <- function(v0, u_mat, dat, family, verbose = 0, ...)
+{
+    n <- nrow(dat)
+    p <- ncol(dat)
+    v_mat <- v0
+    for(j in 1:p)
+    {
+        if(verbose >= 2)
+            cat("===== Optimizing Row ", j, " of V =====\n", sep = "")
+        opt <- constr_newton(
+            v0[j, ], family$objfn, family$grad, family$hessian, family$feas,
+            eps_rel = 1e-3, verbose = (verbose >= 3),
+            other_mat = u_mat, dat_vec = dat[, j], ...
+        )
+        v_mat[j, ] <- opt$x
+        if(verbose >= 3)
+            cat("==========\n\n")
+    }
+    v_mat
+}
+# Main optimization function
+opt_esvd <- function(u0, v0, dat, family, max_iter = 100, verbose = 0, ...)
+{
+    n <- nrow(dat)
+    p <- nrow(dat)
+    k <- ncol(u0)
+    u_mat <- u0
+    v_mat <- v0
+    losses <- c()
+    for(i in 1:max_iter)
+    {
+        if(verbose >= 1)
+            cat("========== eSVD Iter ", i, " ==========\n\n", sep = "")
+        # Optimize u given v
+        u_mat <- opt_u_given_v(u_mat, v_mat, dat, family, verbose, ...)
+        # Orthogonalize u
+        # u_mat = sqrt(n) * svd(u_mat)$u
+        # Optimize v given u
+        v_mat <- opt_v_given_u(v_mat, u_mat, dat, family, verbose, ...)
+        # Loss function
+        loss <- family$objfn_all(dat, u_mat, v_mat, ...)
+        losses <- c(losses, loss)
+        if(verbose >= 1)
+            cat("========== eSVD Iter ", i, ", loss = ", loss, " ==========\n\n", sep = "")
+        # Orthogonalize v
+        # v_mat = sqrt(p) * svd(v_mat)$u
+    }
+    list(x = u_mat, y = v_mat, loss = losses)
+}
