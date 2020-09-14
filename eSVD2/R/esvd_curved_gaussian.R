@@ -93,29 +93,36 @@
     all(nat_vec > 0)
 }
 
+.curved_gaussian <- structure(
+    list(
+        objfn_all = .evaluate_objective.curved_gaussian,
+        objfn     = .evaluate_objective_single.curved_gaussian,
+        grad      = .gradient_vec.curved_gaussian,
+        hessian   = .hessian_vec.curved_gaussian,
+        feas      = .feasibility.curved_gaussian
+    ),
+    class = "esvd_family"
+)
+
 
 
 ### Test correctness ###
-# tests = function(dat, u_mat, v_mat, scalar)
+# tests = function(dat, u_mat, v_mat, family, ...)
 # {
 #     n = nrow(dat)
 #     p = ncol(dat)
 #
 #     # Test objective functions
-#     loss1 = .evaluate_objective.curved_gaussian(dat, u_mat, v_mat, scalar = scalar)
+#     loss1 = family$objfn_all(dat, u_mat, v_mat, ...)
 #     loss2 = numeric(n)
 #     for(i in 1:n)
 #     {
-#         loss2[i] = .evaluate_objective_single.curved_gaussian(
-#             dat[i, ], u_mat[i, ], v_mat, scalar = scalar
-#         )
+#         loss2[i] = family$objfn(dat[i, ], u_mat[i, ], v_mat, ...)
 #     }
 #     loss3 = numeric(p)
 #     for(j in 1:p)
 #     {
-#         loss3[j] = .evaluate_objective_single.curved_gaussian(
-#             dat[, j], v_mat[j, ], u_mat, scalar = scalar
-#         )
+#         loss3[j] = family$objfn(dat[, j], v_mat[j, ], u_mat, ...)
 #     }
 #     stopifnot(
 #         abs(loss1 - mean(loss2)) < 1e-8,
@@ -125,21 +132,17 @@
 #     # Test gradients
 #     for(i in 1:n)
 #     {
-#         grad1 = .gradient_vec.curved_gaussian(
-#             dat[i, ], u_mat[i, ], v_mat, scalar = scalar
-#         )
+#         grad1 = family$grad(dat[i, ], u_mat[i, ], v_mat, ...)
 #         grad2 = numDeriv::grad(function(x) {
-#             .evaluate_objective_single.curved_gaussian(dat[i, ], x, v_mat, scalar = scalar)
+#             family$objfn(dat[i, ], x, v_mat, ...)
 #         }, u_mat[i, ])
 #         stopifnot(max(abs(grad1 - grad2)) < 1e-6)
 #     }
 #     for(j in 1:p)
 #     {
-#         grad1 = .gradient_vec.curved_gaussian(
-#             dat[, j], v_mat[j, ], u_mat, scalar = scalar
-#         )
+#         grad1 = family$grad(dat[, j], v_mat[j, ], u_mat, ...)
 #         grad2 = numDeriv::grad(function(x) {
-#             .evaluate_objective_single.curved_gaussian(dat[, j], x, u_mat, scalar = scalar)
+#             family$objfn(dat[, j], x, u_mat, ...)
 #         }, v_mat[j, ])
 #         stopifnot(max(abs(grad1 - grad2)) < 1e-6)
 #     }
@@ -147,21 +150,17 @@
 #     # Test Hessians
 #     for(i in 1:n)
 #     {
-#         hess1 = .hessian_vec.curved_gaussian(
-#             dat[i, ], u_mat[i, ], v_mat, scalar = scalar
-#         )
+#         hess1 = family$hessian(dat[i, ], u_mat[i, ], v_mat, ...)
 #         hess2 = numDeriv::hessian(function(x) {
-#             .evaluate_objective_single.curved_gaussian(dat[i, ], x, v_mat, scalar = scalar)
+#             family$objfn(dat[i, ], x, v_mat, ...)
 #         }, u_mat[i, ])
 #         stopifnot(max(abs(hess1 - hess2)) < 1e-6)
 #     }
 #     for(j in 1:p)
 #     {
-#         hess1 = .hessian_vec.curved_gaussian(
-#             dat[, j], v_mat[j, ], u_mat, scalar = scalar
-#         )
+#         hess1 = family$hessian(dat[, j], v_mat[j, ], u_mat, ...)
 #         hess2 = numDeriv::hessian(function(x) {
-#             .evaluate_objective_single.curved_gaussian(dat[, j], x, u_mat, scalar = scalar)
+#             family$objfn(dat[, j], x, u_mat, ...)
 #         }, v_mat[j, ])
 #         stopifnot(max(abs(hess1 - hess2)) < 1e-6)
 #     }
@@ -181,11 +180,11 @@
 # )
 #
 # # Test
-# tests(dat, u_mat, v_mat, scalar = scalar)
+# tests(dat, u_mat, v_mat, .curved_gaussian, scalar = 2)
 #
 # # Test missing values
 # dat[sample(length(dat), n * p * 0.1)] = NA
-# tests(dat, u_mat, v_mat, scalar = scalar)
+# tests(dat, u_mat, v_mat, .curved_gaussian, scalar = 2)
 
 
 

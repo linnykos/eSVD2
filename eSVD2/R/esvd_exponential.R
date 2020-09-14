@@ -88,29 +88,36 @@
     all(nat_vec < 0)
 }
 
+.exponential <- structure(
+    list(
+        objfn_all = .evaluate_objective.exponential,
+        objfn     = .evaluate_objective_single.exponential,
+        grad      = .gradient_vec.exponential,
+        hessian   = .hessian_vec.exponential,
+        feas      = .feasibility.exponential
+    ),
+    class = "esvd_family"
+)
+
 
 
 ### Test correctness ###
-# tests = function(dat, u_mat, v_mat)
+# tests = function(dat, u_mat, v_mat, family, ...)
 # {
 #     n = nrow(dat)
 #     p = ncol(dat)
 #
 #     # Test objective functions
-#     loss1 = .evaluate_objective.exponential(dat, u_mat, v_mat)
+#     loss1 = family$objfn_all(dat, u_mat, v_mat, ...)
 #     loss2 = numeric(n)
 #     for(i in 1:n)
 #     {
-#         loss2[i] = .evaluate_objective_single.exponential(
-#             dat[i, ], u_mat[i, ], v_mat
-#         )
+#         loss2[i] = family$objfn(dat[i, ], u_mat[i, ], v_mat, ...)
 #     }
 #     loss3 = numeric(p)
 #     for(j in 1:p)
 #     {
-#         loss3[j] = .evaluate_objective_single.exponential(
-#             dat[, j], v_mat[j, ], u_mat
-#         )
+#         loss3[j] = family$objfn(dat[, j], v_mat[j, ], u_mat, ...)
 #     }
 #     stopifnot(
 #         abs(loss1 - mean(loss2)) < 1e-8,
@@ -120,21 +127,17 @@
 #     # Test gradients
 #     for(i in 1:n)
 #     {
-#         grad1 = .gradient_vec.exponential(
-#             dat[i, ], u_mat[i, ], v_mat
-#         )
+#         grad1 = family$grad(dat[i, ], u_mat[i, ], v_mat, ...)
 #         grad2 = numDeriv::grad(function(x) {
-#             .evaluate_objective_single.exponential(dat[i, ], x, v_mat)
+#             family$objfn(dat[i, ], x, v_mat, ...)
 #         }, u_mat[i, ])
 #         stopifnot(max(abs(grad1 - grad2)) < 1e-6)
 #     }
 #     for(j in 1:p)
 #     {
-#         grad1 = .gradient_vec.exponential(
-#             dat[, j], v_mat[j, ], u_mat
-#         )
+#         grad1 = family$grad(dat[, j], v_mat[j, ], u_mat, ...)
 #         grad2 = numDeriv::grad(function(x) {
-#             .evaluate_objective_single.exponential(dat[, j], x, u_mat)
+#             family$objfn(dat[, j], x, u_mat, ...)
 #         }, v_mat[j, ])
 #         stopifnot(max(abs(grad1 - grad2)) < 1e-6)
 #     }
@@ -142,21 +145,17 @@
 #     # Test Hessians
 #     for(i in 1:n)
 #     {
-#         hess1 = .hessian_vec.exponential(
-#             dat[i, ], u_mat[i, ], v_mat
-#         )
+#         hess1 = family$hessian(dat[i, ], u_mat[i, ], v_mat, ...)
 #         hess2 = numDeriv::hessian(function(x) {
-#             .evaluate_objective_single.exponential(dat[i, ], x, v_mat)
+#             family$objfn(dat[i, ], x, v_mat, ...)
 #         }, u_mat[i, ])
 #         stopifnot(max(abs(hess1 - hess2)) < 1e-6)
 #     }
 #     for(j in 1:p)
 #     {
-#         hess1 = .hessian_vec.exponential(
-#             dat[, j], v_mat[j, ], u_mat
-#         )
+#         hess1 = family$hessian(dat[, j], v_mat[j, ], u_mat, ...)
 #         hess2 = numDeriv::hessian(function(x) {
-#             .evaluate_objective_single.exponential(dat[, j], x, u_mat)
+#             family$objfn(dat[, j], x, u_mat, ...)
 #         }, v_mat[j, ])
 #         stopifnot(max(abs(hess1 - hess2)) < 1e-6)
 #     }
@@ -174,11 +173,11 @@
 # )
 #
 # # Test
-# tests(dat, u_mat, v_mat)
+# tests(dat, u_mat, v_mat, .exponential)
 #
 # # Test missing values
 # dat[sample(length(dat), n * p * 0.1)] = NA
-# tests(dat, u_mat, v_mat)
+# tests(dat, u_mat, v_mat, .exponential)
 
 
 
