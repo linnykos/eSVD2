@@ -26,12 +26,11 @@ vnorm <- function(x) sqrt(sum(x^2))
 # fx:             current objective function value, f(x)
 # direction:      newx = x + alpha * direction
 # f:              objective function
-# A:              constraint matrix, Ax>b
-# b:              constraint coefficient, Ax>b
+# feas:           function to test feasibility, returning TRUE if Ax>b
 # max_linesearch: maximum number of line search tries
 # scaling:        decrease factor of alpha
 # ...:            additional arguments passed to f
-line_search <- function(alpha0, x, fx, direction, f, A, b,
+line_search <- function(alpha0, x, fx, direction, f, feas,
                         max_linesearch, scaling = 0.5, ...)
 {
     alpha <- alpha0
@@ -39,8 +38,8 @@ line_search <- function(alpha0, x, fx, direction, f, A, b,
     {
         newx <- x + alpha * direction
         # Test feasibility
-        Ax <- c(constr_A %*% newx)
-        if(any(Ax <= constr_b))
+        feasible <- feas(newx, ...)
+        if(!feasible)
         {
             alpha <- alpha * scaling
             next
@@ -57,7 +56,7 @@ line_search <- function(alpha0, x, fx, direction, f, A, b,
     stop("line search failed")
 }
 
-constr_newton <- function(x0, f, gr, hn, constr_A, constr_b,
+constr_newton <- function(x0, f, gr, hn, feas,
                           max_iter = 100, max_linesearch = 30,
                           eps_rel = 1e-5, verbose = FALSE, ...)
 {
@@ -77,7 +76,7 @@ constr_newton <- function(x0, f, gr, hn, constr_A, constr_b,
     {
         Hess <- hn(x, ...)
         direction <- -solve(Hess, grad)
-        lns <- line_search(1, x, fx, direction, f, constr_A, constr_b,
+        lns <- line_search(1, x, fx, direction, f, feas,
                            max_linesearch, scaling = 0.5, ...)
         step <- lns$step
         newx <- lns$newx

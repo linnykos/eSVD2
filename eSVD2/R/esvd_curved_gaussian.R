@@ -88,6 +88,11 @@
     (term1 + term2) / length(dat_vec)
 }
 
+.feasibility.curved_gaussian <- function(current_vec, other_mat, ...) {
+    nat_vec <- c(other_mat %*% current_vec)
+    all(nat_vec > 0)
+}
+
 
 
 ### Test correctness ###
