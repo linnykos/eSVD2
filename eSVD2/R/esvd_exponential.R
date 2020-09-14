@@ -27,7 +27,7 @@
     sum(negloglik) / n / p
 }
 
-.evaluate_objective_single.exponential <- function(dat_vec, current_vec, other_mat, ...) {
+.evaluate_objective_single.exponential <- function(current_vec, other_mat, dat_vec, ...) {
     stopifnot(
         length(current_vec) == ncol(other_mat),
         length(dat_vec) == nrow(other_mat)
@@ -44,7 +44,7 @@
     sum(negloglik) / length(dat_vec)
 }
 
-.gradient_vec.exponential <- function(dat_vec, current_vec, other_mat, ...) {
+.gradient_vec.exponential <- function(current_vec, other_mat, dat_vec, ...) {
     stopifnot(
         length(current_vec) == ncol(other_mat),
         length(dat_vec) == nrow(other_mat)
@@ -63,7 +63,7 @@
     colSums(grad) / length(dat_vec)
 }
 
-.hessian_vec.exponential <- function(dat_vec, current_vec, other_mat, ...) {
+.hessian_vec.exponential <- function(current_vec, other_mat, dat_vec, ...) {
     stopifnot(
         length(current_vec) == ncol(other_mat),
         length(dat_vec) == nrow(other_mat)
@@ -112,12 +112,12 @@
 #     loss2 = numeric(n)
 #     for(i in 1:n)
 #     {
-#         loss2[i] = family$objfn(dat[i, ], u_mat[i, ], v_mat, ...)
+#         loss2[i] = family$objfn(u_mat[i, ], v_mat, dat[i, ], ...)
 #     }
 #     loss3 = numeric(p)
 #     for(j in 1:p)
 #     {
-#         loss3[j] = family$objfn(dat[, j], v_mat[j, ], u_mat, ...)
+#         loss3[j] = family$objfn(v_mat[j, ], u_mat, dat[, j], ...)
 #     }
 #     stopifnot(
 #         abs(loss1 - mean(loss2)) < 1e-8,
@@ -127,36 +127,28 @@
 #     # Test gradients
 #     for(i in 1:n)
 #     {
-#         grad1 = family$grad(dat[i, ], u_mat[i, ], v_mat, ...)
-#         grad2 = numDeriv::grad(function(x) {
-#             family$objfn(dat[i, ], x, v_mat, ...)
-#         }, u_mat[i, ])
+#         grad1 = family$grad(u_mat[i, ], v_mat, dat[i, ], ...)
+#         grad2 = numDeriv::grad(family$objfn, u_mat[i, ], other_mat = v_mat, dat_vec = dat[i, ], ...)
 #         stopifnot(max(abs(grad1 - grad2)) < 1e-6)
 #     }
 #     for(j in 1:p)
 #     {
-#         grad1 = family$grad(dat[, j], v_mat[j, ], u_mat, ...)
-#         grad2 = numDeriv::grad(function(x) {
-#             family$objfn(dat[, j], x, u_mat, ...)
-#         }, v_mat[j, ])
+#         grad1 = family$grad(v_mat[j, ], u_mat, dat[, j], ...)
+#         grad2 = numDeriv::grad(family$objfn, v_mat[j, ], other_mat = u_mat, dat_vec = dat[, j], ...)
 #         stopifnot(max(abs(grad1 - grad2)) < 1e-6)
 #     }
 #
 #     # Test Hessians
 #     for(i in 1:n)
 #     {
-#         hess1 = family$hessian(dat[i, ], u_mat[i, ], v_mat, ...)
-#         hess2 = numDeriv::hessian(function(x) {
-#             family$objfn(dat[i, ], x, v_mat, ...)
-#         }, u_mat[i, ])
+#         hess1 = family$hessian(u_mat[i, ], v_mat, dat[i, ], ...)
+#         hess2 = numDeriv::hessian(family$objfn, u_mat[i, ], other_mat = v_mat, dat_vec = dat[i, ], ...)
 #         stopifnot(max(abs(hess1 - hess2)) < 1e-6)
 #     }
 #     for(j in 1:p)
 #     {
-#         hess1 = family$hessian(dat[, j], v_mat[j, ], u_mat, ...)
-#         hess2 = numDeriv::hessian(function(x) {
-#             family$objfn(dat[, j], x, u_mat, ...)
-#         }, v_mat[j, ])
+#         hess1 = family$hessian(v_mat[j, ], u_mat, dat[, j], ...)
+#         hess2 = numDeriv::hessian(family$objfn, v_mat[j, ], other_mat = u_mat, dat_vec = dat[, j], ...)
 #         stopifnot(max(abs(hess1 - hess2)) < 1e-6)
 #     }
 # }
