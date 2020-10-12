@@ -1,7 +1,7 @@
 # Distribution: exponential
 # Natural parameter: m_{ij} = u_i^Tv_j
 # Relation to canonical parameters: m_{ij} = -lambda_{ij}, where E(a_{ij}) = 1/lambda_{ij}
-# optimization problem: -log(-m_{ij}) - a_{ij}*m_{ij}
+# Optimization problem: -log(-m_{ij}) - a_{ij}*m_{ij}
 
 .evaluate_objective.exponential <- function(dat, u_mat, v_mat, ...) {
     # Check dimensions
@@ -117,6 +117,3 @@
 
   (-1/(nat_mat) - dat)/(n*p)
 }
-
-
-

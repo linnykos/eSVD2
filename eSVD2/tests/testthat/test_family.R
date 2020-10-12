@@ -51,6 +51,31 @@ run_test <- function(dat, u_mat, v_mat, family, ...)
 }
 
 
+######################## Gaussian ########################
+
+test_that("Functions for Gaussian distribution", {
+    # Simulate data
+    set.seed(123)
+    n <- 10
+    p <- 15
+    k <- 2
+    scalar <- 2
+    u_mat <- matrix(rnorm(n * k), nrow = n, ncol = k)
+    v_mat <- matrix(rnorm(p * k), nrow = p, ncol = k)
+    nat_mat <- tcrossprod(u_mat, v_mat)
+    dat <- eSVD2::generate_data(
+        nat_mat, family = "gaussian", nuisance_param_vec = scalar,
+        library_size_vec = NA
+    )
+
+    # Test
+    run_test(dat, u_mat, v_mat, .gaussian, scalar = scalar)
+
+    # Test missing values
+    dat[sample(length(dat), n * p * 0.1)] <- NA
+    run_test(dat, u_mat, v_mat, .gaussian, scalar = scalar)
+})
+
 ######################## Curved Gaussian ########################
 
 test_that("Functions for curved-Gaussian distribution", {
@@ -69,11 +94,11 @@ test_that("Functions for curved-Gaussian distribution", {
     )
 
     # Test
-    run_test(dat, u_mat, v_mat, .curved_gaussian, scalar = 2)
+    run_test(dat, u_mat, v_mat, .curved_gaussian, scalar = scalar)
 
     # Test missing values
     dat[sample(length(dat), n * p * 0.1)] <- NA
-    run_test(dat, u_mat, v_mat, .curved_gaussian, scalar = 2)
+    run_test(dat, u_mat, v_mat, .curved_gaussian, scalar = scalar)
 })
 
 ######################## Exponential ########################
@@ -88,7 +113,8 @@ test_that("Functions for exponential distribution", {
     v_mat <- -matrix(abs(rnorm(p * k)), nrow = p, ncol = k)
     nat_mat <- tcrossprod(u_mat, v_mat)
     dat <- eSVD2::generate_data(
-        nat_mat, family = "exponential", nuisance_param_vec = NA, library_size_vec = NA
+        nat_mat, family = "exponential", nuisance_param_vec = NA,
+        library_size_vec = NA
     )
 
     # Test
@@ -97,4 +123,53 @@ test_that("Functions for exponential distribution", {
     # Test missing values
     dat[sample(length(dat), n * p * 0.1)] <- NA
     run_test(dat, u_mat, v_mat, .exponential)
+})
+
+######################## Poisson ########################
+
+test_that("Functions for Poisson distribution", {
+    # Simulate data
+    set.seed(123)
+    n <- 10
+    p <- 15
+    k <- 2
+    u_mat <- matrix(rnorm(n * k), nrow = n, ncol = k)
+    v_mat <- matrix(rnorm(p * k), nrow = p, ncol = k)
+    nat_mat <- tcrossprod(u_mat, v_mat)
+    dat <- eSVD2::generate_data(
+        nat_mat, family = "poisson", nuisance_param_vec = NA,
+        library_size_vec = NA
+    )
+
+    # Test
+    run_test(dat, u_mat, v_mat, .poisson)
+
+    # Test missing values
+    dat[sample(length(dat), n * p * 0.1)] <- NA
+    run_test(dat, u_mat, v_mat, .poisson)
+})
+
+######################## Negative binomial ########################
+
+test_that("Functions for negative binomial distribution", {
+    # Simulate data
+    set.seed(123)
+    n <- 10
+    p <- 15
+    k <- 2
+    scalar <- 10
+    u_mat <- matrix(abs(rnorm(n * k)), nrow = n, ncol = k)
+    v_mat <- -matrix(abs(rnorm(p * k)), nrow = p, ncol = k)
+    nat_mat <- tcrossprod(u_mat, v_mat)
+    dat <- eSVD2::generate_data(
+        nat_mat, family = "neg_binom", nuisance_param_vec = scalar,
+        library_size_vec = NA
+    )
+
+    # Test
+    run_test(dat, u_mat, v_mat, .neg_binom, scalar = scalar)
+
+    # Test missing values
+    dat[sample(length(dat), n * p * 0.1)] <- NA
+    run_test(dat, u_mat, v_mat, .neg_binom, scalar = scalar)
 })
