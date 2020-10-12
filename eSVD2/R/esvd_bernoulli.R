@@ -3,7 +3,9 @@
 # Relation to canonical parameters: m_{ij} = log(p_{ij}/(1-p_{ij}))
 # Optimization problem: log(1+exp(m_{ij})) - a_{ij}*m_{ij}
 
-.evaluate_objective.bernoulli <- function(dat, u_mat, v_mat, ...) {
+.evaluate_objective.bernoulli <- function(
+    dat, u_mat, v_mat, nuisance_param_vec, library_size_vec, ...
+) {
     # Check dimensions
     n <- nrow(dat)
     p <- ncol(dat)
@@ -26,7 +28,9 @@
     sum(negloglik) / n / p
 }
 
-.evaluate_objective_single.bernoulli <- function(current_vec, other_mat, dat_vec, ...) {
+.evaluate_objective_single.bernoulli <- function(
+    current_vec, other_mat, dat_vec, nuisance_param_vec, library_size, ...
+) {
     stopifnot(
         length(current_vec) == ncol(other_mat),
         length(dat_vec) == nrow(other_mat)
@@ -47,7 +51,9 @@
 # f''(x) = exp(-x) / (1 + exp(-x))^2 = [1 / (1 + exp(-x))] * [exp(-x) / (1 + exp(-x))]
 #        = f'(x) * [1 - f'(x)]
 
-.gradient_vec.bernoulli <- function(current_vec, other_mat, dat_vec, ...) {
+.gradient_vec.bernoulli <- function(
+    current_vec, other_mat, dat_vec, nuisance_param_vec, library_size, ...
+) {
     stopifnot(
         length(current_vec) == ncol(other_mat),
         length(dat_vec) == nrow(other_mat)
@@ -65,7 +71,9 @@
     colSums(grad) / length(dat_vec)
 }
 
-.hessian_vec.bernoulli <- function(current_vec, other_mat, dat_vec, ...) {
+.hessian_vec.bernoulli <- function(
+    current_vec, other_mat, dat_vec, nuisance_param_vec, library_size, ...
+) {
     stopifnot(
         length(current_vec) == ncol(other_mat),
         length(dat_vec) == nrow(other_mat)

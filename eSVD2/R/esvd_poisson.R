@@ -3,7 +3,9 @@
 # Relation to canonical parameters: m_{ij} = log(lambda_{ij}), where E(a_{ij}) = lambda_{ij}
 # Optimization problem: exp(m_{ij}) - a_{ij}*mu_{ij}
 
-.evaluate_objective.poisson <- function(dat, u_mat, v_mat, ...) {
+.evaluate_objective.poisson <- function(
+    dat, u_mat, v_mat, nuisance_param_vec, library_size_vec, ...
+) {
     # Check dimensions
     n <- nrow(dat)
     p <- ncol(dat)
@@ -20,13 +22,18 @@
     idx <- which(!is.na(dat))
     stopifnot(length(idx) > 0)
 
-    nat_vals <- nat_mat[idx]
+    log_library_size_vals <- rep(log(library_size_vec), p)[idx]
+    nat_vals <- nat_mat[idx] + log_library_size_vals
     dat_vals <- dat[idx]
     negloglik <- exp(nat_vals) - nat_vals * dat_vals
     sum(negloglik) / n / p
 }
 
-.evaluate_objective_single.poisson <- function(current_vec, other_mat, dat_vec, ...) {
+# length(library_size) == 1 if current vector is u
+# length(library_size) == n if current vector is v
+.evaluate_objective_single.poisson <- function(
+    current_vec, other_mat, dat_vec, nuisance_param_vec, library_size, ...
+) {
     stopifnot(
         length(current_vec) == ncol(other_mat),
         length(dat_vec) == nrow(other_mat)
@@ -36,13 +43,15 @@
     idx <- which(!is.na(dat_vec))
     stopifnot(length(idx) > 0)
 
-    nat_vals <- nat_vec[idx]
+    nat_vals <- (nat_vec + log(library_size))[idx]
     dat_vals <- dat_vec[idx]
     negloglik <- exp(nat_vals) - nat_vals * dat_vals
     sum(negloglik) / length(dat_vec)
 }
 
-.gradient_vec.poisson <- function(current_vec, other_mat, dat_vec, ...) {
+.gradient_vec.poisson <- function(
+    current_vec, other_mat, dat_vec, nuisance_param_vec, library_size, ...
+) {
     stopifnot(
         length(current_vec) == ncol(other_mat),
         length(dat_vec) == nrow(other_mat)
@@ -52,7 +61,7 @@
     idx <- which(!is.na(dat_vec))
     stopifnot(length(idx) > 0)
 
-    nat_vals <- nat_vec[idx]
+    nat_vals <- (nat_vec + log(library_size))[idx]
     dat_vals <- dat_vec[idx]
     other_vals <- other_mat[idx, , drop = FALSE]
     grad <- other_vals * (exp(nat_vals) - dat_vals)
@@ -60,7 +69,9 @@
     colSums(grad) / length(dat_vec)
 }
 
-.hessian_vec.poisson <- function(current_vec, other_mat, dat_vec, ...) {
+.hessian_vec.poisson <- function(
+    current_vec, other_mat, dat_vec, nuisance_param_vec, library_size, ...
+) {
     stopifnot(
         length(current_vec) == ncol(other_mat),
         length(dat_vec) == nrow(other_mat)
@@ -70,7 +81,7 @@
     idx <- which(!is.na(dat_vec))
     stopifnot(length(idx) > 0)
 
-    nat_vals <- nat_vec[idx]
+    nat_vals <- (nat_vec + log(library_size))[idx]
     dat_vals <- dat_vec[idx]
     other_vals <- other_mat[idx, , drop = FALSE]
 

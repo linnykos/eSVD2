@@ -3,7 +3,11 @@
 # Relation to canonical parameters: m_{ij} = log(p_{ij})
 # Optimization problem: -r*log(1-exp(m_{ij})) - a_{ij}*mu_{ij}
 
-.evaluate_objective.neg_binom <- function(dat, u_mat, v_mat, scalar, ...) {
+.evaluate_objective.neg_binom <- function(
+    dat, u_mat, v_mat, nuisance_param_vec, library_size_vec, ...
+) {
+    scalar <- nuisance_param_vec[1]
+
     # Check dimensions
     n <- nrow(dat)
     p <- ncol(dat)
@@ -27,7 +31,11 @@
     sum(negloglik) / n / p
 }
 
-.evaluate_objective_single.neg_binom <- function(current_vec, other_mat, dat_vec, scalar, ...) {
+.evaluate_objective_single.neg_binom <- function(
+    current_vec, other_mat, dat_vec, nuisance_param_vec, library_size, ...
+) {
+    scalar <- nuisance_param_vec[1]
+
     stopifnot(
         length(current_vec) == ncol(other_mat),
         length(dat_vec) == nrow(other_mat)
@@ -50,7 +58,11 @@
 # f''(x) = -exp(-x) / (1 - exp(-x))^2 = [1 / (1 - exp(-x))] * [-exp(-x) / (1 - exp(-x))]
 #        = f'(x) * [1 - f'(x)]
 
-.gradient_vec.neg_binom <- function(current_vec, other_mat, dat_vec, scalar, ...) {
+.gradient_vec.neg_binom <- function(
+    current_vec, other_mat, dat_vec, nuisance_param_vec, library_size, ...
+) {
+    scalar <- nuisance_param_vec[1]
+
     stopifnot(
         length(current_vec) == ncol(other_mat),
         length(dat_vec) == nrow(other_mat)
@@ -68,7 +80,11 @@
     colSums(grad) / length(dat_vec)
 }
 
-.hessian_vec.neg_binom <- function(current_vec, other_mat, dat_vec, scalar, ...) {
+.hessian_vec.neg_binom <- function(
+    current_vec, other_mat, dat_vec, nuisance_param_vec, library_size, ...
+) {
+    scalar <- nuisance_param_vec[1]
+
     stopifnot(
         length(current_vec) == ncol(other_mat),
         length(dat_vec) == nrow(other_mat)
