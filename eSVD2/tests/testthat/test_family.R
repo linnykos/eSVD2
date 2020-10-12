@@ -173,3 +173,27 @@ test_that("Functions for negative binomial distribution", {
     dat[sample(length(dat), n * p * 0.1)] <- NA
     run_test(dat, u_mat, v_mat, .neg_binom, scalar = scalar)
 })
+
+######################## Bernoulli ########################
+
+test_that("Functions for Bernoulli distribution", {
+    # Simulate data
+    set.seed(123)
+    n <- 10
+    p <- 15
+    k <- 2
+    u_mat <- matrix(rnorm(n * k), nrow = n, ncol = k)
+    v_mat <- matrix(rnorm(p * k), nrow = p, ncol = k)
+    nat_mat <- tcrossprod(u_mat, v_mat)
+    dat <- eSVD2::generate_data(
+        nat_mat, family = "bernoulli", nuisance_param_vec = NA,
+        library_size_vec = NA
+    )
+
+    # Test
+    run_test(dat, u_mat, v_mat, .bernoulli)
+
+    # Test missing values
+    dat[sample(length(dat), n * p * 0.1)] <- NA
+    run_test(dat, u_mat, v_mat, .bernoulli)
+})
