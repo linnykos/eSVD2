@@ -20,7 +20,8 @@ init <- eSVD2::initialize_esvd(
 
 ## Optimization
 res <- opt_esvd(init$x_mat, init$y_mat, dat, eSVD2:::.curved_gaussian,
-                max_iter = 10, verbose = 1, scalar = 2)
+                nuisance_param_vec = 2, library_size_vec = NA,
+                max_iter = 10, verbose = 1)
 nat_est <- tcrossprod(res$x, res$y)
 plot(res$loss)
 
@@ -48,6 +49,7 @@ init <- eSVD2::initialize_esvd(
 
 ## Optimization
 res <- opt_esvd(init$x_mat, init$y_mat, dat, eSVD2:::.exponential,
+                nuisance_param_vec = NA, library_size_vec = NA,
                 max_iter = 15, verbose = 1)
 nat_est <- tcrossprod(res$x, res$y)
 plot(res$loss)

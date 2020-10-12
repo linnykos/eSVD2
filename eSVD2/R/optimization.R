@@ -105,7 +105,8 @@ constr_newton <- function(x0, f, gr, hn, feas,
 # Optimization for eSVD
 
 # Optimize u given v
-opt_u_given_v <- function(u0, v_mat, dat, family, verbose = 0, ...)
+opt_u_given_v <- function(u0, v_mat, dat, family, nuisance_param_vec,
+                          library_size_vec, verbose = 0, ...)
 {
     n <- nrow(dat)
     p <- ncol(dat)
@@ -117,7 +118,9 @@ opt_u_given_v <- function(u0, v_mat, dat, family, verbose = 0, ...)
         opt <- constr_newton(
             u0[i, ], family$objfn, family$grad, family$hessian, family$feas,
             eps_rel = 1e-3, verbose = (verbose >= 3),
-            other_mat = v_mat, dat_vec = dat[i, ], ...
+            other_mat = v_mat, dat_vec = dat[i, ],
+            nuisance_param_vec = nuisance_param_vec,
+            library_size = library_size_vec[i], ...
         )
         u_mat[i, ] <- opt$x
         if(verbose >= 3)
@@ -126,7 +129,8 @@ opt_u_given_v <- function(u0, v_mat, dat, family, verbose = 0, ...)
     u_mat
 }
 # Optimize v given u
-opt_v_given_u <- function(v0, u_mat, dat, family, verbose = 0, ...)
+opt_v_given_u <- function(v0, u_mat, dat, family, nuisance_param_vec,
+                          library_size_vec, verbose = 0, ...)
 {
     n <- nrow(dat)
     p <- ncol(dat)
@@ -138,7 +142,9 @@ opt_v_given_u <- function(v0, u_mat, dat, family, verbose = 0, ...)
         opt <- constr_newton(
             v0[j, ], family$objfn, family$grad, family$hessian, family$feas,
             eps_rel = 1e-3, verbose = (verbose >= 3),
-            other_mat = u_mat, dat_vec = dat[, j], ...
+            other_mat = u_mat, dat_vec = dat[, j],
+            nuisance_param_vec = nuisance_param_vec,
+            library_size = library_size_vec, ...
         )
         v_mat[j, ] <- opt$x
         if(verbose >= 3)
@@ -147,9 +153,12 @@ opt_v_given_u <- function(v0, u_mat, dat, family, verbose = 0, ...)
     v_mat
 }
 # Main optimization function
-opt_esvd <- function(u0, v0, dat, family, max_iter = 100, verbose = 0, ...)
+opt_esvd <- function(u0, v0, dat, family, nuisance_param_vec = NA,
+                     library_size_vec = NA, max_iter = 100, verbose = 0, ...)
 {
     n <- nrow(dat)
+    library_size_vec <- .parse_library_size(library_size_vec, n)
+
     p <- nrow(dat)
     k <- ncol(u0)
     u_mat <- u0
@@ -160,13 +169,18 @@ opt_esvd <- function(u0, v0, dat, family, max_iter = 100, verbose = 0, ...)
         if(verbose >= 1)
             cat("========== eSVD Iter ", i, " ==========\n\n", sep = "")
         # Optimize u given v
-        u_mat <- opt_u_given_v(u_mat, v_mat, dat, family, verbose, ...)
+        u_mat <- opt_u_given_v(u_mat, v_mat, dat, family,
+                               nuisance_param_vec,
+                               library_size_vec, verbose, ...)
         # Orthogonalize u
         # u_mat = sqrt(n) * svd(u_mat)$u
         # Optimize v given u
-        v_mat <- opt_v_given_u(v_mat, u_mat, dat, family, verbose, ...)
+        v_mat <- opt_v_given_u(v_mat, u_mat, dat, family,
+                               nuisance_param_vec,
+                               library_size_vec, verbose, ...)
         # Loss function
-        loss <- family$objfn_all(dat, u_mat, v_mat, ...)
+        loss <- family$objfn_all(dat, u_mat, v_mat, nuisance_param_vec,
+                                 library_size_vec, ...)
         losses <- c(losses, loss)
         if(verbose >= 1)
             cat("========== eSVD Iter ", i, ", loss = ", loss, " ==========\n\n", sep = "")
