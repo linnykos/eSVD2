@@ -1,45 +1,128 @@
-# distribution: negative binomial
-# natural parameter: m_{ij} = u_i^Tv_j
-# relation to canonical parameters: m_{ij} = log(p_{ij})
-# optimization problem: (-r*log(1-exp(m_{ij}))) - a_{ij}*mu_{ij}
+# Distribution: negative binomial
+# Natural parameter: m_{ij} = u_i^Tv_j
+# Relation to canonical parameters: m_{ij} = log(p_{ij})
+# Optimization problem: -r*log(1-exp(m_{ij})) - a_{ij}*mu_{ij}
 
-.evaluate_objective.neg_binom <- function(dat, u_mat, v_mat, scalar, ...){
-  stopifnot(ncol(u_mat) == ncol(v_mat), nrow(u_mat) == nrow(dat), nrow(v_mat) == ncol(dat))
+.evaluate_objective.neg_binom <- function(
+    dat, u_mat, v_mat, nuisance_param_vec, library_size_vec, ...
+) {
+    scalar <- nuisance_param_vec[1]
 
-  n <- nrow(dat); p <- ncol(dat)
-  nat_mat <- u_mat %*% t(v_mat)
-  stopifnot(all(nat_mat < 0))
+    # Check dimensions
+    n <- nrow(dat)
+    p <- ncol(dat)
+    stopifnot(
+        ncol(u_mat) == ncol(v_mat),
+        nrow(u_mat) == n,
+        nrow(v_mat) == p
+    )
 
-  idx <- which(!is.na(dat))
+    # Compute natural parameters
+    nat_mat <- tcrossprod(u_mat, v_mat)
+    stopifnot(all(nat_mat < 0))
 
-  1/(n*p) * sum(-scalar * log(1-exp(nat_mat[idx])) - nat_mat[idx]*dat[idx])
+    # Only compute likelihood on non-missing data
+    idx <- which(!is.na(dat))
+    stopifnot(length(idx) > 0)
+
+    nat_vals <- nat_mat[idx]
+    dat_vals <- dat[idx]
+    negloglik <- -scalar * log(1 - exp(nat_vals)) - nat_vals * dat_vals
+    sum(negloglik) / n / p
 }
 
-.evaluate_objective_single.neg_binom <- function(dat_vec, current_vec, other_mat, n, p, scalar, ...){
-  stopifnot(length(current_vec) == ncol(other_mat), nrow(other_mat) == length(dat_vec))
+.evaluate_objective_single.neg_binom <- function(
+    current_vec, other_mat, dat_vec, nuisance_param_vec, library_size, ...
+) {
+    scalar <- nuisance_param_vec[1]
 
-  pred_vec <- other_mat %*% current_vec
-  stopifnot(all(pred_vec < 0))
+    stopifnot(
+        length(current_vec) == ncol(other_mat),
+        length(dat_vec) == nrow(other_mat)
+    )
 
-  idx <- which(!is.na(dat_vec))
+    nat_vec <- c(other_mat %*% current_vec)
+    stopifnot(all(nat_vec < 0))
+    idx <- which(!is.na(dat_vec))
+    stopifnot(length(idx) > 0)
 
-  1/(n*p) * sum(-scalar * log(1-exp(pred_vec[idx])) - pred_vec[idx]*dat_vec[idx])
+    nat_vals <- nat_vec[idx]
+    dat_vals <- dat_vec[idx]
+    negloglik <- -scalar * log(1 - exp(nat_vals)) - nat_vals * dat_vals
+    sum(negloglik) / length(dat_vec)
 }
 
-.gradient_vec.neg_binom <- function(dat_vec, current_vec, other_mat, n, p, scalar, ...){
-  stopifnot(length(current_vec) == ncol(other_mat), nrow(other_mat) == length(dat_vec))
 
-  pred_vec <- other_mat %*% current_vec
-  stopifnot(all(pred_vec < 0))
+# f(x) = log(1 - exp(x))
+# f'(x) = -exp(x) / (1 - exp(x)) = -1 / (exp(-x) - 1) = 1 / (1 - exp(-x))
+# f''(x) = -exp(-x) / (1 - exp(-x))^2 = [1 / (1 - exp(-x))] * [-exp(-x) / (1 - exp(-x))]
+#        = f'(x) * [1 - f'(x)]
 
-  idx <- which(!is.na(dat_vec))
+.gradient_vec.neg_binom <- function(
+    current_vec, other_mat, dat_vec, nuisance_param_vec, library_size, ...
+) {
+    scalar <- nuisance_param_vec[1]
 
-  tmp <- sapply(idx, function(j){
-    other_mat[j,,drop=F]*(scalar * exp(pred_vec[j])/(1-exp(pred_vec[j])) - dat_vec[j])
-  })
+    stopifnot(
+        length(current_vec) == ncol(other_mat),
+        length(dat_vec) == nrow(other_mat)
+    )
 
-  if(is.matrix(tmp)) 1/(n*p) * rowSums(tmp) else 1/(n*p) * sum(tmp)
+    nat_vec <- c(other_mat %*% current_vec)
+    stopifnot(all(nat_vec < 0))
+    idx <- which(!is.na(dat_vec))
+    stopifnot(length(idx) > 0)
+
+    nat_vals <- nat_vec[idx]
+    dat_vals <- dat_vec[idx]
+    other_vals <- other_mat[idx, , drop = FALSE]
+    grad <- other_vals * (scalar / (exp(-nat_vals) - 1) - dat_vals)
+    colSums(grad) / length(dat_vec)
 }
+
+.hessian_vec.neg_binom <- function(
+    current_vec, other_mat, dat_vec, nuisance_param_vec, library_size, ...
+) {
+    scalar <- nuisance_param_vec[1]
+
+    stopifnot(
+        length(current_vec) == ncol(other_mat),
+        length(dat_vec) == nrow(other_mat)
+    )
+
+    nat_vec <- c(other_mat %*% current_vec)
+    stopifnot(all(nat_vec < 0))
+    idx <- which(!is.na(dat_vec))
+    stopifnot(length(idx) > 0)
+
+    nat_vals <- nat_vec[idx]
+    dat_vals <- dat_vec[idx]
+    other_vals <- other_mat[idx, , drop = FALSE]
+
+    fpx = 1 / (1 - exp(nat_vals))
+    fppx = fpx * (1 - fpx)
+    term1 <- t(other_vals) %*% diag(-scalar * fppx) %*% other_vals
+
+    term1 / length(dat_vec)
+}
+
+.feasibility.neg_binom <- function(current_vec, other_mat, ...) {
+    nat_vec <- c(other_mat %*% current_vec)
+    all(nat_vec < 0)
+}
+
+.neg_binom <- structure(
+    list(
+        objfn_all = .evaluate_objective.neg_binom,
+        objfn     = .evaluate_objective_single.neg_binom,
+        grad      = .gradient_vec.neg_binom,
+        hessian   = .hessian_vec.neg_binom,
+        feas      = .feasibility.neg_binom
+    ),
+    class = "esvd_family"
+)
+
+
 
 .evaluate_objective_mat.neg_binom <- function(dat, nat_mat, scalar, ...){
   stopifnot(all(dim(dat) == dim(nat_mat)), all(nat_mat < 0))
@@ -56,6 +139,3 @@
   n <- nrow(dat); p <- ncol(dat)
   (scalar * exp(nat_mat)/(1-exp(nat_mat)) - dat)/(n*p)
 }
-
-
-

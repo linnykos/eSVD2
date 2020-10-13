@@ -14,5 +14,5 @@ Imports:
     softImpute,
     RSpectra
 Suggests:
-    testthat
+    testthat, numDeriv
 RoxygenNote: 7.1.1

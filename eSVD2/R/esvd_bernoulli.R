@@ -1,9 +1,9 @@
-# Distribution: Gaussian
+# Distribution: Bernoulli
 # Natural parameter: m_{ij} = u_i^Tv_j
-# Relation to canonical parameters: m_{ij} = mu_{ij}
-# Optimization problem: (m_{ij} - a_{ij})^2
+# Relation to canonical parameters: m_{ij} = log(p_{ij}/(1-p_{ij}))
+# Optimization problem: log(1+exp(m_{ij})) - a_{ij}*m_{ij}
 
-.evaluate_objective.gaussian <- function(
+.evaluate_objective.bernoulli <- function(
     dat, u_mat, v_mat, nuisance_param_vec, library_size_vec, ...
 ) {
     # Check dimensions
@@ -23,14 +23,12 @@
     stopifnot(length(idx) > 0)
 
     nat_vals <- nat_mat[idx]
-    dat_vals <- (dat / library_size_vec)[idx]
-    negloglik <- (nat_vals - dat_vals)^2
-    sum(negloglik) /  n / p
+    dat_vals <- dat[idx]
+    negloglik <- log(1 + exp(nat_vals)) - nat_vals * dat_vals
+    sum(negloglik) / n / p
 }
 
-# length(library_size) == 1 if current vector is u
-# length(library_size) == n if current vector is v
-.evaluate_objective_single.gaussian <- function(
+.evaluate_objective_single.bernoulli <- function(
     current_vec, other_mat, dat_vec, nuisance_param_vec, library_size, ...
 ) {
     stopifnot(
@@ -43,12 +41,17 @@
     stopifnot(length(idx) > 0)
 
     nat_vals <- nat_vec[idx]
-    dat_vals <- (dat_vec / library_size)[idx]
-    negloglik <- sum((nat_vals - dat_vals)^2)
+    dat_vals <- dat_vec[idx]
+    negloglik <- log(1 + exp(nat_vals)) - nat_vals * dat_vals
     sum(negloglik) / length(dat_vec)
 }
 
-.gradient_vec.gaussian <- function(
+# f(x) = log(1 + exp(x))
+# f'(x) = exp(x) / (1 + exp(x)) = 1 / (1 + exp(-x)) = plogis(x)
+# f''(x) = exp(-x) / (1 + exp(-x))^2 = [1 / (1 + exp(-x))] * [exp(-x) / (1 + exp(-x))]
+#        = f'(x) * [1 - f'(x)]
+
+.gradient_vec.bernoulli <- function(
     current_vec, other_mat, dat_vec, nuisance_param_vec, library_size, ...
 ) {
     stopifnot(
@@ -61,14 +64,14 @@
     stopifnot(length(idx) > 0)
 
     nat_vals <- nat_vec[idx]
-    dat_vals <- (dat_vec / library_size)[idx]
+    dat_vals <- dat_vec[idx]
     other_vals <- other_mat[idx, , drop = FALSE]
-    # Broadcast (nat_vals - dat_vals) to each column of other_vals
-    grad <- 2 * other_vals * (nat_vals - dat_vals)
+    grad <- other_vals * (plogis(nat_vals) - dat_vals)
+
     colSums(grad) / length(dat_vec)
 }
 
-.hessian_vec.gaussian <- function(
+.hessian_vec.bernoulli <- function(
     current_vec, other_mat, dat_vec, nuisance_param_vec, library_size, ...
 ) {
     stopifnot(
@@ -81,44 +84,27 @@
     stopifnot(length(idx) > 0)
 
     nat_vals <- nat_vec[idx]
-    dat_vals <- (dat_vec / library_size)[idx]
+    dat_vals <- dat_vec[idx]
     other_vals <- other_mat[idx, , drop = FALSE]
 
-    term1 <- 2 * crossprod(other_vals)
+    fpx = plogis(nat_vals)
+    fppx = fpx * (1 - fpx)
+    term1 <- t(other_vals) %*% diag(fppx) %*% other_vals
 
     term1 / length(dat_vec)
 }
 
-.feasibility.gaussian <- function(current_vec, other_mat, ...) {
+.feasibility.bernoulli <- function(current_vec, other_mat, ...) {
     rep(TRUE, nrow(other_mat))
 }
 
-.gaussian <- structure(
+.bernoulli <- structure(
     list(
-        objfn_all = .evaluate_objective.gaussian,
-        objfn     = .evaluate_objective_single.gaussian,
-        grad      = .gradient_vec.gaussian,
-        hessian   = .hessian_vec.gaussian,
-        feas      = .feasibility.gaussian
+        objfn_all = .evaluate_objective.bernoulli,
+        objfn     = .evaluate_objective_single.bernoulli,
+        grad      = .gradient_vec.bernoulli,
+        hessian   = .hessian_vec.bernoulli,
+        feas      = .feasibility.bernoulli
     ),
     class = "esvd_family"
 )
-
-
-
-.evaluate_objective_mat.gaussian <- function(dat, nat_mat, ...){
-  stopifnot(all(dim(dat) == dim(nat_mat)))
-
-  n <- nrow(dat); p <- ncol(dat)
-  idx <- which(!is.na(dat))
-
-  1/(n*p) * sum((nat_mat[idx] - dat[idx])^2)
-}
-
-.gradient_mat.gaussian <- function(dat, nat_mat, scalar = 2, ...){
-  stopifnot(all(dim(dat) == dim(nat_mat)))
-
-  n <- nrow(dat); p <- ncol(dat)
-
-  1/(n*p) * 2 * (nat_mat - dat)
-}

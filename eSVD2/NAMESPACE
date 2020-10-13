@@ -3,4 +3,4 @@
 export(compute_mean)
 export(generate_data)
 export(initalization_default)
-export(initialize_esvd)
+export(initialize_esvd, opt_esvd)
