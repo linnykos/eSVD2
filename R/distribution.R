@@ -32,7 +32,7 @@ compute_mean <- function(nat_mat, family, ...){
     if(family == "gaussian")        return(nat_mat)
     if(family == "curved_gaussian") return(1 / nat_mat)
     if(family == "exponential")     return(-nat_mat)
-    if(family == "bernoulli")       return(plogis(nat_mat))
+    if(family == "bernoulli")       return(stats::plogis(nat_mat))
     if(family %in% c("poisson", "neg_binom")) {
         if(any(nat_mat >= 10)) warning("Potential large values generated")
         return(exp(nat_mat))

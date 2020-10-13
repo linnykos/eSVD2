@@ -13,22 +13,27 @@ generate_data(
 )
 }
 \arguments{
-\item{nat_mat}{matrix of natural parameters where the \code{n} rows represent cells and \code{d} columns represent genes}
+\item{nat_mat}{An \eqn{n\times p}{n x p} matrix of natural parameters, where
+\eqn{n} rows represent cells and \eqn{p} columns represent genes.}
 
-\item{family}{character (\code{"gaussian"}, \code{"exponential"}, \code{"poisson"}, \code{"neg_binom"},
-or \code{"curved_gaussian"})}
+\item{family}{A character string, one of \code{"gaussian"}, \code{"exponential"},
+\code{"poisson"}, \code{"neg_binom"}, \code{"curved_gaussian"},
+and \code{"bernoulli"}.}
 
-\item{nuisance_param_vec}{either \code{NA} or a single numeric or a length-\code{p} 
-vector of numerics representing nuisance parameters (for \code{family = "neg_binom"} or 
-\code{family = "curved_gausian"}). It is only required if \code{family \%in\% c("neg_binom", "curved_gaussian")}}
+\item{nuisance_param_vec}{Either \code{NA} or a single numeric or a length-\eqn{p}
+vector of numerics representing nuisance parameters
+(for \code{family = "neg_binom"} and
+\code{family = "curved_gausian"}).
+It is only required if
+\code{family \%in\% c("neg_binom", "curved_gaussian")}.}
 
-\item{library_size_vec}{either \code{NA} or a length-\code{n} vector of numerics}
+\item{library_size_vec}{Either \code{NA} or a length-\eqn{n} vector of numerics}
 
-\item{tol}{small positive value to determine the smallest possible value in the output matrix, 
-useful for only \code{family="curved_gaussian"}}
+\item{tol}{Small positive value to determine the smallest possible value in the output
+matrix, useful for only \code{family = "curved_gaussian"}.}
 }
 \value{
-matrix
+The generated data matrix
 }
 \description{
 Generate data
