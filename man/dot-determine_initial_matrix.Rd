@@ -4,21 +4,30 @@
 \alias{.determine_initial_matrix}
 \title{Initialize the matrix of natural parameters}
 \usage{
-.determine_initial_matrix(dat, family, k, max_val = NA, tol = 0.001, ...)
+.determine_initial_matrix(
+  dat,
+  k,
+  family,
+  nuisance_param_vec,
+  max_val = NA,
+  tol = 0.001
+)
 }
 \arguments{
 \item{dat}{dataset where the \code{n} rows represent cells and \code{d} columns represent genes.}
 
+\item{k}{positive integer less than \code{min(c(nrow(dat), ncol(dat)))}}
+
 \item{family}{character (\code{"gaussian"}, \code{"exponential"}, \code{"poisson"}, \code{"neg_binom"},
 or \code{"curved gaussian"})}
 
-\item{k}{positive integer less than \code{min(c(nrow(dat), ncol(dat)))}}
+\item{nuisance_param_vec}{length-\eqn{p}
+vector of numerics representing nuisance parameters (for \code{family = "neg_binom"} or
+\code{family = "curved_gausian"})}
 
 \item{max_val}{maximum magnitude of the inner product}
 
-\item{tol}{numeric}
-
-\item{...}{extra arguments, such as nuisance parameters for \code{"neg_binom"}
+\item{tol}{numeric
 or \code{"curved gaussian"} for \code{family}}
 }
 \value{

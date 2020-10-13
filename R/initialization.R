@@ -4,36 +4,50 @@
 #' @param k positive integer less than \code{min(c(nrow(dat), ncol(dat)))}
 #' @param family character (\code{"gaussian"}, \code{"exponential"}, \code{"poisson"}, \code{"neg_binom"},
 #' or \code{"curved_gaussian"})
-#' @param nuisance_param_vec either \code{NA} or a single numeric or a length-\code{p}
+#' @param nuisance_param_vec either \code{NA} or a single numeric or a length-\eqn{p}
 #' vector of numerics representing nuisance parameters (for \code{family = "neg_binom"} or
 #' \code{family = "curved_gausian"})
-#' @param library_size_vec either \code{NA} or a length-\code{n} vector of numerics
+#' @param library_size_vec either \code{NA} or a length-\eqn{n} vector of numerics or \code{NULL}.
+#' If \code{NA}, the library size will be estimated.
+#' If \code{NULL}, then library sizes will not be used during the initialization (and presumably,
+#' also not used when fitting the eSVD in general).
 #' @param config additional parameters for the initialization, whose defaults can be
 #' set with \code{eSVD2::initialization_default()}
+#' @param verbose non-negative integer specifying level of printouts
 #'
 #' @return a list with elements \code{x_mat} and \code{y_mat}, representing the two
 #' latent matrices
 #' @export
 initialize_esvd <- function(dat, k, family, nuisance_param_vec = NA, library_size_vec = NA,
-                            config = initalization_default()){
+                            config = initialization_param(), verbose = 0){
     if(family != "gaussian") stopifnot(all(dat[!is.na(dat)] >= 0))
-
-    dat <- .matrix_completion(dat, k = k)
-    init_res <- .determine_initial_matrix(dat, family = family, k = k, max_val = config$max_val,
-                                          tol = config$tol)
-    domain <- init_res$domain
-
-    if(config$method == "kmean_rows"){
-        nat_mat <- .initialization_kmean(init_res$nat_mat, k = k, domain = domain, row = T)
-    } else {
-        stop("config method not found")
+    if(all(!is.na(nuisance_param_vec)) & length(nuisance_param_vec) == 1) {
+        nuisance_param_vec <- rep(nuisance_param_vec[1], ncol(dat))
     }
+
+    # estimate library sizes if asked
+    library_vec <- .estimate_library_size(dat, library_size_vec = library_size_vec,
+                                          config = config)
+
+    rescaled_dat <- t(sapply(1:nrow(dat), function(i){dat[i,]/library_vec[i]}))
+
+    # determine initial matrix taking into account to missing values and library size
+    rescaled_dat <- .matrix_completion(rescaled_dat, k = k)
+    init_res <- .determine_initial_matrix(rescaled_dat, k = k, family = family,
+                                          nuisance_param_vec = nuisance_param_vec,
+                                          max_val = config$max_val,
+                                          tol = config$tol)
+
+    # project inital matrix into space of low-rank matrices
+    nat_mat <- .initialize_nat_mat(init_res, k = k, config = config)
 
     # reparameterize
     res <- .factorize_matrix(nat_mat, k = k, equal_covariance = T)
-    res <- .fix_rank_defficiency(res$x_mat, res$y_mat, domain = domain)
+    res <- .fix_rank_defficiency(res$x_mat, res$y_mat, domain = init_res$domain)
 
-    structure(list(x_mat = res$x_mat, y_mat = res$y_mat, domain = domain), class = "eSVD")
+    structure(list(x_mat = res$x_mat, y_mat = res$y_mat,
+                   library_vec = library_vec, nuisance_param_vec = nuisance_param_vec,
+                   domain = init_res$domain), class = "eSVD")
 }
 
 #' Initialization defaults
@@ -46,15 +60,52 @@ initialize_esvd <- function(dat, k, family, nuisance_param_vec = NA, library_siz
 #'
 #' @return a list of values, of class \code{initialization_param}
 #' @export
-initalization_default <- function(init_method = "kmean_rows", max_val = NA, tol = 1e-3){
+initialization_param <- function(init_method = "kmean_rows",
+                                  library_size_method = "total_read",
+                                  nuisance_est_method = "mom",
+                                  max_val = NA, tol = 1e-3){
     stopifnot(init_method %in% c("kmean_rows"))
+    stopifnot(library_size_method %in% c("total_read"))
+    stopifnot(nuisance_est_method %in% c("mom"))
     stopifnot(tol > 0, tol <= 1, (is.na(max_val) | max_val > 0))
 
-    structure(list(method = method, max_val = max_val, tol = tol), class = "initialization_param")
+    structure(list(init_method = init_method,
+                   library_size_method = library_size_method,
+                   nuisance_est_method = nuisance_est_method,
+                   max_val = max_val, tol = tol), class = "initialization_param")
 }
 
 
 ################
+
+.estimate_library_size <- function(dat, library_size_vec, config){
+    if(is.null(library_size_vec)){
+        library_size_vec <- rep(1, length = nrow(dat))
+    } else if(!is.na(library_size_vec)){
+        stopifnot(library_size_vec == nrow(dat))
+    } else {
+        if(config$library_size_method == "total_read"){
+            library_size_vec <- rowSums(dat, na.rm = T)
+        } else {
+            stop("config library_size_method not found")
+        }
+    }
+
+    library_size_vec
+}
+
+###################
+
+.initialize_nat_mat <- function(init_res, k = k, config = config){
+    if(config$init_method == "kmean_rows"){
+        nat_mat <- .initialization_kmean(init_res$nat_mat, k = k, domain = init_res$domain,
+                                         row = T)
+    } else {
+        stop("config init_method not found")
+    }
+
+    nat_mat
+}
 
 .initialization_kmean <- function(mat, k, domain, row = T){
     .projection_kmeans(mat, k = k, domain = domain, row = row)
@@ -94,20 +145,22 @@ initalization_default <- function(init_method = "kmean_rows", max_val = NA, tol 
 #' @param k  positive integer less than \code{min(c(nrow(dat), ncol(dat)))}
 #' @param family character (\code{"gaussian"}, \code{"exponential"}, \code{"poisson"}, \code{"neg_binom"},
 #' or \code{"curved gaussian"})
+#' @param nuisance_param_vec length-\eqn{p}
+#' vector of numerics representing nuisance parameters (for \code{family = "neg_binom"} or
+#' \code{family = "curved_gausian"})
 #' @param max_val maximum magnitude of the inner product
 #' @param tol numeric
-#' @param ... extra arguments, such as nuisance parameters for \code{"neg_binom"}
 #' or \code{"curved gaussian"} for \code{family}
 #'
 #' @return \code{n} by \code{p} matrix
-.determine_initial_matrix <- function(dat, family, k, max_val = NA, tol = 1e-3, ...){
+.determine_initial_matrix <- function(dat, k, family, nuisance_param_vec, max_val = NA, tol = 1e-3){
     stopifnot((is.na(max_val) || max_val >= 0), all(dat >= 0))
 
-    domain <- .determine_domain(family, tol)
+    domain <- .determine_domain( family, tol)
     if(!is.na(max_val)) domain <- .intersect_intervals(domain, c(-max_val, max_val))
 
     dat[which(dat <= tol)] <- tol/2
-    nat_mat <- .mean_transformation(dat, family, ...)
+    nat_mat <- .mean_transformation(dat, family, nuisance_param_vec = nuisance_param_vec)
     nat_mat <- pmax(nat_mat, domain[1])
     nat_mat <- pmin(nat_mat, domain[2])
 

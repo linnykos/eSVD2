@@ -10,7 +10,8 @@ initialize_esvd(
   family,
   nuisance_param_vec = NA,
   library_size_vec = NA,
-  config = initalization_default()
+  config = initialization_param(),
+  verbose = 0
 )
 }
 \arguments{
@@ -21,14 +22,19 @@ initialize_esvd(
 \item{family}{character (\code{"gaussian"}, \code{"exponential"}, \code{"poisson"}, \code{"neg_binom"},
 or \code{"curved_gaussian"})}
 
-\item{nuisance_param_vec}{either \code{NA} or a single numeric or a length-\code{p} 
-vector of numerics representing nuisance parameters (for \code{family = "neg_binom"} or 
+\item{nuisance_param_vec}{either \code{NA} or a single numeric or a length-\eqn{p}
+vector of numerics representing nuisance parameters (for \code{family = "neg_binom"} or
 \code{family = "curved_gausian"})}
 
-\item{library_size_vec}{either \code{NA} or a length-\code{n} vector of numerics}
+\item{library_size_vec}{either \code{NA} or a length-\eqn{n} vector of numerics or \code{NULL}.
+If \code{NA}, the library size will be estimated.
+If \code{NULL}, then library sizes will not be used during the initialization (and presumably,
+also not used when fitting the eSVD in general).}
 
 \item{config}{additional parameters for the initialization, whose defaults can be
 set with \code{eSVD2::initialization_default()}}
+
+\item{verbose}{non-negative integer specifying level of printouts}
 }
 \value{
 a list with elements \code{x_mat} and \code{y_mat}, representing the two

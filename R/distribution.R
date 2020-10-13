@@ -40,11 +40,18 @@ compute_mean <- function(nat_mat, family, ...){
     stop("unknown distribution family")
 }
 
-.compute_mean_neg_binom <- function(nat_mat, scalar, ...){
- if(is.na(scalar)) stop("No argument scalar provided for negative binomial")
- stopifnot(length(scalar) == 1)
+.compute_mean_neg_binom <- function(nat_mat, nuisance_param_vec, ...){
+ if(any(is.na(nuisance_param_vec))) stop("No argument nuisance_param_vec provided for negative binomial")
+ stopifnot(length(nuisance_param_vec) == ncol(nat_mat))
 
- scalar*exp(nat_mat)/(1-exp(nat_mat))
+ res <- sapply(1:ncol(nat_mat), function(i){
+     nuisance_param_vec[i]*exp(nat_mat[,i])/(1-exp(nat_mat[,i]))
+ })
+
+ colnames(res) <- colnames(nat_mat)
+ rownames(res) <- rownames(nat_mat)
+
+ res
 }
 
 .determine_domain <- function(family, tol = 1e-3){
@@ -87,10 +94,15 @@ compute_mean <- function(nat_mat, family, ...){
  dat
 }
 
-.mean_transformation_neg_binom <- function(dat, tol, scalar = NA, ...){
- if(is.na(scalar)) stop("No argument scalar provided for negative binomial")
- stopifnot(length(scalar) == 1)
+.mean_transformation_neg_binom <- function(dat, tol, nuisance_param_vec = NA, ...){
+ if(any(is.na(nuisance_param_vec))) stop("No argument nuisance_param_vec provided for negative binomial")
+ stopifnot(length(nuisance_param_vec) == ncol(dat))
 
- dat_new <- (dat + tol)/scalar
- log(dat_new / (1+dat_new))
+ res <- sapply(1:ncol(dat), function(i){(dat[,i] + tol)/nuisance_param_vec[i]})
+ res <- log(res/(1+res))
+
+ colnames(res) <- colnames(nat_mat)
+ rownames(res) <- rownames(nat_mat)
+
+ res
 }
