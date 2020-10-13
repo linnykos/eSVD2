@@ -86,6 +86,7 @@ initialization_param <- function(init_method = "kmean_rows",
     } else {
         if(config$library_size_method == "total_read"){
             library_size_vec <- rowSums(dat, na.rm = T)
+            library_size_vec <- library_size_vec/min(library_size_vec)
         } else {
             stop("config library_size_method not found")
         }
