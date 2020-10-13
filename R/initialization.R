@@ -20,34 +20,34 @@
 #' @export
 initialize_esvd <- function(dat, k, family, nuisance_param_vec = NA, library_size_vec = NA,
                             config = initialization_param(), verbose = 0){
-    if(family != "gaussian") stopifnot(all(dat[!is.na(dat)] >= 0))
-    if(all(!is.na(nuisance_param_vec)) & length(nuisance_param_vec) == 1) {
-        nuisance_param_vec <- rep(nuisance_param_vec[1], ncol(dat))
-    }
+  if(family != "gaussian") stopifnot(all(dat[!is.na(dat)] >= 0))
+  if(all(!is.na(nuisance_param_vec)) & length(nuisance_param_vec) == 1) {
+    nuisance_param_vec <- rep(nuisance_param_vec[1], ncol(dat))
+  }
 
-    # estimate library sizes if asked
-    library_vec <- .estimate_library_size(dat, library_size_vec = library_size_vec,
-                                          config = config)
+  # estimate library sizes if asked
+  library_vec <- .estimate_library_size(dat, library_size_vec = library_size_vec,
+                                        config = config)
 
-    rescaled_dat <- t(sapply(1:nrow(dat), function(i){dat[i,]/library_vec[i]}))
+  rescaled_dat <- t(sapply(1:nrow(dat), function(i){dat[i,]/library_vec[i]}))
 
-    # determine initial matrix taking into account to missing values and library size
-    rescaled_dat <- .matrix_completion(rescaled_dat, k = k)
-    init_res <- .determine_initial_matrix(rescaled_dat, k = k, family = family,
-                                          nuisance_param_vec = nuisance_param_vec,
-                                          max_val = config$max_val,
-                                          tol = config$tol)
+  # determine initial matrix taking into account to missing values and library size
+  rescaled_dat <- .matrix_completion(rescaled_dat, k = k)
+  init_res <- .determine_initial_matrix(rescaled_dat, k = k, family = family,
+                                        nuisance_param_vec = nuisance_param_vec,
+                                        max_val = config$max_val,
+                                        tol = config$tol)
 
-    # project inital matrix into space of low-rank matrices
-    nat_mat <- .initialize_nat_mat(init_res, k = k, config = config)
+  # project inital matrix into space of low-rank matrices
+  nat_mat <- .initialize_nat_mat(init_res, k = k, config = config)
 
-    # reparameterize
-    res <- .factorize_matrix(nat_mat, k = k, equal_covariance = T)
-    res <- .fix_rank_defficiency(res$x_mat, res$y_mat, domain = init_res$domain)
+  # reparameterize
+  res <- .factorize_matrix(nat_mat, k = k, equal_covariance = T)
+  res <- .fix_rank_defficiency(res$x_mat, res$y_mat, domain = init_res$domain)
 
-    structure(list(x_mat = res$x_mat, y_mat = res$y_mat,
-                   library_vec = library_vec, nuisance_param_vec = nuisance_param_vec,
-                   domain = init_res$domain), class = "eSVD")
+  structure(list(x_mat = res$x_mat, y_mat = res$y_mat,
+                 library_vec = library_vec, nuisance_param_vec = nuisance_param_vec,
+                 domain = init_res$domain), class = "eSVD")
 }
 
 #' Initialization defaults
@@ -61,55 +61,55 @@ initialize_esvd <- function(dat, k, family, nuisance_param_vec = NA, library_siz
 #' @return a list of values, of class \code{initialization_param}
 #' @export
 initialization_param <- function(init_method = "kmean_rows",
-                                  library_size_method = "total_read",
-                                  nuisance_est_method = "mom",
-                                  max_val = NA, tol = 1e-3){
-    stopifnot(init_method %in% c("kmean_rows"))
-    stopifnot(library_size_method %in% c("total_read"))
-    stopifnot(nuisance_est_method %in% c("mom"))
-    stopifnot(tol > 0, tol <= 1, (is.na(max_val) | max_val > 0))
+                                 library_size_method = "total_read",
+                                 nuisance_est_method = "mom",
+                                 max_val = NA, tol = 1e-3){
+  stopifnot(init_method %in% c("kmean_rows"))
+  stopifnot(library_size_method %in% c("total_read"))
+  stopifnot(nuisance_est_method %in% c("mom"))
+  stopifnot(tol > 0, tol <= 1, (is.na(max_val) | max_val > 0))
 
-    structure(list(init_method = init_method,
-                   library_size_method = library_size_method,
-                   nuisance_est_method = nuisance_est_method,
-                   max_val = max_val, tol = tol), class = "initialization_param")
+  structure(list(init_method = init_method,
+                 library_size_method = library_size_method,
+                 nuisance_est_method = nuisance_est_method,
+                 max_val = max_val, tol = tol), class = "initialization_param")
 }
 
 
 ################
 
 .estimate_library_size <- function(dat, library_size_vec, config){
-    if(is.null(library_size_vec)){
-        library_size_vec <- rep(1, length = nrow(dat))
-    } else if(!is.na(library_size_vec)){
-        stopifnot(library_size_vec == nrow(dat))
+  if(is.null(library_size_vec)){
+    library_size_vec <- rep(1, length = nrow(dat))
+  } else if(!is.na(library_size_vec)){
+    stopifnot(library_size_vec == nrow(dat))
+  } else {
+    if(config$library_size_method == "total_read"){
+      library_size_vec <- rowSums(dat, na.rm = T)
+      library_size_vec <- library_size_vec/min(library_size_vec)
     } else {
-        if(config$library_size_method == "total_read"){
-            library_size_vec <- rowSums(dat, na.rm = T)
-            library_size_vec <- library_size_vec/min(library_size_vec)
-        } else {
-            stop("config library_size_method not found")
-        }
+      stop("config library_size_method not found")
     }
+  }
 
-    library_size_vec
+  library_size_vec
 }
 
 ###################
 
 .initialize_nat_mat <- function(init_res, k = k, config = config){
-    if(config$init_method == "kmean_rows"){
-        nat_mat <- .initialization_kmean(init_res$nat_mat, k = k, domain = init_res$domain,
-                                         row = T)
-    } else {
-        stop("config init_method not found")
-    }
+  if(config$init_method == "kmean_rows"){
+    nat_mat <- .initialization_kmean(init_res$nat_mat, k = k, domain = init_res$domain,
+                                     row = T)
+  } else {
+    stop("config init_method not found")
+  }
 
-    nat_mat
+  nat_mat
 }
 
 .initialization_kmean <- function(mat, k, domain, row = T){
-    .projection_kmeans(mat, k = k, domain = domain, row = row)
+  .projection_kmeans(mat, k = k, domain = domain, row = row)
 }
 
 ###############
@@ -124,15 +124,15 @@ initialization_param <- function(init_method = "kmean_rows",
 #'
 #' @return a \code{n} by \code{p} matrix
 .matrix_completion <- function(dat, k){
-    if(any(is.na(dat))){
-        lambda0_val <- softImpute::lambda0(dat)
-        res <- softImpute::softImpute(dat, rank.max = k, lambda = min(30, lambda0_val/100))
-        diag_mat <- .diag_matrix(res$d[1:k])
-        pred_naive <- res$u %*% diag_mat %*% t(res$v)
-        dat[which(is.na(dat))] <- pred_naive[which(is.na(dat))]
-    }
+  if(any(is.na(dat))){
+    lambda0_val <- softImpute::lambda0(dat)
+    res <- softImpute::softImpute(dat, rank.max = k, lambda = min(30, lambda0_val/100))
+    diag_mat <- .diag_matrix(res$d[1:k])
+    pred_naive <- res$u %*% diag_mat %*% t(res$v)
+    dat[which(is.na(dat))] <- pred_naive[which(is.na(dat))]
+  }
 
-    pmax(dat, 0)
+  pmax(dat, 0)
 }
 
 #' Initialize the matrix of natural parameters
@@ -155,17 +155,17 @@ initialization_param <- function(init_method = "kmean_rows",
 #'
 #' @return \code{n} by \code{p} matrix
 .determine_initial_matrix <- function(dat, k, family, nuisance_param_vec, max_val = NA, tol = 1e-3){
-    stopifnot((is.na(max_val) || max_val >= 0), all(dat >= 0))
+  stopifnot((is.na(max_val) || max_val >= 0), all(dat >= 0))
 
-    domain <- .determine_domain( family, tol)
-    if(!is.na(max_val)) domain <- .intersect_intervals(domain, c(-max_val, max_val))
+  domain <- .determine_domain( family, tol)
+  if(!is.na(max_val)) domain <- .intersect_intervals(domain, c(-max_val, max_val))
 
-    dat[which(dat <= tol)] <- tol/2
-    nat_mat <- .mean_transformation(dat, family, nuisance_param_vec = nuisance_param_vec)
-    nat_mat <- pmax(nat_mat, domain[1])
-    nat_mat <- pmin(nat_mat, domain[2])
+  dat[which(dat <= tol)] <- tol/2
+  nat_mat <- .mean_transformation(dat, family, nuisance_param_vec = nuisance_param_vec)
+  nat_mat <- pmax(nat_mat, domain[1])
+  nat_mat <- pmin(nat_mat, domain[2])
 
-    list(nat_mat = nat_mat, domain = domain)
+  list(nat_mat = nat_mat, domain = domain)
 }
 
 
@@ -186,31 +186,31 @@ initialization_param <- function(init_method = "kmean_rows",
 #'
 #' @return a list of \code{x_mat} and \code{y_mat}
 .fix_rank_defficiency <- function(x_mat, y_mat, domain){
-    k <- ncol(x_mat)
-    nat_mat <- x_mat %*% t(y_mat)
-    stopifnot(.check_domain(nat_mat, domain))
-    k2 <- as.numeric(Matrix::rankMatrix(nat_mat))
+  k <- ncol(x_mat)
+  nat_mat <- x_mat %*% t(y_mat)
+  stopifnot(.check_domain(nat_mat, domain))
+  k2 <- as.numeric(Matrix::rankMatrix(nat_mat))
 
-    if(k != k2){
-        stopifnot(k2 < k)
-        sign_val <- ifelse(abs(domain[1]) < abs(domain[2]), 1, -1)
+  if(k != k2){
+    stopifnot(k2 < k)
+    sign_val <- ifelse(abs(domain[1]) < abs(domain[2]), 1, -1)
 
-        sd_val <- mean(c(apply(x_mat[,1:k2, drop = F], 2, stats::sd),apply(y_mat[,1:k2, drop = F], 2, stats::sd)))
-        for(i in (k2+1):k){
-            x_mat[,i] <- abs(stats::rnorm(nrow(x_mat), sd = sd_val/10))
-            y_mat[,i] <- sign_val*abs(stats::rnorm(nrow(y_mat), sd = sd_val/10))
-        }
+    sd_val <- mean(c(apply(x_mat[,1:k2, drop = F], 2, stats::sd),apply(y_mat[,1:k2, drop = F], 2, stats::sd)))
+    for(i in (k2+1):k){
+      x_mat[,i] <- abs(stats::rnorm(nrow(x_mat), sd = sd_val/10))
+      y_mat[,i] <- sign_val*abs(stats::rnorm(nrow(y_mat), sd = sd_val/10))
     }
+  }
 
-    # fix any remaining issue with lying within domain
-    nat_mat <- x_mat %*% t(y_mat)
-    mag <- max(abs(domain))
-    if(max(abs(nat_mat)) > mag){
-        nat_mat <- nat_mat * (mag/max(abs(nat_mat)))
-        res <- .factorize_matrix(nat_mat, k = k, equal_covariance = T)
-    } else {
-        res <- .reparameterize(x_mat, y_mat, equal_covariance = T)
-    }
+  # fix any remaining issue with lying within domain
+  nat_mat <- x_mat %*% t(y_mat)
+  mag <- max(abs(domain))
+  if(max(abs(nat_mat)) > mag){
+    nat_mat <- nat_mat * (mag/max(abs(nat_mat)))
+    res <- .factorize_matrix(nat_mat, k = k, equal_covariance = T)
+  } else {
+    res <- .reparameterize(x_mat, y_mat, equal_covariance = T)
+  }
 
-    list(x_mat = res$x_mat, y_mat = res$y_mat)
+  list(x_mat = res$x_mat, y_mat = res$y_mat)
 }

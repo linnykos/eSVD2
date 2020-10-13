@@ -92,17 +92,18 @@ test_that("initialize_esvd works", {
 })
 
 test_that("initialize_esvd works with estimate library size", {
-    set.seed(10)
-    dat <- matrix(1:200, nrow = 10, ncol = 20)
+  set.seed(10)
+  dat <- matrix(1:200, nrow = 10, ncol = 20)
 
-    res <- initialize_esvd(dat, k = 2, family = "poisson", library_size_vec = NA)
+  res <- initialize_esvd(dat, k = 2, family = "poisson", library_size_vec = NA)
 
-    expect_true(is.list(res))
-    expect_true(class(res) == "eSVD")
-    expect_true(all(sort(names(res)) == sort(c("x_mat", "y_mat", "domain", "library_vec", "nuisance_param_vec"))))
-    expect_true(all(dim(res$x_mat) == c(nrow(dat), 2)))
-    expect_true(all(dim(res$y_mat) == c(ncol(dat), 2)))
+  expect_true(is.list(res))
+  expect_true(class(res) == "eSVD")
+  expect_true(all(sort(names(res)) == sort(c("x_mat", "y_mat", "domain", "library_vec", "nuisance_param_vec"))))
+  expect_true(all(dim(res$x_mat) == c(nrow(dat), 2)))
+  expect_true(all(dim(res$y_mat) == c(ncol(dat), 2)))
 })
+
 
 
 test_that("initialize_esvd does not suffer from a strange numeric issue with domain", {
