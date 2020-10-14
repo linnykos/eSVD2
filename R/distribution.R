@@ -101,8 +101,8 @@ compute_mean <- function(nat_mat, family, ...){
  res <- sapply(1:ncol(dat), function(i){(dat[,i] + tol)/nuisance_param_vec[i]})
  res <- log(res/(1+res))
 
- colnames(res) <- colnames(nat_mat)
- rownames(res) <- rownames(nat_mat)
+ colnames(res) <- colnames(dat)
+ rownames(res) <- rownames(dat)
 
  res
 }
