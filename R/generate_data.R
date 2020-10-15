@@ -79,14 +79,12 @@ generate_data <- function(
 
     if(family == "gaussian") {
         stopifnot(!is.na(nuisance_param_vec))
-        # Recycle nuisance_param_vec for each column of canon_mat
-        vec <- stats::rnorm(num_val, mean = canon_mat * library_size_vec,
-                            sd = rep(nuisance_param_vec, each = n))
+        vec <- stats::rnorm(num_val, mean = canon_mat * library_size_vec, sd = rep(nuisance_param_vec, each = n) * library_size_vec)
 
     } else if(family == "curved_gaussian") {
         stopifnot(!is.na(nuisance_param_vec))
-        vec <- stats::rnorm(num_val, mean = canon_mat * library_size_vec,
-                            sd = canon_mat * library_size_vec / rep(nuisance_param_vec, each = n))
+        vec <-stats::rnorm(num_val, mean = canon_mat  * library_size_vec,
+                           sd = canon_mat  * library_size_vec / rep(nuisance_param_vec, each = n))
 
     } else if(family == "exponential") {
         vec <- stats::rexp(num_val, rate = canon_mat / library_size_vec)
@@ -96,7 +94,7 @@ generate_data <- function(
 
     } else if(family == "neg_binom") {
         stopifnot(!is.na(nuisance_param_vec))
-        vec <- stats::rnbinom(num_val, size = rep(nuisance_param_vec, each = n), prob = 1 - canon_mat)
+        vec <- stats::rnbinom(num_val, size = rep(nuisance_param_vec, each = n) * library_size_vec, prob = 1 - canon_mat)
 
     } else if(family == "bernoulli") {
         vec <- stats::rbinom(num_val, size = 1, prob = canon_mat)

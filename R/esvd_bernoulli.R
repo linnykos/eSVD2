@@ -66,7 +66,7 @@
     nat_vals <- nat_vec[idx]
     dat_vals <- dat_vec[idx]
     other_vals <- other_mat[idx, , drop = FALSE]
-    grad <- other_vals * (plogis(nat_vals) - dat_vals)
+    grad <- other_vals * (stats::plogis(nat_vals) - dat_vals)
 
     colSums(grad) / length(dat_vec)
 }
@@ -87,7 +87,7 @@
     dat_vals <- dat_vec[idx]
     other_vals <- other_mat[idx, , drop = FALSE]
 
-    fpx = plogis(nat_vals)
+    fpx = stats::plogis(nat_vals)
     fppx = fpx * (1 - fpx)
     term1 <- t(other_vals) %*% diag(fppx) %*% other_vals
 

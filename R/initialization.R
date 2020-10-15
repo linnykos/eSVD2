@@ -52,7 +52,10 @@ initialize_esvd <- function(dat, k, family, nuisance_param_vec = NA, library_siz
 
 #' Initialization defaults
 #'
-#' @param method character (\code{"kmean_rows"})
+#' @param init_method character (\code{"kmean_rows"})
+#' @param library_size_method string such as \code{"total_read"}, specificying how the library size of a cell will be calculated
+#' @param nuisance_est_method string such as \code{"mom"}, used for \code{family \%in\% c("curved_gaussian", "neg_binom")} when using \code{initialize_esvd},
+#' specificying how the nuisance parameters will be calculated
 #' @param max_val maximum magnitude of the inner product (positive numeric). This parameter
 #' could be \code{NA}.
 #' @param tol small positive value, which also controls (amongst other numerical things)

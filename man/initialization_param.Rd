@@ -13,13 +13,18 @@ initialization_param(
 )
 }
 \arguments{
+\item{init_method}{character (\code{"kmean_rows"})}
+
+\item{library_size_method}{string such as \code{"total_read"}, specificying how the library size of a cell will be calculated}
+
+\item{nuisance_est_method}{string such as \code{"mom"}, used for \code{family \%in\% c("curved_gaussian", "neg_binom")} when using \code{initialize_esvd},
+specificying how the nuisance parameters will be calculated}
+
 \item{max_val}{maximum magnitude of the inner product (positive numeric). This parameter
 could be \code{NA}.}
 
 \item{tol}{small positive value, which also controls (amongst other numerical things)
 the smallest magnitude of the inner product}
-
-\item{method}{character (\code{"kmean_rows"})}
 }
 \value{
 a list of values, of class \code{initialization_param}
