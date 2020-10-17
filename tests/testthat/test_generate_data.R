@@ -54,7 +54,7 @@ test_that("generate_data for gaussian corrrectly respects library size and nuisa
   sd_mat <- apply(res_array, c(1,2), stats::sd)
 
   expected_mean_mat <- diag(library_size_vec) %*% compute_mean(nat_mat, family = "gaussian")
-  expected_sd_mat <- diag(library_size_vec) %*% matrix(rep(nuisance_param_vec, 2), nrow = 2, ncol = 3, byrow = T)
+  expected_sd_mat <- diag(sqrt(library_size_vec)) %*% matrix(rep(nuisance_param_vec, 2), nrow = 2, ncol = 3, byrow = T)
 
   expect_true(all(abs(mean_mat - expected_mean_mat) < 1))
   expect_true(all(abs(sd_mat - expected_sd_mat) < 2))
@@ -163,7 +163,7 @@ test_that("generate_data for curved gaussian corrrectly respects library size an
   sd_mat <- apply(res_array, c(1,2), stats::sd)
 
   expected_mean_mat <- diag(library_size_vec) %*% compute_mean(nat_mat, family = "curved_gaussian")
-  expected_sd_mat <- expected_mean_mat / rep(nuisance_param_vec, each = 2)
+  expected_sd_mat <- diag(sqrt(library_size_vec)) %*% compute_mean(nat_mat, family = "curved_gaussian") / rep(nuisance_param_vec, each = 2)
 
   expect_true(all(abs(mean_mat - expected_mean_mat) < 1))
   expect_true(all(abs(sd_mat - expected_sd_mat) < 2))
@@ -174,7 +174,7 @@ test_that("generate_data for curved gaussian corrrectly respects library size an
 
 test_that("generate_data works for exponential", {
  set.seed(5)
- nat_mat <- matrix(-c(1:30), 5, 6)
+ nat_mat <- matrix(-1/c(1:30), 5, 6)
  res <- generate_data(nat_mat, family = "exponential")
 
  expect_true(is.matrix(res))

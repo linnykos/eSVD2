@@ -79,12 +79,12 @@ generate_data <- function(
 
     if(family == "gaussian") {
         stopifnot(!is.na(nuisance_param_vec))
-        vec <- stats::rnorm(num_val, mean = canon_mat * library_size_vec, sd = rep(nuisance_param_vec, each = n) * library_size_vec)
+        vec <- stats::rnorm(num_val, mean = canon_mat * library_size_vec, sd = rep(nuisance_param_vec, each = n) * sqrt(library_size_vec))
 
     } else if(family == "curved_gaussian") {
         stopifnot(!is.na(nuisance_param_vec))
         vec <-stats::rnorm(num_val, mean = canon_mat  * library_size_vec,
-                           sd = canon_mat  * library_size_vec / rep(nuisance_param_vec, each = n))
+                           sd = sqrt(library_size_vec) * (canon_mat / rep(nuisance_param_vec, each = n)))
 
     } else if(family == "exponential") {
         vec <- stats::rexp(num_val, rate = canon_mat / library_size_vec)

@@ -4,14 +4,24 @@
 \alias{compute_mean}
 \title{Compute mean from natural parameter matrix}
 \usage{
-compute_mean(nat_mat, family, ...)
+compute_mean(
+  nat_mat,
+  family,
+  nuisance_param_vec = NA,
+  library_size_vec = rep(1, nrow(nat_mat))
+)
 }
 \arguments{
 \item{nat_mat}{matrix}
 
 \item{family}{character}
 
-\item{...}{additional parameters for distribution}
+\item{nuisance_param_vec}{either \code{NA} or a single numeric or a length-\eqn{p}
+vector of numerics representing nuisance parameters (for \code{family = "neg_binom"} or
+\code{family = "curved_gausian"}).}
+
+\item{library_size_vec}{either \code{NA} or a single numeric or
+a length-\eqn{n} vector of numerics or \code{NULL}.}
 }
 \value{
 matrix

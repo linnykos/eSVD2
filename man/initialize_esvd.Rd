@@ -10,7 +10,7 @@ initialize_esvd(
   family,
   nuisance_param_vec = NA,
   library_size_vec = NA,
-  config = initialization_param(),
+  config = initialization_options(),
   verbose = 0
 )
 }
@@ -24,12 +24,11 @@ or \code{"curved_gaussian"})}
 
 \item{nuisance_param_vec}{either \code{NA} or a single numeric or a length-\eqn{p}
 vector of numerics representing nuisance parameters (for \code{family = "neg_binom"} or
-\code{family = "curved_gausian"})}
+\code{family = "curved_gausian"}).}
 
-\item{library_size_vec}{either \code{NA} or a length-\eqn{n} vector of numerics or \code{NULL}.
-If \code{NA}, the library size will be estimated.
-If \code{NULL}, then library sizes will not be used during the initialization (and presumably,
-also not used when fitting the eSVD in general).}
+\item{library_size_vec}{either \code{NA} or a single numeric or
+a length-\eqn{n} vector of numerics or \code{NULL}.
+If \code{NA}, the library size will be estimated.}
 
 \item{config}{additional parameters for the initialization, whose defaults can be
 set with \code{eSVD2::initialization_default()}}

@@ -2,5 +2,5 @@
 
 export(compute_mean)
 export(generate_data)
-export(initialization_param)
+export(initialization_options)
 export(initialize_esvd)

@@ -6,11 +6,10 @@
 #' or \code{"curved_gaussian"})
 #' @param nuisance_param_vec either \code{NA} or a single numeric or a length-\eqn{p}
 #' vector of numerics representing nuisance parameters (for \code{family = "neg_binom"} or
-#' \code{family = "curved_gausian"})
-#' @param library_size_vec either \code{NA} or a length-\eqn{n} vector of numerics or \code{NULL}.
+#' \code{family = "curved_gausian"}).
+#' @param library_size_vec either \code{NA} or a single numeric or
+#' a length-\eqn{n} vector of numerics or \code{NULL}.
 #' If \code{NA}, the library size will be estimated.
-#' If \code{NULL}, then library sizes will not be used during the initialization (and presumably,
-#' also not used when fitting the eSVD in general).
 #' @param config additional parameters for the initialization, whose defaults can be
 #' set with \code{eSVD2::initialization_default()}
 #' @param verbose non-negative integer specifying level of printouts
@@ -19,17 +18,17 @@
 #' latent matrices
 #' @export
 initialize_esvd <- function(dat, k, family, nuisance_param_vec = NA, library_size_vec = NA,
-                            config = initialization_param(), verbose = 0){
+                            config = initialization_options(), verbose = 0){
   if(family != "gaussian") stopifnot(all(dat[!is.na(dat)] >= 0))
   if(all(!is.na(nuisance_param_vec)) & length(nuisance_param_vec) == 1) {
     nuisance_param_vec <- rep(nuisance_param_vec[1], ncol(dat))
   }
 
   # estimate library sizes if asked
-  library_vec <- .estimate_library_size(dat, library_size_vec = library_size_vec,
+  library_size_vec <- .estimate_library_size(dat, library_size_vec = library_size_vec,
                                         config = config)
 
-  rescaled_dat <- t(sapply(1:nrow(dat), function(i){dat[i,]/library_vec[i]}))
+  rescaled_dat <- t(sapply(1:nrow(dat), function(i){dat[i,]/library_size_vec[i]}))
 
   # determine initial matrix taking into account to missing values and library size
   rescaled_dat <- .matrix_completion(rescaled_dat, k = k)
@@ -46,7 +45,7 @@ initialize_esvd <- function(dat, k, family, nuisance_param_vec = NA, library_siz
   res <- .fix_rank_defficiency(res$x_mat, res$y_mat, domain = init_res$domain)
 
   structure(list(x_mat = res$x_mat, y_mat = res$y_mat,
-                 library_vec = library_vec, nuisance_param_vec = nuisance_param_vec,
+                 library_size_vec = library_size_vec, nuisance_param_vec = nuisance_param_vec,
                  domain = init_res$domain), class = "eSVD")
 }
 
@@ -54,8 +53,6 @@ initialize_esvd <- function(dat, k, family, nuisance_param_vec = NA, library_siz
 #'
 #' @param init_method character (\code{"kmean_rows"})
 #' @param library_size_method string such as \code{"total_read"}, specificying how the library size of a cell will be calculated
-#' @param nuisance_est_method string such as \code{"mom"}, used for \code{family \%in\% c("curved_gaussian", "neg_binom")} when using \code{initialize_esvd},
-#' specificying how the nuisance parameters will be calculated
 #' @param max_val maximum magnitude of the inner product (positive numeric). This parameter
 #' could be \code{NA}.
 #' @param tol small positive value, which also controls (amongst other numerical things)
@@ -63,18 +60,15 @@ initialize_esvd <- function(dat, k, family, nuisance_param_vec = NA, library_siz
 #'
 #' @return a list of values, of class \code{initialization_param}
 #' @export
-initialization_param <- function(init_method = "kmean_rows",
+initialization_options <- function(init_method = "kmean_rows",
                                  library_size_method = "total_read",
-                                 nuisance_est_method = "mom",
                                  max_val = NA, tol = 1e-3){
   stopifnot(init_method %in% c("kmean_rows"))
   stopifnot(library_size_method %in% c("total_read"))
-  stopifnot(nuisance_est_method %in% c("mom"))
   stopifnot(tol > 0, tol <= 1, (is.na(max_val) | max_val > 0))
 
   structure(list(init_method = init_method,
                  library_size_method = library_size_method,
-                 nuisance_est_method = nuisance_est_method,
                  max_val = max_val, tol = tol), class = "initialization_param")
 }
 
@@ -82,10 +76,10 @@ initialization_param <- function(init_method = "kmean_rows",
 ################
 
 .estimate_library_size <- function(dat, library_size_vec, config){
-  if(is.null(library_size_vec)){
-    library_size_vec <- rep(1, length = nrow(dat))
-  } else if(!is.na(library_size_vec)){
-    stopifnot(library_size_vec == nrow(dat))
+  if(all(!is.na(library_size_vec))){
+    if(length(library_size_vec) == 1) library_size_vec <- rep(1, nrow(dat))
+    stopifnot(length(library_size_vec) == nrow(dat))
+
   } else {
     if(config$library_size_method == "total_read"){
       library_size_vec <- rowSums(dat, na.rm = T)
@@ -160,7 +154,7 @@ initialization_param <- function(init_method = "kmean_rows",
 .determine_initial_matrix <- function(dat, k, family, nuisance_param_vec, max_val = NA, tol = 1e-3){
   stopifnot((is.na(max_val) || max_val >= 0), all(dat >= 0))
 
-  domain <- .determine_domain( family, tol)
+  domain <- .determine_domain(family, tol)
   if(!is.na(max_val)) domain <- .intersect_intervals(domain, c(-max_val, max_val))
 
   dat[which(dat <= tol)] <- tol/2
@@ -170,7 +164,6 @@ initialization_param <- function(init_method = "kmean_rows",
 
   list(nat_mat = nat_mat, domain = domain)
 }
-
 
 #' Fix rank defficiency among two matrices
 #'

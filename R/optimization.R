@@ -156,8 +156,12 @@ opt_v_given_u <- function(v0, u_mat, dat, family, nuisance_param_vec,
 opt_esvd <- function(u0, v0, dat, family, nuisance_param_vec = NA,
                      library_size_vec = NA, max_iter = 100, verbose = 0, ...)
 {
+    stopifnot(nrow(u0) == nrow(dat), nrow(v0) == ncol(dat), ncol(u0) == ncol(v0))
     n <- nrow(dat)
     library_size_vec <- .parse_library_size(library_size_vec, n)
+    if(all(!is.na(nuisance_param_vec)) & length(nuisance_param_vec) == 1) {
+        nuisance_param_vec <- rep(nuisance_param_vec[1], ncol(dat))
+    }
 
     p <- nrow(dat)
     k <- ncol(u0)
