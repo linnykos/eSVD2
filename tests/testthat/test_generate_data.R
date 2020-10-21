@@ -266,3 +266,26 @@ test_that("generate_data for neg_binom corrrectly respects library size and nuis
   expect_true(all(abs(mean_mat - expected_mean_mat)/expected_mean_mat < 0.1))
   expect_true(all(abs(var_mat - expected_var_mat)/expected_var_mat < 0.1))
 })
+
+test_that("generate_data works for bernoulli", {
+  set.seed(5)
+  nat_mat <- matrix(stats::runif(30), 5, 6)
+  res <- generate_data(nat_mat, family = "bernoulli")
+
+  expect_true(is.matrix(res))
+  expect_true(all(dim(res) == dim(nat_mat)))
+})
+
+test_that("generate_data has the correct mean and variance for bernoulli", {
+  set.seed(5)
+  canon_vec <- seq(0.1, 0.9, length.out = 5)
+  canon_vec <- log(canon_vec/(1-canon_vec))
+  nat_mat <- sapply(canon_vec, function(x){rep(x, 2000)})
+  res <- generate_data(nat_mat, family = "bernoulli")
+
+  mean_vec <- colMeans(res)
+  expect_true(all(abs(mean_vec - stats::plogis(canon_vec)) <= 0.1))
+
+  var_vec <- apply(res, 2, stats::var)
+  expect_true(all(abs(var_vec - stats::plogis(canon_vec)*(1- stats::plogis(canon_vec))) <= 0.1))
+})

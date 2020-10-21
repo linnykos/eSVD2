@@ -169,7 +169,7 @@ compute_mean <- function(nat_mat, family, nuisance_param_vec = NA,
   } else if(family == "neg_binom"){
     dat <- .mean_transformation_neg_binom(dat, tol, ...)
   } else if(family == "bernoulli"){
-    stopifnot(all(dat %in% c(0,1)))
+    stopifnot(all(dat[!is.na(dat)] %in% c(0,1)))
     dat[dat == 0] <- -1
   } else if(family != "gaussian") {
     stop("family not found")

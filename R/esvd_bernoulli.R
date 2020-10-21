@@ -95,7 +95,7 @@
 }
 
 .feasibility.bernoulli <- function(current_vec, other_mat, ...) {
-    rep(TRUE, nrow(other_mat))
+    TRUE
 }
 
 .bernoulli <- structure(

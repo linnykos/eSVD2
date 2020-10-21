@@ -157,7 +157,7 @@ initialization_options <- function(init_method = "kmean_rows",
   domain <- .determine_domain(family, tol)
   if(!is.na(max_val)) domain <- .intersect_intervals(domain, c(-max_val, max_val))
 
-  dat[which(dat <= tol)] <- tol/2
+  if(family != "bernoulli") dat[which(dat <= tol)] <- tol/2
   nat_mat <- .mean_transformation(dat, family, nuisance_param_vec = nuisance_param_vec)
   nat_mat <- pmax(nat_mat, domain[1])
   nat_mat <- pmin(nat_mat, domain[2])
