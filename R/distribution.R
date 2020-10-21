@@ -15,7 +15,7 @@
 compute_mean <- function(nat_mat, family, nuisance_param_vec = NA,
                          library_size_vec = rep(1, nrow(nat_mat))){
   if(all(!is.na(nuisance_param_vec)) & length(nuisance_param_vec) == 1) {
-    nuisance_param_vec <- rep(nuisance_param_vec[1], ncol(dat))
+    nuisance_param_vec <- rep(nuisance_param_vec[1], ncol(nat_mat))
   }
 
   if(family == "gaussian") {
