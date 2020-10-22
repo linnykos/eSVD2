@@ -1,3 +1,17 @@
+#' Estimating the nuisance parameters given an initial estimate of natural matrix
+#'
+#' @param dat dataset where the \eqn{n} rows represent cells and \eqn{p} columns represent genes
+#' @param init_nat_mat initial estimate of the natural parameter matrix, of also size \eqn{n \times p}
+#' @param family A character string, one of \code{"gaussian"}, \code{"exponential"},
+#'               \code{"poisson"}, \code{"neg_binom"}, \code{"curved_gaussian"},
+#'               and \code{"bernoulli"}.
+#' @param library_size_vec either \code{NA} or a single numeric (default is \code{1}) or
+#' a length-\eqn{n} vector of numerics.
+#' If \code{NA}, the library size will be estimated.
+#'
+#' @return vector of length \eqn{p}, representing the nuisance parameters, one for each
+#' of the \eqn{p} genes
+#' @export
 initialize_nuisance_param <- function(dat, init_nat_mat, family,
                                       library_size_vec){
   stopifnot(all(dim(dat) == dim(init_nat_mat)), all(dat >= 0))

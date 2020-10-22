@@ -1,6 +1,6 @@
 #' Generate data
 #'
-#' @param nat_mat An \eqn{n\times p}{n x p} matrix of natural parameters, where
+#' @param nat_mat An \eqn{n\times p} matrix of natural parameters, where
 #'                \eqn{n} rows represent cells and \eqn{p} columns represent genes.
 #' @param family A character string, one of \code{"gaussian"}, \code{"exponential"},
 #'               \code{"poisson"}, \code{"neg_binom"}, \code{"curved_gaussian"},

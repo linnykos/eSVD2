@@ -155,7 +155,29 @@ opt_v_given_u <- function(v0, u_mat, dat, family_funcs, nuisance_param_vec,
 
 #######################
 
-# Main optimization function
+#' Main optimization function for eSVD
+#'
+#' @param x_init initial estimate of a \eqn{n \times k} matrix for the \eqn{k}-dimensional
+#' embedding for the \eqn{n} cells
+#' @param y_init initial estimate of a \eqn{p \times k} matrix for the \eqn{k}-dimensional
+#' embedding for the \eqn{p} genes
+#' @param dat dataset where the \eqn{n} rows represent cells and \eqn{p} columns represent genes
+#' @param family A character string, one of \code{"gaussian"}, \code{"exponential"},
+#'               \code{"poisson"}, \code{"neg_binom"}, \code{"curved_gaussian"},
+#'               and \code{"bernoulli"}.
+#' @param nuisance_param_vec either \code{NA} or a single numeric or a length-\eqn{p}
+#' vector of numerics representing nuisance parameters (for \code{family = "neg_binom"} or
+#' \code{family = "curved_gausian"}).
+#' @param library_size_vec either \code{NA} or a single numeric (default is \code{1}) or
+#' a length-\eqn{n} vector of numerics.
+#' If \code{NA}, the library size will be estimated.
+#' @param max_iter positive integer
+#' @param verbose no-negtaive integer
+#' @param ... additional parameters, not used
+#'
+#' @return a list with elements \code{x_mat} and \code{y_mat} (and others), representing the two
+#' latent matrices
+#' @export
 opt_esvd <- function(x_init, y_init, dat, family, nuisance_param_vec = NA,
                      library_size_vec = 1, max_iter = 100, verbose = 0, ...)
 {

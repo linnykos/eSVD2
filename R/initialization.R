@@ -1,20 +1,20 @@
 #' Initialize eSVD
 #'
-#' @param dat dataset where the \code{n} rows represent cells and \code{d} columns represent genes
+#' @param dat dataset where the \eqn{n} rows represent cells and \eqn{p} columns represent genes
 #' @param k positive integer less than \code{min(c(nrow(dat), ncol(dat)))}
 #' @param family character (\code{"gaussian"}, \code{"exponential"}, \code{"poisson"}, \code{"neg_binom"},
 #' or \code{"curved_gaussian"})
 #' @param nuisance_param_vec either \code{NA} or a single numeric or a length-\eqn{p}
 #' vector of numerics representing nuisance parameters (for \code{family = "neg_binom"} or
 #' \code{family = "curved_gausian"}).
-#' @param library_size_vec either \code{NA} or a single numeric or
-#' a length-\eqn{n} vector of numerics or \code{NULL}.
+#' @param library_size_vec either \code{NA} or a single numeric (default is \code{1}) or
+#' a length-\eqn{n} vector of numerics.
 #' If \code{NA}, the library size will be estimated.
 #' @param config additional parameters for the initialization, whose defaults can be
 #' set with \code{eSVD2::initialization_default()}
 #' @param verbose non-negative integer specifying level of printouts
 #'
-#' @return a list with elements \code{x_mat} and \code{y_mat}, representing the two
+#' @return a list with elements \code{x_mat} and \code{y_mat} (and others), representing the two
 #' latent matrices
 #' @export
 initialize_esvd <- function(dat, k, family, nuisance_param_vec = NA, library_size_vec = 1,
