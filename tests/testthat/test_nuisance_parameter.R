@@ -6,7 +6,7 @@ test_that("initialize_nuisance_param works for neg_binom", {
   dat <- generate_data(nat_mat, family = "neg_binom", nuisance_param_vec = 10)
 
   res <- initialize_esvd(dat, k = 1, family = "poisson", library_size_vec = 1)
-  res2 <- opt_esvd(res$x_mat, res$y_mat, dat, family = eSVD2:::.poisson,
+  res2 <- opt_esvd(res$x_mat, res$y_mat, dat, family = "poisson",
                    library_size_vec = 1)
 
   nuisance_vec <- initialize_nuisance_param(dat, res2$x %*% t(res2$y), family = "neg_binom",
@@ -23,7 +23,7 @@ test_that("initialize_nuisance_param works for curved_gaussian", {
   dat <- generate_data(nat_mat, family = "curved_gaussian", nuisance_param_vec = 2)
 
   res <- initialize_esvd(dat, k = 1, family = "exponential", library_size_vec = 1)
-  res2 <- opt_esvd(res$x_mat, res$y_mat, dat, family = eSVD2:::.exponential,
+  res2 <- opt_esvd(res$x_mat, res$y_mat, dat, family = "exponential",
                    library_size_vec = 1)
 
   nuisance_vec <- initialize_nuisance_param(dat, res2$x %*% t(res2$y), family = "curved_gaussian",

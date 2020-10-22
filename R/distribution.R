@@ -190,3 +190,21 @@ compute_mean <- function(nat_mat, family, nuisance_param_vec = NA,
 
  res
 }
+
+.string_to_distr_funcs <- function(family){
+  if(family == "exponential"){
+    return(.exponential)
+  } else if(family == "curved_gaussian"){
+    return(.curved_gaussian)
+  } else if(family == "poisson"){
+    return(.poisson)
+  } else if(family == "neg_binom"){
+    return(.neg_binom)
+  } else if(family == "bernoulli"){
+    return(.bernoulli)
+  } else if(family == "gaussian") {
+    return(.gaussian)
+  } else {
+    stop("family not found")
+  }
+}

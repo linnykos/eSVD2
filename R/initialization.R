@@ -19,6 +19,7 @@
 #' @export
 initialize_esvd <- function(dat, k, family, nuisance_param_vec = NA, library_size_vec = NA,
                             config = initialization_options(), verbose = 0){
+  stopifnot(is.character(family))
   if(family != "gaussian") stopifnot(all(dat[!is.na(dat)] >= 0))
   if(all(!is.na(nuisance_param_vec)) & length(nuisance_param_vec) == 1) {
     nuisance_param_vec <- rep(nuisance_param_vec[1], ncol(dat))
