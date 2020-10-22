@@ -1,10 +1,10 @@
 context("Test distribution family functions")
 
-run_test <- function(dat, u_mat, v_mat, family, nuisance_param_vec = NA, library_size_vec = NA)
+run_test <- function(dat, u_mat, v_mat, family, nuisance_param_vec = NA, library_size_vec = 1)
 {
     n <- nrow(dat)
     p <- ncol(dat)
-    library_size_vec <- .parse_library_size(library_size_vec, n)
+    library_size_vec <- .parse_library_size(dat, library_size_vec)
 
     # Test objective functions
     loss1 <- family$objfn_all(dat, u_mat, v_mat, nuisance_param_vec, library_size_vec)
@@ -86,17 +86,17 @@ test_that("Functions for Gaussian distribution", {
     # Simulate data with default library size (all one)
     dat <- eSVD2::generate_data(
         nat_mat, family = "gaussian", nuisance_param_vec = scalar,
-        library_size_vec = NA
+        library_size_vec = 1
     )
 
     # Test
     run_test(dat, u_mat, v_mat, .gaussian, nuisance_param_vec = scalar,
-             library_size_vec = NA)
+             library_size_vec = 1)
 
     # Test missing values
     dat[sample(length(dat), n * p * 0.1)] <- NA
     run_test(dat, u_mat, v_mat, .gaussian, nuisance_param_vec = scalar,
-             library_size_vec = NA)
+             library_size_vec = 1)
 
     # Simulate data with a library size vector
     library_size_vec <- sample(10:20, n, replace = TRUE)
@@ -131,17 +131,17 @@ test_that("Functions for curved-Gaussian distribution", {
     # Simulate data with default library size (all one)
     dat <- eSVD2::generate_data(
         nat_mat, family = "curved_gaussian", nuisance_param_vec = scalar,
-        library_size_vec = NA, tol = 1e-3
+        library_size_vec = 1, tol = 1e-3
     )
 
     # Test
     run_test(dat, u_mat, v_mat, .curved_gaussian, nuisance_param_vec = scalar,
-             library_size_vec = NA)
+             library_size_vec = 1)
 
     # Test missing values
     dat[sample(length(dat), n * p * 0.1)] <- NA
     run_test(dat, u_mat, v_mat, .curved_gaussian, nuisance_param_vec = scalar,
-             library_size_vec = NA)
+             library_size_vec = 1)
 
     # Simulate data with a library size vector
     library_size_vec <- sample(10:20, n, replace = TRUE)
@@ -175,17 +175,17 @@ test_that("Functions for exponential distribution", {
     # Simulate data with default library size (all one)
     dat <- eSVD2::generate_data(
         nat_mat, family = "exponential", nuisance_param_vec = NA,
-        library_size_vec = NA
+        library_size_vec = 1
     )
 
     # Test
     run_test(dat, u_mat, v_mat, .exponential, nuisance_param_vec = NA,
-             library_size_vec = NA)
+             library_size_vec = 1)
 
     # Test missing values
     dat[sample(length(dat), n * p * 0.1)] <- NA
     run_test(dat, u_mat, v_mat, .exponential, nuisance_param_vec = NA,
-             library_size_vec = NA)
+             library_size_vec = 1)
 
     # Simulate data with a library size vector
     library_size_vec <- sample(10:20, n, replace = TRUE)
@@ -219,17 +219,17 @@ test_that("Functions for Poisson distribution", {
     # Simulate data with default library size (all one)
     dat <- eSVD2::generate_data(
         nat_mat, family = "poisson", nuisance_param_vec = NA,
-        library_size_vec = NA
+        library_size_vec = 1
     )
 
     # Test
     run_test(dat, u_mat, v_mat, .poisson, nuisance_param_vec = NA,
-             library_size_vec = NA)
+             library_size_vec = 1)
 
     # Test missing values
     dat[sample(length(dat), n * p * 0.1)] <- NA
     run_test(dat, u_mat, v_mat, .poisson, nuisance_param_vec = NA,
-             library_size_vec = NA)
+             library_size_vec = 1)
 
     # Simulate data with a library size vector
     library_size_vec <- sample(10:20, n, replace = TRUE)
@@ -262,17 +262,17 @@ test_that("Functions for negative binomial distribution", {
     nat_mat <- tcrossprod(u_mat, v_mat)
     dat <- eSVD2::generate_data(
         nat_mat, family = "neg_binom", nuisance_param_vec = scalar,
-        library_size_vec = NA
+        library_size_vec = 1
     )
 
     # Test
     run_test(dat, u_mat, v_mat, .neg_binom, nuisance_param_vec = scalar,
-             library_size_vec = NA)
+             library_size_vec = 1)
 
     # Test missing values
     dat[sample(length(dat), n * p * 0.1)] <- NA
     run_test(dat, u_mat, v_mat, .neg_binom, nuisance_param_vec = scalar,
-             library_size_vec = NA)
+             library_size_vec = 1)
 })
 
 ######################## Bernoulli ########################
@@ -288,15 +288,15 @@ test_that("Functions for Bernoulli distribution", {
     nat_mat <- tcrossprod(u_mat, v_mat)
     dat <- eSVD2::generate_data(
         nat_mat, family = "bernoulli", nuisance_param_vec = NA,
-        library_size_vec = NA
+        library_size_vec = 1
     )
 
     # Test
     run_test(dat, u_mat, v_mat, .bernoulli, nuisance_param_vec = NA,
-             library_size_vec = NA)
+             library_size_vec = 1)
 
     # Test missing values
     dat[sample(length(dat), n * p * 0.1)] <- NA
     run_test(dat, u_mat, v_mat, .bernoulli, nuisance_param_vec = NA,
-             library_size_vec = NA)
+             library_size_vec = 1)
 })

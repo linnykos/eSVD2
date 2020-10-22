@@ -171,9 +171,9 @@ test_that("initialize_esvd does not suffer from a strange numeric issue with dom
  y_mat <- matrix(abs(stats::rnorm(p*k)), nrow = p, ncol = k)
  nat_mat <- (x_mat %*% t(y_mat))/10
 
- dat <- eSVD2::generate_data(nat_mat, family = "poisson", nuisance_param_vec = NA, library_size_vec = NA)
+ dat <- generate_data(nat_mat, family = "poisson")
 
- init_res <- eSVD2::initialize_esvd(dat, k = k, family = "poisson", nuisance_param_vec = NA, library_size_vec = 1,
+ init_res <- initialize_esvd(dat, k = k, family = "poisson", nuisance_param_vec = NA, library_size_vec = 1,
                                     config = eSVD2::initialization_options())
 
  nat_mat <- init_res$x_mat %*% t(init_res$y_mat)

@@ -19,7 +19,7 @@ test_that("opt_esvd works for gaussian", {
 
   ## Optimization
   res <- opt_esvd(init$x_mat, init$y_mat, dat, family = "gaussian",
-                  nuisance_param_vec = 1, library_size_vec = NA,
+                  nuisance_param_vec = 1, library_size_vec = 1,
                   max_iter = 15, verbose = 0)
 
   expect_true(is.list(res))
@@ -46,7 +46,7 @@ test_that("opt_esvd works for poisson", {
 
   ## Optimization
   res <- opt_esvd(init$x_mat, init$y_mat, dat, family = "poisson",
-                  nuisance_param_vec = 1, library_size_vec = NA,
+                  nuisance_param_vec = 1, library_size_vec = 1,
                   max_iter = 15, verbose = 0)
 
   expect_true(is.list(res))
@@ -93,7 +93,7 @@ test_that("opt_esvd works for exponential", {
 
   ## Simulate data
   dat <- generate_data(nat_mat, family = "exponential", nuisance_param_vec = NA,
-                              library_size_vec = NA)
+                              library_size_vec = 1)
 
   ## Determine initialization
   init <- initialize_esvd(dat, k = k, family = "exponential", nuisance_param_vec = NA,

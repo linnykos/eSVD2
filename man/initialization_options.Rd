@@ -4,17 +4,10 @@
 \alias{initialization_options}
 \title{Initialization defaults}
 \usage{
-initialization_options(
-  init_method = "kmean_rows",
-  library_size_method = "total_read",
-  max_val = NA,
-  tol = 0.001
-)
+initialization_options(init_method = "kmean_rows", max_val = NA, tol = 0.001)
 }
 \arguments{
 \item{init_method}{character (\code{"kmean_rows"})}
-
-\item{library_size_method}{string such as \code{"total_read"}, specificying how the library size of a cell will be calculated}
 
 \item{max_val}{maximum magnitude of the inner product (positive numeric). This parameter
 could be \code{NA}.}

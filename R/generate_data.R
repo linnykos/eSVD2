@@ -18,7 +18,7 @@
 #' @return The generated data matrix
 #' @export
 generate_data <- function(
-    nat_mat, family, nuisance_param_vec = NA, library_size_vec = NA, tol = 1e-3
+    nat_mat, family, nuisance_param_vec = NA, library_size_vec = 1, tol = 1e-3
 ) {
     stopifnot(
         is.matrix(nat_mat),
@@ -28,7 +28,11 @@ generate_data <- function(
     stopifnot(.check_natural_param(nat_mat, family))
 
     n <- nrow(nat_mat)
-    library_size_vec <- .parse_library_size(library_size_vec, n)
+    if(length(library_size_vec) != 1){
+        stopifnot(length(library_size_vec) == n, all(!is.na(library_size_vec)))
+    } else {
+        library_size_vec <- rep(library_size_vec[1], nrow(nat_mat))
+    }
 
     # library_size_vec is now a length-n vector
     dat <- .generate_values(nat_mat, family, nuisance_param_vec, library_size_vec)
@@ -47,24 +51,6 @@ generate_data <- function(
    if(family %in% c("gaussian", "poisson", "bernoulli")) return(TRUE)
    if(family %in% c("neg_binom", "exponential")) return(all(nat_mat < 0))
    if(family == "curved_gaussian") return(all(nat_mat > 0))
-}
-
-.parse_library_size <- function(library_size_vec, n) {
-    stopifnot(length(library_size_vec) %in% c(1, n))
-
-    # If any element of library_size_vec is NA, set library_size_vec=NA
-    # library_size_vec=NA has the same effect as library_size_vec=rep(1, n)
-    if(length(library_size_vec) > 1 && any(is.na(library_size_vec)))
-    {
-        warning("NA found in library_size_vec, interpreted as library_size_vec=NA")
-        library_size_vec = NA
-    }
-    if(length(library_size_vec) == 1 && is.na(library_size_vec))
-        library_size_vec = rep(1, n)
-    if(length(library_size_vec) == 1 && !is.na(library_size_vec))
-        library_size_vec = rep(library_size_vec, n)
-
-    library_size_vec
 }
 
 .generate_values <- function(nat_mat, family, nuisance_param_vec, library_size_vec) {

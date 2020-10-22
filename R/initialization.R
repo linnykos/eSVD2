@@ -17,7 +17,7 @@
 #' @return a list with elements \code{x_mat} and \code{y_mat}, representing the two
 #' latent matrices
 #' @export
-initialize_esvd <- function(dat, k, family, nuisance_param_vec = NA, library_size_vec = NA,
+initialize_esvd <- function(dat, k, family, nuisance_param_vec = NA, library_size_vec = 1,
                             config = initialization_options(), verbose = 0){
   stopifnot(is.character(family))
   if(family != "gaussian") stopifnot(all(dat[!is.na(dat)] >= 0))
@@ -26,8 +26,7 @@ initialize_esvd <- function(dat, k, family, nuisance_param_vec = NA, library_siz
   }
 
   # estimate library sizes if asked
-  library_size_vec <- .estimate_library_size(dat, library_size_vec = library_size_vec,
-                                        config = config)
+  library_size_vec <- .parse_library_size(dat, library_size_vec = library_size_vec)
 
   rescaled_dat <- t(sapply(1:nrow(dat), function(i){dat[i,]/library_size_vec[i]}))
 
@@ -53,7 +52,6 @@ initialize_esvd <- function(dat, k, family, nuisance_param_vec = NA, library_siz
 #' Initialization defaults
 #'
 #' @param init_method character (\code{"kmean_rows"})
-#' @param library_size_method string such as \code{"total_read"}, specificying how the library size of a cell will be calculated
 #' @param max_val maximum magnitude of the inner product (positive numeric). This parameter
 #' could be \code{NA}.
 #' @param tol small positive value, which also controls (amongst other numerical things)
@@ -62,38 +60,28 @@ initialize_esvd <- function(dat, k, family, nuisance_param_vec = NA, library_siz
 #' @return a list of values, of class \code{initialization_param}
 #' @export
 initialization_options <- function(init_method = "kmean_rows",
-                                 library_size_method = "total_read",
                                  max_val = NA, tol = 1e-3){
   stopifnot(init_method %in% c("kmean_rows"))
-  stopifnot(library_size_method %in% c("total_read"))
   stopifnot(tol > 0, tol <= 1, (is.na(max_val) | max_val > 0))
 
-  structure(list(init_method = init_method,
-                 library_size_method = library_size_method,
-                 max_val = max_val, tol = tol), class = "initialization_param")
-}
-
-
-################
-
-.estimate_library_size <- function(dat, library_size_vec, config){
-  if(all(!is.na(library_size_vec))){
-    if(length(library_size_vec) == 1) library_size_vec <- rep(1, nrow(dat))
-    stopifnot(length(library_size_vec) == nrow(dat))
-
-  } else {
-    if(config$library_size_method == "total_read"){
-      library_size_vec <- rowSums(dat, na.rm = T)
-      library_size_vec <- library_size_vec/min(library_size_vec)
-    } else {
-      stop("config library_size_method not found")
-    }
-  }
-
-  library_size_vec
+  structure(list(init_method = init_method, max_val = max_val, tol = tol), class = "initialization_param")
 }
 
 ###################
+
+.parse_library_size <- function(dat, library_size_vec = 1) {
+  stopifnot(length(library_size_vec) %in% c(1, nrow(dat)))
+  n <- nrow(dat)
+
+  if(any(is.na(library_size_vec))){
+    library_size_vec <- rowSums(dat)
+  } else if(length(library_size_vec) == 1) {
+    library_size_vec <- rep(library_size_vec[1], n)
+  }
+
+  library_size_vec/min(library_size_vec)
+}
+
 
 .initialize_nat_mat <- function(init_res, k = k, config = config){
   if(config$init_method == "kmean_rows"){

@@ -9,7 +9,7 @@ initialize_esvd(
   k,
   family,
   nuisance_param_vec = NA,
-  library_size_vec = NA,
+  library_size_vec = 1,
   config = initialization_options(),
   verbose = 0
 )

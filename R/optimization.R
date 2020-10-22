@@ -157,14 +157,14 @@ opt_v_given_u <- function(v0, u_mat, dat, family_funcs, nuisance_param_vec,
 
 # Main optimization function
 opt_esvd <- function(x_init, y_init, dat, family, nuisance_param_vec = NA,
-                     library_size_vec = NA, max_iter = 100, verbose = 0, ...)
+                     library_size_vec = 1, max_iter = 100, verbose = 0, ...)
 {
     stopifnot(nrow(x_init) == nrow(dat), nrow(y_init) == ncol(dat), ncol(x_init) == ncol(y_init))
     stopifnot(is.character(family))
 
     n <- nrow(dat); p <- nrow(dat); k <- ncol(x_init)
     family_funcs <- .string_to_distr_funcs(family)
-    library_size_vec <- .parse_library_size(library_size_vec, n)
+    library_size_vec <- .parse_library_size(dat, library_size_vec)
 
     if(all(!is.na(nuisance_param_vec)) & length(nuisance_param_vec) == 1) {
         nuisance_param_vec <- rep(nuisance_param_vec[1], ncol(dat))

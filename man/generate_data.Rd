@@ -8,7 +8,7 @@ generate_data(
   nat_mat,
   family,
   nuisance_param_vec = NA,
-  library_size_vec = NA,
+  library_size_vec = 1,
   tol = 0.001
 )
 }
