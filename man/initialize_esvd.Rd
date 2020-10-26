@@ -9,29 +9,34 @@ initialize_esvd(
   k,
   family,
   nuisance_param_vec = NA,
-  library_size_vec = NA,
-  config = initalization_default()
+  library_size_vec = 1,
+  config = initialization_options(),
+  verbose = 0
 )
 }
 \arguments{
-\item{dat}{dataset where the \code{n} rows represent cells and \code{d} columns represent genes}
+\item{dat}{dataset where the \eqn{n} rows represent cells and \eqn{p} columns represent genes}
 
 \item{k}{positive integer less than \code{min(c(nrow(dat), ncol(dat)))}}
 
 \item{family}{character (\code{"gaussian"}, \code{"exponential"}, \code{"poisson"}, \code{"neg_binom"},
 or \code{"curved_gaussian"})}
 
-\item{nuisance_param_vec}{either \code{NA} or a single numeric or a length-\code{p} 
-vector of numerics representing nuisance parameters (for \code{family = "neg_binom"} or 
-\code{family = "curved_gausian"})}
+\item{nuisance_param_vec}{either \code{NA} or a single numeric or a length-\eqn{p}
+vector of numerics representing nuisance parameters (for \code{family = "neg_binom"} or
+\code{family = "curved_gausian"}).}
 
-\item{library_size_vec}{either \code{NA} or a length-\code{n} vector of numerics}
+\item{library_size_vec}{either \code{NA} or a single numeric (default is \code{1}) or
+a length-\eqn{n} vector of numerics.
+If \code{NA}, the library size will be estimated.}
 
 \item{config}{additional parameters for the initialization, whose defaults can be
 set with \code{eSVD2::initialization_default()}}
+
+\item{verbose}{non-negative integer specifying level of printouts}
 }
 \value{
-a list with elements \code{x_mat} and \code{y_mat}, representing the two
+a list with elements \code{x_mat} and \code{y_mat} (and others), representing the two
 latent matrices
 }
 \description{

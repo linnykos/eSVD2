@@ -8,12 +8,12 @@ generate_data(
   nat_mat,
   family,
   nuisance_param_vec = NA,
-  library_size_vec = NA,
+  library_size_vec = 1,
   tol = 0.001
 )
 }
 \arguments{
-\item{nat_mat}{An \eqn{n\times p}{n x p} matrix of natural parameters, where
+\item{nat_mat}{An \eqn{n\times p} matrix of natural parameters, where
 \eqn{n} rows represent cells and \eqn{p} columns represent genes.}
 
 \item{family}{A character string, one of \code{"gaussian"}, \code{"exponential"},
