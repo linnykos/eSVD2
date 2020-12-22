@@ -1,11 +1,7 @@
 # Distribution: Gaussian
-# Natural parameter: m_{ij} = u_i^Tv_j
-# Relation to canonical parameters: m_{ij} = mu_{ij}
-# Optimization problem: (m_{ij} - a_{ij})^2
 
 .evaluate_objective.gaussian <- function(
-    dat, x_mat, y_mat, nuisance_param_vec,
-    library_size_vec, ...
+    dat, x_mat, y_mat, nuisance_param_vec, library_size_vec, ...
 ) {
     # Check dimensions
     n <- nrow(dat)
