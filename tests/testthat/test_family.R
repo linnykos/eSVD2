@@ -1,6 +1,6 @@
 context("Test distribution family functions")
 
-run_test <- function(dat, u_mat, v_mat, family, nuisance_param_vec = NA, library_size_vec = 1)
+run_test <- function(dat, u_mat, v_mat, family, nuisance_param_vec = rep(1, nrow(v_mat)), library_size_vec = rep(1, nrow(u_mat)))
 {
     n <- nrow(dat)
     p <- ncol(dat)
@@ -17,7 +17,7 @@ run_test <- function(dat, u_mat, v_mat, family, nuisance_param_vec = NA, library
     loss3 <- numeric(p)
     for(j in 1:p)
     {
-        loss3[j] <- family$objfn(v_mat[j, ], u_mat, dat[, j], nuisance_param_vec,
+        loss3[j] <- family$objfn(v_mat[j, ], u_mat, dat[, j], nuisance_param_vec[j],
                                  library_size = library_size_vec)
     }
     # The three loss values should be equal
@@ -38,10 +38,10 @@ run_test <- function(dat, u_mat, v_mat, family, nuisance_param_vec = NA, library
     for(j in 1:p)
     {
         grad1 <- family$grad(v_mat[j, ], u_mat, dat[, j],
-                             nuisance_param_vec = nuisance_param_vec,
+                             nuisance_param_vec = nuisance_param_vec[j],
                              library_size = library_size_vec)
         grad2 <- numDeriv::grad(family$objfn, v_mat[j, ], other_mat = u_mat, dat_vec = dat[, j],
-                                nuisance_param_vec = nuisance_param_vec,
+                                nuisance_param_vec = nuisance_param_vec[j],
                                 library_size = library_size_vec)
         expect_lt(max(abs(grad1 - grad2)), 1e-6)
     }
@@ -60,10 +60,10 @@ run_test <- function(dat, u_mat, v_mat, family, nuisance_param_vec = NA, library
     for(j in 1:p)
     {
         hess1 <- family$hessian(v_mat[j, ], u_mat, dat[, j],
-                                nuisance_param_vec = nuisance_param_vec,
+                                nuisance_param_vec = nuisance_param_vec[j],
                                 library_size = library_size_vec)
         hess2 <- numDeriv::hessian(family$objfn, v_mat[j, ], other_mat = u_mat, dat_vec = dat[, j],
-                                   nuisance_param_vec = nuisance_param_vec,
+                                   nuisance_param_vec = nuisance_param_vec[j],
                                    library_size = library_size_vec)
         expect_lt(max(abs(hess1 - hess2)), 1e-6)
     }
@@ -78,40 +78,40 @@ test_that("Functions for Gaussian distribution", {
     n <- 10
     p <- 15
     k <- 2
-    scalar <- 2
+    nuisance_param_vec <- rep(2, p); library_size_vec = rep(1, n)
     u_mat <- matrix(rnorm(n * k), nrow = n, ncol = k)
     v_mat <- matrix(rnorm(p * k), nrow = p, ncol = k)
     nat_mat <- tcrossprod(u_mat, v_mat)
 
     # Simulate data with default library size (all one)
     dat <- eSVD2::generate_data(
-        nat_mat, family = "gaussian", nuisance_param_vec = scalar,
-        library_size_vec = 1
-    )
-
-    # Test
-    run_test(dat, u_mat, v_mat, .gaussian, nuisance_param_vec = scalar,
-             library_size_vec = 1)
-
-    # Test missing values
-    dat[sample(length(dat), n * p * 0.1)] <- NA
-    run_test(dat, u_mat, v_mat, .gaussian, nuisance_param_vec = scalar,
-             library_size_vec = 1)
-
-    # Simulate data with a library size vector
-    library_size_vec <- sample(10:20, n, replace = TRUE)
-    dat <- eSVD2::generate_data(
-        nat_mat, family = "gaussian", nuisance_param_vec = scalar,
+        nat_mat, family = "gaussian", nuisance_param_vec = nuisance_param_vec,
         library_size_vec = library_size_vec
     )
 
     # Test
-    run_test(dat, u_mat, v_mat, .gaussian, nuisance_param_vec = scalar,
+    run_test(dat, u_mat, v_mat, .gaussian, nuisance_param_vec = nuisance_param_vec,
              library_size_vec = library_size_vec)
 
     # Test missing values
     dat[sample(length(dat), n * p * 0.1)] <- NA
-    run_test(dat, u_mat, v_mat, .gaussian, nuisance_param_vec = scalar,
+    run_test(dat, u_mat, v_mat, .gaussian, nuisance_param_vec = nuisance_param_vec,
+             library_size_vec = library_size_vec)
+
+    # Simulate data with a library size vector
+    library_size_vec <- sample(10:20, n, replace = TRUE)
+    dat <- eSVD2::generate_data(
+        nat_mat, family = "gaussian", nuisance_param_vec = nuisance_param_vec,
+        library_size_vec = library_size_vec
+    )
+
+    # Test
+    run_test(dat, u_mat, v_mat, .gaussian, nuisance_param_vec = nuisance_param_vec,
+             library_size_vec = library_size_vec)
+
+    # Test missing values
+    dat[sample(length(dat), n * p * 0.1)] <- NA
+    run_test(dat, u_mat, v_mat, .gaussian, nuisance_param_vec = nuisance_param_vec,
              library_size_vec = library_size_vec)
 })
 
