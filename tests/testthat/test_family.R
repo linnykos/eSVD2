@@ -78,7 +78,7 @@ test_that("Functions for Gaussian distribution", {
     n <- 10
     p <- 15
     k <- 2
-    nuisance_param_vec <- rep(2, p); library_size_vec = rep(1, n)
+    nuisance_param_vec <- rep(2, p); library_size_vec <- rep(1, n)
     u_mat <- matrix(rnorm(n * k), nrow = n, ncol = k)
     v_mat <- matrix(rnorm(p * k), nrow = p, ncol = k)
     nat_mat <- tcrossprod(u_mat, v_mat)
@@ -216,21 +216,22 @@ test_that("Functions for Poisson distribution", {
     u_mat <- matrix(rnorm(n * k), nrow = n, ncol = k)
     v_mat <- matrix(rnorm(p * k), nrow = p, ncol = k)
     nat_mat <- tcrossprod(u_mat, v_mat)
+    library_size_vec <- rep(1, n)
 
     # Simulate data with default library size (all one)
     dat <- eSVD2::generate_data(
         nat_mat, family = "poisson", nuisance_param_vec = NA,
-        library_size_vec = 1
+        library_size_vec = library_size_vec
     )
 
     # Test
     run_test(dat, u_mat, v_mat, .poisson, nuisance_param_vec = NA,
-             library_size_vec = 1)
+             library_size_vec = library_size_vec)
 
     # Test missing values
     dat[sample(length(dat), n * p * 0.1)] <- NA
     run_test(dat, u_mat, v_mat, .poisson, nuisance_param_vec = NA,
-             library_size_vec = 1)
+             library_size_vec = library_size_vec)
 
     # Simulate data with a library size vector
     library_size_vec <- sample(10:20, n, replace = TRUE)
