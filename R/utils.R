@@ -24,3 +24,17 @@
 }
 
 .rotate = function(a) { t(a[nrow(a):1,]) }
+
+
+# for diag(vec) %*% mat
+.mult_vec_mat <- function(vec, mat){
+  stopifnot(is.matrix(mat), !is.matrix(vec), length(vec) == nrow(mat))
+  vec * mat
+}
+
+# for mat %*% diag(vec)
+# see https://stackoverflow.com/questions/17080099/fastest-way-to-multiply-matrix-columns-with-vector-elements-in-r
+.mult_mat_vec <- function(mat, vec){
+  stopifnot(is.matrix(mat), !is.matrix(vec), length(vec) == ncol(mat))
+  mat * rep(vec, rep(nrow(mat), length(vec)))
+}

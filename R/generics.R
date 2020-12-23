@@ -60,32 +60,3 @@
 .gradient_vec.default <- function(dat_vec, current_vec, other_mat, ...) {
     .gradient_vec.exponential(dat_vec, current_vec, other_mat, ...)
 }
-
-###########
-
-.evaluate_objective_mat <- function(dat, nat_mat, ...){
-  stopifnot(all(dim(dat) == dim(nat_mat)))
-
-  UseMethod(".evaluate_objective_mat")
-}
-
-###########
-
-#' Gradient of the objective function
-#'
-#' Computes the gradient for a particular model (based on the
-#' class of \code{dat}) of the \code{.evaluate_objective_mat} function.
-#'
-#' Note, \code{dat} is NOT allowed to have any \code{NA} values for this
-#' function.
-#'
-#' @param dat dataset where the \code{n} rows represent cells and \code{d} columns represent genes
-#' @param nat_mat \code{n} by \code{d} matrix where each entry represents the natural parameter of the corresponding entry in \code{dat}
-#' @param ... other parameters
-#'
-#' @return \code{n} by \code{d} matrix
-.gradient_mat <- function(dat, nat_mat, ...){
-  stopifnot(all(dim(dat) == dim(nat_mat)))
-
-  UseMethod(".gradient_mat")
-}

@@ -1,7 +1,5 @@
 # Distribution: Bernoulli
-# Natural parameter: m_{ij} = u_i^Tv_j
-# Relation to canonical parameters: m_{ij} = log(p_{ij}/(1-p_{ij}))
-# Optimization problem: log(1+exp(m_{ij})) - a_{ij}*m_{ij}
+## NEED TO BE IMPROVED
 
 .evaluate_objective.bernoulli <- function(
     dat, u_mat, v_mat, nuisance_param_vec, library_size_vec, ...

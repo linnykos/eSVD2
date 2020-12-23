@@ -1,38 +1,42 @@
 # Distribution: exponential
-# Natural parameter: m_{ij} = u_i^Tv_j
-# Relation to canonical parameters: m_{ij} = -lambda_{ij}, where E(a_{ij}) = 1/lambda_{ij}
-# Optimization problem: -log(-m_{ij}) - a_{ij}*m_{ij}
 
 .evaluate_objective.exponential <- function(
-    dat, u_mat, v_mat, nuisance_param_vec, library_size_vec, ...
+    dat, x_mat, y_mat, nuisance_param_vec = NA, library_size_vec, ...
 ) {
     # Check dimensions
     n <- nrow(dat)
     p <- ncol(dat)
     stopifnot(
-        ncol(u_mat) == ncol(v_mat),
-        nrow(u_mat) == n,
-        nrow(v_mat) == p
+        length(library_size_vec) == n,
+        ncol(x_mat) == ncol(y_mat),
+        nrow(x_mat) == n,
+        nrow(y_mat) == p
     )
 
     # Compute natural parameters
-    nat_mat <- tcrossprod(u_mat, v_mat)
+    nat_mat <- tcrossprod(x_mat, y_mat)
     stopifnot(all(nat_mat < 0))
 
     # Only compute likelihood on non-missing data
     idx <- which(!is.na(dat))
     stopifnot(length(idx) > 0)
 
-    nat_vals <- nat_mat[idx]
-    dat_vals <- (dat / library_size_vec)[idx]
-    negloglik <- -log(-nat_vals) - nat_vals * dat_vals
-    sum(negloglik) / n / p
+    if(length(idx) == prod(dim(dat))){
+      negloglik <- -library_size_vec * log(-nat_mat) - dat * nat_mat
+      sum(negloglik) / (n*p)
+    } else {
+      ## Check below lines ##
+      # nat_vals <- nat_mat[idx]
+      # dat_vals <- (dat / library_size_vec)[idx]
+      # negloglik <- -log(-nat_vals) - nat_vals * dat_vals
+      # sum(negloglik) / (n*p)
+    }
 }
 
-# length(library_size) == 1 if current vector is u
-# length(library_size) == n if current vector is v
+# length(library_size_vec) == 1 if current vector is u
+# length(library_size_vec) == n if current vector is v
 .evaluate_objective_single.exponential <- function(
-    current_vec, other_mat, dat_vec, nuisance_param_vec, library_size, ...
+    current_vec, other_mat, dat_vec, nuisance_param_vec = NA, library_size_vec, ...
 ) {
     stopifnot(
         length(current_vec) == ncol(other_mat),
@@ -44,14 +48,20 @@
     idx <- which(!is.na(dat_vec))
     stopifnot(length(idx) > 0)
 
-    nat_vals <- nat_vec[idx]
-    dat_vals <- (dat_vec / library_size)[idx]
-    negloglik <- -log(-nat_vals) - nat_vals * dat_vals
-    sum(negloglik) / length(dat_vec)
+    if(length(idx) == length(dat_vec)){
+      negloglik <- -library_size_vec * log(-nat_vec) - dat_vec * nat_vec
+      sum(negloglik) / length(dat_vec)
+    } else {
+      ## Check below lines ##
+      # nat_vals <- nat_vec[idx]
+      # dat_vals <- (dat_vec / library_size_vec)[idx]
+      # negloglik <- -log(-nat_vals) - nat_vals * dat_vals
+      # sum(negloglik) / length(dat_vec)
+    }
 }
 
 .gradient_vec.exponential <- function(
-    current_vec, other_mat, dat_vec, nuisance_param_vec, library_size, ...
+    current_vec, other_mat, dat_vec, nuisance_param_vec = NA, library_size_vec, ...
 ) {
     stopifnot(
         length(current_vec) == ncol(other_mat),
@@ -63,16 +73,25 @@
     idx <- which(!is.na(dat_vec))
     stopifnot(length(idx) > 0)
 
-    nat_vals <- nat_vec[idx]
-    dat_vals <- (dat_vec / library_size)[idx]
-    other_vals <- other_mat[idx, , drop = FALSE]
-    grad <- other_vals * (-1 / nat_vals - dat_vals)
+    if(length(idx) == length(dat_vec)){
+      grad <- other_mat * (-library_size_vec/nat_vec - dat_vec)
 
-    colSums(grad) / length(dat_vec)
+      colSums(grad) / length(dat_vec)
+    } else {
+      ## Check below lines ##
+      # nat_vals <- nat_vec[idx]
+      # dat_vals <- (dat_vec / library_size_vec)[idx]
+      # other_vals <- other_mat[idx, , drop = FALSE]
+      # grad <- other_vals * (-1 / nat_vals - dat_vals)
+      #
+      # colSums(grad) / length(dat_vec)
+    }
+
+
 }
 
 .hessian_vec.exponential <- function(
-    current_vec, other_mat, dat_vec, nuisance_param_vec, library_size, ...
+    current_vec, other_mat, dat_vec, nuisance_param_vec = NA, library_size_vec, ...
 ) {
     stopifnot(
         length(current_vec) == ncol(other_mat),
@@ -84,13 +103,19 @@
     idx <- which(!is.na(dat_vec))
     stopifnot(length(idx) > 0)
 
-    nat_vals <- nat_vec[idx]
-    dat_vals <- (dat_vec / library_size)[idx]
-    other_vals <- other_mat[idx, , drop = FALSE]
-
-    term1 <- t(other_vals) %*% diag(1 / nat_vals^2) %*% other_vals
-
-    term1 / length(dat_vec)
+    if(length(idx) == length(dat_vec)){
+      term1 <-  crossprod(.mult_vec_mat(library_size_vec/nat_vec^2, other_mat), other_mat)
+      term1 / length(dat_vec)
+    } else {
+      ## Check below lines ##
+      # nat_vals <- nat_vec[idx]
+      # dat_vals <- (dat_vec / library_size_vec)[idx]
+      # other_vals <- other_mat[idx, , drop = FALSE]
+      #
+      # term1 <- t(other_vals) %*% diag(1 / nat_vals^2) %*% other_vals
+      #
+      # term1 / length(dat_vec)
+    }
 }
 
 .feasibility.exponential <- function(current_vec, other_mat, ...) {
@@ -108,22 +133,3 @@
     ),
     class = "esvd_family"
 )
-
-
-
-.evaluate_objective_mat.exponential <- function(dat, nat_mat, ...){
-  stopifnot(all(dim(dat) == dim(nat_mat)), all(nat_mat < 0))
-
-  n <- nrow(dat); p <- ncol(dat)
-  idx <- which(!is.na(dat))
-
-  1/(n*p) * sum(-log(-nat_mat[idx]) - nat_mat[idx]*dat[idx])
-}
-
-.gradient_mat.exponential <- function(dat, nat_mat, ...){
-  stopifnot(all(dim(dat) == dim(nat_mat)), all(nat_mat < 0))
-
-  n <- nrow(dat); p <- ncol(dat)
-
-  (-1/(nat_mat) - dat)/(n*p)
-}

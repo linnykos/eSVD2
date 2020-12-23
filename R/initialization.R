@@ -82,7 +82,6 @@ initialization_options <- function(init_method = "kmean_rows",
   library_size_vec/min(library_size_vec)
 }
 
-
 .initialize_nat_mat <- function(init_res, k = k, config = config){
   if(config$init_method == "kmean_rows"){
     nat_mat <- .initialization_kmean(init_res$nat_mat, k = k, domain = init_res$domain,
