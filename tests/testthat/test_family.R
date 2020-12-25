@@ -13,16 +13,18 @@ run_test <- function(dat, u_mat, v_mat, family, nuisance_param_vec = rep(1, nrow
   {
     loss2[i] <- family$objfn(u_mat[i, ], v_mat, dat[i, ], nuisance_param_vec,
                              library_size = library_size_vec[i])
+    loss2[i] <- loss2[i] * sum(!is.na(dat[i, ]))
   }
   loss3 <- numeric(p)
   for(j in 1:p)
   {
     loss3[j] <- family$objfn(v_mat[j, ], u_mat, dat[, j], nuisance_param_vec[j],
                              library_size = library_size_vec)
+    loss3[j] <- loss3[j] * sum(!is.na(dat[, j]))
   }
   # The three loss values should be equal
-  expect_lt(loss1 - mean(loss2), 1e-8)
-  expect_lt(loss1 - mean(loss3), 1e-8)
+  expect_lt(loss1 - sum(loss2) / sum(!is.na(dat)), 1e-8)
+  expect_lt(loss1 - sum(loss3) / sum(!is.na(dat)), 1e-8)
 
   # Test gradients
   for(i in 1:n)
@@ -78,7 +80,7 @@ test_that("Functions for Gaussian distribution", {
   n <- 10
   p <- 15
   k <- 2
-  nuisance_param_vec <- rep(2, p); library_size_vec <- rep(1, n)
+  nuisance_param_vec <- runif(p, 0, 5); library_size_vec <- rgeom(10, 0.1) + 1
   u_mat <- matrix(rnorm(n * k), nrow = n, ncol = k)
   v_mat <- matrix(rnorm(p * k), nrow = p, ncol = k)
   nat_mat <- tcrossprod(u_mat, v_mat)
