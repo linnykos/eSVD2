@@ -276,4 +276,3 @@ test_that(".hessian_vec.gaussian works and is correct in the y direction", {
   expect_true(sum(abs(res1 - res1b)) <= 1e-4)
   expect_true(sum(abs(res2 - res2b)) <= 1e-4)
 })
-

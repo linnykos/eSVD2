@@ -80,7 +80,7 @@ test_that("Functions for Gaussian distribution", {
   n <- 10
   p <- 15
   k <- 2
-  nuisance_param_vec <- runif(p, 0, 5); library_size_vec <- rgeom(10, 0.1) + 1
+  nuisance_param_vec <- runif(p, 0, 5); library_size_vec <- rep(1, n)
   u_mat <- matrix(rnorm(n * k), nrow = n, ncol = k)
   v_mat <- matrix(rnorm(p * k), nrow = p, ncol = k)
   nat_mat <- tcrossprod(u_mat, v_mat)

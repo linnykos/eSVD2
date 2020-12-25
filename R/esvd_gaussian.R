@@ -73,7 +73,7 @@
   other_vals <- other_mat
   # Broadcast `nat_vals - dat_vals` to each column of `other_vals`
   grad <- 2 * other_vals * (nat_vec - dat_vals) / nuisance_param_vec^2
-  # `grad` contain NA rows corresponding to the NAs in `dat_vec`
+  # `grad` contains NA rows corresponding to the NAs in `dat_vec`
   grad <- grad[idx, ]
   colMeans(grad)
 }
@@ -92,6 +92,8 @@
   )
 
   idx <- which(!is.na(dat_vec))
+  stopifnot(length(idx) > 0)
+
   if(length(nuisance_param_vec) == 1) {
     other_vals <- other_mat / nuisance_param_vec
   } else {
@@ -99,7 +101,7 @@
   }
 
   other_vals <- other_vals[idx, , drop = FALSE]
-  hess = 2 * crossprod(other_vals) / length(idx)
+  hess <- 2 * crossprod(other_vals) / length(idx)
   hess
 }
 
