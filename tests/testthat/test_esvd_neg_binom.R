@@ -17,7 +17,7 @@ test_that(".evaluate_objective.neg_binom works and is correct", {
     nat_mat, family = "neg_binom", nuisance_param_vec = nuisance_param_vec, library_size_vec = library_size_vec
   )
 
-  res1 <- .evaluate_objective.neg_binom(dat, x_mat, y_mat, nuisance_param_vec = rep(1,p),
+  res1 <- .evaluate_objective.neg_binom(dat, x_mat, y_mat, nuisance_param_vec = rep(1, p),
                                         library_size_vec = rep(1, n))
   res2 <- .evaluate_objective.neg_binom(dat, x_mat, y_mat, nuisance_param_vec = nuisance_param_vec,
                                         library_size_vec = library_size_vec)
@@ -26,15 +26,17 @@ test_that(".evaluate_objective.neg_binom works and is correct", {
   expect_true(is.numeric(res2))
 
   res1b <- 0
-  for(i in 1:n){
-    for(j in 1:p){
-      res1b <- res1b + (-log(1-exp(c(x_mat[i,]%*%y_mat[j,]))) - dat[i,j]*c(x_mat[i,]%*%y_mat[j,]))/(n*p)
+  for(i in 1:n) {
+    for(j in 1:p) {
+      res1b <- res1b + (-log(1 - exp(c(x_mat[i, ] %*% y_mat[j, ]))) -
+                        dat[i, j] * c(x_mat[i, ] %*% y_mat[j, ])) / (n * p)
     }
   }
   res2b <- 0
-  for(i in 1:n){
-    for(j in 1:p){
-      res2b <- res2b + (-library_size_vec[i] * nuisance_param_vec[j] * log(1-exp(c(x_mat[i,]%*%y_mat[j,]))) - dat[i,j]*c(x_mat[i,]%*%y_mat[j,]))/(n*p)
+  for(i in 1:n) {
+    for(j in 1:p) {
+      res2b <- res2b + (-library_size_vec[i] * nuisance_param_vec[j] * log(1 - exp(c(x_mat[i, ] %*% y_mat[j, ]))) -
+                        dat[i, j] * c(x_mat[i, ] %*% y_mat[j, ])) / (n * p)
     }
   }
 
@@ -62,21 +64,23 @@ test_that(".evaluate_objective_single.neg_binom works and is correct in the x di
   )
 
   i <- 1
-  res1 <- .evaluate_objective_single.neg_binom(x_mat[i,], y_mat, dat[i,], nuisance_param_vec = rep(1,p),
+  res1 <- .evaluate_objective_single.neg_binom(x_mat[i, ], y_mat, dat[i, ], nuisance_param_vec = rep(1, p),
                                                library_size_vec = rep(1, n)[i])
-  res2 <- .evaluate_objective_single.neg_binom(x_mat[i,], y_mat, dat[i,], nuisance_param_vec = nuisance_param_vec,
+  res2 <- .evaluate_objective_single.neg_binom(x_mat[i, ], y_mat, dat[i, ], nuisance_param_vec = nuisance_param_vec,
                                                library_size_vec = library_size_vec[i])
 
   expect_true(is.numeric(res1))
   expect_true(is.numeric(res2))
 
   res1b <- 0
-  for(j in 1:p){
-    res1b <- res1b + (-log(1-exp(c(x_mat[i,]%*%y_mat[j,]))) - dat[i,j]*c(x_mat[i,]%*%y_mat[j,]))/p
+  for(j in 1:p) {
+    res1b <- res1b + (-log(1 - exp(c(x_mat[i, ] %*% y_mat[j, ]))) -
+                      dat[i, j] * c(x_mat[i, ] %*% y_mat[j, ])) / p
   }
   res2b <- 0
-  for(j in 1:p){
-    res2b <- res2b + (-library_size_vec[i] * nuisance_param_vec[j] * log(1-exp(c(x_mat[i,]%*%y_mat[j,]))) - dat[i,j]*c(x_mat[i,]%*%y_mat[j,]))/p
+  for(j in 1:p) {
+    res2b <- res2b + (-library_size_vec[i] * nuisance_param_vec[j] * log(1 - exp(c(x_mat[i, ] %*% y_mat[j, ]))) -
+                      dat[i, j] * c(x_mat[i, ] %*% y_mat[j, ])) / p
   }
 
   expect_true(abs(res1 - res1b) <= 1e-4)
@@ -99,21 +103,23 @@ test_that(".evaluate_objective_single.neg_binom works and is correct in the y di
   )
 
   j <- 1
-  res1 <- .evaluate_objective_single.neg_binom(y_mat[j,], x_mat, dat[,j], nuisance_param_vec = rep(1,p)[j],
+  res1 <- .evaluate_objective_single.neg_binom(y_mat[j, ], x_mat, dat[, j], nuisance_param_vec = rep(1, p)[j],
                                                library_size_vec = rep(1, n))
-  res2 <- .evaluate_objective_single.neg_binom(y_mat[j,], x_mat, dat[,j], nuisance_param_vec = nuisance_param_vec[j],
+  res2 <- .evaluate_objective_single.neg_binom(y_mat[j, ], x_mat, dat[, j], nuisance_param_vec = nuisance_param_vec[j],
                                                library_size_vec = library_size_vec)
 
   expect_true(is.numeric(res1))
   expect_true(is.numeric(res2))
 
   res1b <- 0
-  for(i in 1:n){
-    res1b <- res1b + (-log(1-exp(c(x_mat[i,]%*%y_mat[j,]))) - dat[i,j]*c(x_mat[i,]%*%y_mat[j,]))/n
+  for(i in 1:n) {
+    res1b <- res1b + (-log(1 - exp(c(x_mat[i, ] %*% y_mat[j, ]))) -
+                      dat[i, j] * c(x_mat[i, ] %*% y_mat[j, ])) / n
   }
   res2b <- 0
-  for(i in 1:n){
-    res2b <- res2b +  (-library_size_vec[i] * nuisance_param_vec[j] * log(1-exp(c(x_mat[i,]%*%y_mat[j,]))) - dat[i,j]*c(x_mat[i,]%*%y_mat[j,]))/n
+  for(i in 1:n) {
+    res2b <- res2b + (-library_size_vec[i] * nuisance_param_vec[j] * log(1 - exp(c(x_mat[i, ] %*% y_mat[j, ]))) -
+                      dat[i, j] * c(x_mat[i, ] %*% y_mat[j, ])) / n
   }
 
   expect_true(abs(res1 - res1b) <= 1e-4)
@@ -140,21 +146,23 @@ test_that(".gradient_vec.neg_binom works and is correct in the x direction", {
   )
 
   i <- 1
-  res1 <- .gradient_vec.neg_binom(x_mat[i,], y_mat, dat[i,], nuisance_param_vec = rep(1,p),
-                                library_size_vec = rep(1, n)[i])
-  res2 <- .gradient_vec.neg_binom(x_mat[i,], y_mat, dat[i,], nuisance_param_vec = nuisance_param_vec,
-                                library_size_vec = library_size_vec[i])
+  res1 <- .gradient_vec.neg_binom(x_mat[i, ], y_mat, dat[i, ], nuisance_param_vec = rep(1, p),
+                                  library_size_vec = rep(1, n)[i])
+  res2 <- .gradient_vec.neg_binom(x_mat[i, ], y_mat, dat[i, ], nuisance_param_vec = nuisance_param_vec,
+                                  library_size_vec = library_size_vec[i])
 
   expect_true(is.numeric(res1))
   expect_true(is.numeric(res2))
 
   res1b <- rep(0, k)
-  for(j in 1:p){
-    res1b <- res1b + y_mat[j,]*(exp(c(x_mat[i,]%*%y_mat[j,]))/(1-exp(c(x_mat[i,]%*%y_mat[j,]))) - dat[i,j])/p
+  for(j in 1:p) {
+    tmp <- exp(c(x_mat[i, ] %*% y_mat[j, ]))
+    res1b <- res1b + y_mat[j, ] * (tmp / (1 - tmp) - dat[i, j]) / p
   }
   res2b <- rep(0, k)
-  for(j in 1:p){
-    res2b <- res2b + y_mat[j,]*(library_size_vec[i] * nuisance_param_vec[j] * exp(c(x_mat[i,]%*%y_mat[j,]))/(1-exp(c(x_mat[i,]%*%y_mat[j,]))) - dat[i,j])/p
+  for(j in 1:p) {
+    tmp <- exp(c(x_mat[i, ] %*% y_mat[j, ]))
+    res2b <- res2b + y_mat[j, ] * (library_size_vec[i] * nuisance_param_vec[j] * tmp / (1 - tmp) - dat[i, j]) / p
   }
 
   expect_true(sum(abs(res1 - res1b)) <= 1e-4)
@@ -177,21 +185,23 @@ test_that(".gradient_vec.neg_binom works and is correct in the y direction", {
   )
 
   j <- 1
-  res1 <- .gradient_vec.neg_binom(y_mat[j,], x_mat, dat[,j], nuisance_param_vec = rep(1,p)[j],
-                                library_size_vec = rep(1, n))
-  res2 <- .gradient_vec.neg_binom(y_mat[j,], x_mat, dat[,j], nuisance_param_vec = nuisance_param_vec[j],
-                                library_size_vec = library_size_vec)
+  res1 <- .gradient_vec.neg_binom(y_mat[j, ], x_mat, dat[, j], nuisance_param_vec = rep(1, p)[j],
+                                  library_size_vec = rep(1, n))
+  res2 <- .gradient_vec.neg_binom(y_mat[j, ], x_mat, dat[, j], nuisance_param_vec = nuisance_param_vec[j],
+                                  library_size_vec = library_size_vec)
 
   expect_true(is.numeric(res1))
   expect_true(is.numeric(res2))
 
   res1b <- rep(0, k)
-  for(i in 1:n){
-    res1b <- res1b + x_mat[i,]*(exp(c(x_mat[i,]%*%y_mat[j,]))/(1-exp(c(x_mat[i,]%*%y_mat[j,]))) - dat[i,j])/n
+  for(i in 1:n) {
+    tmp <- exp(c(x_mat[i, ] %*% y_mat[j, ]))
+    res1b <- res1b + x_mat[i, ] * (tmp / (1 - tmp) - dat[i, j]) / n
   }
   res2b <- rep(0, k)
-  for(i in 1:n){
-    res2b <- res2b + x_mat[i,]*(library_size_vec[i] * nuisance_param_vec[j] * exp(c(x_mat[i,]%*%y_mat[j,]))/(1-exp(c(x_mat[i,]%*%y_mat[j,]))) - dat[i,j])/n
+  for(i in 1:n) {
+    tmp <- exp(c(x_mat[i, ] %*% y_mat[j, ]))
+    res2b <- res2b + x_mat[i, ] * (library_size_vec[i] * nuisance_param_vec[j] * tmp / (1 - tmp) - dat[i, j]) / n
   }
 
   expect_true(sum(abs(res1 - res1b)) <= 1e-4)
@@ -218,23 +228,23 @@ test_that(".hessian_vec.neg_binom works and is correct in the x direction", {
   )
 
   i <- 1
-  res1 <- .hessian_vec.neg_binom(x_mat[i,], y_mat, dat[i,], nuisance_param_vec = rep(1,p),
-                               library_size_vec = rep(1, n)[i])
-  res2 <- .hessian_vec.neg_binom(x_mat[i,], y_mat, dat[i,], nuisance_param_vec = nuisance_param_vec,
-                               library_size_vec = library_size_vec[i])
+  res1 <- .hessian_vec.neg_binom(x_mat[i, ], y_mat, dat[i, ], nuisance_param_vec = rep(1, p),
+                                 library_size_vec = rep(1, n)[i])
+  res2 <- .hessian_vec.neg_binom(x_mat[i, ], y_mat, dat[i, ], nuisance_param_vec = nuisance_param_vec,
+                                 library_size_vec = library_size_vec[i])
 
   expect_true(is.numeric(res1))
   expect_true(is.numeric(res2))
 
   res1b <- matrix(0, k, k)
-  for(j in 1:p){
-    tmp <- exp(c(x_mat[i,] %*% y_mat[j,]))
-    res1b <- res1b + (tmp * (1/(1-tmp) + tmp/(1-tmp)^2))*y_mat[j,] %*% t(y_mat[j,])/p
+  for(j in 1:p) {
+    tmp <- exp(c(x_mat[i, ] %*% y_mat[j, ]))
+    res1b <- res1b + (tmp * (1 / (1 - tmp) + tmp / (1 - tmp)^2)) * tcrossprod(y_mat[j, ]) / p
   }
   res2b <- matrix(0, k, k)
-  for(j in 1:p){
-    tmp <- exp(c(x_mat[i,] %*% y_mat[j,]))
-    res2b <- res2b + (library_size_vec[i] * nuisance_param_vec[j] * tmp * (1/(1-tmp) + tmp/(1-tmp)^2))*y_mat[j,] %*% t(y_mat[j,])/p
+  for(j in 1:p) {
+    tmp <- exp(c(x_mat[i, ] %*% y_mat[j, ]))
+    res2b <- res2b + (library_size_vec[i] * nuisance_param_vec[j] * tmp * (1 / (1 - tmp) + tmp / (1 - tmp)^2)) * tcrossprod(y_mat[j, ]) / p
   }
 
   expect_true(sum(abs(res1 - res1b)) <= 1e-4)
@@ -257,27 +267,25 @@ test_that(".hessian_vec.neg_binom works and is correct in the y direction", {
   )
 
   j <- 1
-  res1 <- .hessian_vec.neg_binom(y_mat[j,], x_mat, dat[,j], nuisance_param_vec = rep(1,p)[j],
-                               library_size_vec = rep(1, n))
-  res2 <- .hessian_vec.neg_binom(y_mat[j,], x_mat, dat[,j], nuisance_param_vec = nuisance_param_vec[j],
-                               library_size_vec = library_size_vec)
+  res1 <- .hessian_vec.neg_binom(y_mat[j, ], x_mat, dat[, j], nuisance_param_vec = rep(1, p)[j],
+                                 library_size_vec = rep(1, n))
+  res2 <- .hessian_vec.neg_binom(y_mat[j, ], x_mat, dat[, j], nuisance_param_vec = nuisance_param_vec[j],
+                                 library_size_vec = library_size_vec)
 
   expect_true(is.numeric(res1))
   expect_true(is.numeric(res2))
 
   res1b <- matrix(0, k, k)
-  for(i in 1:n){
-    tmp <- exp(c(x_mat[i,] %*% y_mat[j,]))
-    res1b <- res1b + (tmp * (1/(1-tmp) + tmp/(1-tmp)^2))*x_mat[i,] %*% t(x_mat[i,])/n
+  for(i in 1:n) {
+    tmp <- exp(c(x_mat[i, ] %*% y_mat[j, ]))
+    res1b <- res1b + (tmp * (1 / (1 - tmp) + tmp / (1 - tmp)^2)) * tcrossprod(x_mat[i, ]) / n
   }
   res2b <- matrix(0, k, k)
-  for(i in 1:n){
-    tmp <- exp(c(x_mat[i,] %*% y_mat[j,]))
-    res2b <- res2b + (library_size_vec[i] * nuisance_param_vec[j] * tmp * (1/(1-tmp) + tmp/(1-tmp)^2))*x_mat[i,] %*% t(x_mat[i,])/n
+  for(i in 1:n) {
+    tmp <- exp(c(x_mat[i, ] %*% y_mat[j, ]))
+    res2b <- res2b + (library_size_vec[i] * nuisance_param_vec[j] * tmp * (1 / (1 - tmp) + tmp / (1 - tmp)^2)) * tcrossprod(x_mat[i, ]) / n
   }
 
   expect_true(sum(abs(res1 - res1b)) <= 1e-4)
   expect_true(sum(abs(res2 - res2b)) <= 1e-4)
 })
-
-

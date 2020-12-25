@@ -258,11 +258,27 @@ test_that("Functions for negative binomial distribution", {
   n <- 10
   p <- 15
   k <- 2
+  nuisance_param_vec <- runif(p, 0, 10)
   u_mat <- matrix(abs(rnorm(n * k)), nrow = n, ncol = k)
   v_mat <- -matrix(abs(rnorm(p * k)), nrow = p, ncol = k)
   nat_mat <- tcrossprod(u_mat, v_mat)
-  library_size_vec <- 1:n
-  nuisance_param_vec <- c(1:p)*10
+
+  dat <- eSVD2::generate_data(
+    nat_mat, family = "neg_binom", nuisance_param_vec = nuisance_param_vec,
+    library_size_vec = 1
+  )
+
+  # Test
+  run_test(dat, u_mat, v_mat, .neg_binom, nuisance_param_vec = nuisance_param_vec,
+           library_size_vec = 1)
+
+  # Test missing values
+  dat[sample(length(dat), n * p * 0.1)] <- NA
+  run_test(dat, u_mat, v_mat, .neg_binom, nuisance_param_vec = nuisance_param_vec,
+           library_size_vec = 1)
+
+  # Simulate data with a library size vector
+  library_size_vec <- sample(10:20, n, replace = TRUE)
   dat <- eSVD2::generate_data(
     nat_mat, family = "neg_binom", nuisance_param_vec = nuisance_param_vec,
     library_size_vec = library_size_vec
