@@ -75,7 +75,7 @@
   grad <- other_mat * (-1 / nat_vec + nuisance_param_vec^2 * dat_vec^2 * nat_vec / library_size_vec -
                        nuisance_param_vec^2 * dat_vec)
   # `grad` contains NA rows corresponding to the NAs in `dat_vec`
-  grad <- grad[idx, ]
+  grad <- grad[idx, , drop = FALSE]
   colMeans(grad)
 }
 

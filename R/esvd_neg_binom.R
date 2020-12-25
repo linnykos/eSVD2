@@ -78,7 +78,7 @@
 
   grad <- other_mat * (library_size_vec * nuisance_param_vec / (exp(-nat_vec) - 1) - dat_vec)
   # `grad` contains NA rows corresponding to the NAs in `dat_vec`
-  grad <- grad[idx, ]
+  grad <- grad[idx, , drop = FALSE]
   colMeans(grad)
 }
 

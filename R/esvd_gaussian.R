@@ -74,7 +74,7 @@
   # Broadcast `nat_vals - dat_vals` to each column of `other_vals`
   grad <- 2 * other_vals * (nat_vec - dat_vals) / nuisance_param_vec^2
   # `grad` contains NA rows corresponding to the NAs in `dat_vec`
-  grad <- grad[idx, ]
+  grad <- grad[idx, , drop = FALSE]
   colMeans(grad)
 }
 
