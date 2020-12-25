@@ -35,7 +35,7 @@ run_test <- function(dat, u_mat, v_mat, family, nuisance_param_vec = rep(1, nrow
     grad2 <- numDeriv::grad(family$objfn, u_mat[i, ], other_mat = v_mat, dat_vec = dat[i, ],
                             nuisance_param_vec = nuisance_param_vec,
                             library_size = library_size_vec[i])
-    expect_lt(max(abs(grad1 - grad2)), 1e-6)
+    expect_lt(max(abs(grad1 - grad2)), 1e-5)
   }
   for(j in 1:p)
   {
@@ -45,7 +45,7 @@ run_test <- function(dat, u_mat, v_mat, family, nuisance_param_vec = rep(1, nrow
     grad2 <- numDeriv::grad(family$objfn, v_mat[j, ], other_mat = u_mat, dat_vec = dat[, j],
                             nuisance_param_vec = nuisance_param_vec[j],
                             library_size = library_size_vec)
-    expect_lt(max(abs(grad1 - grad2)), 1e-6)
+    expect_lt(max(abs(grad1 - grad2)), 1e-5)
   }
 
   # Test Hessians
@@ -57,7 +57,7 @@ run_test <- function(dat, u_mat, v_mat, family, nuisance_param_vec = rep(1, nrow
     hess2 <- numDeriv::hessian(family$objfn, u_mat[i, ], other_mat = v_mat, dat_vec = dat[i, ],
                                nuisance_param_vec = nuisance_param_vec,
                                library_size = library_size_vec[i])
-    expect_lt(max(abs(hess1 - hess2)), 1e-6)
+    expect_lt(max(abs(hess1 - hess2)), 1e-5)
   }
   for(j in 1:p)
   {
@@ -67,7 +67,7 @@ run_test <- function(dat, u_mat, v_mat, family, nuisance_param_vec = rep(1, nrow
     hess2 <- numDeriv::hessian(family$objfn, v_mat[j, ], other_mat = u_mat, dat_vec = dat[, j],
                                nuisance_param_vec = nuisance_param_vec[j],
                                library_size = library_size_vec)
-    expect_lt(max(abs(hess1 - hess2)), 1e-6)
+    expect_lt(max(abs(hess1 - hess2)), 1e-5)
   }
 }
 
@@ -80,7 +80,7 @@ test_that("Functions for Gaussian distribution", {
   n <- 10
   p <- 15
   k <- 2
-  nuisance_param_vec <- runif(p, 0, 5); library_size_vec <- rep(1, n)
+  nuisance_param_vec <- runif(p, 0, 5)
   u_mat <- matrix(rnorm(n * k), nrow = n, ncol = k)
   v_mat <- matrix(rnorm(p * k), nrow = p, ncol = k)
   nat_mat <- tcrossprod(u_mat, v_mat)
@@ -88,17 +88,17 @@ test_that("Functions for Gaussian distribution", {
   # Simulate data with default library size (all one)
   dat <- eSVD2::generate_data(
     nat_mat, family = "gaussian", nuisance_param_vec = nuisance_param_vec,
-    library_size_vec = library_size_vec
+    library_size_vec = 1
   )
 
   # Test
   run_test(dat, u_mat, v_mat, .gaussian, nuisance_param_vec = nuisance_param_vec,
-           library_size_vec = library_size_vec)
+           library_size_vec = 1)
 
   # Test missing values
   dat[sample(length(dat), n * p * 0.1)] <- NA
   run_test(dat, u_mat, v_mat, .gaussian, nuisance_param_vec = nuisance_param_vec,
-           library_size_vec = library_size_vec)
+           library_size_vec = 1)
 
   # Simulate data with a library size vector
   library_size_vec <- sample(10:20, n, replace = TRUE)
@@ -125,8 +125,7 @@ test_that("Functions for curved-Gaussian distribution", {
   n <- 10
   p <- 15
   k <- 2
-  library_size_vec <- 1:n
-  nuisance_param_vec <- c(1:p)/5
+  nuisance_param_vec <- runif(p, 0, 5)
   u_mat <- matrix(abs(rnorm(n * k)), nrow = n, ncol = k)
   v_mat <- matrix(abs(rnorm(p * k)), nrow = p, ncol = k)
   nat_mat <- tcrossprod(u_mat, v_mat)
@@ -134,17 +133,17 @@ test_that("Functions for curved-Gaussian distribution", {
   # Simulate data with default library size (all one)
   dat <- eSVD2::generate_data(
     nat_mat, family = "curved_gaussian", nuisance_param_vec = nuisance_param_vec,
-    library_size_vec = library_size_vec, tol = 1e-3
+    library_size_vec = 1, tol = 1e-3
   )
 
   # Test
   run_test(dat, u_mat, v_mat, .curved_gaussian, nuisance_param_vec = nuisance_param_vec,
-           library_size_vec = library_size_vec)
+           library_size_vec = 1)
 
   # Test missing values
   dat[sample(length(dat), n * p * 0.1)] <- NA
   run_test(dat, u_mat, v_mat, .curved_gaussian, nuisance_param_vec = nuisance_param_vec,
-           library_size_vec = library_size_vec)
+           library_size_vec = 1)
 
   # Simulate data with a library size vector
   library_size_vec <- sample(10:20, n, replace = TRUE)
@@ -218,22 +217,21 @@ test_that("Functions for Poisson distribution", {
   u_mat <- matrix(rnorm(n * k), nrow = n, ncol = k)
   v_mat <- matrix(rnorm(p * k), nrow = p, ncol = k)
   nat_mat <- tcrossprod(u_mat, v_mat)
-  library_size_vec <- rep(1, n)
 
   # Simulate data with default library size (all one)
   dat <- eSVD2::generate_data(
     nat_mat, family = "poisson", nuisance_param_vec = NA,
-    library_size_vec = library_size_vec
+    library_size_vec = 1
   )
 
   # Test
   run_test(dat, u_mat, v_mat, .poisson, nuisance_param_vec = NA,
-           library_size_vec = library_size_vec)
+           library_size_vec = 1)
 
   # Test missing values
   dat[sample(length(dat), n * p * 0.1)] <- NA
   run_test(dat, u_mat, v_mat, .poisson, nuisance_param_vec = NA,
-           library_size_vec = library_size_vec)
+           library_size_vec = 1)
 
   # Simulate data with a library size vector
   library_size_vec <- sample(10:20, n, replace = TRUE)

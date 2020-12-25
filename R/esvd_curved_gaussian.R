@@ -28,8 +28,8 @@
   mean(negloglik[idx])
 }
 
-# length(library_size_vec) == 1 if current vector is u
-# length(library_size_vec) == n if current vector is v
+# If current vector is x: length(library_size_vec) == 1
+# If current vector is y: length(library_size_vec) == n
 .evaluate_objective_single.curved_gaussian <- function(
   current_vec, other_mat, dat_vec, nuisance_param_vec, library_size_vec, ...
 ) {
