@@ -65,7 +65,8 @@ generate_data <- function(
 
     if(family == "gaussian") {
         stopifnot(!is.na(nuisance_param_vec))
-        vec <- stats::rnorm(num_val, mean = canon_mat * library_size_vec, sd = rep(nuisance_param_vec, each = n) * sqrt(library_size_vec))
+        vec <- stats::rnorm(num_val, mean = canon_mat * library_size_vec,
+                            sd = rep(nuisance_param_vec, each = n) * sqrt(library_size_vec))
 
     } else if(family == "curved_gaussian") {
         stopifnot(!is.na(nuisance_param_vec))
@@ -73,14 +74,15 @@ generate_data <- function(
                            sd = sqrt(library_size_vec) * (canon_mat / rep(nuisance_param_vec, each = n)))
 
     } else if(family == "exponential") {
-        vec <- stats::rexp(num_val, rate = canon_mat / library_size_vec)
+        vec <- stats::rgamma(num_val, shape = rep(library_size_vec, times = p), scale = canon_mat)
 
     } else if(family == "poisson") {
         vec <- stats::rpois(num_val, lambda = canon_mat * library_size_vec)
 
     } else if(family == "neg_binom") {
         stopifnot(!is.na(nuisance_param_vec))
-        vec <- stats::rnbinom(num_val, size = rep(nuisance_param_vec, each = n) * library_size_vec, prob = 1 - canon_mat)
+        vec <- stats::rnbinom(num_val, size = rep(nuisance_param_vec, each = n) * library_size_vec,
+                              prob = 1 - canon_mat)
 
     } else if(family == "bernoulli") {
         vec <- stats::rbinom(num_val, size = 1, prob = canon_mat)

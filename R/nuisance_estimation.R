@@ -27,20 +27,21 @@ initialize_nuisance_param <- function(dat, init_nat_mat, family,
     empirical_var_vec <- (dat[,j] - mean_mat[,j])^2
 
     if(family == "curved_gaussian"){
-      tmp <- mean_mat[,j]/sqrt(empirical_var_vec)
+      tmp <- sqrt(mean_mat[,j]^2/(library_size_vec * empirical_var_vec))
+      tmp <- 1/tmp^2
       min_val <- max(min(tmp), 0); max_val <- max(max(tmp), 10)
 
-      tryCatch(stats::uniroot(.root_curved_gaussian_closure(empirical_var_vec, mean_mat[,j]),
+      val <- tryCatch(stats::uniroot(.root_curved_gaussian_closure(empirical_var_vec, mean_mat[,j], library_size_vec),
                               interval = c(min_val, max_val))$root,
                error = function(e){
                  1
                })
-
     } else {
-      tmp <- (empirical_var_vec- mean_mat[,j])/(mean_mat[,j]^2)
+      tmp <- mean_mat[,j]^2/(library_size_vec * (empirical_var_vec - mean_mat[,j]) -  mean_mat[,j])
+      tmp <- 1/tmp
       min_val <- max(min(tmp), 0); max_val <- max(max(tmp), 10)
 
-      tryCatch(stats::uniroot(.root_neg_binom_closure(empirical_var_vec, mean_mat[,j]),
+      tryCatch(stats::uniroot(.root_neg_binom_closure(empirical_var_vec, mean_mat[,j], library_size_vec),
                               interval = c(min_val, max_val))$root,
                error = function(e){
                  1/(10*max(dat[,j]))
@@ -48,19 +49,19 @@ initialize_nuisance_param <- function(dat, init_nat_mat, family,
     }
   })
 
-  if(family == "neg_binom") param_vec <- 1/param_vec
+  if(family == "neg_binom") param_vec <- 1/param_vec else param_vec <- 1/sqrt(param_vec)
   param_vec
 }
 
-.root_curved_gaussian_closure <- function(empirical_var_vec, theoretical_mean_vec){
+.root_curved_gaussian_closure <- function(empirical_var_vec, theoretical_mean_vec, library_size_vec){
   function(x){
-    sum((empirical_var_vec - (theoretical_mean_vec/x)^2) / (theoretical_mean_vec/x^2))
+    sum((empirical_var_vec - x*theoretical_mean_vec^2/library_size_vec) / (x^2*theoretical_mean_vec^2/library_size_vec))
   }
 }
 
-.root_neg_binom_closure <- function(empirical_var_vec, theoretical_mean_vec){
+.root_neg_binom_closure <- function(empirical_var_vec, theoretical_mean_vec, library_size_vec){
   function(x){
-    sum((empirical_var_vec - theoretical_mean_vec * (1+ x * theoretical_mean_vec)) /
-          (1+ x * theoretical_mean_vec))
+    sum((empirical_var_vec - theoretical_mean_vec * (1 + x*theoretical_mean_vec/library_size_vec)) /
+          2*library_size_vec*(1 + x*theoretical_mean_vec/library_size_vec)^2)
   }
 }
