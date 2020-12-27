@@ -14,7 +14,7 @@ test_that("generate_data works", {
 ############
 
 test_that("generate_data works for gaussian", {
-  trials <- 1000
+  trials <- 10000
   set.seed(123)
   n <- 8
   p <- 8
@@ -34,6 +34,8 @@ test_that("generate_data works for gaussian", {
 
   empirical_mean <- apply(dat_array, c(2,3), mean)
   empirical_var <- apply(dat_array, c(2,3), stats::var)
+  empirical_mean2 <- apply(dat_array[1:100,,], c(2,3), mean)
+  empirical_var2 <- apply(dat_array[1:100,,], c(2,3), stats::var)
 
   predicted_mean <- matrix(0, nrow = n, ncol = p)
   predicted_var <- matrix(0, nrow = n, ncol = p)
@@ -43,6 +45,9 @@ test_that("generate_data works for gaussian", {
       predicted_var[i,j] <- library_size_vec[i]*nuisance_param_vec[j]^2
     }
   }
+
+  expect_true(sum(abs(empirical_mean - predicted_mean)) <= sum(abs(empirical_mean2 - predicted_mean)))
+  expect_true(sum(abs(empirical_var - predicted_var)) <= sum(abs(empirical_var2 - predicted_var)))
 
   # try many permutations
   error_vec <- c(sum(abs(empirical_mean - predicted_mean)/predicted_mean),
@@ -62,7 +67,7 @@ test_that("generate_data works for gaussian", {
 ############
 
 test_that("generate_data works for poisson", {
-  trials <- 1000
+  trials <- 10000
   set.seed(123)
   n <- 8
   p <- 8
@@ -81,6 +86,9 @@ test_that("generate_data works for poisson", {
 
   empirical_mean <- apply(dat_array, c(2,3), mean)
   empirical_var <- apply(dat_array, c(2,3), stats::var)
+  empirical_mean2 <- apply(dat_array[1:100,,], c(2,3), mean)
+  empirical_var2 <- apply(dat_array[1:100,,], c(2,3), stats::var)
+
 
   predicted_mean <- matrix(0, nrow = n, ncol = p)
   predicted_var <- matrix(0, nrow = n, ncol = p)
@@ -90,6 +98,9 @@ test_that("generate_data works for poisson", {
       predicted_var[i,j] <- library_size_vec[i]*exp(nat_mat[i,j])
     }
   }
+
+  expect_true(sum(abs(empirical_mean - predicted_mean)) <= sum(abs(empirical_mean2 - predicted_mean)))
+  expect_true(sum(abs(empirical_var - predicted_var)) <= sum(abs(empirical_var2 - predicted_var)))
 
   # try many permutations
   error_vec <- c(sum(abs(empirical_mean - predicted_mean)/predicted_mean),
@@ -110,7 +121,7 @@ test_that("generate_data works for poisson", {
 ############
 
 test_that("generate_data works for curved gaussian", {
-  trials <- 1000
+  trials <- 10000
   set.seed(123)
   n <- 8
   p <- 8
@@ -119,7 +130,7 @@ test_that("generate_data works for curved gaussian", {
   y_mat <- matrix(abs(rnorm(p * k)), nrow = p, ncol = k)
   nat_mat <- tcrossprod(x_mat, y_mat)
   library_size_vec <- 1:n
-  nuisance_param_vec <- c(1:p)/5
+  nuisance_param_vec <- 1:p
 
   ## Simulate data
   dat_array <- array(NA, dim = c(trials, n, p))
@@ -133,6 +144,8 @@ test_that("generate_data works for curved gaussian", {
 
   empirical_mean <- apply(dat_array, c(2,3), mean)
   empirical_var <- apply(dat_array, c(2,3), stats::var)
+  empirical_mean2 <- apply(dat_array[1:100,,], c(2,3), mean)
+  empirical_var2 <- apply(dat_array[1:100,,], c(2,3), stats::var)
 
   predicted_mean <- matrix(0, nrow = n, ncol = p)
   predicted_var <- matrix(0, nrow = n, ncol = p)
@@ -142,6 +155,9 @@ test_that("generate_data works for curved gaussian", {
       predicted_var[i,j] <- library_size_vec[i]/(nat_mat[i,j]*nuisance_param_vec[j])^2
     }
   }
+
+  expect_true(sum(abs(empirical_mean - predicted_mean)) <= sum(abs(empirical_mean2 - predicted_mean)))
+  expect_true(sum(abs(empirical_var - predicted_var)) <= sum(abs(empirical_var2 - predicted_var)))
 
   # try many permutations
   error_vec <- c(sum(abs(empirical_mean - predicted_mean)/predicted_mean),
@@ -162,7 +178,7 @@ test_that("generate_data works for curved gaussian", {
 ############
 
 test_that("generate_data works for exponential", {
-  trials <- 1000
+  trials <- 10000
   set.seed(123)
   n <- 8
   p <- 8
@@ -183,6 +199,9 @@ test_that("generate_data works for exponential", {
 
   empirical_mean <- apply(dat_array, c(2,3), mean)
   empirical_var <- apply(dat_array, c(2,3), stats::var)
+  empirical_mean2 <- apply(dat_array[1:100,,], c(2,3), mean)
+  empirical_var2 <- apply(dat_array[1:100,,], c(2,3), stats::var)
+
 
   predicted_mean <- matrix(0, nrow = n, ncol = p)
   predicted_var <- matrix(0, nrow = n, ncol = p)
@@ -192,6 +211,9 @@ test_that("generate_data works for exponential", {
       predicted_var[i,j] <- library_size_vec[i]/(nat_mat[i,j])^2
     }
   }
+
+  expect_true(sum(abs(empirical_mean - predicted_mean)) <= sum(abs(empirical_mean2 - predicted_mean)))
+  expect_true(sum(abs(empirical_var - predicted_var)) <= sum(abs(empirical_var2 - predicted_var)))
 
   # try many permutations
   error_vec <- c(sum(abs(empirical_mean - predicted_mean)/predicted_mean),
@@ -211,7 +233,7 @@ test_that("generate_data works for exponential", {
 ############
 
 test_that("generate_data works for negative binomial", {
-  trials <- 1000
+  trials <- 10000
   set.seed(123)
   n <- 8
   p <- 8
@@ -233,6 +255,9 @@ test_that("generate_data works for negative binomial", {
 
   empirical_mean <- apply(dat_array, c(2,3), mean)
   empirical_var <- apply(dat_array, c(2,3), stats::var)
+  empirical_mean2 <- apply(dat_array[1:100,,], c(2,3), mean)
+  empirical_var2 <- apply(dat_array[1:100,,], c(2,3), stats::var)
+
 
   predicted_mean <- matrix(0, nrow = n, ncol = p)
   predicted_var <- matrix(0, nrow = n, ncol = p)
@@ -242,6 +267,9 @@ test_that("generate_data works for negative binomial", {
       predicted_var[i,j] <- library_size_vec[i] * nuisance_param_vec[j] * exp(nat_mat[i,j])/(1-exp(nat_mat[i,j]))^2
     }
   }
+
+  expect_true(sum(abs(empirical_mean - predicted_mean)) <= sum(abs(empirical_mean2 - predicted_mean)))
+  expect_true(sum(abs(empirical_var - predicted_var)) <= sum(abs(empirical_var2 - predicted_var)))
 
   # try many permutations
   error_vec <- c(sum(abs(empirical_mean - predicted_mean)/predicted_mean),
