@@ -130,7 +130,7 @@ test_that("generate_data works for curved gaussian", {
   y_mat <- matrix(abs(rnorm(p * k)), nrow = p, ncol = k)
   nat_mat <- tcrossprod(x_mat, y_mat)
   library_size_vec <- 1:n
-  nuisance_param_vec <- 1:p
+  nuisance_param_vec <- seq(0.5, 4, length.out = p)
 
   ## Simulate data
   dat_array <- array(NA, dim = c(trials, n, p))
@@ -138,7 +138,7 @@ test_that("generate_data works for curved gaussian", {
     set.seed(i)
     dat_array[i,,] <- eSVD2::generate_data(
       nat_mat, family = "curved_gaussian", nuisance_param_vec = nuisance_param_vec,
-      library_size_vec = library_size_vec, tol = 1e-3
+      library_size_vec = library_size_vec, tol = NA
     )
   }
 
