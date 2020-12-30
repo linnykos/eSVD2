@@ -170,7 +170,7 @@ initialization_options <- function(init_method = "kmean_rows",
 #' @return a list of \code{x_mat} and \code{y_mat}
 .fix_rank_defficiency <- function(x_mat, y_mat, domain){
   k <- ncol(x_mat)
-  nat_mat <- x_mat %*% t(y_mat)
+  nat_mat <- tcrossprod(x_mat, y_mat)
   stopifnot(.check_domain(nat_mat, domain))
   k2 <- as.numeric(Matrix::rankMatrix(nat_mat))
 
