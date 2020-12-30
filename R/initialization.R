@@ -178,7 +178,7 @@ initialization_options <- function(init_method = "kmean_rows",
     stopifnot(k2 < k)
     sign_val <- ifelse(abs(domain[1]) < abs(domain[2]), 1, -1)
 
-    sd_val <- mean(c(apply(x_mat[,1:k2, drop = F], 2, stats::sd),apply(y_mat[,1:k2, drop = F], 2, stats::sd)))
+    sd_val <- mean(c(apply(x_mat[,1:k2, drop = F], 2, stats::sd), apply(y_mat[,1:k2, drop = F], 2, stats::sd)))
     for(i in (k2+1):k){
       x_mat[,i] <- abs(stats::rnorm(nrow(x_mat), sd = sd_val/10))
       y_mat[,i] <- sign_val*abs(stats::rnorm(nrow(y_mat), sd = sd_val/10))
@@ -186,7 +186,7 @@ initialization_options <- function(init_method = "kmean_rows",
   }
 
   # fix any remaining issue with lying within domain
-  nat_mat <- x_mat %*% t(y_mat)
+  nat_mat <- tcrossprod(x_mat, y_mat)
   mag <- max(abs(domain))
   if(max(abs(nat_mat)) > mag){
     nat_mat <- nat_mat * (mag/max(abs(nat_mat)))
