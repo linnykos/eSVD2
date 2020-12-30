@@ -112,8 +112,7 @@ initialization_options <- function(init_method = "kmean_rows",
   if(any(is.na(dat))){
     lambda0_val <- softImpute::lambda0(dat)
     res <- softImpute::softImpute(dat, rank.max = k, lambda = min(30, lambda0_val/100))
-    diag_mat <- .diag_matrix(res$d[1:k])
-    pred_naive <- res$u %*% diag_mat %*% t(res$v)
+    pred_naive <- tcrossprod(.mult_mat_vec(res$u, res$d), res$v)
     dat[which(is.na(dat))] <- pred_naive[which(is.na(dat))]
   }
 

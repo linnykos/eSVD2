@@ -1,12 +1,3 @@
-.diag_matrix <- function(vec){
- k <- length(vec)
- if(k == 1) {
-  matrix(vec, 1, 1)
- } else {
-  diag(vec)
- }
-}
-
 .intersect_intervals <- function(vec1, vec2){
   stopifnot(length(vec1) == 2, length(vec2) == 2, vec1[1] <= vec1[2], vec2[1] <= vec2[2])
 
