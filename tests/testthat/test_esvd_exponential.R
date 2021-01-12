@@ -1,8 +1,8 @@
 context("Test Exponential")
 
-## .evaluate_objective.neg_binom is correct
+## .evaluate_objective.exponential is correct
 
-test_that(".evaluate_objective.neg_binom works and is correct", {
+test_that(".evaluate_objective.exponential works and is correct", {
   set.seed(123)
   n <- 100
   p <- 150

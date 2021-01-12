@@ -112,8 +112,7 @@ initialization_options <- function(init_method = "kmean_rows",
   if(any(is.na(dat))){
     lambda0_val <- softImpute::lambda0(dat)
     res <- softImpute::softImpute(dat, rank.max = k, lambda = min(30, lambda0_val/100))
-    diag_mat <- .diag_matrix(res$d[1:k])
-    pred_naive <- res$u %*% diag_mat %*% t(res$v)
+    pred_naive <- tcrossprod(.mult_mat_vec(res$u, res$d), res$v)
     dat[which(is.na(dat))] <- pred_naive[which(is.na(dat))]
   }
 
@@ -171,7 +170,7 @@ initialization_options <- function(init_method = "kmean_rows",
 #' @return a list of \code{x_mat} and \code{y_mat}
 .fix_rank_defficiency <- function(x_mat, y_mat, domain){
   k <- ncol(x_mat)
-  nat_mat <- x_mat %*% t(y_mat)
+  nat_mat <- tcrossprod(x_mat, y_mat)
   stopifnot(.check_domain(nat_mat, domain))
   k2 <- as.numeric(Matrix::rankMatrix(nat_mat))
 
@@ -179,7 +178,7 @@ initialization_options <- function(init_method = "kmean_rows",
     stopifnot(k2 < k)
     sign_val <- ifelse(abs(domain[1]) < abs(domain[2]), 1, -1)
 
-    sd_val <- mean(c(apply(x_mat[,1:k2, drop = F], 2, stats::sd),apply(y_mat[,1:k2, drop = F], 2, stats::sd)))
+    sd_val <- mean(c(apply(x_mat[,1:k2, drop = F], 2, stats::sd), apply(y_mat[,1:k2, drop = F], 2, stats::sd)))
     for(i in (k2+1):k){
       x_mat[,i] <- abs(stats::rnorm(nrow(x_mat), sd = sd_val/10))
       y_mat[,i] <- sign_val*abs(stats::rnorm(nrow(y_mat), sd = sd_val/10))
@@ -187,7 +186,7 @@ initialization_options <- function(init_method = "kmean_rows",
   }
 
   # fix any remaining issue with lying within domain
-  nat_mat <- x_mat %*% t(y_mat)
+  nat_mat <- tcrossprod(x_mat, y_mat)
   mag <- max(abs(domain))
   if(max(abs(nat_mat)) > mag){
     nat_mat <- nat_mat * (mag/max(abs(nat_mat)))

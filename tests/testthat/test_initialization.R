@@ -193,3 +193,22 @@ test_that("initialize_esvd domain is not check for gaussian", {
 
   expect_error(initialize_esvd(dat, k = 2, family = "curved_gaussian"))
 })
+
+test_that("initialize_svd works for missing values", {
+  set.seed(123)
+  n <- 10; p <- 15; k <- 2
+  nuisance_param_vec <- runif(p, 0, 5)
+  u_mat <- matrix(rnorm(n * k), nrow = n, ncol = k)
+  v_mat <- matrix(rnorm(p * k), nrow = p, ncol = k)
+  nat_mat <- tcrossprod(u_mat, v_mat)
+  dat <- eSVD2::generate_data(
+    nat_mat, family = "gaussian", nuisance_param_vec = nuisance_param_vec,
+    library_size_vec = 1
+  )
+
+  res <- initialize_esvd(dat, k = k, family = "gaussian",
+                         nuisance_param_vec = nuisance_param_vec,
+                         library_size_vec = 1)
+
+  expect_true(is.list(res))
+})

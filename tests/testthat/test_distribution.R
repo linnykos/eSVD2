@@ -130,7 +130,7 @@ test_that(".compute_variance is correct for gaussian", {
     set.seed(i)
     dat_array[,,i] <- generate_data(nat_mat, family = "gaussian",
                                     nuisance_param_vec = nuisance_param_vec,
-                                    library_size_vec = library_size_vec)
+                                    library_size_vec = library_size_vec, tol = NA)
   }
 
   var_mat <- apply(dat_array, c(1,2), stats::var)
