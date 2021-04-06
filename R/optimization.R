@@ -76,7 +76,8 @@ opt_v_given_u <- function(y0, x_mat, dat, family_funcs, nuisance_param_vec,
 #' latent matrices
 #' @export
 opt_esvd <- function(x_init, y_init, dat, family, nuisance_param_vec = NA,
-                     library_size_vec = 1, max_iter = 100, verbose = 0, ...)
+                     library_size_vec = 1, max_iter = 100, tol = 1e-6,
+                     verbose = 0, ...)
 {
     stopifnot(nrow(x_init) == nrow(dat), nrow(y_init) == ncol(dat), ncol(x_init) == ncol(y_init))
     stopifnot(is.character(family), length(which(!is.na(dat))) > 0)
@@ -114,6 +115,12 @@ opt_esvd <- function(x_init, y_init, dat, family, nuisance_param_vec = NA,
             cat("========== eSVD Iter ", i, ", loss = ", loss, " ==========\n\n", sep = "")
         # Orthogonalize v
         # y_mat = sqrt(p) * svd(y_mat)$u
+
+        # Convergence test
+        resid <- abs(losses[i] - losses[i - 1])
+        thresh <- tol * max(1, abs(losses[i - 1]))
+        if(i >=2 && resid <= thresh)
+            break
     }
 
     list(x_mat = x_mat, y_mat = y_mat, loss = losses,
