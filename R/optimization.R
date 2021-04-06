@@ -1,7 +1,8 @@
 # Optimization for eSVD
 
 # Optimize u given v
-opt_u_given_v <- function(x0, y_mat, dat, family_funcs, nuisance_param_vec,
+opt_u_given_v <- function(x0, y_mat, dat, opt_fun,
+                          family_funcs, nuisance_param_vec,
                           library_size_vec, verbose = 0, ...)
 {
   n <- nrow(dat)
@@ -11,7 +12,7 @@ opt_u_given_v <- function(x0, y_mat, dat, family_funcs, nuisance_param_vec,
   {
     if(verbose >= 2)
       cat("===== Optimizing Row ", i, " of U =====\n", sep = "")
-    opt <- constr_newton(
+    opt <- opt_fun(
       x0[i, ], family_funcs$objfn, family_funcs$grad, family_funcs$hessian, family_funcs$feas,
       eps_rel = 1e-3, verbose = (verbose >= 3),
       other_mat = y_mat, dat_vec = dat[i, ],
@@ -26,7 +27,8 @@ opt_u_given_v <- function(x0, y_mat, dat, family_funcs, nuisance_param_vec,
 }
 
 # Optimize v given u
-opt_v_given_u <- function(y0, x_mat, dat, family_funcs, nuisance_param_vec,
+opt_v_given_u <- function(y0, x_mat, dat, opt_fun,
+                          family_funcs, nuisance_param_vec,
                           library_size_vec, verbose = 0, ...)
 {
   n <- nrow(dat)
@@ -36,7 +38,7 @@ opt_v_given_u <- function(y0, x_mat, dat, family_funcs, nuisance_param_vec,
   {
     if(verbose >= 2)
       cat("===== Optimizing Row ", j, " of V =====\n", sep = "")
-    opt <- constr_newton(
+    opt <- opt_fun(
       y0[j, ], family_funcs$objfn, family_funcs$grad, family_funcs$hessian, family_funcs$feas,
       eps_rel = 1e-3, verbose = (verbose >= 3),
       other_mat = x_mat, dat_vec = dat[, j],
@@ -62,6 +64,8 @@ opt_v_given_u <- function(y0, x_mat, dat, family_funcs, nuisance_param_vec,
 #' @param family A character string, one of \code{"gaussian"}, \code{"exponential"},
 #'               \code{"poisson"}, \code{"neg_binom"}, \code{"curved_gaussian"},
 #'               and \code{"bernoulli"}.
+#' @param method A character string indicating the optimization method,
+#'               either \code{"newton"} or \code{"lbfgs"}.
 #' @param nuisance_param_vec either \code{NA} or a single numeric or a length-\eqn{p}
 #' vector of numerics representing nuisance parameters (for \code{family = "neg_binom"} or
 #' \code{family = "curved_gausian"}).
@@ -75,12 +79,18 @@ opt_v_given_u <- function(y0, x_mat, dat, family_funcs, nuisance_param_vec,
 #' @return a list with elements \code{x_mat} and \code{y_mat} (and others), representing the two
 #' latent matrices
 #' @export
-opt_esvd <- function(x_init, y_init, dat, family, nuisance_param_vec = NA,
-                     library_size_vec = 1, max_iter = 100, tol = 1e-6,
+opt_esvd <- function(x_init, y_init, dat, family, method = c("newton", "lbfgs"),
+                     nuisance_param_vec = NA, library_size_vec = 1,
+                     max_iter = 100, tol = 1e-6,
                      verbose = 0, ...)
 {
-  stopifnot(nrow(x_init) == nrow(dat), nrow(y_init) == ncol(dat), ncol(x_init) == ncol(y_init))
-  stopifnot(is.character(family), length(which(!is.na(dat))) > 0)
+  stopifnot(
+    nrow(x_init) == nrow(dat),
+    nrow(y_init) == ncol(dat),
+    ncol(x_init) == ncol(y_init),
+    is.character(family),
+    length(which(!is.na(dat))) > 0
+  )
 
   n <- nrow(dat); p <- nrow(dat); k <- ncol(x_init)
   family_funcs <- .string_to_distr_funcs(family)
@@ -90,6 +100,9 @@ opt_esvd <- function(x_init, y_init, dat, family, nuisance_param_vec = NA,
     nuisance_param_vec <- rep(nuisance_param_vec[1], ncol(dat))
   }
 
+  method <- match.arg(method)
+  opt_fun <- if(method == "newton") constr_newton else constr_lbfgs
+
   x_mat <- x_init
   y_mat <- y_init
   losses <- c()
@@ -98,14 +111,14 @@ opt_esvd <- function(x_init, y_init, dat, family, nuisance_param_vec = NA,
     if(verbose >= 1)
       cat("========== eSVD Iter ", i, " ==========\n\n", sep = "")
     # Optimize u given v
-    x_mat <- opt_u_given_v(x_mat, y_mat, dat, family_funcs,
-                           nuisance_param_vec,
+    x_mat <- opt_u_given_v(x_mat, y_mat, dat, opt_fun,
+                           family_funcs, nuisance_param_vec,
                            library_size_vec, verbose, ...)
     # Orthogonalize u
     # x_mat = sqrt(n) * svd(x_mat)$u
     # Optimize v given u
-    y_mat <- opt_v_given_u(y_mat, x_mat, dat, family_funcs,
-                           nuisance_param_vec,
+    y_mat <- opt_v_given_u(y_mat, x_mat, dat, opt_fun,
+                           family_funcs, nuisance_param_vec,
                            library_size_vec, verbose, ...)
     # Loss function
     loss <- family_funcs$objfn_all(dat, x_mat, y_mat, nuisance_param_vec,
