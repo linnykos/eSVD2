@@ -51,10 +51,12 @@ line_search <- function(alpha0, x, fx, direction, f, feas,
     alpha <- alpha * scaling
   }
   # This function will early return if a proper step size is found
-  # Give an error if the function reaches here
-  stop("line search failed")
+  # If no suitable alpha is obtained, return the initial x
+  warning("line search failed, returning the initial x")
+  return(list(step = 0, newx = x, newfx = f))
 }
 
+# Constrained Newton method
 constr_newton <- function(x0, f, gr, hn, feas,
                           max_iter = 100, max_linesearch = 30,
                           eps_rel = 1e-5, verbose = FALSE, ...)
@@ -99,4 +101,19 @@ constr_newton <- function(x0, f, gr, hn, feas,
   list(x = x, fn = fx, grad = grad)
 }
 
-
+# Constrained L-BFGS method
+# The constraint is imposed by setting the objective function to infinity
+# outside the feasible set
+constr_lbfgs <- function(x0, f, gr, hn, feas,
+                         max_iter = 100, max_linesearch = 30,
+                         eps_rel = 1e-5, verbose = FALSE, ...)
+{
+  fn <- function(x, ...)
+  {
+    feasible <- feas(x, ...)
+    if(feasible) f(x, ...) else Inf
+  }
+  res <- optim(x0, fn, gr, ..., method = "L-BFGS-B",
+               control = list(maxit = max_iter, factr = eps_rel, pgtol = eps_rel))
+  list(x = res$par, fn = res$value, grad = NULL)
+}
