@@ -50,8 +50,11 @@ initialize_nuisance_param <- function(dat, init_nat_mat, family,
   })
 
   if(family == "neg_binom") param_vec <- 1/param_vec else param_vec <- 1/sqrt(param_vec)
+
   param_vec
 }
+
+#########################
 
 .root_curved_gaussian_closure <- function(empirical_var_vec, theoretical_mean_vec, library_size_vec){
   function(x){
