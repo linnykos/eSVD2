@@ -9,9 +9,11 @@ opt_esvd(
   y_init,
   dat,
   family,
+  method = c("newton", "lbfgs"),
   nuisance_param_vec = NA,
   library_size_vec = 1,
   max_iter = 100,
+  tol = 1e-06,
   verbose = 0,
   ...
 )
@@ -29,6 +31,9 @@ embedding for the \eqn{p} genes}
 \code{"poisson"}, \code{"neg_binom"}, \code{"curved_gaussian"},
 and \code{"bernoulli"}.}
 
+\item{method}{A character string indicating the optimization method,
+either \code{"newton"} or \code{"lbfgs"}.}
+
 \item{nuisance_param_vec}{either \code{NA} or a single numeric or a length-\eqn{p}
 vector of numerics representing nuisance parameters (for \code{family = "neg_binom"} or
 \code{family = "curved_gausian"}).}
@@ -39,7 +44,9 @@ If \code{NA}, the library size will be estimated.}
 
 \item{max_iter}{positive integer}
 
-\item{verbose}{no-negtaive integer}
+\item{tol}{small positive number}
+
+\item{verbose}{non-negative integer}
 
 \item{...}{additional parameters, not used}
 }

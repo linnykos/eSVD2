@@ -113,7 +113,7 @@ constr_lbfgs <- function(x0, f, gr, hn, feas,
     feasible <- feas(x, ...)
     if(feasible) f(x, ...) else Inf
   }
-  res <- optim(x0, fn, gr, ..., method = "L-BFGS-B",
+  res <- stats::optim(x0, fn, gr, ..., method = "L-BFGS-B",
                control = list(maxit = max_iter, factr = eps_rel, pgtol = eps_rel))
   list(x = res$par, fn = res$value, grad = NULL)
 }

@@ -73,7 +73,8 @@ opt_v_given_u <- function(y0, x_mat, dat, opt_fun,
 #' a length-\eqn{n} vector of numerics.
 #' If \code{NA}, the library size will be estimated.
 #' @param max_iter positive integer
-#' @param verbose no-negtaive integer
+#' @param tol small positive number
+#' @param verbose non-negative integer
 #' @param ... additional parameters, not used
 #'
 #' @return a list with elements \code{x_mat} and \code{y_mat} (and others), representing the two
