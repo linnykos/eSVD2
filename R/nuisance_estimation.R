@@ -8,12 +8,13 @@
 #' @param library_size_vec either \code{NA} or a single numeric (default is \code{1}) or
 #' a length-\eqn{n} vector of numerics.
 #' If \code{NA}, the library size will be estimated.
+#' @param apply_smoothing boolean
 #'
 #' @return vector of length \eqn{p}, representing the nuisance parameters, one for each
 #' of the \eqn{p} genes
 #' @export
 initialize_nuisance_param <- function(dat, init_nat_mat, family,
-                                      library_size_vec){
+                                      library_size_vec, apply_smoothing = T){
   stopifnot(all(dim(dat) == dim(init_nat_mat)), all(dat >= 0))
   stopifnot((family == "curved_gaussian" && all(init_nat_mat < 0)) ||
               (family == "neg_binom"))
@@ -50,8 +51,16 @@ initialize_nuisance_param <- function(dat, init_nat_mat, family,
   })
 
   if(family == "neg_binom") param_vec <- 1/param_vec else param_vec <- 1/sqrt(param_vec)
-  param_vec
+
+  if(apply_smoothing){
+    x_vec <- rowSums(log(dat+1))/nrow(dat)
+    .monotone_spline(x_vec, param_vec)
+  } else {
+    param_vec
+  }
 }
+
+#########################
 
 .root_curved_gaussian_closure <- function(empirical_var_vec, theoretical_mean_vec, library_size_vec){
   function(x){
@@ -64,4 +73,15 @@ initialize_nuisance_param <- function(dat, init_nat_mat, family,
     sum((empirical_var_vec - theoretical_mean_vec * (1 + x*theoretical_mean_vec/library_size_vec)) /
           2*library_size_vec*(1 + x*theoretical_mean_vec/library_size_vec)^2)
   }
+}
+
+.monotone_spline <- function(x_vec, y_vec){
+  bandwidth <- stats::bw.SJ(x_vec)
+
+  reg_res <- monreg::monreg(x_vec, y_vec, hd = bandwidth, hr = bandwidth)
+  pred_vec <- sapply(x_vec, function(x){
+    reg_res$estimation[which.min(abs(x - reg_res$t))]
+  })
+
+  pred_vec
 }
