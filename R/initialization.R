@@ -31,6 +31,7 @@ initialize_esvd <- function(dat, k, family, nuisance_param_vec = NA, library_siz
   rescaled_dat <- t(sapply(1:nrow(dat), function(i){dat[i,]/library_size_vec[i]}))
 
   # determine initial matrix taking into account to missing values and library size
+  # [note to self: this probably could be something a lot simpler]
   rescaled_dat <- .matrix_completion(rescaled_dat, k = k)
   init_res <- .determine_initial_matrix(rescaled_dat, k = k, family = family,
                                         nuisance_param_vec = nuisance_param_vec,
