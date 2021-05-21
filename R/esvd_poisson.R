@@ -141,19 +141,19 @@
   -exp(log(s) + thetaj)
 }
 
-# Feasibility of the i-th row of X
-.feas_row.poisson <- function(Xi, Y, ci)
+# Feasibility of the natural parameter
+.feasibli.poisson <- function(Xi, Y, ci)
 {
   TRUE
 }
 
 # Feasibility of the j-th row of Y
-.feas_col.poisson <- function(X, Yj, cj)
+.feasibility.poisson <- function(theta)
 {
   TRUE
 }
 
-.esvd.poisson <-structure(
+.esvd.poisson <- structure(
   list(
     log_prob       = .log_prob.poisson,
     log_prob_row   = .log_prob_row.poisson,
@@ -162,8 +162,7 @@
     dlog_prob_col  = .dlog_prob_col.poisson,
     d2log_prob_row = .d2log_prob_row.poisson,
     d2log_prob_col = .d2log_prob_col.poisson,
-    feas_row       = .feas_row.poisson,
-    feas_col       = .feas_col.poisson,
+    feasibility    = .feasibility.poisson,
     feas_always    = TRUE
   ),
   class = "esvd_family"

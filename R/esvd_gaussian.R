@@ -167,19 +167,13 @@
   -s / gammaj^2
 }
 
-# Feasibility of the i-th row of X
-.feas_row.gaussian <- function(Xi, Y, ci)
+# Feasibility of the natural parameter
+.feasibility.gaussian <- function(theta)
 {
   TRUE
 }
 
-# Feasibility of the j-th row of Y
-.feas_col.gaussian <- function(X, Yj, cj)
-{
-  TRUE
-}
-
-.esvd.gaussian <-structure(
+.esvd.gaussian <- structure(
   list(
     log_prob       = .log_prob.gaussian,
     log_prob_row   = .log_prob_row.gaussian,
@@ -188,8 +182,7 @@
     dlog_prob_col  = .dlog_prob_col.gaussian,
     d2log_prob_row = .d2log_prob_row.gaussian,
     d2log_prob_col = .d2log_prob_col.gaussian,
-    feas_row       = .feas_row.gaussian,
-    feas_col       = .feas_col.gaussian,
+    feasibility    = .feasibility.gaussian,
     feas_always    = TRUE
   ),
   class = "esvd_family"

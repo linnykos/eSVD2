@@ -112,21 +112,23 @@ hessian_Yj <- function(Yj, X, Bj, Z, Aj, family, s, gammaj, ...)
 }
 
 # Feasibility of the i-th row of X
+# thetai = Xi * Y' + Zi * B'
 feas_Xi <- function(Xi, Y, B, Zi, family, ...)
 {
   if(family$feas_always)
     return(TRUE)
 
-  ci <- if(is.null(Zi)) NULL else drop(B %*% Zi)
-  family$feas_row(Xi, Y, ci)
+  thetai <- drop(cbind(Y, B) %*% c(Xi, Zi))
+  family$feasibility(thetai)
 }
 
 # Feasibility of the j-th row of Y
+# thetaj = X * Yj' + Z * Bj'
 feas_Yj <- function(Yj, X, Bj, Z, family, ...)
 {
   if(family$feas_always)
     return(TRUE)
 
-  cj <- if(is.null(Z)) NULL else drop(Z %*% Bj)
-  family$feas_col(X, Yj, cj)
+  thetaj <- drop(cbind(X, Z) %*% c(Yj, Bj))
+  family$feasibility(thetaj)
 }
