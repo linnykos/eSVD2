@@ -146,25 +146,25 @@
 # 1st derivative of log-density w.r.t. the i-th row of theta [p x 1]
 .dlog_prob_row.gaussian <- function(Ai, thetai, si, gamma)
 {
-  (si * thetai - Ai) / gamma^2
+  -(si * thetai - Ai) / gamma^2
 }
 
 # 1st derivative of log-density w.r.t. the j-th column of theta [n x 1]
 .dlog_prob_col.gaussian <- function(Aj, thetaj, s, gammaj)
 {
-  (s * thetaj - Aj) / gammaj^2
+  -(s * thetaj - Aj) / gammaj^2
 }
 
 # 2nd derivative of log-density w.r.t. the i-th row of theta [p x 1]
 .d2log_prob_row.gaussian <- function(Ai, thetai, si, gamma)
 {
-  si / gamma^2
+  -si / gamma^2
 }
 
 # 2nd derivative of log-density w.r.t. the j-th column of theta [n x 1]
 .d2log_prob_col.gaussian <- function(Aj, thetaj, s, gammaj)
 {
-  s / gammaj^2
+  -s / gammaj^2
 }
 
 # Feasibility of the i-th row of X
