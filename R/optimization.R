@@ -54,9 +54,9 @@ opt_yb <- function(YB0, X, Z, A, family, s, gamma, opt_fun, verbose = 0, ...)
 
 #' Main optimization function for eSVD
 #'
-#' @param x_init             initial estimate of a \eqn{n \times k} matrix for the \eqn{k}-dimensional
+#' @param x_init             initial estimate of a \eqn{n \times k}{n × k} matrix for the \eqn{k}-dimensional
 #'                           embedding for the \eqn{n} cells
-#' @param y_init             initial estimate of a \eqn{p \times k} matrix for the \eqn{k}-dimensional
+#' @param y_init             initial estimate of a \eqn{p \times k}{p × k} matrix for the \eqn{k}-dimensional
 #'                           embedding for the \eqn{p} genes
 #' @param dat                dataset where the \eqn{n} rows represent cells and \eqn{p} columns represent genes
 #' @param family             a character string, one of \code{"gaussian"}, \code{"exponential"},
@@ -64,7 +64,7 @@ opt_yb <- function(YB0, X, Z, A, family, s, gamma, opt_fun, verbose = 0, ...)
 #'                           and \code{"bernoulli"}
 #' @param method             a character string indicating the optimization method,
 #'                           either \code{"newton"} or \code{"lbfgs"}
-#' @param covariates         an \eqn{n \times d} matrix representing the additional \eqn{d} covariates,
+#' @param covariates         an \eqn{n \times d}{n × d} matrix representing the additional \eqn{d} covariates,
 #'                           or \code{NULL} if no covariate is given
 #' @param nuisance_param_vec either \code{NA} or a single numeric or a length-\eqn{p}
 #'                           vector of numerics representing nuisance parameters (for \code{family = "neg_binom"}
@@ -76,8 +76,8 @@ opt_yb <- function(YB0, X, Z, A, family, s, gamma, opt_fun, verbose = 0, ...)
 #' @param verbose            a non-negative integer to indicate the verbosity of messages
 #' @param ...                additional parameters, currently not used
 #'
-#' @return a list with elements \code{x_mat} and \code{y_mat} (and others), representing the two
-#'         latent matrices
+#' @return A list with elements \code{x_mat} and \code{y_mat} (and others), representing the two
+#'         latent matrices.
 #' @export
 opt_esvd <- function(x_init, y_init, dat, family = "gaussian", method = c("newton", "lbfgs"),
                      covariates = NULL, nuisance_param_vec = NA, library_size_vec = 1,
