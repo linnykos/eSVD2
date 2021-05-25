@@ -95,7 +95,6 @@ opt_esvd <- function(x_init, y_init, dat, family = "gaussian", method = c("newto
     sum(!is.na(dat)) > 0
   )
 
-  # FIXME: here we use Poisson for testing
   family <- .string_to_distr_funcs(family)
   library_size_vec <- .parse_library_size(dat, library_size_vec)
   if(all(!is.na(nuisance_param_vec)) && length(nuisance_param_vec) == 1) {
@@ -137,8 +136,8 @@ opt_esvd <- function(x_init, y_init, dat, family = "gaussian", method = c("newto
       y_mat <- yb_mat
       b_mat <- NULL
     } else {
-      y_mat <- yb_mat[, 1:k]
-      b_mat <- yb_mat[, -(1:k)]
+      y_mat <- yb_mat[, 1:k, drop = FALSE]
+      b_mat <- yb_mat[, -(1:k), drop = FALSE]
     }
 
     # Loss function
