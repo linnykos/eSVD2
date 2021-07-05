@@ -19,8 +19,10 @@ test_that(".matrix_completion works", {
 test_that(".determine_initial_matrix works", {
  set.seed(10)
  dat <- matrix(1:40, nrow = 10, ncol = 4)
+ family <- "poisson"
+ family <- .string_to_distr_funcs(family)
 
- res <- .determine_initial_matrix(dat, family = "poisson")
+ res <- .determine_initial_matrix(dat, k = 2, family, nuisance_param_vec = NA)
 
  expect_true(all(sort(names(res)) == sort(c("nat_mat", "domain"))))
  expect_true(length(res$domain) == 2)
@@ -32,9 +34,12 @@ test_that(".determine_initial_matrix works", {
 test_that(".determine_initial_matrix respects max_val", {
  set.seed(10)
  dat <- matrix(1:40, nrow = 10, ncol = 4)
+ family <- "poisson"
+ family <- .string_to_distr_funcs(family)
 
  max_val <- 2
- res <- .determine_initial_matrix(dat, family = "poisson", max_val = max_val)
+ res <- .determine_initial_matrix(dat, k = 2, family, nuisance_param_vec = NA,
+                                  max_val = max_val)
 
  expect_true(all(res$nat_mat >= 0))
  expect_true(all(res$nat_mat <= max_val))
@@ -86,24 +91,26 @@ test_that("initialize_esvd works", {
 
  expect_true(is.list(res))
  expect_true(class(res) == "eSVD")
- expect_true(all(sort(names(res)) == sort(c("x_mat", "y_mat", "domain", "library_size_vec", "nuisance_param_vec"))))
+ expect_true(all(sort(names(res)) == sort(c("x_mat", "y_mat", "domain",
+                                            "library_size_vec",
+                                            "nuisance_param_vec", "b_mat"))))
  expect_true(all(dim(res$x_mat) == c(nrow(dat), 2)))
  expect_true(all(dim(res$y_mat) == c(ncol(dat), 2)))
 })
 
-test_that("initialize_esvd works for gaussian with library size", {
-  set.seed(5)
-  canon_vec <- seq(10, 50, length.out = 5)
-  nat_mat <- sapply(canon_vec, function(x){rep(x, 1000)})
-  dat <- generate_data(nat_mat, family = "gaussian", nuisance_param_vec = 1)
-
-  res <- initialize_esvd(dat, k = 2, family = "gaussian", library_size_vec = NA)
-
-  expect_true(class(res) == "eSVD")
-  expect_true(length(res$library_size_vec) == nrow(dat))
-  expect_true(all(dim(res$x_mat) == c(nrow(dat), 2)))
-  expect_true(all(dim(res$y_mat) == c(ncol(dat), 2)))
-})
+# test_that("initialize_esvd works for gaussian with library size", {
+#   set.seed(5)
+#   canon_vec <- seq(10, 50, length.out = 5)
+#   nat_mat <- sapply(canon_vec, function(x){rep(x, 1000)})
+#   dat <- generate_data(nat_mat, family = "gaussian", nuisance_param_vec = 1)
+#
+#   res <- initialize_esvd(dat, k = 2, family = "gaussian", library_size_vec = NA)
+#
+#   expect_true(class(res) == "eSVD")
+#   expect_true(length(res$library_size_vec) == nrow(dat))
+#   expect_true(all(dim(res$x_mat) == c(nrow(dat), 2)))
+#   expect_true(all(dim(res$y_mat) == c(ncol(dat), 2)))
+# })
 
 test_that("initialize_esvd works for poisson with library size", {
   set.seed(5)
@@ -119,35 +126,35 @@ test_that("initialize_esvd works for poisson with library size", {
   expect_true(all(dim(res$y_mat) == c(ncol(dat), 2)))
 })
 
-test_that("initialize_esvd works for curved_gaussian with library size", {
-  set.seed(5)
-  canon_vec <- seq(10, 50, length.out = 5)
-  nat_mat <- sapply(1/canon_vec, function(x){rep(x, 1000)})
-  dat <- generate_data(nat_mat, family = "curved_gaussian", nuisance_param_vec = 2)
+# test_that("initialize_esvd works for curved_gaussian with library size", {
+#   set.seed(5)
+#   canon_vec <- seq(10, 50, length.out = 5)
+#   nat_mat <- sapply(1/canon_vec, function(x){rep(x, 1000)})
+#   dat <- generate_data(nat_mat, family = "curved_gaussian", nuisance_param_vec = 2)
+#
+#   res <- initialize_esvd(dat, k = 2, family = "curved_gaussian", library_size_vec = NA,
+#                          nuisance_param_vec = 2)
+#
+#   expect_true(class(res) == "eSVD")
+#   expect_true(length(res$library_size_vec) == nrow(dat))
+#   expect_true(all(dim(res$x_mat) == c(nrow(dat), 2)))
+#   expect_true(all(dim(res$y_mat) == c(ncol(dat), 2)))
+# })
 
-  res <- initialize_esvd(dat, k = 2, family = "curved_gaussian", library_size_vec = NA,
-                         nuisance_param_vec = 2)
-
-  expect_true(class(res) == "eSVD")
-  expect_true(length(res$library_size_vec) == nrow(dat))
-  expect_true(all(dim(res$x_mat) == c(nrow(dat), 2)))
-  expect_true(all(dim(res$y_mat) == c(ncol(dat), 2)))
-})
-
-test_that("initialize_esvd works for exponential with library size", {
-  set.seed(5)
-  canon_vec <- seq(10, 50, length.out = 5)
-  nat_mat <- sapply(-1/canon_vec, function(x){rep(x, 2000)})
-  dat <- generate_data(nat_mat, family = "exponential")
-
-  res <- initialize_esvd(dat, k = 2, family = "exponential", library_size_vec = NA,
-                         nuisance_param_vec = NA)
-
-  expect_true(class(res) == "eSVD")
-  expect_true(length(res$library_size_vec) == nrow(dat))
-  expect_true(all(dim(res$x_mat) == c(nrow(dat), 2)))
-  expect_true(all(dim(res$y_mat) == c(ncol(dat), 2)))
-})
+# test_that("initialize_esvd works for exponential with library size", {
+#   set.seed(5)
+#   canon_vec <- seq(10, 50, length.out = 5)
+#   nat_mat <- sapply(-1/canon_vec, function(x){rep(x, 2000)})
+#   dat <- generate_data(nat_mat, family = "exponential")
+#
+#   res <- initialize_esvd(dat, k = 2, family = "exponential", library_size_vec = NA,
+#                          nuisance_param_vec = NA)
+#
+#   expect_true(class(res) == "eSVD")
+#   expect_true(length(res$library_size_vec) == nrow(dat))
+#   expect_true(all(dim(res$x_mat) == c(nrow(dat), 2)))
+#   expect_true(all(dim(res$y_mat) == c(ncol(dat), 2)))
+# })
 
 test_that("initialize_esvd works for negative binomial with library size", {
   set.seed(5)
@@ -177,22 +184,23 @@ test_that("initialize_esvd does not suffer from a strange numeric issue with dom
                                     config = eSVD2::initialization_options())
 
  nat_mat <- init_res$x_mat %*% t(init_res$y_mat)
- expect_true(.check_domain(nat_mat, init_res$domain))
+ expect_true(all(nat_mat >= init_res$domain[1]))
+ expect_true(all(nat_mat <= init_res$domain[2]))
 
  ## this is what happens when you don't use .check_domain
  # expect_true(min(nat_mat) >= init_res$domain[1])
 })
 
-test_that("initialize_esvd domain is not check for gaussian", {
-  set.seed(10)
-  dat <- matrix(stats::rnorm(1:40/10), nrow = 10, ncol = 4)
-  expect_true(min(dat) < 0)
-
-  res <- initialize_esvd(dat, k = 2, family = "gaussian", library_size_vec = 1)
-  expect_true(class(res) == "eSVD")
-
-  expect_error(initialize_esvd(dat, k = 2, family = "curved_gaussian"))
-})
+# test_that("initialize_esvd domain is not check for gaussian", {
+#   set.seed(10)
+#   dat <- matrix(stats::rnorm(1:40/10), nrow = 10, ncol = 4)
+#   expect_true(min(dat) < 0)
+#
+#   res <- initialize_esvd(dat, k = 2, family = "gaussian", library_size_vec = 1)
+#   expect_true(class(res) == "eSVD")
+#
+#   expect_error(initialize_esvd(dat, k = 2, family = "curved_gaussian"))
+# })
 
 test_that("initialize_svd works for missing values", {
   set.seed(123)
@@ -202,11 +210,12 @@ test_that("initialize_svd works for missing values", {
   v_mat <- matrix(rnorm(p * k), nrow = p, ncol = k)
   nat_mat <- tcrossprod(u_mat, v_mat)
   dat <- eSVD2::generate_data(
-    nat_mat, family = "gaussian", nuisance_param_vec = nuisance_param_vec,
+    nat_mat, family = "poisson", nuisance_param_vec = nuisance_param_vec,
     library_size_vec = 1
   )
+  dat[sample(1:prod(dim(dat)), 5)] <- NA
 
-  res <- initialize_esvd(dat, k = k, family = "gaussian",
+  res <- initialize_esvd(dat, k = k, family = "poisson",
                          nuisance_param_vec = nuisance_param_vec,
                          library_size_vec = 1)
 

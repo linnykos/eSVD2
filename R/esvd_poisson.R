@@ -142,12 +142,12 @@
 }
 
 # Feasibility of the natural parameter
-.feasibli.poisson <- function(Xi, Y, ci)
-{
-  TRUE
-}
+# .feasibli.poisson <- function(Xi, Y, ci)
+# {
+#   TRUE
+# }
 
-# Feasibility of the j-th row of Y
+# Feasibility of the natural parameter
 .feasibility.poisson <- function(theta)
 {
   TRUE
@@ -162,15 +162,12 @@
   res
 }
 .nat_to_canon.poisson <- function(theta){
-  exp(nat_mat)
-}
-
-.domain.poisson <- function(){
-  c(-Inf, Inf)
+  exp(theta)
 }
 
 .esvd.poisson <- structure(
   list(
+    name           = "poisson",
     log_prob       = .log_prob.poisson,
     log_prob_row   = .log_prob_row.poisson,
     log_prob_col   = .log_prob_col.poisson,
@@ -180,7 +177,7 @@
     d2log_prob_col = .d2log_prob_col.poisson,
     feasibility    = .feasibility.poisson,
     feas_always    = TRUE,
-    domain         = .domain.poisson,
+    domain         = c(-Inf, Inf),
     dat_to_nat     = .dat_to_nat.poisson,
     nat_to_canon   = .nat_to_canon.poisson
   ),

@@ -194,15 +194,12 @@
 }
 
 .nat_to_canon.neg_binom <- function(theta){
-  exp(nat_mat)
-}
-
-.domain.neg_binom <- function(){
-  c(-Inf, 0)
+  exp(theta)
 }
 
 .esvd.neg_binom <- structure(
   list(
+    name           = "neg_binom",
     log_prob       = .log_prob.neg_binom,
     log_prob_row   = .log_prob_row.neg_binom,
     log_prob_col   = .log_prob_col.neg_binom,
@@ -212,7 +209,7 @@
     d2log_prob_col = .d2log_prob_col.neg_binom,
     feasibility    = .feasibility.neg_binom,
     feas_always    = FALSE,
-    domain         = .domain.neg_binom,
+    domain         = c(-Inf, 0),
     dat_to_nat     = .dat_to_nat.neg_binom,
     nat_to_canon   = .nat_to_canon.neg_binom
   ),

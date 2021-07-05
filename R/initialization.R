@@ -134,7 +134,7 @@ initialization_options <- function(init_method = "kmean_rows",
   domain <- family$domain
   if(!is.na(max_val)) domain <- .intersect_intervals(domain, c(-max_val, max_val))
 
-  if(family != "bernoulli") dat[which(dat <= tol)] <- tol/2
+  if(family$name != "bernoulli") dat[which(dat <= tol)] <- tol/2
   nat_mat <- family$dat_to_nat(dat, gamma = nuisance_param_vec)
   nat_mat <- pmax(nat_mat, domain[1])
   nat_mat <- pmin(nat_mat, domain[2])
@@ -181,7 +181,7 @@ initialization_options <- function(init_method = "kmean_rows",
 .fix_rank_defficiency <- function(x_mat, y_mat, domain){
   k <- ncol(x_mat)
   nat_mat <- tcrossprod(x_mat, y_mat)
-  stopifnot(.check_domain(nat_mat, domain))
+  stopifnot(all(nat_mat >= domain[1]), all(nat_mat <= domain[2]))
   k2 <- as.numeric(Matrix::rankMatrix(nat_mat))
 
   if(k != k2){
