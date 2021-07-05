@@ -94,3 +94,76 @@
   ),
   class = "esvd_family"
 )
+
+
+
+# See eSVD2_writing/writeup/Writeup4
+#
+# Log-density for the whole data matrix [n x p]
+.log_prob.poisson <- function(A, theta, s, gamma)
+{
+  A * theta - exp(log(s) + theta)
+}
+
+# Log-density for the i-th row of the data matrix [p x 1]
+.log_prob_row.poisson <- function(Ai, thetai, si, gamma)
+{
+  Ai * thetai - exp(log(si) + thetai)
+}
+
+# Log-density for the j-th column of the data matrix [n x 1]
+.log_prob_col.poisson <- function(Aj, thetaj, s, gammaj)
+{
+  Aj * thetaj - exp(log(s) + thetaj)
+}
+
+# 1st derivative of log-density w.r.t. the i-th row of theta [p x 1]
+.dlog_prob_row.poisson <- function(Ai, thetai, si, gamma)
+{
+  Ai - exp(log(si) + thetai)
+}
+
+# 1st derivative of log-density w.r.t. the j-th column of theta [n x 1]
+.dlog_prob_col.poisson <- function(Aj, thetaj, s, gammaj)
+{
+  Aj - exp(log(s) + thetaj)
+}
+
+# 2nd derivative of log-density w.r.t. the i-th row of theta [p x 1]
+.d2log_prob_row.poisson <- function(Ai, thetai, si, gamma)
+{
+  -exp(log(si) + thetai)
+}
+
+# 2nd derivative of log-density w.r.t. the j-th column of theta [n x 1]
+.d2log_prob_col.poisson <- function(Aj, thetaj, s, gammaj)
+{
+  -exp(log(s) + thetaj)
+}
+
+# Feasibility of the natural parameter
+.feasibli.poisson <- function(Xi, Y, ci)
+{
+  TRUE
+}
+
+# Feasibility of the j-th row of Y
+.feasibility.poisson <- function(theta)
+{
+  TRUE
+}
+
+.esvd.poisson <- structure(
+  list(
+    log_prob       = .log_prob.poisson,
+    log_prob_row   = .log_prob_row.poisson,
+    log_prob_col   = .log_prob_col.poisson,
+    dlog_prob_row  = .dlog_prob_row.poisson,
+    dlog_prob_col  = .dlog_prob_col.poisson,
+    d2log_prob_row = .d2log_prob_row.poisson,
+    d2log_prob_col = .d2log_prob_col.poisson,
+    feasibility    = .feasibility.poisson,
+    feas_always    = TRUE
+  ),
+  class = "esvd_family"
+)
