@@ -159,37 +159,37 @@ compute_mean <- function(nat_mat, family, nuisance_param_vec = NA,
 
 # observed-value -> natural parameter (for initialization)
 
-.mean_transformation <- function(dat, family, tol = 1e-3, ...){
-  if(family == "exponential"){
-    dat <- -1/(dat+1)
-  } else if(family == "curved_gaussian"){
-    dat <- 1/(dat+1)
-  } else if(family == "poisson"){
-    dat <- log(dat + tol)
-  } else if(family == "neg_binom"){
-    dat <- .mean_transformation_neg_binom(dat, tol, ...)
-  } else if(family == "bernoulli"){
-    stopifnot(all(dat[!is.na(dat)] %in% c(0,1)))
-    dat[dat == 0] <- -1
-  } else if(family != "gaussian") {
-    stop("family not found")
-  }
+# .mean_transformation <- function(dat, family, tol = 1e-3, ...){
+#   if(family == "exponential"){
+#     dat <- -1/(dat+1)
+#   } else if(family == "curved_gaussian"){
+#     dat <- 1/(dat+1)
+#   } else if(family == "poisson"){
+#     dat <- log(dat + tol)
+#   } else if(family == "neg_binom"){
+#     dat <- .mean_transformation_neg_binom(dat, tol, ...)
+#   } else if(family == "bernoulli"){
+#     stopifnot(all(dat[!is.na(dat)] %in% c(0,1)))
+#     dat[dat == 0] <- -1
+#   } else if(family != "gaussian") {
+#     stop("family not found")
+#   }
+#
+#   dat
+# }
 
-  dat
-}
-
-.mean_transformation_neg_binom <- function(dat, tol, nuisance_param_vec = NA, ...){
- if(any(is.na(nuisance_param_vec))) stop("No argument nuisance_param_vec provided for negative binomial")
- stopifnot(length(nuisance_param_vec) == ncol(dat))
-
- res <- sapply(1:ncol(dat), function(i){(dat[,i] + tol)/nuisance_param_vec[i]})
- res <- log(res/(1+res))
-
- colnames(res) <- colnames(dat)
- rownames(res) <- rownames(dat)
-
- res
-}
+# .mean_transformation_neg_binom <- function(dat, tol, nuisance_param_vec = NA, ...){
+#  if(any(is.na(nuisance_param_vec))) stop("No argument nuisance_param_vec provided for negative binomial")
+#  stopifnot(length(nuisance_param_vec) == ncol(dat))
+#
+#  res <- sapply(1:ncol(dat), function(i){(dat[,i] + tol)/nuisance_param_vec[i]})
+#  res <- log(res/(1+res))
+#
+#  colnames(res) <- colnames(dat)
+#  rownames(res) <- rownames(dat)
+#
+#  res
+# }
 
 .string_to_distr_funcs <- function(family)
 {

@@ -17,7 +17,8 @@
 #' @return a list with elements \code{x_mat} and \code{y_mat} (and others), representing the two
 #' latent matrices
 #' @export
-initialize_esvd <- function(dat, k, family, nuisance_param_vec = NA, library_size_vec = 1,
+initialize_esvd <- function(dat, k, family, covariates = NULL,
+                            nuisance_param_vec = NA, library_size_vec = 1,
                             config = initialization_options(), verbose = 0){
   stopifnot(is.character(family))
   if(family != "gaussian") stopifnot(all(dat[!is.na(dat)] >= 0))
@@ -26,9 +27,17 @@ initialize_esvd <- function(dat, k, family, nuisance_param_vec = NA, library_siz
   }
 
   # estimate library sizes if asked
+  family <- .string_to_distr_funcs(family)
   library_size_vec <- .parse_library_size(dat, library_size_vec = library_size_vec)
-
   rescaled_dat <- t(sapply(1:nrow(dat), function(i){dat[i,]/library_size_vec[i]}))
+
+  if(all(is.null(covariates)))
+  {
+    b_mat <- NULL
+  } else {
+    r <- ncol(covariates)
+    # do regression
+  }
 
   # determine initial matrix taking into account to missing values and library size
   # [note to self: this probably could be something a lot simpler]

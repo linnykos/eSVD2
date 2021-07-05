@@ -80,7 +80,7 @@ opt_yb <- function(YB0, X, Z, A, family, s, gamma, opt_fun, verbose = 0, ...)
 #'         latent matrices.
 #' @export
 opt_esvd <- function(x_init, y_init, dat, family = "gaussian", method = c("newton", "lbfgs"),
-                     covariates = NULL, nuisance_param_vec = NA, library_size_vec = 1,
+                     b_init = NULL, covariates = NULL, nuisance_param_vec = NA, library_size_vec = 1,
                      max_iter = 100, tol = 1e-6,
                      verbose = 0, ...)
 {
@@ -104,12 +104,15 @@ opt_esvd <- function(x_init, y_init, dat, family = "gaussian", method = c("newto
   method <- match.arg(method)
   opt_fun <- if(method == "newton") constr_newton else constr_lbfgs
 
-  if(is.null(covariates))
+  if(all(is.null(covariates)))
   {
     b_mat <- NULL
   } else {
-    r <- ncol(covariates)
-    b_mat <- matrix(0, p, r)
+    if(all(is.null(b_init)))
+    {
+      r <- ncol(covariates)
+      b_mat <- matrix(0, p, r)
+    }
   }
   x_mat <- x_init
   y_mat <- y_init
