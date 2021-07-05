@@ -23,7 +23,7 @@ test_that("opt_esvd works for gaussian", {
                   max_iter = 15, verbose = 0)
 
   expect_true(is.list(res))
-  expect_true(all(sort(names(res)) == sort(c("x_mat", "y_mat", "loss",
+  expect_true(all(sort(names(res)) == sort(c("x_mat", "y_mat", "b_mat", "loss",
                                              "nuisance_param_vec", "library_size_vec"))))
 })
 
@@ -50,7 +50,7 @@ test_that("opt_esvd works for poisson", {
                   max_iter = 15, verbose = 0)
 
   expect_true(is.list(res))
-  expect_true(all(sort(names(res)) == sort(c("x_mat", "y_mat", "loss",
+  expect_true(all(sort(names(res)) == sort(c("x_mat", "y_mat", "b_mat", "loss",
                                              "nuisance_param_vec", "library_size_vec"))))
 })
 
@@ -77,7 +77,7 @@ test_that("opt_esvd works for negative binomial", {
                   max_iter = 15, verbose = 0)
 
   expect_true(is.list(res))
-  expect_true(all(sort(names(res)) == sort(c("x_mat", "y_mat", "loss",
+  expect_true(all(sort(names(res)) == sort(c("x_mat", "y_mat", "b_mat", "loss",
                                              "nuisance_param_vec", "library_size_vec"))))
   expect_true(all(sign(init$x_mat %*% t(init$y_mat)) == sign(res$x %*% t(res$y))))
 })
@@ -105,7 +105,7 @@ test_that("opt_esvd works for exponential", {
                   max_iter = 15, verbose = 0)
 
   expect_true(is.list(res))
-  expect_true(all(sort(names(res)) == sort(c("x_mat", "y_mat", "loss",
+  expect_true(all(sort(names(res)) == sort(c("x_mat", "y_mat", "b_mat", "loss",
                                              "nuisance_param_vec", "library_size_vec"))))
   expect_true(all(sign(init$x_mat %*% t(init$y_mat)) == sign(res$x %*% t(res$y))))
 })
@@ -133,7 +133,7 @@ test_that("opt_esvd works for curved gaussian", {
                   max_iter = 10, verbose = 0)
 
   expect_true(is.list(res))
-  expect_true(all(sort(names(res)) == sort(c("x_mat", "y_mat", "loss",
+  expect_true(all(sort(names(res)) == sort(c("x_mat", "y_mat", "b_mat", "loss",
                                              "nuisance_param_vec", "library_size_vec"))))
   expect_true(all(sign(init$x_mat %*% t(init$y_mat)) == sign(res$x %*% t(res$y))))
 })
@@ -159,6 +159,6 @@ test_that("opt_esvd works for bernoulli", {
                   library_size_vec = 1, max_iter = 10, verbose = 0)
 
   expect_true(is.list(res))
-  expect_true(all(sort(names(res)) == sort(c("x_mat", "y_mat", "loss",
+  expect_true(all(sort(names(res)) == sort(c("x_mat", "y_mat", "b_mat", "loss",
                                              "nuisance_param_vec", "library_size_vec"))))
 })

@@ -28,7 +28,7 @@ vnorm <- function(x) sqrt(sum(x^2))
 # feas:           function to test feasibility, returning TRUE if Ax>b
 # max_linesearch: maximum number of line search tries
 # scaling:        decrease factor of alpha
-# ...:            additional arguments passed to f
+# ...:            additional arguments passed to f and feas
 line_search <- function(alpha0, x, fx, direction, f, feas,
                         max_linesearch, scaling = 0.5, ...)
 {
@@ -53,7 +53,7 @@ line_search <- function(alpha0, x, fx, direction, f, feas,
   # This function will early return if a proper step size is found
   # If no suitable alpha is obtained, return the initial x
   warning("line search failed, returning the initial x")
-  return(list(step = 0, newx = x, newfx = f))
+  list(step = 0, newx = x, newfx = f)
 }
 
 # Constrained Newton method
@@ -114,6 +114,6 @@ constr_lbfgs <- function(x0, f, gr, hn, feas,
     if(feasible) f(x, ...) else Inf
   }
   res <- stats::optim(x0, fn, gr, ..., method = "L-BFGS-B",
-               control = list(maxit = max_iter, factr = eps_rel, pgtol = eps_rel))
+                      control = list(maxit = max_iter, factr = eps_rel, pgtol = eps_rel))
   list(x = res$par, fn = res$value, grad = NULL)
 }

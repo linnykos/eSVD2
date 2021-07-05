@@ -8,8 +8,9 @@ opt_esvd(
   x_init,
   y_init,
   dat,
-  family,
+  family = "gaussian",
   method = c("newton", "lbfgs"),
+  covariates = NULL,
   nuisance_param_vec = NA,
   library_size_vec = 1,
   max_iter = 100,
@@ -19,40 +20,42 @@ opt_esvd(
 )
 }
 \arguments{
-\item{x_init}{initial estimate of a \eqn{n \times k} matrix for the \eqn{k}-dimensional
+\item{x_init}{initial estimate of a \eqn{n \times k}{n × k} matrix for the \eqn{k}-dimensional
 embedding for the \eqn{n} cells}
 
-\item{y_init}{initial estimate of a \eqn{p \times k} matrix for the \eqn{k}-dimensional
+\item{y_init}{initial estimate of a \eqn{p \times k}{p × k} matrix for the \eqn{k}-dimensional
 embedding for the \eqn{p} genes}
 
 \item{dat}{dataset where the \eqn{n} rows represent cells and \eqn{p} columns represent genes}
 
-\item{family}{A character string, one of \code{"gaussian"}, \code{"exponential"},
+\item{family}{a character string, one of \code{"gaussian"}, \code{"exponential"},
 \code{"poisson"}, \code{"neg_binom"}, \code{"curved_gaussian"},
-and \code{"bernoulli"}.}
+and \code{"bernoulli"}}
 
-\item{method}{A character string indicating the optimization method,
-either \code{"newton"} or \code{"lbfgs"}.}
+\item{method}{a character string indicating the optimization method,
+either \code{"newton"} or \code{"lbfgs"}}
+
+\item{covariates}{an \eqn{n \times d}{n × d} matrix representing the additional \eqn{d} covariates,
+or \code{NULL} if no covariate is given}
 
 \item{nuisance_param_vec}{either \code{NA} or a single numeric or a length-\eqn{p}
-vector of numerics representing nuisance parameters (for \code{family = "neg_binom"} or
-\code{family = "curved_gausian"}).}
+vector of numerics representing nuisance parameters (for \code{family = "neg_binom"}
+or \code{family = "curved_gausian"})}
 
 \item{library_size_vec}{either \code{NA} or a single numeric (default is \code{1}) or
-a length-\eqn{n} vector of numerics.
-If \code{NA}, the library size will be estimated.}
+a length-\eqn{n} vector of numerics. If \code{NA}, the library size will be estimated}
 
-\item{max_iter}{positive integer}
+\item{max_iter}{a positive integer giving the maximum number of iterations}
 
-\item{tol}{small positive number}
+\item{tol}{a small positive number for the tolerance of optimization error}
 
-\item{verbose}{non-negative integer}
+\item{verbose}{a non-negative integer to indicate the verbosity of messages}
 
-\item{...}{additional parameters, not used}
+\item{...}{additional parameters, currently not used}
 }
 \value{
-a list with elements \code{x_mat} and \code{y_mat} (and others), representing the two
-latent matrices
+A list with elements \code{x_mat} and \code{y_mat} (and others), representing the two
+        latent matrices.
 }
 \description{
 Main optimization function for eSVD

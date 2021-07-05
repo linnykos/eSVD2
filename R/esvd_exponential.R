@@ -96,3 +96,70 @@
   ),
   class = "esvd_family"
 )
+
+
+
+# See eSVD2_writing/writeup/Writeup4
+#
+# Log-density for the whole data matrix [n x p]
+.log_prob.exponential <- function(A, theta, s, gamma)
+{
+  A * theta + s * log(-theta)
+}
+
+# Log-density for the i-th row of the data matrix [p x 1]
+.log_prob_row.exponential <- function(Ai, thetai, si, gamma)
+{
+  Ai * thetai + si * log(-thetai)
+}
+
+# Log-density for the j-th column of the data matrix [n x 1]
+.log_prob_col.exponential <- function(Aj, thetaj, s, gammaj)
+{
+  Aj * thetaj + s * log(-thetaj)
+}
+
+# 1st derivative of log-density w.r.t. the i-th row of theta [p x 1]
+.dlog_prob_row.exponential <- function(Ai, thetai, si, gamma)
+{
+  Ai + si / thetai
+}
+
+# 1st derivative of log-density w.r.t. the j-th column of theta [n x 1]
+.dlog_prob_col.exponential <- function(Aj, thetaj, s, gammaj)
+{
+  Aj + s / thetaj
+}
+
+# 2nd derivative of log-density w.r.t. the i-th row of theta [p x 1]
+.d2log_prob_row.exponential <- function(Ai, thetai, si, gamma)
+{
+  -si / thetai^2
+}
+
+# 2nd derivative of log-density w.r.t. the j-th column of theta [n x 1]
+.d2log_prob_col.exponential <- function(Aj, thetaj, s, gammaj)
+{
+  -s / thetaj^2
+}
+
+# Feasibility of the natural parameter
+.feasibility.exponential <- function(theta)
+{
+  all(theta < 0)
+}
+
+.esvd.exponential <- structure(
+  list(
+    log_prob       = .log_prob.exponential,
+    log_prob_row   = .log_prob_row.exponential,
+    log_prob_col   = .log_prob_col.exponential,
+    dlog_prob_row  = .dlog_prob_row.exponential,
+    dlog_prob_col  = .dlog_prob_col.exponential,
+    d2log_prob_row = .d2log_prob_row.exponential,
+    d2log_prob_col = .d2log_prob_col.exponential,
+    feasibility    = .feasibility.exponential,
+    feas_always    = FALSE
+  ),
+  class = "esvd_family"
+)

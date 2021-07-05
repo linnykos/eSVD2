@@ -123,3 +123,75 @@
   ),
   class = "esvd_family"
 )
+
+
+
+# See eSVD2_writing/writeup/Writeup4
+#
+# Log-density for the whole data matrix [n x p]
+.log_prob.neg_binom <- function(A, theta, s, gamma)
+{
+  slog1theta <- log(1 - exp(theta)) * s
+  sweep(slog1theta, 2, gamma, "*") + A * theta
+}
+
+# Log-density for the i-th row of the data matrix [p x 1]
+.log_prob_row.neg_binom <- function(Ai, thetai, si, gamma)
+{
+  Ai * thetai + si * gamma * log(1 - exp(thetai))
+}
+
+# Log-density for the j-th column of the data matrix [n x 1]
+.log_prob_col.neg_binom <- function(Aj, thetaj, s, gammaj)
+{
+  Aj * thetaj + s * gammaj * log(1 - exp(thetaj))
+}
+
+# 1st derivative of log-density w.r.t. the i-th row of theta [p x 1]
+.dlog_prob_row.neg_binom <- function(Ai, thetai, si, gamma)
+{
+  exptheta <- exp(thetai)
+  Ai - si * gamma * exptheta / (1 - exptheta)
+}
+
+# 1st derivative of log-density w.r.t. the j-th column of theta [n x 1]
+.dlog_prob_col.neg_binom <- function(Aj, thetaj, s, gammaj)
+{
+  exptheta <- exp(thetaj)
+  Aj - s * gammaj * exptheta / (1 - exptheta)
+}
+
+# 2nd derivative of log-density w.r.t. the i-th row of theta [p x 1]
+.d2log_prob_row.neg_binom <- function(Ai, thetai, si, gamma)
+{
+  exptheta <- exp(thetai)
+  -si * gamma * exptheta / (1 - exptheta)^2
+}
+
+# 2nd derivative of log-density w.r.t. the j-th column of theta [n x 1]
+.d2log_prob_col.neg_binom <- function(Aj, thetaj, s, gammaj)
+{
+  exptheta <- exp(thetaj)
+  -s * gammaj * exptheta / (1 - exptheta)^2
+}
+
+# Feasibility of the natural parameter
+.feasibility.neg_binom <- function(theta)
+{
+  all(theta < 0)
+}
+
+.esvd.neg_binom <- structure(
+  list(
+    log_prob       = .log_prob.neg_binom,
+    log_prob_row   = .log_prob_row.neg_binom,
+    log_prob_col   = .log_prob_col.neg_binom,
+    dlog_prob_row  = .dlog_prob_row.neg_binom,
+    dlog_prob_col  = .dlog_prob_col.neg_binom,
+    d2log_prob_row = .d2log_prob_row.neg_binom,
+    d2log_prob_col = .d2log_prob_col.neg_binom,
+    feasibility    = .feasibility.neg_binom,
+    feas_always    = FALSE
+  ),
+  class = "esvd_family"
+)
