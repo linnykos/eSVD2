@@ -1,24 +1,24 @@
 #' Initialize eSVD
 #'
-#' @param dat dataset where the \eqn{n} rows represent cells and \eqn{p} columns represent genes
-#' @param k positive integer less than \code{min(c(nrow(dat), ncol(dat)))}
-#' @param family character (\code{"gaussian"}, \code{"exponential"}, \code{"poisson"}, \code{"neg_binom"},
-#' or \code{"curved_gaussian"})
-#' @param nuisance_param_vec either \code{NA} or a single numeric or a length-\eqn{p}
-#' vector of numerics representing nuisance parameters (for \code{family = "neg_binom"} or
-#' \code{family = "curved_gausian"}).
-#' @param library_size_vec either \code{NA} or a single numeric (default is \code{1}) or
-#' a length-\eqn{n} vector of numerics.
-#' If \code{NA}, the library size will be estimated.
-#' @param config additional parameters for the initialization, whose defaults can be
-#' set with \code{eSVD2::initialization_default()}
-#' @param verbose non-negative integer specifying level of printouts
+#' @param dat                     dataset where the \eqn{n} rows represent cells and \eqn{p} columns represent genes
+#' @param k                       positive integer less than \code{min(c(nrow(dat), ncol(dat)))}
+#' @param family                  character (\code{"gaussian"}, \code{"exponential"}, \code{"poisson"}, \code{"neg_binom"},
+#'                                or \code{"curved_gaussian"})
+#' @param nuisance_param_vec      either \code{NA} or a single numeric or a length-\eqn{p}
+#'                                vector of numerics representing nuisance parameters (for \code{family = "neg_binom"} or
+#'                                \code{family = "curved_gausian"}).
+#' @param library_size_vec        either \code{NA} or a single numeric (default is \code{1}) or
+#'                                a length-\eqn{n} vector of numerics.
+#'                                If \code{NA}, the library size will be estimated.
+#' @param config                  additional parameters for the initialization, whose defaults can be
+#'                                set with \code{eSVD2::initialization_default()}
+#' @param verbose                 non-negative integer specifying level of printouts
 #'
 #' @return a list with elements \code{x_mat} and \code{y_mat} (and others), representing the two
 #' latent matrices
 #' @export
 initialize_esvd <- function(dat, k, family, covariates = NULL,
-                            nuisance_param_vec = NA, library_size_vec = 1,
+                            nuisance_param_vec = NA, library_size_vec = NA,
                             config = initialization_options(), verbose = 0){
   stopifnot(is.character(family))
   if(family != "gaussian") stopifnot(all(dat[!is.na(dat)] >= 0))
@@ -27,17 +27,13 @@ initialize_esvd <- function(dat, k, family, covariates = NULL,
   }
 
   # estimate library sizes if asked
+  n <- nrow(dat); p <- ncol(dat)
   family <- .string_to_distr_funcs(family)
   library_size_vec <- .parse_library_size(dat, library_size_vec = library_size_vec)
-  rescaled_dat <- t(sapply(1:nrow(dat), function(i){dat[i,]/library_size_vec[i]}))
+  rescaled_dat <- t(sapply(1:nrow(dat), function(i){
+    dat[i,]/library_size_vec[i]
+  }))
 
-  if(all(is.null(covariates)))
-  {
-    b_mat <- NULL
-  } else {
-    r <- ncol(covariates)
-    # do regression
-  }
 
   # determine initial matrix taking into account to missing values and library size
   # [note to self: this probably could be something a lot simpler]
@@ -47,6 +43,20 @@ initialize_esvd <- function(dat, k, family, covariates = NULL,
                                         max_val = config$max_val,
                                         tol = config$tol)
 
+  if(all(is.null(covariates)))
+  {
+    b_mat <- NULL
+  } else {
+    r <- ncol(covariates)
+    # do regression
+    tmp <- sapply(1:p, function(j){
+      .regress_covariates(init_res[,j], covariates)
+    })
+
+    init_res <- sapply(1:p, function(j){tmp$residual})
+    b_mat <- sapply(1:p, function(j){tmp$coef})
+  }
+
   # project inital matrix into space of low-rank matrices
   nat_mat <- .initialize_nat_mat(init_res, k = k, config = config)
 
@@ -54,7 +64,7 @@ initialize_esvd <- function(dat, k, family, covariates = NULL,
   res <- .factorize_matrix(nat_mat, k = k, equal_covariance = T)
   res <- .fix_rank_defficiency(res$x_mat, res$y_mat, domain = init_res$domain)
 
-  structure(list(x_mat = res$x_mat, y_mat = res$y_mat,
+  structure(list(x_mat = res$x_mat, y_mat = res$y_mat, b_mat = b_mat,
                  library_size_vec = library_size_vec, nuisance_param_vec = nuisance_param_vec,
                  domain = init_res$domain), class = "eSVD")
 }
@@ -77,37 +87,7 @@ initialization_options <- function(init_method = "kmean_rows",
   structure(list(init_method = init_method, max_val = max_val, tol = tol), class = "initialization_param")
 }
 
-###################
-
-.parse_library_size <- function(dat, library_size_vec = 1) {
-  stopifnot(length(library_size_vec) %in% c(1, nrow(dat)))
-  n <- nrow(dat)
-
-  if(any(is.na(library_size_vec))){
-    library_size_vec <- rowSums(dat)
-  } else if(length(library_size_vec) == 1) {
-    library_size_vec <- rep(library_size_vec[1], n)
-  }
-
-  library_size_vec/min(library_size_vec)
-}
-
-.initialize_nat_mat <- function(init_res, k = k, config = config){
-  if(config$init_method == "kmean_rows"){
-    nat_mat <- .initialization_kmean(init_res$nat_mat, k = k, domain = init_res$domain,
-                                     row = T)
-  } else {
-    stop("config init_method not found")
-  }
-
-  nat_mat
-}
-
-.initialization_kmean <- function(mat, k, domain, row = T){
-  .projection_kmeans(mat, k = k, domain = domain, row = row)
-}
-
-###############
+#######################
 
 #' Fill in missing values
 #'
@@ -151,15 +131,35 @@ initialization_options <- function(init_method = "kmean_rows",
 .determine_initial_matrix <- function(dat, k, family, nuisance_param_vec, max_val = NA, tol = 1e-3){
   stopifnot((is.na(max_val) || max_val >= 0), all(dat >= 0))
 
-  domain <- .determine_domain(family, tol)
+  domain <- family$domain
   if(!is.na(max_val)) domain <- .intersect_intervals(domain, c(-max_val, max_val))
 
   if(family != "bernoulli") dat[which(dat <= tol)] <- tol/2
-  nat_mat <- .mean_transformation(dat, family, nuisance_param_vec = nuisance_param_vec)
+  nat_mat <- family$dat_to_nat(dat, gamma = nuisance_param_vec)
   nat_mat <- pmax(nat_mat, domain[1])
   nat_mat <- pmin(nat_mat, domain[2])
 
   list(nat_mat = nat_mat, domain = domain)
+}
+
+#######################
+
+.regress_covariates <- function(vec, covariates){
+  res <- stats::lm(vec ~ covariates - 1)
+
+  list(coef = res$coefficients, residual = res$residuals)
+}
+
+###################
+
+.initialize_nat_mat <- function(init_res, k = k, config = config){
+  if(config$init_method == "kmean_rows"){
+    nat_mat <- .projection_kmeans(init_res$nat_mat, k = k, domain = init_res$domain, row = T)
+  } else {
+    stop("config init_method not found")
+  }
+
+  nat_mat
 }
 
 #' Fix rank defficiency among two matrices

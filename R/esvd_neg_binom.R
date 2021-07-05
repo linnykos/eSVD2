@@ -181,7 +181,7 @@
   all(theta < 0)
 }
 
-.mean_transformation <- function(A, gamma, tol = 1e-3){
+.dat_to_nat.neg_binom <- function(A, gamma, tol = 1e-3){
   res <- sapply(1:ncol(A), function(j){
     (A[,j] + tol)/gamma[j]
   })
@@ -191,6 +191,14 @@
   if(length(colnames(A)) != 0) colnames(res) <- colnames(A)
 
   res
+}
+
+.nat_to_canon.neg_binom <- function(theta){
+  exp(nat_mat)
+}
+
+.domain.neg_binom <- function(){
+  c(-Inf, 0)
 }
 
 .esvd.neg_binom <- structure(
@@ -204,7 +212,9 @@
     d2log_prob_col = .d2log_prob_col.neg_binom,
     feasibility    = .feasibility.neg_binom,
     feas_always    = FALSE,
-    mean_transformation = .mean_transformation
+    domain         = .domain.neg_binom,
+    dat_to_nat     = .dat_to_nat.neg_binom,
+    nat_to_canon   = .nat_to_canon.neg_binom
   ),
   class = "esvd_family"
 )

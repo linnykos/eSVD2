@@ -153,13 +153,20 @@
   TRUE
 }
 
-.mean_transformation <- function(A, gamma, tol = 1e-3){
+.dat_to_nat.poisson <- function(A, gamma, tol = 1e-3){
   res <- log(A + tol)
 
   if(length(rownames(A)) != 0) rownames(res) <- rownames(A)
   if(length(colnames(A)) != 0) colnames(res) <- colnames(A)
 
   res
+}
+.nat_to_canon.poisson <- function(theta){
+  exp(nat_mat)
+}
+
+.domain.poisson <- function(){
+  c(-Inf, Inf)
 }
 
 .esvd.poisson <- structure(
@@ -173,7 +180,9 @@
     d2log_prob_col = .d2log_prob_col.poisson,
     feasibility    = .feasibility.poisson,
     feas_always    = TRUE,
-    mean_transformation = .mean_transformation
+    domain         = .domain.poisson,
+    dat_to_nat     = .dat_to_nat.poisson,
+    nat_to_canon   = .nat_to_canon.poisson
   ),
   class = "esvd_family"
 )

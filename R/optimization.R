@@ -80,7 +80,7 @@ opt_yb <- function(YB0, X, Z, A, family, s, gamma, opt_fun, verbose = 0, ...)
 #'         latent matrices.
 #' @export
 opt_esvd <- function(x_init, y_init, dat, family = "gaussian", method = c("newton", "lbfgs"),
-                     b_init = NULL, covariates = NULL, nuisance_param_vec = NA, library_size_vec = 1,
+                     b_init = NULL, covariates = NULL, nuisance_param_vec = NA, library_size_vec = NA,
                      max_iter = 100, tol = 1e-6,
                      verbose = 0, ...)
 {
