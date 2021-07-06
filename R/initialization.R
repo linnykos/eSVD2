@@ -56,7 +56,7 @@ initialize_esvd <- function(dat, k, family, covariates = NULL,
     })
 
     nat_mat <- sapply(1:p, function(j){tmp[[j]]$residual})
-    b_mat <- sapply(1:p, function(j){tmp[[j]]$coef})
+    b_mat <- do.call(rbind, (lapply(1:p, function(j){tmp[[j]]$coef})))
     baseline <- tcrossprod(covariates, b_mat)
     k2 <- k + r #[[note to self: check that this is correct]]
   }

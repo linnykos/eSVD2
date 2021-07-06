@@ -112,6 +112,8 @@ opt_esvd <- function(x_init, y_init, dat, family = "gaussian", method = c("newto
     {
       r <- ncol(covariates)
       b_mat <- matrix(0, p, r)
+    } else {
+      b_mat <- b_init
     }
   }
   x_mat <- x_init
@@ -156,6 +158,9 @@ opt_esvd <- function(x_init, y_init, dat, family = "gaussian", method = c("newto
     if(i >=2 && resid <= thresh)
       break
   }
+
+  tmp <- .reparameterize(x_mat, y_mat, equal_covariance = T)
+  x_mat <- tmp$x_mat; y_mat <- tmp$y_mat
 
   list(x_mat = x_mat, y_mat = y_mat, b_mat = b_mat, loss = losses,
        nuisance_param_vec = nuisance_param_vec, library_size_vec = library_size_vec)
