@@ -4,6 +4,8 @@
 #' @param k                       positive integer less than \code{min(c(nrow(dat), ncol(dat)))}
 #' @param family                  character (\code{"gaussian"}, \code{"exponential"}, \code{"poisson"}, \code{"neg_binom"},
 #'                                or \code{"curved_gaussian"})
+#' @param covariates              an \eqn{n \times d}{n × d} matrix representing the additional \eqn{d} covariates,
+#'                                or \code{NULL} if no covariate is given
 #' @param nuisance_param_vec      either \code{NA} or a single numeric or a length-\eqn{p}
 #'                                vector of numerics representing nuisance parameters (for \code{family = "neg_binom"} or
 #'                                \code{family = "curved_gausian"}).

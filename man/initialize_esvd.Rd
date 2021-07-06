@@ -8,8 +8,9 @@ initialize_esvd(
   dat,
   k,
   family,
+  covariates = NULL,
   nuisance_param_vec = NA,
-  library_size_vec = 1,
+  library_size_vec = NA,
   config = initialization_options(),
   verbose = 0
 )
@@ -21,6 +22,9 @@ initialize_esvd(
 
 \item{family}{character (\code{"gaussian"}, \code{"exponential"}, \code{"poisson"}, \code{"neg_binom"},
 or \code{"curved_gaussian"})}
+
+\item{covariates}{an \eqn{n \times d}{n × d} matrix representing the additional \eqn{d} covariates,
+or \code{NULL} if no covariate is given}
 
 \item{nuisance_param_vec}{either \code{NA} or a single numeric or a length-\eqn{p}
 vector of numerics representing nuisance parameters (for \code{family = "neg_binom"} or

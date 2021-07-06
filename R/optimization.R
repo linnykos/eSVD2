@@ -64,6 +64,8 @@ opt_yb <- function(YB0, X, Z, A, family, s, gamma, opt_fun, verbose = 0, ...)
 #'                           and \code{"bernoulli"}
 #' @param method             a character string indicating the optimization method,
 #'                           either \code{"newton"} or \code{"lbfgs"}
+#' @param b_init             initial estimate of a \eqn{n \times d}{n × d} matrix for the \eqn{d}-dimensional
+#'                           embedding for the \eqn{n} cells
 #' @param covariates         an \eqn{n \times d}{n × d} matrix representing the additional \eqn{d} covariates,
 #'                           or \code{NULL} if no covariate is given
 #' @param nuisance_param_vec either \code{NA} or a single numeric or a length-\eqn{p}

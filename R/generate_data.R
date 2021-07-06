@@ -38,7 +38,7 @@ generate_data <- function(
     dat <- .generate_values(nat_mat, family, nuisance_param_vec, library_size_vec)
     dim(dat) <- dim(nat_mat)
 
-    if(family %in% c("curved_gaussian", "gaussian") && !is.na(tol))
+    if(family$name %in% c("curved_gaussian", "gaussian") && !is.na(tol))
         dat[dat < tol] <- tol
 
     dat

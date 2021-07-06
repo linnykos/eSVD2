@@ -137,26 +137,26 @@ softplus <- function(x)
 # 1st derivative of log-density w.r.t. the i-th row of theta [p x 1]
 .dlog_prob_row.bernoulli <- function(Ai, thetai, si, gamma)
 {
-  Ai - plogis(thetai)
+  Ai - stats::plogis(thetai)
 }
 
 # 1st derivative of log-density w.r.t. the j-th column of theta [n x 1]
 .dlog_prob_col.bernoulli <- function(Aj, thetaj, s, gammaj)
 {
-  Aj - plogis(thetaj)
+  Aj - stats::plogis(thetaj)
 }
 
 # 2nd derivative of log-density w.r.t. the i-th row of theta [p x 1]
 .d2log_prob_row.bernoulli <- function(Ai, thetai, si, gamma)
 {
-  p <- plogis(thetai)
+  p <- stats::plogis(thetai)
   -p * (1 - p)
 }
 
 # 2nd derivative of log-density w.r.t. the j-th column of theta [n x 1]
 .d2log_prob_col.bernoulli <- function(Aj, thetaj, s, gammaj)
 {
-  p <- plogis(thetaj)
+  p <- stats::plogis(thetaj)
   -p * (1 - p)
 }
 
