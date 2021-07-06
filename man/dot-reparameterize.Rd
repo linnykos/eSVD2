@@ -4,7 +4,7 @@
 \alias{.reparameterize}
 \title{Function to reparameterize two matrices}
 \usage{
-.reparameterize(x_mat, y_mat, equal_covariance = F)
+.reparameterize(x_mat, y_mat, equal_covariance)
 }
 \arguments{
 \item{x_mat}{matrix of dimension \code{n} by \code{k}}

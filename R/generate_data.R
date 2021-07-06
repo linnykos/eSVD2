@@ -22,10 +22,10 @@ generate_data <- function(
 ) {
     stopifnot(
         is.matrix(nat_mat),
-        family %in% c("gaussian", "curved_gaussian", "exponential", "poisson", "neg_binom", "bernoulli"),
         length(nuisance_param_vec) %in% c(1, ncol(nat_mat))
     )
-    stopifnot(.check_natural_param(nat_mat, family))
+    family <- .string_to_distr_funcs(family)
+    stopifnot(family$feasibility(nat_mat))
 
     n <- nrow(nat_mat)
     if(length(library_size_vec) != 1){
@@ -38,7 +38,7 @@ generate_data <- function(
     dat <- .generate_values(nat_mat, family, nuisance_param_vec, library_size_vec)
     dim(dat) <- dim(nat_mat)
 
-    if(family %in% c("curved_gaussian", "gaussian") && !is.na(tol))
+    if(family$name %in% c("curved_gaussian", "gaussian") && !is.na(tol))
         dat[dat < tol] <- tol
 
     dat
@@ -46,12 +46,6 @@ generate_data <- function(
 
 
 #####################
-
-.check_natural_param <- function(nat_mat, family) {
-   if(family %in% c("gaussian", "poisson", "bernoulli")) return(TRUE)
-   if(family %in% c("neg_binom", "exponential")) return(all(nat_mat < 0))
-   if(family == "curved_gaussian") return(all(nat_mat > 0))
-}
 
 .generate_values <- function(nat_mat, family, nuisance_param_vec, library_size_vec) {
 
@@ -61,30 +55,30 @@ generate_data <- function(
 
     stopifnot(length(library_size_vec) == nrow(nat_mat))
 
-    canon_mat <- .convert_natural_to_canonical(nat_mat, family)
+    canon_mat <- family$nat_to_canon(nat_mat)
 
-    if(family == "gaussian") {
+    if(family$name == "gaussian") {
         stopifnot(!is.na(nuisance_param_vec))
         vec <- stats::rnorm(num_val, mean = canon_mat * library_size_vec,
                             sd = rep(nuisance_param_vec, each = n) * sqrt(library_size_vec))
 
-    } else if(family == "curved_gaussian") {
+    } else if(family$name == "curved_gaussian") {
         stopifnot(!is.na(nuisance_param_vec))
         vec <-stats::rnorm(num_val, mean = canon_mat  * library_size_vec,
                            sd = sqrt(library_size_vec) * (canon_mat / rep(nuisance_param_vec, each = n)))
 
-    } else if(family == "exponential") {
+    } else if(family$name == "exponential") {
         vec <- stats::rgamma(num_val, shape = rep(library_size_vec, times = p), scale = canon_mat)
 
-    } else if(family == "poisson") {
+    } else if(family$name == "poisson") {
         vec <- stats::rpois(num_val, lambda = canon_mat * library_size_vec)
 
-    } else if(family == "neg_binom") {
+    } else if(family$name == "neg_binom") {
         stopifnot(!is.na(nuisance_param_vec))
         vec <- stats::rnbinom(num_val, size = rep(nuisance_param_vec, each = n) * library_size_vec,
                               prob = 1 - canon_mat)
 
-    } else if(family == "bernoulli") {
+    } else if(family$name == "bernoulli") {
         vec <- stats::rbinom(num_val, size = 1, prob = canon_mat)
 
     } else {

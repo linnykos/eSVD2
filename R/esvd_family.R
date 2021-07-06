@@ -1,3 +1,4 @@
+
 # Compute W'DW, W [m x n], D [m x m] is diagonal, d [m x 1] the diagonal elements of D
 wtdw <- function(w, d)
 {
@@ -131,4 +132,30 @@ feas_Yj <- function(Yj, X, Bj, Z, family, ...)
 
   thetaj <- drop(cbind(X, Z) %*% c(Yj, Bj))
   family$feasibility(thetaj)
+}
+
+#################
+.parse_library_size <- function(dat, library_size_vec) {
+  stopifnot(length(library_size_vec) %in% c(1, nrow(dat)))
+  n <- nrow(dat)
+
+  if(any(is.na(library_size_vec))){
+    library_size_vec <- rowSums(dat)
+  } else if(length(library_size_vec) == 1) {
+    library_size_vec <- rep(library_size_vec[1], n)
+  }
+
+  library_size_vec/min(library_size_vec)
+}
+
+.string_to_distr_funcs <- function(family)
+{
+  switch(family,
+         bernoulli = .esvd.bernoulli,
+         curved_gaussian = .esvd.curved_gaussian,
+         exponential = .esvd.exponential,
+         gaussian = .esvd.gaussian,
+         neg_binom = .esvd.neg_binom,
+         poisson = .esvd.poisson,
+         stop("unsupported distribution family"))
 }

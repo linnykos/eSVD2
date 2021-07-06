@@ -87,139 +87,139 @@ run_test <- function(dat, x_mat, y_mat, family, nuisance_param_vec = rep(1, nrow
 }
 
 
-######################## Gaussian ########################
-
-test_that("Functions for Gaussian distribution", {
-  # Simulate natural parameter matrix
-  set.seed(123)
-  n <- 10
-  p <- 15
-  k <- 2
-  nuisance_param_vec <- runif(p, 0, 5)
-  x_mat <- matrix(rnorm(n * k), nrow = n, ncol = k)
-  y_mat <- matrix(rnorm(p * k), nrow = p, ncol = k)
-  nat_mat <- tcrossprod(x_mat, y_mat)
-
-  # Simulate data with default library size (all one)
-  dat <- eSVD2::generate_data(
-    nat_mat, family = "gaussian", nuisance_param_vec = nuisance_param_vec,
-    library_size_vec = 1
-  )
-
-  # Test
-  run_test(dat, x_mat, y_mat, .esvd.gaussian, nuisance_param_vec = nuisance_param_vec,
-           library_size_vec = 1)
-
-  # Test missing values
-  dat[sample(length(dat), n * p * 0.1)] <- NA
-  run_test(dat, x_mat, y_mat, .esvd.gaussian, nuisance_param_vec = nuisance_param_vec,
-           library_size_vec = 1)
-
-  # Simulate data with a library size vector
-  library_size_vec <- sample(10:20, n, replace = TRUE)
-  dat <- eSVD2::generate_data(
-    nat_mat, family = "gaussian", nuisance_param_vec = nuisance_param_vec,
-    library_size_vec = library_size_vec
-  )
-
-  # Test
-  run_test(dat, x_mat, y_mat, .esvd.gaussian, nuisance_param_vec = nuisance_param_vec,
-           library_size_vec = library_size_vec)
-
-  # Test missing values
-  dat[sample(length(dat), n * p * 0.1)] <- NA
-  run_test(dat, x_mat, y_mat, .esvd.gaussian, nuisance_param_vec = nuisance_param_vec,
-           library_size_vec = library_size_vec)
-})
-
-######################## Curved Gaussian ########################
-
-test_that("Functions for curved-Gaussian distribution", {
-  # Simulate natural parameter matrix
-  set.seed(123)
-  n <- 10
-  p <- 15
-  k <- 2
-  nuisance_param_vec <- runif(p, 0, 5)
-  x_mat <- matrix(abs(rnorm(n * k)), nrow = n, ncol = k)
-  y_mat <- matrix(abs(rnorm(p * k)), nrow = p, ncol = k)
-  nat_mat <- tcrossprod(x_mat, y_mat)
-
-  # Simulate data with default library size (all one)
-  dat <- eSVD2::generate_data(
-    nat_mat, family = "curved_gaussian", nuisance_param_vec = nuisance_param_vec,
-    library_size_vec = 1, tol = 1e-3
-  )
-
-  # Test
-  run_test(dat, x_mat, y_mat, .esvd.curved_gaussian, nuisance_param_vec = nuisance_param_vec,
-           library_size_vec = 1)
-
-  # Test missing values
-  dat[sample(length(dat), n * p * 0.1)] <- NA
-  run_test(dat, x_mat, y_mat, .esvd.curved_gaussian, nuisance_param_vec = nuisance_param_vec,
-           library_size_vec = 1)
-
-  # Simulate data with a library size vector
-  library_size_vec <- sample(10:20, n, replace = TRUE)
-  dat <- eSVD2::generate_data(
-    nat_mat, family = "curved_gaussian", nuisance_param_vec = nuisance_param_vec,
-    library_size_vec = library_size_vec, tol = 1e-3
-  )
-
-  # Test
-  run_test(dat, x_mat, y_mat, .esvd.curved_gaussian, nuisance_param_vec = nuisance_param_vec,
-           library_size_vec = library_size_vec)
-
-  # Test missing values
-  dat[sample(length(dat), n * p * 0.1)] <- NA
-  run_test(dat, x_mat, y_mat, .esvd.curved_gaussian, nuisance_param_vec = nuisance_param_vec,
-           library_size_vec = library_size_vec)
-})
-
-######################## Exponential ########################
-
-test_that("Functions for exponential distribution", {
-  # Simulate natural parameter matrix
-  set.seed(123)
-  n <- 10
-  p <- 15
-  k <- 2
-  x_mat <- matrix(abs(rnorm(n * k)), nrow = n, ncol = k)
-  y_mat <- -matrix(abs(rnorm(p * k)), nrow = p, ncol = k)
-  nat_mat <- tcrossprod(x_mat, y_mat)
-
-  # Simulate data with default library size (all one)
-  dat <- eSVD2::generate_data(
-    nat_mat, family = "exponential", nuisance_param_vec = NA,
-    library_size_vec = 1
-  )
-
-  # Test
-  run_test(dat, x_mat, y_mat, .esvd.exponential, nuisance_param_vec = NA,
-           library_size_vec = 1)
-
-  # Test missing values
-  dat[sample(length(dat), n * p * 0.1)] <- NA
-  run_test(dat, x_mat, y_mat, .esvd.exponential, nuisance_param_vec = NA,
-           library_size_vec = 1)
-
-  # Simulate data with a library size vector
-  library_size_vec <- sample(10:20, n, replace = TRUE)
-  dat <- eSVD2::generate_data(
-    nat_mat, family = "exponential", nuisance_param_vec = NA,
-    library_size_vec = library_size_vec
-  )
-
-  # Test
-  run_test(dat, x_mat, y_mat, .esvd.exponential, nuisance_param_vec = NA,
-           library_size_vec = library_size_vec)
-
-  # Test missing values
-  dat[sample(length(dat), n * p * 0.1)] <- NA
-  run_test(dat, x_mat, y_mat, .esvd.exponential, nuisance_param_vec = NA,
-           library_size_vec = library_size_vec)
-})
+# ######################## Gaussian ########################
+#
+# test_that("Functions for Gaussian distribution", {
+#   # Simulate natural parameter matrix
+#   set.seed(123)
+#   n <- 10
+#   p <- 15
+#   k <- 2
+#   nuisance_param_vec <- runif(p, 0, 5)
+#   x_mat <- matrix(rnorm(n * k), nrow = n, ncol = k)
+#   y_mat <- matrix(rnorm(p * k), nrow = p, ncol = k)
+#   nat_mat <- tcrossprod(x_mat, y_mat)
+#
+#   # Simulate data with default library size (all one)
+#   dat <- eSVD2::generate_data(
+#     nat_mat, family = "gaussian", nuisance_param_vec = nuisance_param_vec,
+#     library_size_vec = 1
+#   )
+#
+#   # Test
+#   run_test(dat, x_mat, y_mat, .esvd.gaussian, nuisance_param_vec = nuisance_param_vec,
+#            library_size_vec = 1)
+#
+#   # Test missing values
+#   dat[sample(length(dat), n * p * 0.1)] <- NA
+#   run_test(dat, x_mat, y_mat, .esvd.gaussian, nuisance_param_vec = nuisance_param_vec,
+#            library_size_vec = 1)
+#
+#   # Simulate data with a library size vector
+#   library_size_vec <- sample(10:20, n, replace = TRUE)
+#   dat <- eSVD2::generate_data(
+#     nat_mat, family = "gaussian", nuisance_param_vec = nuisance_param_vec,
+#     library_size_vec = library_size_vec
+#   )
+#
+#   # Test
+#   run_test(dat, x_mat, y_mat, .esvd.gaussian, nuisance_param_vec = nuisance_param_vec,
+#            library_size_vec = library_size_vec)
+#
+#   # Test missing values
+#   dat[sample(length(dat), n * p * 0.1)] <- NA
+#   run_test(dat, x_mat, y_mat, .esvd.gaussian, nuisance_param_vec = nuisance_param_vec,
+#            library_size_vec = library_size_vec)
+# })
+#
+# ######################## Curved Gaussian ########################
+#
+# test_that("Functions for curved-Gaussian distribution", {
+#   # Simulate natural parameter matrix
+#   set.seed(123)
+#   n <- 10
+#   p <- 15
+#   k <- 2
+#   nuisance_param_vec <- runif(p, 0, 5)
+#   x_mat <- matrix(abs(rnorm(n * k)), nrow = n, ncol = k)
+#   y_mat <- matrix(abs(rnorm(p * k)), nrow = p, ncol = k)
+#   nat_mat <- tcrossprod(x_mat, y_mat)
+#
+#   # Simulate data with default library size (all one)
+#   dat <- eSVD2::generate_data(
+#     nat_mat, family = "curved_gaussian", nuisance_param_vec = nuisance_param_vec,
+#     library_size_vec = 1, tol = 1e-3
+#   )
+#
+#   # Test
+#   run_test(dat, x_mat, y_mat, .esvd.curved_gaussian, nuisance_param_vec = nuisance_param_vec,
+#            library_size_vec = 1)
+#
+#   # Test missing values
+#   dat[sample(length(dat), n * p * 0.1)] <- NA
+#   run_test(dat, x_mat, y_mat, .esvd.curved_gaussian, nuisance_param_vec = nuisance_param_vec,
+#            library_size_vec = 1)
+#
+#   # Simulate data with a library size vector
+#   library_size_vec <- sample(10:20, n, replace = TRUE)
+#   dat <- eSVD2::generate_data(
+#     nat_mat, family = "curved_gaussian", nuisance_param_vec = nuisance_param_vec,
+#     library_size_vec = library_size_vec, tol = 1e-3
+#   )
+#
+#   # Test
+#   run_test(dat, x_mat, y_mat, .esvd.curved_gaussian, nuisance_param_vec = nuisance_param_vec,
+#            library_size_vec = library_size_vec)
+#
+#   # Test missing values
+#   dat[sample(length(dat), n * p * 0.1)] <- NA
+#   run_test(dat, x_mat, y_mat, .esvd.curved_gaussian, nuisance_param_vec = nuisance_param_vec,
+#            library_size_vec = library_size_vec)
+# })
+#
+# ######################## Exponential ########################
+#
+# test_that("Functions for exponential distribution", {
+#   # Simulate natural parameter matrix
+#   set.seed(123)
+#   n <- 10
+#   p <- 15
+#   k <- 2
+#   x_mat <- matrix(abs(rnorm(n * k)), nrow = n, ncol = k)
+#   y_mat <- -matrix(abs(rnorm(p * k)), nrow = p, ncol = k)
+#   nat_mat <- tcrossprod(x_mat, y_mat)
+#
+#   # Simulate data with default library size (all one)
+#   dat <- eSVD2::generate_data(
+#     nat_mat, family = "exponential", nuisance_param_vec = NA,
+#     library_size_vec = 1
+#   )
+#
+#   # Test
+#   run_test(dat, x_mat, y_mat, .esvd.exponential, nuisance_param_vec = NA,
+#            library_size_vec = 1)
+#
+#   # Test missing values
+#   dat[sample(length(dat), n * p * 0.1)] <- NA
+#   run_test(dat, x_mat, y_mat, .esvd.exponential, nuisance_param_vec = NA,
+#            library_size_vec = 1)
+#
+#   # Simulate data with a library size vector
+#   library_size_vec <- sample(10:20, n, replace = TRUE)
+#   dat <- eSVD2::generate_data(
+#     nat_mat, family = "exponential", nuisance_param_vec = NA,
+#     library_size_vec = library_size_vec
+#   )
+#
+#   # Test
+#   run_test(dat, x_mat, y_mat, .esvd.exponential, nuisance_param_vec = NA,
+#            library_size_vec = library_size_vec)
+#
+#   # Test missing values
+#   dat[sample(length(dat), n * p * 0.1)] <- NA
+#   run_test(dat, x_mat, y_mat, .esvd.exponential, nuisance_param_vec = NA,
+#            library_size_vec = library_size_vec)
+# })
 
 ######################## Poisson ########################
 
@@ -309,28 +309,28 @@ test_that("Functions for negative binomial distribution", {
            library_size_vec = library_size_vec)
 })
 
-######################## Bernoulli ########################
-
-test_that("Functions for Bernoulli distribution", {
-  # Simulate data
-  set.seed(123)
-  n <- 10
-  p <- 15
-  k <- 2
-  x_mat <- matrix(rnorm(n * k), nrow = n, ncol = k)
-  y_mat <- matrix(rnorm(p * k), nrow = p, ncol = k)
-  nat_mat <- tcrossprod(x_mat, y_mat)
-  dat <- eSVD2::generate_data(
-    nat_mat, family = "bernoulli", nuisance_param_vec = NA,
-    library_size_vec = 1
-  )
-
-  # Test
-  run_test(dat, x_mat, y_mat, .esvd.bernoulli, nuisance_param_vec = NA,
-           library_size_vec = 1)
-
-  # Test missing values
-  dat[sample(length(dat), n * p * 0.1)] <- NA
-  run_test(dat, x_mat, y_mat, .esvd.bernoulli, nuisance_param_vec = NA,
-           library_size_vec = 1)
-})
+# ######################## Bernoulli ########################
+#
+# test_that("Functions for Bernoulli distribution", {
+#   # Simulate data
+#   set.seed(123)
+#   n <- 10
+#   p <- 15
+#   k <- 2
+#   x_mat <- matrix(rnorm(n * k), nrow = n, ncol = k)
+#   y_mat <- matrix(rnorm(p * k), nrow = p, ncol = k)
+#   nat_mat <- tcrossprod(x_mat, y_mat)
+#   dat <- eSVD2::generate_data(
+#     nat_mat, family = "bernoulli", nuisance_param_vec = NA,
+#     library_size_vec = 1
+#   )
+#
+#   # Test
+#   run_test(dat, x_mat, y_mat, .esvd.bernoulli, nuisance_param_vec = NA,
+#            library_size_vec = 1)
+#
+#   # Test missing values
+#   dat[sample(length(dat), n * p * 0.1)] <- NA
+#   run_test(dat, x_mat, y_mat, .esvd.bernoulli, nuisance_param_vec = NA,
+#            library_size_vec = 1)
+# })

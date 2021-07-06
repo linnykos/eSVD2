@@ -13,7 +13,10 @@ Imports:
     Matrix,
     softImpute,
     RSpectra,
-    irlba
+    irlba,
+    matrixStats,
+    sparseMatrixStats,
+    gtools
 Suggests:
     testthat, numDeriv
 RoxygenNote: 7.1.1
