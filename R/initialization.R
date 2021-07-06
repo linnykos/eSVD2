@@ -34,7 +34,6 @@ initialize_esvd <- function(dat, k, family, covariates = NULL,
     dat[i,]/library_size_vec[i]
   }))
 
-
   # determine initial matrix taking into account to missing values and library size
   # [note to self: this probably could be something a lot simpler]
   rescaled_dat <- .matrix_completion(rescaled_dat, k = k)
@@ -42,31 +41,37 @@ initialize_esvd <- function(dat, k, family, covariates = NULL,
                                         nuisance_param_vec = nuisance_param_vec,
                                         max_val = config$max_val,
                                         tol = config$tol)
+  nat_mat <- init_res$nat_mat; domain <- init_res$domain
 
   if(all(is.null(covariates)))
   {
     b_mat <- NULL
+    baseline <- matrix(0, n, p)
+    k2 <- k
   } else {
     r <- ncol(covariates)
     # do regression
-    tmp <- sapply(1:p, function(j){
-      .regress_covariates(init_res[,j], covariates)
+    tmp <- lapply(1:p, function(j){
+      .regress_covariates(nat_mat[,j], covariates)
     })
 
-    init_res <- sapply(1:p, function(j){tmp$residual})
-    b_mat <- sapply(1:p, function(j){tmp$coef})
+    nat_mat <- sapply(1:p, function(j){tmp[[j]]$residual})
+    b_mat <- sapply(1:p, function(j){tmp[[j]]$coef})
+    baseline <- tcrossprod(covariates, b_mat)
+    k2 <- k + r #[[note to self: check that this is correct]]
   }
 
   # project inital matrix into space of low-rank matrices
-  nat_mat <- .initialize_nat_mat(init_res, k = k, config = config)
+  nat_mat <- .initialize_nat_mat(nat_mat, k = k2, baseline = baseline,
+                                 domain = domain, config = config)
 
   # reparameterize
   res <- .factorize_matrix(nat_mat, k = k, equal_covariance = T)
-  res <- .fix_rank_defficiency(res$x_mat, res$y_mat, domain = init_res$domain)
+  res <- .fix_rank_defficiency(res$x_mat, res$y_mat, domain = domain)
 
   structure(list(x_mat = res$x_mat, y_mat = res$y_mat, b_mat = b_mat,
                  library_size_vec = library_size_vec, nuisance_param_vec = nuisance_param_vec,
-                 domain = init_res$domain), class = "eSVD")
+                 domain = domain), class = "eSVD")
 }
 
 #' Initialization defaults
@@ -152,9 +157,16 @@ initialization_options <- function(init_method = "kmean_rows",
 
 ###################
 
-.initialize_nat_mat <- function(init_res, k = k, config = config){
+.initialize_nat_mat <- function(nat_mat, k = k, baseline = baseline,
+                                domain = domain, config = config){
+  idx <- which(nat_mat + baseline <= domain[1])
+  if(length(idx) > 0) nat_mat[idx] <- domain[1]-baseline[idx]
+
+  idx <- which(nat_mat + baseline >= domain[2])
+  if(length(idx) > 0) nat_mat[idx] <- domain[2]-baseline[idx]
+
   if(config$init_method == "kmean_rows"){
-    nat_mat <- .projection_kmeans(init_res$nat_mat, k = k, domain = init_res$domain, row = T)
+    nat_mat <- .projection_kmeans(nat_mat, k = k, domain = domain, row = T)
   } else {
     stop("config init_method not found")
   }

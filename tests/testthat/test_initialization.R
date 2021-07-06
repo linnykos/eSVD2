@@ -126,6 +126,21 @@ test_that("initialize_esvd works for poisson with library size", {
   expect_true(all(dim(res$y_mat) == c(ncol(dat), 2)))
 })
 
+test_that("initialize_esvd works for poisson with covariates", {
+  set.seed(5)
+  canon_vec <- 1:50
+  nat_mat <- sapply(log(canon_vec)+1, function(x){rep(x, 100)})
+  dat <- generate_data(nat_mat, family = "poisson")
+
+  res <- initialize_esvd(dat, k = 2, family = "poisson", library_size_vec = NA,
+                         covariates = matrix(1, nrow = nrow(dat), ncol = 1))
+
+  expect_true(class(res) == "eSVD")
+  expect_true(length(res$library_size_vec) == nrow(dat))
+  expect_true(all(dim(res$x_mat) == c(nrow(dat), 2)))
+  expect_true(all(dim(res$y_mat) == c(ncol(dat), 2)))
+})
+
 # test_that("initialize_esvd works for curved_gaussian with library size", {
 #   set.seed(5)
 #   canon_vec <- seq(10, 50, length.out = 5)
@@ -186,9 +201,6 @@ test_that("initialize_esvd does not suffer from a strange numeric issue with dom
  nat_mat <- init_res$x_mat %*% t(init_res$y_mat)
  expect_true(all(nat_mat >= init_res$domain[1]))
  expect_true(all(nat_mat <= init_res$domain[2]))
-
- ## this is what happens when you don't use .check_domain
- # expect_true(min(nat_mat) >= init_res$domain[1])
 })
 
 # test_that("initialize_esvd domain is not check for gaussian", {
