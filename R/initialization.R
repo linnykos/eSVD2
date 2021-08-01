@@ -70,6 +70,7 @@ initialize_esvd <- function(dat, k, family, covariates = NULL,
   # reparameterize
   res <- .factorize_matrix(nat_mat, k = k, equal_covariance = T)
   res <- .fix_rank_defficiency(res$x_mat, res$y_mat, domain = domain)
+  if(!all(is.null(covariates))) b_mat <- .fix_intercept(res$x_mat, res$y_mat, covariates, b_mat, domain)
 
   structure(list(x_mat = res$x_mat, y_mat = res$y_mat, b_mat = b_mat,
                  library_size_vec = library_size_vec, nuisance_param_vec = nuisance_param_vec,
@@ -195,7 +196,7 @@ initialization_options <- function(init_method = "kmean_rows",
 .fix_rank_defficiency <- function(x_mat, y_mat, domain){
   k <- ncol(x_mat)
   nat_mat <- tcrossprod(x_mat, y_mat)
-  stopifnot(all(nat_mat >= domain[1]), all(nat_mat <= domain[2]))
+  ## [[note to self: I don't think this is the best way to check this...]]
   k2 <- as.numeric(Matrix::rankMatrix(nat_mat))
 
   if(k != k2){
@@ -220,4 +221,39 @@ initialization_options <- function(init_method = "kmean_rows",
   }
 
   list(x_mat = res$x_mat, y_mat = res$y_mat)
+}
+
+.fix_intercept <- function(x_mat, y_mat, covariates, b_mat, domain, tol = 1e-4){
+  if(all(is.infinite(domain))) return(b_mat)
+  intercept_idx <- which(apply(covariates, 2, function(x){diff(range(x)) <= 1e-6}))[1]
+  nat_mat <- tcrossprod(x_mat, y_mat) + tcrossprod(covariates, b_mat)
+
+  # fix entries above domain
+  if(!is.infinite(domain[2])){
+    problem_idx <- which(nat_mat > domain[2], arr.ind = T)
+    if(length(problem_idx) > 0){
+      problem_col <- sort(unique(problem_idx[,2]))
+      for(j in problem_col){
+        diff_val <- max(pmax(nat_mat[,j] - domain[2], 0))
+        b_mat[j,intercept_idx] <- b_mat[j,intercept_idx] - (diff_val+tol)
+      }
+    }
+  }
+
+  # fix entries below domain
+  if(!is.infinite(domain[1])){
+    problem_idx <- which(nat_mat < domain[1], arr.ind = T)
+    if(length(problem_idx) > 0){
+      problem_col <- sort(unique(problem_idx[,2]))
+      for(j in problem_col){
+        diff_val <- max(pmax(domain[1] - nat_mat[,j], 0))
+        b_mat[j,intercept_idx] <- b_mat[j,intercept_idx] + (diff_val+tol)
+      }
+    }
+  }
+
+  nat_mat <- tcrossprod(x_mat, y_mat) + tcrossprod(covariates, b_mat)
+  if(any(nat_mat < domain[1]) | any(nat_mat > domain[2])) stop("Conflict in initialization")
+
+  b_mat
 }

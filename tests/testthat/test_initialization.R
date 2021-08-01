@@ -233,3 +233,56 @@ test_that("initialize_svd works for missing values", {
 
   expect_true(is.list(res))
 })
+
+##########################
+
+## .fix_intercept works
+
+test_that(".fix_intercept works on hard example", {
+  load("../assets/initialize_esvd1.rda")
+
+  dat <- mat
+  n <- nrow(dat)
+  k <- K
+  family <- "neg_binom"
+  nuisance_param_vec <- nuisance_vec
+  library_size_vec <- rep(1,n)
+  covariates <- covariates
+  config <- eSVD2::initialization_options()
+  verbose <- 0
+
+  n <- nrow(dat); p <- ncol(dat)
+  family <- .string_to_distr_funcs(family)
+  library_size_vec <- .parse_library_size(dat, library_size_vec = library_size_vec)
+  rescaled_dat <- t(sapply(1:nrow(dat), function(i){
+    dat[i,]/library_size_vec[i]
+  }))
+
+  rescaled_dat <- .matrix_completion(rescaled_dat, k = k)
+  init_res <- .determine_initial_matrix(rescaled_dat, k = k, family = family,
+                                                nuisance_param_vec = nuisance_param_vec,
+                                                max_val = config$max_val,
+                                                tol = config$tol)
+  nat_mat <- init_res$nat_mat; domain <- init_res$domain
+
+  tmp <- lapply(1:p, function(j){
+    .regress_covariates(nat_mat[,j], covariates)
+  })
+
+  r <- ncol(covariates)
+  nat_mat <- sapply(1:p, function(j){tmp[[j]]$residual})
+  b_mat <- do.call(rbind, (lapply(1:p, function(j){tmp[[j]]$coef})))
+  baseline <- tcrossprod(covariates, b_mat)
+  k2 <- k + r #[[note to self: check that this is correct]]
+
+  # project inital matrix into space of low-rank matrices
+  nat_mat <- .initialize_nat_mat(nat_mat, k = k2, baseline = baseline,
+                                         domain = domain, config = config)
+
+  res <-  .factorize_matrix(nat_mat, k = k, equal_covariance = T)
+  res <-  .fix_rank_defficiency(res$x_mat, res$y_mat, domain = domain)
+  b_mat <- .fix_intercept(res$x_mat, res$y_mat, covariates, b_mat, domain)
+
+  nat_mat <- tcrossprod(res$x_mat, res$y_mat) + tcrossprod(covariates, b_mat)
+  expect_true(all(nat_mat < 0))
+})
