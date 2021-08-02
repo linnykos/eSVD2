@@ -57,7 +57,7 @@ line_search <- function(alpha0, x, fx, direction, f, feas,
 }
 
 # Constrained Newton method
-constr_newton <- function(x0, f, gr, hn, feas,
+constr_newton <- function(x0, f, gr, hn, direc, feas,
                           max_iter = 100, max_linesearch = 30,
                           eps_rel = 1e-5, verbose = FALSE, ...)
 {
@@ -73,10 +73,11 @@ constr_newton <- function(x0, f, gr, hn, feas,
   if(xgrad <= eps_rel * max(1, xnorm))
     return(list(x = x, fn = fx, grad = grad))
 
+  Hess <- hn(x, ...)
+  direction <- -solve(Hess, grad)
+
   for(i in seq_len(max_iter))
   {
-    Hess <- hn(x, ...)
-    direction <- -solve(Hess, grad)
     lns <- line_search(1, x, fx, direction, f, feas,
                        max_linesearch, scaling = 0.5, ...)
     step <- lns$step
@@ -87,7 +88,12 @@ constr_newton <- function(x0, f, gr, hn, feas,
     xdiff <- vnorm(newx - x)
     x <- newx
     fx <- newfx
-    grad <- gr(x, ...)
+    # grad <- gr(x, ...)
+    # Hess <- hn(x, ...)
+    # direction <- -solve(Hess, grad)
+    gd <- direc(x, ...)
+    grad <- gd$grad
+    direction <- gd$direction
     xnorm <- vnorm(x)
     xgrad <- vnorm(grad)
 
@@ -104,7 +110,7 @@ constr_newton <- function(x0, f, gr, hn, feas,
 # Constrained L-BFGS method
 # The constraint is imposed by setting the objective function to infinity
 # outside the feasible set
-constr_lbfgs <- function(x0, f, gr, hn, feas,
+constr_lbfgs <- function(x0, f, gr, hn, direc, feas,
                          max_iter = 100, max_linesearch = 30,
                          eps_rel = 1e-5, verbose = FALSE, ...)
 {

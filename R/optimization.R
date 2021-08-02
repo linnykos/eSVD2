@@ -13,7 +13,7 @@ opt_x <- function(X0, Y, B, Z, A, family, s, gamma, opt_fun, verbose = 0, ...)
     Zi <- if(is.null(Z)) numeric(0) else Z[i, ]
 
     opt <- opt_fun(
-      x0 = X0[i, ], f = objfn_Xi, gr = grad_Xi, hn = hessian_Xi, feas = feas_Xi,
+      x0 = X0[i, ], f = objfn_Xi, gr = grad_Xi, hn = hessian_Xi, direc = direction_Xi, feas = feas_Xi,
       eps_rel = 1e-3, verbose = (verbose >= 3),
       Y = Y, B = B, Zi = Zi, Ai = A[i, ], family = family, si = s[i], gamma = gamma, ...
     )
@@ -39,7 +39,7 @@ opt_yb <- function(YB0, X, Z, A, family, s, gamma, opt_fun, verbose = 0, ...)
       cat("===== Optimizing Row ", j, " of Y =====\n", sep = "")
 
     opt <- opt_fun(
-      x0 = YB0[j, ], f = objfn_Yj, gr = grad_Yj, hn = hessian_Yj, feas = feas_Yj,
+      x0 = YB0[j, ], f = objfn_Yj, gr = grad_Yj, hn = hessian_Yj, direc = direction_Yj, feas = feas_Yj,
       eps_rel = 1e-3, verbose = (verbose >= 3),
       X = XZ, Bj = numeric(0), Z = matrix(0, n, 0), Aj = A[, j], family = family, s = s, gammaj = gamma[j], ...
     )

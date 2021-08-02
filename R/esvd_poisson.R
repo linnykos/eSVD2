@@ -141,6 +141,22 @@
   -exp(log(s) + thetaj)
 }
 
+# 1st and 2nd derivatives of log-density w.r.t. the i-th row of theta [p x 1]
+.d12log_prob_row.poisson <- function(Ai, thetai, si, gamma)
+{
+  d2 <- -exp(log(si) + thetai)
+  d1 <- Ai + d2
+  list(d1 = d1, d2 = d2)
+}
+
+# 1st and 2nd derivatives of log-density w.r.t. the j-th column of theta [n x 1]
+.d12log_prob_col.poisson <- function(Aj, thetaj, s, gammaj)
+{
+  d2 <- -exp(log(s) + thetaj)
+  d1 <- Aj + d2
+  list(d1 = d1, d2 = d2)
+}
+
 # Feasibility of the natural parameter
 # .feasibli.poisson <- function(Xi, Y, ci)
 # {
@@ -167,19 +183,21 @@
 
 .esvd.poisson <- structure(
   list(
-    name           = "poisson",
-    log_prob       = .log_prob.poisson,
-    log_prob_row   = .log_prob_row.poisson,
-    log_prob_col   = .log_prob_col.poisson,
-    dlog_prob_row  = .dlog_prob_row.poisson,
-    dlog_prob_col  = .dlog_prob_col.poisson,
-    d2log_prob_row = .d2log_prob_row.poisson,
-    d2log_prob_col = .d2log_prob_col.poisson,
-    feasibility    = .feasibility.poisson,
-    feas_always    = TRUE,
-    domain         = c(-Inf, Inf),
-    dat_to_nat     = .dat_to_nat.poisson,
-    nat_to_canon   = .nat_to_canon.poisson
+    name            = "poisson",
+    log_prob        = .log_prob.poisson,
+    log_prob_row    = .log_prob_row.poisson,
+    log_prob_col    = .log_prob_col.poisson,
+    dlog_prob_row   = .dlog_prob_row.poisson,
+    dlog_prob_col   = .dlog_prob_col.poisson,
+    d2log_prob_row  = .d2log_prob_row.poisson,
+    d2log_prob_col  = .d2log_prob_col.poisson,
+    d12log_prob_row = .d12log_prob_row.poisson,
+    d12log_prob_col = .d12log_prob_col.poisson,
+    feasibility     = .feasibility.poisson,
+    feas_always     = TRUE,
+    domain          = c(-Inf, Inf),
+    dat_to_nat      = .dat_to_nat.poisson,
+    nat_to_canon    = .nat_to_canon.poisson
   ),
   class = "esvd_family"
 )
