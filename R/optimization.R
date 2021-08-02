@@ -107,11 +107,12 @@ opt_esvd <- function(x_init, y_init, dat, family = "gaussian", method = c("newto
   method <- match.arg(method)
   opt_fun <- if(method == "newton") constr_newton else constr_lbfgs
 
-  if(all(is.null(covariates)))
+  if(is.null(covariates))
   {
-    b_mat <- NULL
+    # A matrix with zero column
+    b_mat <- matrix(0, p, 0)
   } else {
-    if(all(is.null(b_init)))
+    if(is.null(b_init))
     {
       r <- ncol(covariates)
       b_mat <- matrix(0, p, r)
@@ -142,7 +143,7 @@ opt_esvd <- function(x_init, y_init, dat, family = "gaussian", method = c("newto
     if(is.null(covariates))
     {
       y_mat <- yb_mat
-      b_mat <- NULL
+      b_mat <- matrix(0, p, 0)
     } else {
       y_mat <- yb_mat[, 1:k, drop = FALSE]
       b_mat <- yb_mat[, -(1:k), drop = FALSE]
