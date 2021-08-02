@@ -225,6 +225,60 @@ NumericMatrix hessian_Xi_impl(
 }
 
 // [[Rcpp::export]]
+List direction_Xi_impl(
+    NumericVector Xi_, NumericMatrix Y_, NumericMatrix B_, NumericVector Zi_,
+    NumericVector Ai_, List family_,
+    NumericVector si_, NumericVector gamma_
+)
+{
+    const int p = Y_.nrow();
+    const int r = B_.ncol();
+    NumericVector thetai_ = NumericVector(Rcpp::no_init_vector(p));
+
+    MapVec thetai = Rcpp::as<MapVec>(thetai_);
+    MapVec Xi = Rcpp::as<MapVec>(Xi_);
+    MapMat Y = Rcpp::as<MapMat>(Y_);
+    MapMat B = Rcpp::as<MapMat>(B_);
+    MapVec Zi = Rcpp::as<MapVec>(Zi_);
+
+    thetai.noalias() = Y * Xi;
+    if(r > 0)
+        thetai.noalias() += B * Zi;
+
+    Function d12log_prob_row = family_["d12log_prob_row"];
+    List d12log_prob = d12log_prob_row(Ai_, thetai_, si_, gamma_);
+
+    NumericVector dlog_prob_ = d12log_prob["d1"];
+    MapVec dlog_prob = Rcpp::as<MapVec>(dlog_prob_);
+
+    NumericVector d2log_prob_ = d12log_prob["d2"];
+    MapVec d2log_prob = Rcpp::as<MapVec>(d2log_prob_);
+
+    // Some entries in Ai may be NAs, and we only aggregate non-missing values
+    int non_na = p;
+    for(int j = 0; j < p; j++)
+    {
+        if(NumericVector::is_na(Ai_[j]))
+        {
+            dlog_prob[j] = 0.0;
+            d2log_prob[j] = 0.0;
+            non_na--;
+        }
+    }
+    if(non_na < 1)
+        Rcpp::stop("all elements in Ai are NA");
+
+    VectorXd g = Y.transpose() * (-dlog_prob);
+    MatrixXd H = Y.transpose() * (-d2log_prob).asDiagonal() * Y;
+    VectorXd direc = -H.llt().solve(g);
+    g /= double(non_na);
+    return List::create(
+        Rcpp::Named("grad") = g,
+        Rcpp::Named("direction") = direc
+    );
+}
+
+// [[Rcpp::export]]
 NumericMatrix hessian_Yj_impl(
     NumericVector Yj_, NumericMatrix X_, NumericVector Bj_, NumericMatrix Z_,
     NumericVector Aj_, List family_,
@@ -267,4 +321,58 @@ NumericMatrix hessian_Yj_impl(
     res.noalias() = X.transpose() * d2log_prob.asDiagonal() * X;
     res /= -double(non_na);
     return res_;
+}
+
+// [[Rcpp::export]]
+List direction_Yj_impl(
+    NumericVector Yj_, NumericMatrix X_, NumericVector Bj_, NumericMatrix Z_,
+    NumericVector Aj_, List family_,
+    NumericVector s_, NumericVector gammaj_
+)
+{
+    const int n = X_.nrow();
+    const int r = Z_.ncol();
+    NumericVector thetaj_ = NumericVector(Rcpp::no_init_vector(n));
+
+    MapVec thetaj = Rcpp::as<MapVec>(thetaj_);
+    MapMat X = Rcpp::as<MapMat>(X_);
+    MapVec Yj = Rcpp::as<MapVec>(Yj_);
+    MapVec Bj = Rcpp::as<MapVec>(Bj_);
+    MapMat Z = Rcpp::as<MapMat>(Z_);
+
+    thetaj.noalias() = X * Yj;
+    if(r > 0)
+        thetaj.noalias() += Z * Bj;
+
+    Function d12log_prob_col = family_["d12log_prob_col"];
+    List d12log_prob = d12log_prob_col(Aj_, thetaj_, s_, gammaj_);
+
+    NumericVector dlog_prob_ = d12log_prob["d1"];
+    MapVec dlog_prob = Rcpp::as<MapVec>(dlog_prob_);
+
+    NumericVector d2log_prob_ = d12log_prob["d2"];
+    MapVec d2log_prob = Rcpp::as<MapVec>(d2log_prob_);
+
+    // Some entries in Aj may be NAs, and we only aggregate non-missing values
+    int non_na = n;
+    for(int i = 0; i < n; i++)
+    {
+        if(NumericVector::is_na(Aj_[i]))
+        {
+            dlog_prob[i] = 0.0;
+            d2log_prob[i] = 0.0;
+            non_na--;
+        }
+    }
+    if(non_na < 1)
+        Rcpp::stop("all elements in Aj are NA");
+
+    VectorXd g = X.transpose() * (-dlog_prob);
+    MatrixXd H = X.transpose() * (-d2log_prob).asDiagonal() * X;
+    VectorXd direc = -H.llt().solve(g);
+    g /= double(non_na);
+    return List::create(
+        Rcpp::Named("grad") = g,
+        Rcpp::Named("direction") = direc
+    );
 }
