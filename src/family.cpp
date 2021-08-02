@@ -1,8 +1,10 @@
 #include <RcppEigen.h>
+#include "distribution.h"
 
 using Rcpp::NumericMatrix;
 using Rcpp::NumericVector;
 using Rcpp::List;
+using Rcpp::Environment;
 using Rcpp::Function;
 using Eigen::MatrixXd;
 using Eigen::VectorXd;
@@ -12,8 +14,8 @@ typedef Eigen::Map<VectorXd> MapVec;
 // [[Rcpp::export]]
 double objfn_Xi_impl(
     NumericVector Xi_, NumericMatrix Y_, NumericMatrix B_, NumericVector Zi_,
-    NumericVector Ai_, List family_,
-    NumericVector si_, NumericVector gamma_
+    NumericVector Ai_, Environment family_,
+    double si_, NumericVector gamma_
 )
 {
     const int p = Y_.nrow();
@@ -30,8 +32,9 @@ double objfn_Xi_impl(
     if(r > 0)
         thetai.noalias() += B * Zi;
 
-    Function log_prob_row = family_["log_prob_row"];
-    NumericVector log_prob = log_prob_row(Ai_, thetai_, si_, gamma_);
+    Rcpp::XPtr<Distribution> distr = family_["cpp_functions"];
+    VectorXd log_prob(p);
+    distr->log_prob_row(p, Ai_.begin(), thetai_.begin(), si_, gamma_.begin(), log_prob.data());
 
     // Some entries in Ai may be NAs, and we only aggregate non-missing values
     double res = 0.0;
@@ -52,8 +55,8 @@ double objfn_Xi_impl(
 // [[Rcpp::export]]
 double objfn_Yj_impl(
     NumericVector Yj_, NumericMatrix X_, NumericVector Bj_, NumericMatrix Z_,
-    NumericVector Aj_, List family_,
-    NumericVector s_, NumericVector gammaj_
+    NumericVector Aj_, Environment family_,
+    NumericVector s_, double gammaj_
 )
 {
     const int n = X_.nrow();
@@ -70,8 +73,9 @@ double objfn_Yj_impl(
     if(r > 0)
         thetaj.noalias() += Z * Bj;
 
-    Function log_prob_col = family_["log_prob_col"];
-    NumericVector log_prob = log_prob_col(Aj_, thetaj_, s_, gammaj_);
+    Rcpp::XPtr<Distribution> distr = family_["cpp_functions"];
+    VectorXd log_prob(n);
+    distr->log_prob_col(n, Aj_.begin(), thetaj_.begin(), s_.begin(), gammaj_, log_prob.data());
 
     // Some entries in Aj may be NAs, and we only aggregate non-missing values
     double res = 0.0;
@@ -92,8 +96,8 @@ double objfn_Yj_impl(
 // [[Rcpp::export]]
 NumericVector grad_Xi_impl(
     NumericVector Xi_, NumericMatrix Y_, NumericMatrix B_, NumericVector Zi_,
-    NumericVector Ai_, List family_,
-    NumericVector si_, NumericVector gamma_
+    NumericVector Ai_, Environment family_,
+    double si_, NumericVector gamma_
 )
 {
     const int k = Xi_.length();
@@ -113,9 +117,9 @@ NumericVector grad_Xi_impl(
     if(r > 0)
         thetai.noalias() += B * Zi;
 
-    Function dlog_prob_row = family_["dlog_prob_row"];
-    NumericVector dlog_prob_ = dlog_prob_row(Ai_, thetai_, si_, gamma_);
-    MapVec dlog_prob = Rcpp::as<MapVec>(dlog_prob_);
+    Rcpp::XPtr<Distribution> distr = family_["cpp_functions"];
+    VectorXd dlog_prob(p);
+    distr->dlog_prob_row(p, Ai_.begin(), thetai_.begin(), si_, gamma_.begin(), dlog_prob.data());
 
     // Some entries in Ai may be NAs, and we only aggregate non-missing values
     int non_na = p;
@@ -137,8 +141,8 @@ NumericVector grad_Xi_impl(
 // [[Rcpp::export]]
 NumericVector grad_Yj_impl(
     NumericVector Yj_, NumericMatrix X_, NumericVector Bj_, NumericMatrix Z_,
-    NumericVector Aj_, List family_,
-    NumericVector s_, NumericVector gammaj_
+    NumericVector Aj_, Environment family_,
+    NumericVector s_, double gammaj_
 )
 {
     const int k = Yj_.length();
@@ -158,9 +162,9 @@ NumericVector grad_Yj_impl(
     if(r > 0)
         thetaj.noalias() += Z * Bj;
 
-    Function dlog_prob_col = family_["dlog_prob_col"];
-    NumericVector dlog_prob_ = dlog_prob_col(Aj_, thetaj_, s_, gammaj_);
-    MapVec dlog_prob = Rcpp::as<MapVec>(dlog_prob_);
+    Rcpp::XPtr<Distribution> distr = family_["cpp_functions"];
+    VectorXd dlog_prob(n);
+    distr->dlog_prob_col(n, Aj_.begin(), thetaj_.begin(), s_.begin(), gammaj_, dlog_prob.data());
 
     // Some entries in Aj may be NAs, and we only aggregate non-missing values
     int non_na = n;
@@ -182,8 +186,8 @@ NumericVector grad_Yj_impl(
 // [[Rcpp::export]]
 NumericMatrix hessian_Xi_impl(
     NumericVector Xi_, NumericMatrix Y_, NumericMatrix B_, NumericVector Zi_,
-    NumericVector Ai_, List family_,
-    NumericVector si_, NumericVector gamma_
+    NumericVector Ai_, Environment family_,
+    double si_, NumericVector gamma_
 )
 {
     const int k = Xi_.length();
@@ -203,9 +207,9 @@ NumericMatrix hessian_Xi_impl(
     if(r > 0)
         thetai.noalias() += B * Zi;
 
-    Function d2log_prob_row = family_["d2log_prob_row"];
-    NumericVector d2log_prob_ = d2log_prob_row(Ai_, thetai_, si_, gamma_);
-    MapVec d2log_prob = Rcpp::as<MapVec>(d2log_prob_);
+    Rcpp::XPtr<Distribution> distr = family_["cpp_functions"];
+    VectorXd d2log_prob(p);
+    distr->d2log_prob_row(p, Ai_.begin(), thetai_.begin(), si_, gamma_.begin(), d2log_prob.data());
 
     // Some entries in Ai may be NAs, and we only aggregate non-missing values
     int non_na = p;
@@ -225,10 +229,55 @@ NumericMatrix hessian_Xi_impl(
 }
 
 // [[Rcpp::export]]
+NumericMatrix hessian_Yj_impl(
+    NumericVector Yj_, NumericMatrix X_, NumericVector Bj_, NumericMatrix Z_,
+    NumericVector Aj_, Environment family_,
+    NumericVector s_, double gammaj_
+)
+{
+    const int k = Yj_.length();
+    const int n = X_.nrow();
+    const int r = Z_.ncol();
+    NumericMatrix res_ = NumericMatrix(Rcpp::no_init_matrix(k, k));
+    NumericVector thetaj_ = NumericVector(Rcpp::no_init_vector(n));
+
+    MapMat res = Rcpp::as<MapMat>(res_);
+    MapVec thetaj = Rcpp::as<MapVec>(thetaj_);
+    MapMat X = Rcpp::as<MapMat>(X_);
+    MapVec Yj = Rcpp::as<MapVec>(Yj_);
+    MapVec Bj = Rcpp::as<MapVec>(Bj_);
+    MapMat Z = Rcpp::as<MapMat>(Z_);
+
+    thetaj.noalias() = X * Yj;
+    if(r > 0)
+        thetaj.noalias() += Z * Bj;
+
+    Rcpp::XPtr<Distribution> distr = family_["cpp_functions"];
+    VectorXd d2log_prob(n);
+    distr->d2log_prob_col(n, Aj_.begin(), thetaj_.begin(), s_.begin(), gammaj_, d2log_prob.data());
+
+    // Some entries in Aj may be NAs, and we only aggregate non-missing values
+    int non_na = n;
+    for(int i = 0; i < n; i++)
+    {
+        if(NumericVector::is_na(Aj_[i]))
+        {
+            d2log_prob[i] = 0.0;
+            non_na--;
+        }
+    }
+    if(non_na < 1)
+        Rcpp::stop("all elements in Aj are NA");
+    res.noalias() = X.transpose() * d2log_prob.asDiagonal() * X;
+    res /= -double(non_na);
+    return res_;
+}
+
+// [[Rcpp::export]]
 List direction_Xi_impl(
     NumericVector Xi_, NumericMatrix Y_, NumericMatrix B_, NumericVector Zi_,
-    NumericVector Ai_, List family_,
-    NumericVector si_, NumericVector gamma_
+    NumericVector Ai_, Environment family_,
+    double si_, NumericVector gamma_
 )
 {
     const int p = Y_.nrow();
@@ -245,14 +294,10 @@ List direction_Xi_impl(
     if(r > 0)
         thetai.noalias() += B * Zi;
 
-    Function d12log_prob_row = family_["d12log_prob_row"];
-    List d12log_prob = d12log_prob_row(Ai_, thetai_, si_, gamma_);
-
-    NumericVector dlog_prob_ = d12log_prob["d1"];
-    MapVec dlog_prob = Rcpp::as<MapVec>(dlog_prob_);
-
-    NumericVector d2log_prob_ = d12log_prob["d2"];
-    MapVec d2log_prob = Rcpp::as<MapVec>(d2log_prob_);
+    Rcpp::XPtr<Distribution> distr = family_["cpp_functions"];
+    VectorXd dlog_prob(p), d2log_prob(p);
+    distr->d12log_prob_row(p, Ai_.begin(), thetai_.begin(), si_, gamma_.begin(),
+                           dlog_prob.data(), d2log_prob.data());
 
     // Some entries in Ai may be NAs, and we only aggregate non-missing values
     int non_na = p;
@@ -279,55 +324,10 @@ List direction_Xi_impl(
 }
 
 // [[Rcpp::export]]
-NumericMatrix hessian_Yj_impl(
-    NumericVector Yj_, NumericMatrix X_, NumericVector Bj_, NumericMatrix Z_,
-    NumericVector Aj_, List family_,
-    NumericVector s_, NumericVector gammaj_
-)
-{
-    const int k = Yj_.length();
-    const int n = X_.nrow();
-    const int r = Z_.ncol();
-    NumericMatrix res_ = NumericMatrix(Rcpp::no_init_matrix(k, k));
-    NumericVector thetaj_ = NumericVector(Rcpp::no_init_vector(n));
-
-    MapMat res = Rcpp::as<MapMat>(res_);
-    MapVec thetaj = Rcpp::as<MapVec>(thetaj_);
-    MapMat X = Rcpp::as<MapMat>(X_);
-    MapVec Yj = Rcpp::as<MapVec>(Yj_);
-    MapVec Bj = Rcpp::as<MapVec>(Bj_);
-    MapMat Z = Rcpp::as<MapMat>(Z_);
-
-    thetaj.noalias() = X * Yj;
-    if(r > 0)
-        thetaj.noalias() += Z * Bj;
-
-    Function d2log_prob_col = family_["d2log_prob_col"];
-    NumericVector d2log_prob_ = d2log_prob_col(Aj_, thetaj_, s_, gammaj_);
-    MapVec d2log_prob = Rcpp::as<MapVec>(d2log_prob_);
-
-    // Some entries in Aj may be NAs, and we only aggregate non-missing values
-    int non_na = n;
-    for(int i = 0; i < n; i++)
-    {
-        if(NumericVector::is_na(Aj_[i]))
-        {
-            d2log_prob[i] = 0.0;
-            non_na--;
-        }
-    }
-    if(non_na < 1)
-        Rcpp::stop("all elements in Aj are NA");
-    res.noalias() = X.transpose() * d2log_prob.asDiagonal() * X;
-    res /= -double(non_na);
-    return res_;
-}
-
-// [[Rcpp::export]]
 List direction_Yj_impl(
     NumericVector Yj_, NumericMatrix X_, NumericVector Bj_, NumericMatrix Z_,
-    NumericVector Aj_, List family_,
-    NumericVector s_, NumericVector gammaj_
+    NumericVector Aj_, Environment family_,
+    NumericVector s_, double gammaj_
 )
 {
     const int n = X_.nrow();
@@ -344,14 +344,10 @@ List direction_Yj_impl(
     if(r > 0)
         thetaj.noalias() += Z * Bj;
 
-    Function d12log_prob_col = family_["d12log_prob_col"];
-    List d12log_prob = d12log_prob_col(Aj_, thetaj_, s_, gammaj_);
-
-    NumericVector dlog_prob_ = d12log_prob["d1"];
-    MapVec dlog_prob = Rcpp::as<MapVec>(dlog_prob_);
-
-    NumericVector d2log_prob_ = d12log_prob["d2"];
-    MapVec d2log_prob = Rcpp::as<MapVec>(d2log_prob_);
+    Rcpp::XPtr<Distribution> distr = family_["cpp_functions"];
+    VectorXd dlog_prob(n), d2log_prob(n);
+    distr->d12log_prob_col(n, Aj_.begin(), thetaj_.begin(), s_.begin(), gammaj_,
+                           dlog_prob.data(), d2log_prob.data());
 
     // Some entries in Aj may be NAs, and we only aggregate non-missing values
     int non_na = n;
