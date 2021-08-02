@@ -16,7 +16,10 @@ Imports:
     irlba,
     matrixStats,
     sparseMatrixStats,
-    gtools
+    gtools,
+    Rcpp
 Suggests:
     testthat, numDeriv
+LinkingTo:
+    Rcpp, RcppEigen
 RoxygenNote: 7.1.1

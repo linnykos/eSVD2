@@ -10,7 +10,7 @@ opt_x <- function(X0, Y, B, Z, A, family, s, gamma, opt_fun, verbose = 0, ...)
   {
     if(verbose >= 2)
       cat("===== Optimizing Row ", i, " of X =====\n", sep = "")
-    Zi <- if(is.null(Z)) NULL else Z[i, ]
+    Zi <- if(is.null(Z)) numeric(0) else Z[i, ]
 
     opt <- opt_fun(
       x0 = X0[i, ], f = objfn_Xi, gr = grad_Xi, hn = hessian_Xi, feas = feas_Xi,
@@ -28,6 +28,7 @@ opt_x <- function(X0, Y, B, Z, A, family, s, gamma, opt_fun, verbose = 0, ...)
 # Optimize Y and B given X
 opt_yb <- function(YB0, X, Z, A, family, s, gamma, opt_fun, verbose = 0, ...)
 {
+  n <- nrow(A)
   p <- ncol(A)
   YB <- YB0
   XZ <- cbind(X, Z)
@@ -40,7 +41,7 @@ opt_yb <- function(YB0, X, Z, A, family, s, gamma, opt_fun, verbose = 0, ...)
     opt <- opt_fun(
       x0 = YB0[j, ], f = objfn_Yj, gr = grad_Yj, hn = hessian_Yj, feas = feas_Yj,
       eps_rel = 1e-3, verbose = (verbose >= 3),
-      X = XZ, Bj = NULL, Z = NULL, Aj = A[, j], family = family, s = s, gammaj = gamma[j], ...
+      X = XZ, Bj = numeric(0), Z = matrix(0, n, 0), Aj = A[, j], family = family, s = s, gammaj = gamma[j], ...
     )
 
     YB[j, ] <- opt$x

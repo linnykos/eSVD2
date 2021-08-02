@@ -35,81 +35,87 @@ objfn_all <- function(X, Y, B, Z, A, family, s, gamma, ...)
 # Objective function value for the i-th row of X
 objfn_Xi <- function(Xi, Y, B, Zi, Ai, family, si, gamma, ...)
 {
-  thetai <- drop(cbind(Y, B) %*% c(Xi, Zi))               # [p x 1]
-  log_prob <- family$log_prob_row(Ai, thetai, si, gamma)  # [p x 1]
-  # Some entries in Ai may be NAs, and we only aggregate non-missing values
-  obs_ind <- which(!is.na(Ai))
-  stopifnot(length(obs_ind) > 0)
-  # Compute negative log-likelihood function value
-  -mean(log_prob[obs_ind])
+  # thetai <- drop(cbind(Y, B) %*% c(Xi, Zi))               # [p x 1]
+  # log_prob <- family$log_prob_row(Ai, thetai, si, gamma)  # [p x 1]
+  # # Some entries in Ai may be NAs, and we only aggregate non-missing values
+  # obs_ind <- which(!is.na(Ai))
+  # stopifnot(length(obs_ind) > 0)
+  # # Compute negative log-likelihood function value
+  # -mean(log_prob[obs_ind])
+  objfn_Xi_impl(Xi, Y, B, Zi, Ai, family, si, gamma)
 }
 
 # Objective function value for the j-th row of Y
 objfn_Yj <- function(Yj, X, Bj, Z, Aj, family, s, gammaj, ...)
 {
-  thetaj <- drop(cbind(X, Z) %*% c(Yj, Bj))               # [n x 1]
-  log_prob <- family$log_prob_col(Aj, thetaj, s, gammaj)  # [n x 1]
-  # Some entries in Aj may be NAs, and we only aggregate non-missing values
-  obs_ind <- which(!is.na(Aj))
-  stopifnot(length(obs_ind) > 0)
-  # Compute negative log-likelihood function value
-  -mean(log_prob[obs_ind])
+  # thetaj <- drop(cbind(X, Z) %*% c(Yj, Bj))               # [n x 1]
+  # log_prob <- family$log_prob_col(Aj, thetaj, s, gammaj)  # [n x 1]
+  # # Some entries in Aj may be NAs, and we only aggregate non-missing values
+  # obs_ind <- which(!is.na(Aj))
+  # stopifnot(length(obs_ind) > 0)
+  # # Compute negative log-likelihood function value
+  # -mean(log_prob[obs_ind])
+  objfn_Yj_impl(Yj, X, Bj, Z, Aj, family, s, gammaj)
 }
 
 # Gradient for the i-th row of X
 grad_Xi <- function(Xi, Y, B, Zi, Ai, family, si, gamma, ...)
 {
-  thetai <- drop(cbind(Y, B) %*% c(Xi, Zi))                 # [p x 1]
-  dlog_prob <- family$dlog_prob_row(Ai, thetai, si, gamma)  # [p x 1]
-  # Some entries in Ai may be NAs, and we only aggregate non-missing values
-  obs_ind <- which(!is.na(Ai))
-  stopifnot(length(obs_ind) > 0)
-  # Compute the gradient
-  Ysub <- Y[obs_ind, , drop = FALSE]
-  prod <- crossprod(Ysub, dlog_prob[obs_ind])
-  -drop(prod) / length(obs_ind)
+  # thetai <- drop(cbind(Y, B) %*% c(Xi, Zi))                 # [p x 1]
+  # dlog_prob <- family$dlog_prob_row(Ai, thetai, si, gamma)  # [p x 1]
+  # # Some entries in Ai may be NAs, and we only aggregate non-missing values
+  # obs_ind <- which(!is.na(Ai))
+  # stopifnot(length(obs_ind) > 0)
+  # # Compute the gradient
+  # Ysub <- Y[obs_ind, , drop = FALSE]
+  # prod <- crossprod(Ysub, dlog_prob[obs_ind])
+  # -drop(prod) / length(obs_ind)
+  grad_Xi_impl(Xi, Y, B, Zi, Ai, family, si, gamma)
 }
 
 # Gradient for the j-th row of Y
 grad_Yj <- function(Yj, X, Bj, Z, Aj, family, s, gammaj, ...)
 {
-  thetaj <- drop(cbind(X, Z) %*% c(Yj, Bj))                 # [n x 1]
-  dlog_prob <- family$dlog_prob_col(Aj, thetaj, s, gammaj)  # [n x 1]
-  # Some entries in Aj may be NAs, and we only aggregate non-missing values
-  obs_ind <- which(!is.na(Aj))
-  stopifnot(length(obs_ind) > 0)
-  # Compute the gradient
-  Xsub <- X[obs_ind, , drop = FALSE]
-  prod <- crossprod(Xsub, dlog_prob[obs_ind])
-  -drop(prod) / length(obs_ind)
+  # thetaj <- drop(cbind(X, Z) %*% c(Yj, Bj))                 # [n x 1]
+  # dlog_prob <- family$dlog_prob_col(Aj, thetaj, s, gammaj)  # [n x 1]
+  # # Some entries in Aj may be NAs, and we only aggregate non-missing values
+  # obs_ind <- which(!is.na(Aj))
+  # stopifnot(length(obs_ind) > 0)
+  # # Compute the gradient
+  # Xsub <- X[obs_ind, , drop = FALSE]
+  # prod <- crossprod(Xsub, dlog_prob[obs_ind])
+  # -drop(prod) / length(obs_ind)
+  grad_Yj_impl(Yj, X, Bj, Z, Aj, family, s, gammaj)
 }
 
 # Hessian for the i-th row of X
 hessian_Xi <- function(Xi, Y, B, Zi, Ai, family, si, gamma, ...)
 {
-  thetai <- drop(cbind(Y, B) %*% c(Xi, Zi))                   # [p x 1]
-  d2log_prob <- family$d2log_prob_row(Ai, thetai, si, gamma)  # [p x 1]
-  # Some entries in Ai may be NAs, and we only aggregate non-missing values
-  obs_ind <- which(!is.na(Ai))
-  stopifnot(length(obs_ind) > 0)
-  # Compute the Hessian
-  Ysub <- Y[obs_ind, , drop = FALSE]
-  diag <- d2log_prob[obs_ind]
-  -wtdw(Ysub, diag) / length(obs_ind)
+  # thetai <- drop(cbind(Y, B) %*% c(Xi, Zi))                   # [p x 1]
+  # d2log_prob <- family$d2log_prob_row(Ai, thetai, si, gamma)  # [p x 1]
+  # # Some entries in Ai may be NAs, and we only aggregate non-missing values
+  # obs_ind <- which(!is.na(Ai))
+  # stopifnot(length(obs_ind) > 0)
+  # # Compute the Hessian
+  # Ysub <- Y[obs_ind, , drop = FALSE]
+  # diag <- d2log_prob[obs_ind]
+  # -wtdw(Ysub, diag) / length(obs_ind)
+  hessian_Xi_impl(Xi, Y, B, Zi, Ai, family, si, gamma)
 }
 
 # Hessian for the j-th row of Y
 hessian_Yj <- function(Yj, X, Bj, Z, Aj, family, s, gammaj, ...)
 {
-  thetaj <- drop(cbind(X, Z) %*% c(Yj, Bj))                   # [n x 1]
-  d2log_prob <- family$d2log_prob_col(Aj, thetaj, s, gammaj)  # [n x 1]
-  # Some entries in Aj may be NAs, and we only aggregate non-missing values
-  obs_ind <- which(!is.na(Aj))
-  stopifnot(length(obs_ind) > 0)
-  # Compute the Hessian
-  Xsub <- X[obs_ind, , drop = FALSE]
-  diag <- d2log_prob[obs_ind]
-  -wtdw(Xsub, diag) / length(obs_ind)
+  # thetaj <- drop(cbind(X, Z) %*% c(Yj, Bj))                   # [n x 1]
+  # d2log_prob <- family$d2log_prob_col(Aj, thetaj, s, gammaj)  # [n x 1]
+  # # Some entries in Aj may be NAs, and we only aggregate non-missing values
+  # obs_ind <- which(!is.na(Aj))
+  # stopifnot(length(obs_ind) > 0)
+  # # Compute the Hessian
+  # Xsub <- X[obs_ind, , drop = FALSE]
+  # diag <- d2log_prob[obs_ind]
+  # -wtdw(Xsub, diag) / length(obs_ind)
+  hessian_Yj_impl(Yj, X, Bj, Z, Aj, family, s, gammaj)
 }
 
 # Feasibility of the i-th row of X
