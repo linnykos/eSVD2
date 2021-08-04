@@ -64,6 +64,8 @@ opt_yb <- function(YB0, X, Z, A, family, s, gamma, opt_fun, verbose = 0, ...)
 #'                           and \code{"bernoulli"}
 #' @param method             a character string indicating the optimization method,
 #'                           either \code{"newton"} or \code{"lbfgs"}
+#' @param b_init             initial estimate of a \eqn{n \times d}{n × d} matrix for the \eqn{d}-dimensional
+#'                           embedding for the \eqn{n} cells
 #' @param covariates         an \eqn{n \times d}{n × d} matrix representing the additional \eqn{d} covariates,
 #'                           or \code{NULL} if no covariate is given
 #' @param nuisance_param_vec either \code{NA} or a single numeric or a length-\eqn{p}
@@ -80,7 +82,7 @@ opt_yb <- function(YB0, X, Z, A, family, s, gamma, opt_fun, verbose = 0, ...)
 #'         latent matrices.
 #' @export
 opt_esvd <- function(x_init, y_init, dat, family = "gaussian", method = c("newton", "lbfgs"),
-                     covariates = NULL, nuisance_param_vec = NA, library_size_vec = 1,
+                     b_init = NULL, covariates = NULL, nuisance_param_vec = NA, library_size_vec = NA,
                      max_iter = 100, tol = 1e-6,
                      verbose = 0, ...)
 {
@@ -104,12 +106,17 @@ opt_esvd <- function(x_init, y_init, dat, family = "gaussian", method = c("newto
   method <- match.arg(method)
   opt_fun <- if(method == "newton") constr_newton else constr_lbfgs
 
-  if(is.null(covariates))
+  if(all(is.null(covariates)))
   {
     b_mat <- NULL
   } else {
-    r <- ncol(covariates)
-    b_mat <- matrix(0, p, r)
+    if(all(is.null(b_init)))
+    {
+      r <- ncol(covariates)
+      b_mat <- matrix(0, p, r)
+    } else {
+      b_mat <- b_init
+    }
   }
   x_mat <- x_init
   y_mat <- y_init
@@ -153,6 +160,9 @@ opt_esvd <- function(x_init, y_init, dat, family = "gaussian", method = c("newto
     if(i >=2 && resid <= thresh)
       break
   }
+
+  tmp <- .reparameterize(x_mat, y_mat, equal_covariance = T)
+  x_mat <- tmp$x_mat; y_mat <- tmp$y_mat
 
   list(x_mat = x_mat, y_mat = y_mat, b_mat = b_mat, loss = losses,
        nuisance_param_vec = nuisance_param_vec, library_size_vec = library_size_vec)

@@ -10,9 +10,10 @@ opt_esvd(
   dat,
   family = "gaussian",
   method = c("newton", "lbfgs"),
+  b_init = NULL,
   covariates = NULL,
   nuisance_param_vec = NA,
-  library_size_vec = 1,
+  library_size_vec = NA,
   max_iter = 100,
   tol = 1e-06,
   verbose = 0,
@@ -34,6 +35,9 @@ and \code{"bernoulli"}}
 
 \item{method}{a character string indicating the optimization method,
 either \code{"newton"} or \code{"lbfgs"}}
+
+\item{b_init}{initial estimate of a \eqn{n \times d}{n × d} matrix for the \eqn{d}-dimensional
+embedding for the \eqn{n} cells}
 
 \item{covariates}{an \eqn{n \times d}{n × d} matrix representing the additional \eqn{d} covariates,
 or \code{NULL} if no covariate is given}
