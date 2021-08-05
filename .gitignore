@@ -23,3 +23,7 @@ markdown/Zeisel_*_files
 cache
 _files
 *_files*
+*.o
+*.dll
+*.so
+*.dylib
