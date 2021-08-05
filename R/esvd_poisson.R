@@ -161,19 +161,19 @@
 
 .esvd.poisson <- structure(
   list(
-    name            = "poisson",
-    log_prob        = .log_prob.poisson,
-    log_prob_row    = .log_prob_row.poisson,
-    log_prob_col    = .log_prob_col.poisson,
-    dlog_prob_row   = .dlog_prob_row.poisson,
-    dlog_prob_col   = .dlog_prob_col.poisson,
-    d2log_prob_row  = .d2log_prob_row.poisson,
-    d2log_prob_col  = .d2log_prob_col.poisson,
-    feasibility     = .feasibility.poisson,
-    feas_always     = TRUE,
-    domain          = c(-Inf, Inf),
-    dat_to_nat      = .dat_to_nat.poisson,
-    nat_to_canon    = .nat_to_canon.poisson
+    name           = "poisson",
+    log_prob       = .log_prob.poisson,
+    log_prob_row   = .log_prob_row.poisson,
+    log_prob_col   = .log_prob_col.poisson,
+    dlog_prob_row  = .dlog_prob_row.poisson,
+    dlog_prob_col  = .dlog_prob_col.poisson,
+    d2log_prob_row = .d2log_prob_row.poisson,
+    d2log_prob_col = .d2log_prob_col.poisson,
+    feasibility    = .feasibility.poisson,
+    feas_always    = TRUE,
+    domain         = c(-Inf, Inf),
+    dat_to_nat     = .dat_to_nat.poisson,
+    nat_to_canon   = .nat_to_canon.poisson
   ),
   class = "esvd_family"
 )
