@@ -29,6 +29,7 @@ initialize_esvd <- function(dat, k, family, covariates = NULL,
   }
 
   # estimate library sizes if asked
+  if(verbose > 0) print(paste0(Sys.time(),": Rescaling data"))
   n <- nrow(dat); p <- ncol(dat)
   family <- .string_to_distr_funcs(family)
   library_size_vec <- .parse_library_size(dat, library_size_vec = library_size_vec)
@@ -38,7 +39,9 @@ initialize_esvd <- function(dat, k, family, covariates = NULL,
 
   # determine initial matrix taking into account to missing values and library size
   # [note to self: this probably could be something a lot simpler]
+  if(verbose > 0) print(paste0(Sys.time(),": Applying matrix completion"))
   rescaled_dat <- .matrix_completion(rescaled_dat, k = k)
+  if(verbose > 0) print(paste0(Sys.time(),": Determining initial matrix"))
   init_res <- .determine_initial_matrix(rescaled_dat, k = k, family = family,
                                         nuisance_param_vec = nuisance_param_vec,
                                         max_val = config$max_val,
@@ -53,6 +56,7 @@ initialize_esvd <- function(dat, k, family, covariates = NULL,
   } else {
     r <- ncol(covariates)
     # do regression
+    if(verbose > 0) print(paste0(Sys.time(),": Regressing out covariates"))
     tmp <- lapply(1:p, function(j){
       .regress_covariates(nat_mat[,j], covariates)
     })
@@ -64,10 +68,12 @@ initialize_esvd <- function(dat, k, family, covariates = NULL,
   }
 
   # project inital matrix into space of low-rank matrices
+  if(verbose > 0) print(paste0(Sys.time(),": Projecting to form low-rank matrix"))
   nat_mat <- .initialize_nat_mat(nat_mat, k = k2, baseline = baseline,
                                  domain = domain, config = config)
 
   # reparameterize
+  if(verbose > 0) print(paste0(Sys.time(),": Reparameterizing"))
   res <- .factorize_matrix(nat_mat, k = k, equal_covariance = T)
   res <- .fix_rank_defficiency(res$x_mat, res$y_mat, domain = domain)
   if(!all(is.null(covariates))) b_mat <- .fix_intercept(res$x_mat, res$y_mat, covariates, b_mat, domain)
