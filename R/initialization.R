@@ -47,6 +47,7 @@ initialize_esvd <- function(dat, k, family, covariates = NULL,
                                         max_val = config$max_val,
                                         tol = config$tol)
   nat_mat <- init_res$nat_mat; domain <- init_res$domain
+  print(dim(nat_mat))
 
   if(all(is.null(covariates)))
   {
@@ -58,11 +59,13 @@ initialize_esvd <- function(dat, k, family, covariates = NULL,
     # do regression
     if(verbose > 0) print(paste0(Sys.time(),": Regressing out covariates"))
     tmp <- lapply(1:p, function(j){
+      if(verbose > 0 && p > 10 && j %% floor(p/10) == 0) cat('*')
       .regress_covariates(nat_mat[,j], covariates)
     })
 
     nat_mat <- sapply(1:p, function(j){tmp[[j]]$residual})
     b_mat <- do.call(rbind, (lapply(1:p, function(j){tmp[[j]]$coef})))
+    colnames(b_mat) <- colnames(covariates)
     baseline <- tcrossprod(covariates, b_mat)
     k2 <- k + r #[[note to self: check that this is correct]]
   }
@@ -71,12 +74,18 @@ initialize_esvd <- function(dat, k, family, covariates = NULL,
   if(verbose > 0) print(paste0(Sys.time(),": Projecting to form low-rank matrix"))
   nat_mat <- .initialize_nat_mat(nat_mat, k = k2, baseline = baseline,
                                  domain = domain, config = config)
+  print(dim(nat_mat))
 
   # reparameterize
   if(verbose > 0) print(paste0(Sys.time(),": Reparameterizing"))
   res <- .factorize_matrix(nat_mat, k = k, equal_covariance = T)
+  print(dim(res$x_mat))
+  if(verbose > 0) print(paste0(Sys.time(),": Fixing possible rank defficiency issues"))
   res <- .fix_rank_defficiency(res$x_mat, res$y_mat, domain = domain)
+  print(dim(res$x_mat))
+  if(verbose > 0) print(paste0(Sys.time(),": Fixing possible covariate issues"))
   if(!all(is.null(covariates))) b_mat <- .fix_intercept(res$x_mat, res$y_mat, covariates, b_mat, domain)
+  print(dim(res$x_mat))
 
   structure(list(x_mat = res$x_mat, y_mat = res$y_mat, b_mat = b_mat,
                  library_size_vec = library_size_vec, nuisance_param_vec = nuisance_param_vec,
@@ -175,7 +184,11 @@ initialization_options <- function(init_method = "kmean_rows",
   if(length(idx) > 0) nat_mat[idx] <- domain[2]-baseline[idx]
 
   if(config$init_method == "kmean_rows"){
-    nat_mat <- .projection_kmeans(nat_mat, k = k, domain = domain, row = T)
+    nat_mat <- .projection_kmeans(nat_mat,
+                                  k = k,
+                                  domain = domain,
+                                  row = T,
+                                  verbose = verbose)
   } else {
     stop("config init_method not found")
   }

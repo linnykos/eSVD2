@@ -1,4 +1,4 @@
-.projection_kmeans <- function(mat, k, domain = NA, row = T){
+.projection_kmeans <- function(mat, k, domain, row, verbose = T){
  stopifnot(k <= min(dim(mat)), is.matrix(mat))
 
  if(!all(is.na(domain))){
@@ -8,6 +8,7 @@
 
  if(!row) mat <- t(mat)
 
+ if(verbose > 0) print(paste0(Sys.time(),": Computing SVD"))
  svd_res <- .svd_truncated(mat, K = k,
                            symmetric = F,
                            rescale = F,
@@ -16,6 +17,7 @@
                            K_full_rank = F)
  dr_mat <- .mult_mat_vec(svd_res$u, svd_res$d)
 
+ if(verbose > 0) print(paste0(Sys.time(),": Computing K-means"))
  kmean_res <- stats::kmeans(dr_mat, centers = k)
  row_mat <- t(sapply(1:k, function(i){
    idx <- which(kmean_res$cluster == i)
@@ -23,6 +25,7 @@
  }))
  new_mat <- row_mat[kmean_res$cluster,,drop = F]
 
- if(row) new_mat <- t(new_mat)
+ if(!row) new_mat <- t(new_mat)
+
  new_mat
 }
