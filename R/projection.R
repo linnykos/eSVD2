@@ -1,4 +1,4 @@
-.projection_kmeans <- function(mat, k, domain, row, verbose = T){
+.projection_kmeans <- function(mat, k, domain, row, verbose = 0){
  stopifnot(k <= min(dim(mat)), is.matrix(mat))
 
  if(!all(is.na(domain))){

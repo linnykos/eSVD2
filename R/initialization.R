@@ -73,7 +73,8 @@ initialize_esvd <- function(dat, k, family, covariates = NULL,
   # project inital matrix into space of low-rank matrices
   if(verbose > 0) print(paste0(Sys.time(),": Projecting to form low-rank matrix"))
   nat_mat <- .initialize_nat_mat(nat_mat, k = k2, baseline = baseline,
-                                 domain = domain, config = config)
+                                 domain = domain, config = config,
+                                 verbose = verbose)
   print(dim(nat_mat))
 
   # reparameterize
@@ -176,7 +177,8 @@ initialization_options <- function(init_method = "kmean_rows",
 ###################
 
 .initialize_nat_mat <- function(nat_mat, k = k, baseline = baseline,
-                                domain = domain, config = config){
+                                domain = domain, config = config,
+                                verbose = 0){
   idx <- which(nat_mat + baseline <= domain[1])
   if(length(idx) > 0) nat_mat[idx] <- domain[1]-baseline[idx]
 
