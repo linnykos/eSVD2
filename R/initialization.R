@@ -27,7 +27,7 @@ initialize_esvd <- function(dat,
                             covariates = NULL,
                             nuisance_param_vec = NA,
                             library_size_vec = NA,
-                            check_rank = F,
+                            check_rank = T,
                             config = initialization_options(),
                             verbose = 0){
   stopifnot(is.character(family))
@@ -86,8 +86,10 @@ initialize_esvd <- function(dat,
   # reparameterize
   if(verbose > 0) print(paste0(Sys.time(),": Reparameterizing"))
   res <- .factorize_matrix(nat_mat, k = k, equal_covariance = T)
-  if(verbose > 0) print(paste0(Sys.time(),": Fixing possible rank defficiency issues"))
-  res <- .fix_rank_defficiency(res$x_mat, res$y_mat, domain = domain)
+  if(check_rank){
+    if(verbose > 0) print(paste0(Sys.time(),": Fixing possible rank defficiency issues"))
+    res <- .fix_rank_defficiency(res$x_mat, res$y_mat, domain = domain)
+  }
   if(verbose > 0) print(paste0(Sys.time(),": Fixing possible covariate issues"))
   if(!all(is.null(covariates))) b_mat <- .fix_intercept(res$x_mat, res$y_mat, covariates, b_mat, domain)
 
@@ -215,13 +217,19 @@ initialization_options <- function(init_method = "kmean_rows",
 #' @param x_mat a numeric matrix
 #' @param y_mat a numeric matrix with the same number of columns as \code{x_mat}
 #' @param domain a vector where \code{domain[1] < domain[2]}
+#' @param tol small positive number
 #'
 #' @return a list of \code{x_mat} and \code{y_mat}
-.fix_rank_defficiency <- function(x_mat, y_mat, domain){
+.fix_rank_defficiency <- function(x_mat, y_mat, domain, tol = 1e-6){
   k <- ncol(x_mat)
   nat_mat <- tcrossprod(x_mat, y_mat)
-  ## [[note to self: I don't think this is the best way to check this...]]
-  k2 <- as.numeric(Matrix::rankMatrix(nat_mat))
+  svd_tmp <- .svd_truncated(nat_mat, K = k,
+                            symmetric = F,
+                            rescale = F,
+                            mean_vec = NULL,
+                            sd_vec = NULL,
+                            K_full_rank = F)
+  k2 <- length(which(svd_tmp$d >= tol))
 
   if(k != k2){
     stopifnot(k2 < k)
