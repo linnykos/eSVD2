@@ -12,6 +12,8 @@
 #' @param library_size_vec        either \code{NA} or a single numeric (default is \code{1}) or
 #'                                a length-\eqn{n} vector of numerics.
 #'                                If \code{NA}, the library size will be estimated.
+#' @param check_rank              boolean, on whether or not the natural parameter matrix will be checked
+#'                                for whether or not it numerically has the desired rank
 #' @param config                  additional parameters for the initialization, whose defaults can be
 #'                                set with \code{eSVD2::initialization_default()}
 #' @param verbose                 non-negative integer specifying level of printouts
@@ -19,9 +21,15 @@
 #' @return a list with elements \code{x_mat} and \code{y_mat} (and others), representing the two
 #' latent matrices
 #' @export
-initialize_esvd <- function(dat, k, family, covariates = NULL,
-                            nuisance_param_vec = NA, library_size_vec = NA,
-                            config = initialization_options(), verbose = 0){
+initialize_esvd <- function(dat,
+                            k,
+                            family,
+                            covariates = NULL,
+                            nuisance_param_vec = NA,
+                            library_size_vec = NA,
+                            check_rank = F,
+                            config = initialization_options(),
+                            verbose = 0){
   stopifnot(is.character(family))
   if(family != "gaussian") stopifnot(all(dat[!is.na(dat)] >= 0))
   if(all(!is.na(nuisance_param_vec)) & length(nuisance_param_vec) == 1) {
@@ -47,7 +55,6 @@ initialize_esvd <- function(dat, k, family, covariates = NULL,
                                         max_val = config$max_val,
                                         tol = config$tol)
   nat_mat <- init_res$nat_mat; domain <- init_res$domain
-  print(dim(nat_mat))
 
   if(all(is.null(covariates)))
   {
@@ -75,18 +82,14 @@ initialize_esvd <- function(dat, k, family, covariates = NULL,
   nat_mat <- .initialize_nat_mat(nat_mat, k = k2, baseline = baseline,
                                  domain = domain, config = config,
                                  verbose = verbose)
-  print(dim(nat_mat))
 
   # reparameterize
   if(verbose > 0) print(paste0(Sys.time(),": Reparameterizing"))
   res <- .factorize_matrix(nat_mat, k = k, equal_covariance = T)
-  print(dim(res$x_mat))
   if(verbose > 0) print(paste0(Sys.time(),": Fixing possible rank defficiency issues"))
   res <- .fix_rank_defficiency(res$x_mat, res$y_mat, domain = domain)
-  print(dim(res$x_mat))
   if(verbose > 0) print(paste0(Sys.time(),": Fixing possible covariate issues"))
   if(!all(is.null(covariates))) b_mat <- .fix_intercept(res$x_mat, res$y_mat, covariates, b_mat, domain)
-  print(dim(res$x_mat))
 
   structure(list(x_mat = res$x_mat, y_mat = res$y_mat, b_mat = b_mat,
                  library_size_vec = library_size_vec, nuisance_param_vec = nuisance_param_vec,
