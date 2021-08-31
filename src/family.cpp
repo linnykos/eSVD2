@@ -1,5 +1,6 @@
 #include <RcppEigen.h>
 #include "distribution.h"
+#include "family.h"
 
 using Rcpp::NumericMatrix;
 using Rcpp::NumericVector;
@@ -224,4 +225,28 @@ List direction_Yj_impl(
         Rcpp::Named("grad") = g,
         Rcpp::Named("direction") = direc
     );
+}
+
+bool feas_Xi_impl(
+    NumericVector Xi_, NumericMatrix Y_, SEXP B_, SEXP Zi_, Environment family_
+)
+{
+    Rcpp::XPtr<Distribution> distr = family_["cpp_functions"];
+    if(distr->feas_always())
+        return true;
+
+    VectorXd thetai = compute_theta(Y_, Xi_, B_, Zi_);
+    return distr->feasibility(thetai.size(), thetai.data());
+}
+
+bool feas_Yj_impl(
+    NumericVector Yj_, NumericMatrix X_, SEXP Bj_, SEXP Z_, Environment family_
+)
+{
+    Rcpp::XPtr<Distribution> distr = family_["cpp_functions"];
+    if(distr->feas_always())
+        return true;
+
+    VectorXd thetaj = compute_theta(X_, Yj_, Z_, Bj_);
+    return distr->feasibility(thetaj.size(), thetaj.data());
 }

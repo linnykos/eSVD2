@@ -1,3 +1,6 @@
+#ifndef ESVD2_DISTRIBUTION_H
+#define ESVD2_DISTRIBUTION_H
+
 #include <Rcpp.h>
 
 // See eSVD2_writing/writeup/2021-05-20-covariates.pdf
@@ -39,4 +42,10 @@ public:
         int n, const double* Aj, const double* thetaj,
         const double* s, double gammaj, double* res1, double* res2
     ) = 0;
+
+    // Feasibility of the natural parameter
+    virtual bool feas_always() = 0;
+    virtual bool feasibility(int n, const double* theta) = 0;
 };
+
+#endif  // ESVD2_DISTRIBUTION_H

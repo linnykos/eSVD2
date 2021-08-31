@@ -115,6 +115,17 @@ public:
         }
         return non_na;
     }
+
+    // Feasibility of the natural parameter
+    bool feas_always()
+    {
+        return true;
+    };
+
+    bool feasibility(int n, const double* theta)
+    {
+        return true;
+    }
 };
 
 // [[Rcpp::export]]
