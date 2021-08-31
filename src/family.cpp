@@ -84,7 +84,7 @@ NumericVector grad_Xi_impl(
 
     Rcpp::XPtr<Distribution> distr = family_["cpp_functions"];
     VectorXd dlog_prob(p);
-    int non_na = distr->dlog_prob_row(p, Ai_.begin(), thetai.data(), si_, gamma_.begin(), dlog_prob.data());
+    int non_na = distr->d12log_prob_row(p, Ai_.begin(), thetai.data(), si_, gamma_.begin(), dlog_prob.data(), NULL);
     if(non_na < 1)
         Rcpp::stop("all elements in Ai are NA");
     res.noalias() = Y.transpose() * dlog_prob;
@@ -108,7 +108,7 @@ NumericVector grad_Yj_impl(
 
     Rcpp::XPtr<Distribution> distr = family_["cpp_functions"];
     VectorXd dlog_prob(n);
-    int non_na = distr->dlog_prob_col(n, Aj_.begin(), thetaj.data(), s_.begin(), gammaj_, dlog_prob.data());
+    int non_na = distr->d12log_prob_col(n, Aj_.begin(), thetaj.data(), s_.begin(), gammaj_, dlog_prob.data(), NULL);
     if(non_na < 1)
         Rcpp::stop("all elements in Aj are NA");
     res.noalias() = X.transpose() * dlog_prob;
@@ -132,7 +132,7 @@ NumericMatrix hessian_Xi_impl(
 
     Rcpp::XPtr<Distribution> distr = family_["cpp_functions"];
     VectorXd d2log_prob(p);
-    int non_na = distr->d2log_prob_row(p, Ai_.begin(), thetai.data(), si_, gamma_.begin(), d2log_prob.data());
+    int non_na = distr->d12log_prob_row(p, Ai_.begin(), thetai.data(), si_, gamma_.begin(), NULL, d2log_prob.data());
     if(non_na < 1)
         Rcpp::stop("all elements in Ai are NA");
     res.noalias() = Y.transpose() * d2log_prob.asDiagonal() * Y;
@@ -156,7 +156,7 @@ NumericMatrix hessian_Yj_impl(
 
     Rcpp::XPtr<Distribution> distr = family_["cpp_functions"];
     VectorXd d2log_prob(n);
-    int non_na = distr->d2log_prob_col(n, Aj_.begin(), thetaj.data(), s_.begin(), gammaj_, d2log_prob.data());
+    int non_na = distr->d12log_prob_col(n, Aj_.begin(), thetaj.data(), s_.begin(), gammaj_, NULL, d2log_prob.data());
     if(non_na < 1)
         Rcpp::stop("all elements in Aj are NA");
     res.noalias() = X.transpose() * d2log_prob.asDiagonal() * X;

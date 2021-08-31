@@ -97,7 +97,7 @@
 
 
 
-# See eSVD2_writing/writeup/Writeup4
+# See eSVD2_writing/writeup/2021-05-20-covariates.pdf
 #
 # Log-density for the whole data matrix [n x p]
 .log_prob.poisson <- function(A, theta, s, gamma)
