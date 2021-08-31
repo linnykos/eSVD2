@@ -53,7 +53,7 @@ line_search <- function(alpha0, x, fx, direction, f, feas,
   # This function will early return if a proper step size is found
   # If no suitable alpha is obtained, return the initial x
   warning("line search failed, returning the initial x")
-  list(step = 0, newx = x, newfx = f)
+  list(step = 0, newx = x, newfx = fx)
 }
 
 # Constrained Newton method
@@ -100,7 +100,7 @@ constr_newton <- function(x0, f, gr, hn, direc, feas,
     if(verbose)
       cat(sprintf("Newton iter = %d, fx = %f, ||grad|| = %f\n", i, fx, xgrad))
 
-    if(xdiff < eps_rel * oldxnorm || xgrad <= eps_rel * max(1, xnorm))
+    if(xdiff <= eps_rel * oldxnorm || xgrad <= eps_rel * max(1, xnorm))
       break
   }
 
