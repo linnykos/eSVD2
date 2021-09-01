@@ -9,18 +9,24 @@ using Eigen::VectorXd;
 typedef Eigen::Map<MatrixXd> MapMat;
 typedef Eigen::Map<VectorXd> MapVec;
 
+// C++ translation of line_search() in constrained_newton_lbfgs.R
 List line_search(
     double alpha0, NumericVector x, double fx, NumericVector direction,
     Objective& objective, int max_linesearch, double scaling = 0.5
 )
 {
     double alpha = alpha0;
-    NumericVector newx;
+    const int n = x.length();
+    NumericVector newx = NumericVector(Rcpp::no_init_vector(n));
     double newfx = fx;
+
+    MapVec newx_ = Rcpp::as<MapVec>(newx);
+    MapVec x_ = Rcpp::as<MapVec>(x);
+    MapVec direction_ = Rcpp::as<MapVec>(direction);
 
     for(int i = 0; i < max_linesearch; i++)
     {
-        newx = x + alpha * direction;
+        newx_.noalias() = x_ + alpha * direction_;
         // Test feasibility
         const bool feasible = objective.feas(newx);
         if(!feasible)
@@ -50,28 +56,37 @@ List line_search(
     );
 }
 
-inline double vec_norm(NumericVector x)
+inline double vec_norm(NumericVector x_)
 {
-    return std::sqrt(Rcpp::sum(x * x));
+    MapVec x = Rcpp::as<MapVec>(x_);
+    return x.norm();
+}
+
+inline double vec_dist(NumericVector x_, NumericVector y_)
+{
+    MapVec x = Rcpp::as<MapVec>(x_);
+    MapVec y = Rcpp::as<MapVec>(y_);
+    return (x - y).norm();
 }
 
 // -inv(H) * g
-inline NumericVector compute_direction(NumericMatrix H, NumericVector g)
+inline NumericVector compute_direction(NumericMatrix H_, NumericVector g_)
 {
-    const int n = H.nrow();
-    NumericVector res(n);
-    MapMat HH = Rcpp::as<MapMat>(H);
-    MapVec gg = Rcpp::as<MapVec>(g);
-    MapVec dd = Rcpp::as<MapVec>(res);
+    const int n = H_.nrow();
+    MapMat H = Rcpp::as<MapMat>(H_);
+    MapVec g = Rcpp::as<MapVec>(g_);
 
-    Eigen::LLT<MatrixXd> solver(HH);
+    NumericVector res = NumericVector(Rcpp::no_init_vector(n));
+    MapVec direc = Rcpp::as<MapVec>(res);
+
+    Eigen::LLT<MatrixXd> solver(H);
     if(solver.info() != Eigen::Success)
         Rcpp::stop("the Hessian matrix is singular");
-    dd.noalias() = -solver.solve(gg);
+    direc.noalias() = -solver.solve(g);
     return res;
 }
 
-// Constrained Newton method
+// C++ translation of constr_newton() in constrained_newton_lbfgs.R
 List constr_newton(
     NumericVector x0, Objective& objective, int max_iter = 100,
     int max_linesearch = 30, double eps_rel = 1e-5, bool verbose = false
@@ -103,7 +118,7 @@ List constr_newton(
         double newfx = Rcpp::as<double>(lns["newfx"]);
 
         const double oldxnorm = xnorm;
-        const double xdiff = vec_norm(newx - x);
+        const double xdiff = vec_dist(newx, x);
         x = newx;
         fx = newfx;
         List gd = objective.direction(x);
@@ -120,12 +135,13 @@ List constr_newton(
     }
 
     return List::create(
-            Rcpp::Named("x") = x,
-            Rcpp::Named("fn") = fx,
-            Rcpp::Named("grad") = grad
-        );
+        Rcpp::Named("x") = x,
+        Rcpp::Named("fn") = fx,
+        Rcpp::Named("grad") = grad
+    );
 }
 
+// C++ translation of opt_x() in optimization.R
 // [[Rcpp::export]]
 NumericMatrix opt_x_cpp(
     NumericMatrix X0, NumericMatrix Y, SEXP B, SEXP Z,
@@ -138,9 +154,9 @@ NumericMatrix opt_x_cpp(
     const int n = A.nrow();
     const int p = A.ncol();
     const int k = X0.ncol();
-    NumericMatrix X(n, k);
-    NumericVector Xi(k);
-    NumericVector Ai(p);
+    NumericMatrix X = NumericMatrix(Rcpp::no_init_matrix(n, k));
+    NumericVector Xi = NumericVector(Rcpp::no_init_vector(k));
+    NumericVector Ai = NumericVector(Rcpp::no_init_vector(p));
 
     // Optimize each row of X
     int r = 0;
@@ -149,7 +165,7 @@ NumericMatrix opt_x_cpp(
         NumericMatrix Z_data(Z);
         r = Z_data.ncol();
     }
-    NumericVector Zi_data(r);
+    NumericVector Zi_data = NumericVector(Rcpp::no_init_vector(r));
 
     for(int i = 0; i < n; i++)
     {
@@ -158,7 +174,7 @@ NumericMatrix opt_x_cpp(
 
         // Determine Zi
         SEXP Zi = R_NilValue;
-        if(Z != R_NilValue)
+        if(r > 0)
         {
             NumericMatrix Z_data(Z);
             for(int j = 0; j < r; j++)
@@ -192,4 +208,52 @@ NumericMatrix opt_x_cpp(
     }
 
     return X;
+}
+
+// C++ translation of opt_yb() in optimization.R
+// [[Rcpp::export]]
+NumericMatrix opt_yb_cpp(
+    NumericMatrix YB0, NumericMatrix XZ,
+    NumericMatrix A, Environment family,
+    NumericVector s, NumericVector gamma,
+    int verbose = 0
+)
+{
+    // Get dimensions
+    const int n = A.nrow();
+    const int p = A.ncol();
+    const int k = YB0.ncol();
+    NumericMatrix YB = NumericMatrix(Rcpp::no_init_matrix(p, k));
+    NumericVector YBj = NumericVector(Rcpp::no_init_vector(k));
+    NumericVector Aj = NumericVector(Rcpp::no_init_vector(n));
+
+    // Optimize each row of Y
+    for(int j = 0; j < p; j++)
+    {
+        if(verbose >= 2)
+            Rcpp::Rcout << "===== Optimizing Row " << j + 1 << " of Y =====" << std::endl;
+
+        // Prepare YBj
+        for(int i = 0; i < k; i++)
+        {
+            YBj[i] = YB0(j, i);
+        }
+        // Prepare Aj
+        std::copy(A.begin() + n * j, A.begin() + n * (j + 1), Aj.begin());
+        // Objective function, gradient, Hessian, and feasibility
+        ObjectiveY obj(XZ, Aj, family, s, gamma[j]);
+
+        // Run optimizer
+        List opt = constr_newton(YBj, obj, 100, 30, 0.001, (verbose >= 3));
+
+        // Extract result
+        NumericVector optx = opt["x"];
+        for(int i = 0; i < k; i++)
+            YB(j, i) = optx[i];
+
+        if(verbose >= 3)
+            Rcpp::Rcout << "==========" << std::endl << std::endl;
+    }
+
+    return YB;
 }

@@ -3,6 +3,11 @@
 # Optimize X given Y and B
 opt_x <- function(X0, Y, B, Z, A, family, s, gamma, opt_fun, verbose = 0, ...)
 {
+  if(!is.null(family$cpp_functions) && identical(opt_fun, constr_newton))
+  {
+    return(opt_x_cpp(X0, Y, B, Z, A, family, s, gamma, verbose))
+  }
+
   n <- nrow(A)
   X <- X0
   # Optimize each row of X
@@ -26,12 +31,16 @@ opt_x <- function(X0, Y, B, Z, A, family, s, gamma, opt_fun, verbose = 0, ...)
 }
 
 # Optimize Y and B given X
-opt_yb <- function(YB0, X, Z, A, family, s, gamma, opt_fun, verbose = 0, ...)
+opt_yb <- function(YB0, XZ, A, family, s, gamma, opt_fun, verbose = 0, ...)
 {
+  if(!is.null(family$cpp_functions) && identical(opt_fun, constr_newton))
+  {
+    return(opt_yb_cpp(YB0, XZ, A, family, s, gamma, verbose))
+  }
+
   n <- nrow(A)
   p <- ncol(A)
   YB <- YB0
-  XZ <- cbind(X, Z)
   # Optimize each row of Y and B
   for(j in 1:p)
   {
@@ -134,7 +143,8 @@ opt_esvd <- function(x_init, y_init, dat, family = "gaussian", method = c("newto
 
     # Optimize Y and B given X
     yb_mat <- cbind(y_mat, b_mat)
-    yb_mat <- opt_yb(yb_mat, X = x_mat, Z = covariates, A = dat,
+    xz_mat <- cbind(x_mat, covariates)
+    yb_mat <- opt_yb(yb_mat, XZ = xz_mat, A = dat,
                      family = family, s = library_size_vec, gamma = nuisance_param_vec,
                      opt_fun = opt_fun, verbose = verbose, ...)
 
