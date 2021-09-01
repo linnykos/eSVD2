@@ -12,6 +12,8 @@
 #' @param library_size_vec        either \code{NA} or a single numeric (default is \code{1}) or
 #'                                a length-\eqn{n} vector of numerics.
 #'                                If \code{NA}, the library size will be estimated.
+#' @param check_rank              boolean, on whether or not the natural parameter matrix will be checked
+#'                                for whether or not it numerically has the desired rank
 #' @param config                  additional parameters for the initialization, whose defaults can be
 #'                                set with \code{eSVD2::initialization_default()}
 #' @param verbose                 non-negative integer specifying level of printouts
@@ -19,9 +21,15 @@
 #' @return a list with elements \code{x_mat} and \code{y_mat} (and others), representing the two
 #' latent matrices
 #' @export
-initialize_esvd <- function(dat, k, family, covariates = NULL,
-                            nuisance_param_vec = NA, library_size_vec = NA,
-                            config = initialization_options(), verbose = 0){
+initialize_esvd <- function(dat,
+                            k,
+                            family,
+                            covariates = NULL,
+                            nuisance_param_vec = NA,
+                            library_size_vec = NA,
+                            check_rank = T,
+                            config = initialization_options(),
+                            verbose = 0){
   stopifnot(is.character(family))
   if(family != "gaussian") stopifnot(all(dat[!is.na(dat)] >= 0))
   if(all(!is.na(nuisance_param_vec)) & length(nuisance_param_vec) == 1) {
@@ -29,6 +37,7 @@ initialize_esvd <- function(dat, k, family, covariates = NULL,
   }
 
   # estimate library sizes if asked
+  if(verbose > 0) print(paste0(Sys.time(),": Rescaling data"))
   n <- nrow(dat); p <- ncol(dat)
   family <- .string_to_distr_funcs(family)
   library_size_vec <- .parse_library_size(dat, library_size_vec = library_size_vec)
@@ -38,7 +47,9 @@ initialize_esvd <- function(dat, k, family, covariates = NULL,
 
   # determine initial matrix taking into account to missing values and library size
   # [note to self: this probably could be something a lot simpler]
+  if(verbose > 0) print(paste0(Sys.time(),": Applying matrix completion"))
   rescaled_dat <- .matrix_completion(rescaled_dat, k = k)
+  if(verbose > 0) print(paste0(Sys.time(),": Determining initial matrix"))
   init_res <- .determine_initial_matrix(rescaled_dat, k = k, family = family,
                                         nuisance_param_vec = nuisance_param_vec,
                                         max_val = config$max_val,
@@ -53,23 +64,33 @@ initialize_esvd <- function(dat, k, family, covariates = NULL,
   } else {
     r <- ncol(covariates)
     # do regression
+    if(verbose > 0) print(paste0(Sys.time(),": Regressing out covariates"))
     tmp <- lapply(1:p, function(j){
+      if(verbose > 0 && p > 10 && j %% floor(p/10) == 0) cat('*')
       .regress_covariates(nat_mat[,j], covariates)
     })
 
     nat_mat <- sapply(1:p, function(j){tmp[[j]]$residual})
     b_mat <- do.call(rbind, (lapply(1:p, function(j){tmp[[j]]$coef})))
+    colnames(b_mat) <- colnames(covariates)
     baseline <- tcrossprod(covariates, b_mat)
     k2 <- k + r #[[note to self: check that this is correct]]
   }
 
   # project inital matrix into space of low-rank matrices
+  if(verbose > 0) print(paste0(Sys.time(),": Projecting to form low-rank matrix"))
   nat_mat <- .initialize_nat_mat(nat_mat, k = k2, baseline = baseline,
-                                 domain = domain, config = config)
+                                 domain = domain, config = config,
+                                 verbose = verbose)
 
   # reparameterize
+  if(verbose > 0) print(paste0(Sys.time(),": Reparameterizing"))
   res <- .factorize_matrix(nat_mat, k = k, equal_covariance = T)
-  res <- .fix_rank_defficiency(res$x_mat, res$y_mat, domain = domain)
+  if(check_rank){
+    if(verbose > 0) print(paste0(Sys.time(),": Fixing possible rank defficiency issues"))
+    res <- .fix_rank_defficiency(res$x_mat, res$y_mat, domain = domain)
+  }
+  if(verbose > 0) print(paste0(Sys.time(),": Fixing possible covariate issues"))
   if(!all(is.null(covariates))) b_mat <- .fix_intercept(res$x_mat, res$y_mat, covariates, b_mat, domain)
 
   structure(list(x_mat = res$x_mat, y_mat = res$y_mat, b_mat = b_mat,
@@ -161,7 +182,8 @@ initialization_options <- function(init_method = "kmean_rows",
 ###################
 
 .initialize_nat_mat <- function(nat_mat, k = k, baseline = baseline,
-                                domain = domain, config = config){
+                                domain = domain, config = config,
+                                verbose = 0){
   idx <- which(nat_mat + baseline <= domain[1])
   if(length(idx) > 0) nat_mat[idx] <- domain[1]-baseline[idx]
 
@@ -169,7 +191,11 @@ initialization_options <- function(init_method = "kmean_rows",
   if(length(idx) > 0) nat_mat[idx] <- domain[2]-baseline[idx]
 
   if(config$init_method == "kmean_rows"){
-    nat_mat <- .projection_kmeans(nat_mat, k = k, domain = domain, row = T)
+    nat_mat <- .projection_kmeans(nat_mat,
+                                  k = k,
+                                  domain = domain,
+                                  row = T,
+                                  verbose = verbose)
   } else {
     stop("config init_method not found")
   }
@@ -191,13 +217,19 @@ initialization_options <- function(init_method = "kmean_rows",
 #' @param x_mat a numeric matrix
 #' @param y_mat a numeric matrix with the same number of columns as \code{x_mat}
 #' @param domain a vector where \code{domain[1] < domain[2]}
+#' @param tol small positive number
 #'
 #' @return a list of \code{x_mat} and \code{y_mat}
-.fix_rank_defficiency <- function(x_mat, y_mat, domain){
+.fix_rank_defficiency <- function(x_mat, y_mat, domain, tol = 1e-6){
   k <- ncol(x_mat)
   nat_mat <- tcrossprod(x_mat, y_mat)
-  ## [[note to self: I don't think this is the best way to check this...]]
-  k2 <- as.numeric(Matrix::rankMatrix(nat_mat))
+  svd_tmp <- .svd_truncated(nat_mat, K = k,
+                            symmetric = F,
+                            rescale = F,
+                            mean_vec = NULL,
+                            sd_vec = NULL,
+                            K_full_rank = F)
+  k2 <- length(which(svd_tmp$d >= tol))
 
   if(k != k2){
     stopifnot(k2 < k)
