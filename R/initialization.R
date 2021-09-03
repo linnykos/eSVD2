@@ -66,7 +66,8 @@ initialize_esvd <- function(dat,
     # do regression
     if(verbose > 0) print(paste0(Sys.time(),": Regressing out covariates"))
     tmp <- lapply(1:p, function(j){
-      if(verbose > 0 && p > 10 && j %% floor(p/10) == 0) cat('*')
+      if(verbose == 1 && p > 10 && j %% floor(p/10) == 0) cat('*')
+      if(verbose == 2) print(j)
       .regress_covariates(nat_mat[,j], covariates)
     })
 
