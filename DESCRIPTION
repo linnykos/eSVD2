@@ -17,7 +17,10 @@ Imports:
     matrixStats,
     sparseMatrixStats,
     gtools,
+    Rcpp,
     glmnet
 Suggests:
     testthat, numDeriv
+LinkingTo:
+    Rcpp, RcppEigen
 RoxygenNote: 7.1.1

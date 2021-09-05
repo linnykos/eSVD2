@@ -3,6 +3,11 @@
 # Optimize X given Y and B
 opt_x <- function(X0, Y, B, Z, A, family, s, gamma, opt_fun, verbose = 0, ...)
 {
+  if(!is.null(family$cpp_functions) && identical(opt_fun, constr_newton))
+  {
+    return(opt_x_cpp(X0, Y, B, Z, A, family, s, gamma, verbose))
+  }
+
   n <- nrow(A)
   X <- X0
   # Optimize each row of X
@@ -13,7 +18,7 @@ opt_x <- function(X0, Y, B, Z, A, family, s, gamma, opt_fun, verbose = 0, ...)
     Zi <- if(is.null(Z)) NULL else Z[i, ]
 
     opt <- opt_fun(
-      x0 = X0[i, ], f = objfn_Xi, gr = grad_Xi, hn = hessian_Xi, feas = feas_Xi,
+      x0 = X0[i, ], f = objfn_Xi, gr = grad_Xi, hn = hessian_Xi, direc = direction_Xi, feas = feas_Xi,
       eps_rel = 1e-3, verbose = (verbose >= 3),
       Y = Y, B = B, Zi = Zi, Ai = A[i, ], family = family, si = s[i], gamma = gamma, ...
     )
@@ -26,11 +31,16 @@ opt_x <- function(X0, Y, B, Z, A, family, s, gamma, opt_fun, verbose = 0, ...)
 }
 
 # Optimize Y and B given X
-opt_yb <- function(YB0, X, Z, A, family, s, gamma, opt_fun, verbose = 0, ...)
+opt_yb <- function(YB0, XZ, A, family, s, gamma, opt_fun, verbose = 0, ...)
 {
+  if(!is.null(family$cpp_functions) && identical(opt_fun, constr_newton))
+  {
+    return(opt_yb_cpp(YB0, XZ, A, family, s, gamma, verbose))
+  }
+
+  n <- nrow(A)
   p <- ncol(A)
   YB <- YB0
-  XZ <- cbind(X, Z)
   # Optimize each row of Y and B
   for(j in 1:p)
   {
@@ -38,7 +48,7 @@ opt_yb <- function(YB0, X, Z, A, family, s, gamma, opt_fun, verbose = 0, ...)
       cat("===== Optimizing Row ", j, " of Y =====\n", sep = "")
 
     opt <- opt_fun(
-      x0 = YB0[j, ], f = objfn_Yj, gr = grad_Yj, hn = hessian_Yj, feas = feas_Yj,
+      x0 = YB0[j, ], f = objfn_Yj, gr = grad_Yj, hn = hessian_Yj, direc = direction_Yj, feas = feas_Yj,
       eps_rel = 1e-3, verbose = (verbose >= 3),
       X = XZ, Bj = NULL, Z = NULL, Aj = A[, j], family = family, s = s, gammaj = gamma[j], ...
     )
@@ -106,11 +116,11 @@ opt_esvd <- function(x_init, y_init, dat, family = "gaussian", method = c("newto
   method <- match.arg(method)
   opt_fun <- if(method == "newton") constr_newton else constr_lbfgs
 
-  if(all(is.null(covariates)))
+  if(is.null(covariates))
   {
     b_mat <- NULL
   } else {
-    if(all(is.null(b_init)))
+    if(is.null(b_init))
     {
       r <- ncol(covariates)
       b_mat <- matrix(0, p, r)
@@ -133,7 +143,8 @@ opt_esvd <- function(x_init, y_init, dat, family = "gaussian", method = c("newto
 
     # Optimize Y and B given X
     yb_mat <- cbind(y_mat, b_mat)
-    yb_mat <- opt_yb(yb_mat, X = x_mat, Z = covariates, A = dat,
+    xz_mat <- cbind(x_mat, covariates)
+    yb_mat <- opt_yb(yb_mat, XZ = xz_mat, A = dat,
                      family = family, s = library_size_vec, gamma = nuisance_param_vec,
                      opt_fun = opt_fun, verbose = verbose, ...)
 
