@@ -55,112 +55,132 @@ plot_scores_heatmap <- function(score_mat, membership_vec = NA, num_col = 10,
   invisible()
 }
 
-######################
+#######################
 
-plot_volcano <- function(mat, pval_vec, de_idx, bool_iqr = T,
-                         xlab = ifelse(bool_iqr, "IQR (signed by selection)",
-                                       "Std (signed by selection)"),
-                         ylab = "-log10(pval)",
-                         xlim = NA,
-                         xgrid = 5, ygrid = 5, cex = 1,
-                         color_palette = rev(colorspace::sequential_hcl(10, palette = "Terrain 2")),
-                         col_range = c(0,1),
-                         ...){
-  log_vec <- -log10(pval_vec)
-  tmp <- max(log_vec[!is.infinite(log_vec)])
-  log_vec[is.infinite(log_vec)] <- tmp
-
-  if(bool_iqr){
-    sd_vec <- matrixStats::rowDiffs(matrixStats::colQuantiles(mat, probs = c(0.25, 0.75)))
-    mean_vec <- matrixStats::rowMedians(mat)
+plot_scatterplot_poisson <- function(mat,
+                                     mean_mat,
+                                     xlim = NA,
+                                     quantile_vec = c(0.25, 0.75),
+                                     only_nonzero = T,
+                                     max_num = 1e5,
+                                     point_cex = 1,
+                                     point_col = rgb(0,0,0,0.1),
+                                     mean_lwd = 2,
+                                     polygon_density = 30,
+                                     asp = T, ...){
+  if(only_nonzero) {
+    idx <- which(mat != 0)
   } else {
-    sd_vec <- matrixStats::colSds(mat)
-    mean_vec <- matrixStats::rowMeans2(mat)
+    idx <- 1:prod(dim(mat))
+  }
+  if(length(idx) > max_num){
+    idx <- sample(idx, size = max_num)
   }
 
-  if(all(is.na(xlim))) xlim <- c(-1,1)*max(sd_vec)
-  sd_vec[de_idx] <- -sd_vec[de_idx]
-  ylim <- range(c(0, log_vec))
+  if(all(is.na(xlim))) xlim <- range(c(0, mat[idx], mean_mat[idx]))
+  mean_vec <- seq(0, xlim[2], length.out = 100)
+  lower_vec <- stats::qpois(quantile_vec[1], lambda = mean_vec)
+  upper_vec <- stats::qpois(quantile_vec[2], lambda = mean_vec)
 
-  # assign colors
-  tmp <- seq(col_range[1], col_range[2], length.out = length(color_palette))
-  col_vec <- sapply(mean_vec, function(x){
-    color_palette[which.min(abs(x-tmp))]
-  })
-
-  graphics::plot(NA, xlim = xlim, ylim = ylim, xlab = xlab, ylab = ylab, ...)
-
-  # draw grid
-  for(i in seq(xlim[1], xlim[2], length.out = xgrid)){
-    graphics::lines(rep(i, 2), c(-10,10)*max(abs(ylim)), lty = 3,
-                    lwd = 0.5, col = "gray")
-  }
-  for(i in seq(ylim[1], ylim[2], length.out = ygrid)){
-    graphics::lines(c(-10,10)*max(abs(xlim)), rep(i, 2), lty = 3,
-                    lwd = 0.5, col = "gray")
-  }
-
-  graphics::points(x = sd_vec, y = log_vec, pch = 21, cex = cex,
-                   bg = col_vec, col = "black")
+  graphics::plot(NA,
+                 xlim = xlim, ylim = xlim,
+                 asp = asp,
+                 ...)
+  graphics::polygon(x = c(mean_vec, rev(mean_vec)),
+                    y = c(lower_vec, rev(upper_vec)),
+                    col = grDevices::rgb(1,0,0,0.2),
+                    border = NA,
+                    density = polygon_density,
+                    angle = -45)
+  graphics::lines(x = mean_vec, y = mean_vec,
+                  col = "red",
+                  lwd = mean_lwd)
+  graphics::points(x = mean_mat[idx],
+                   y = mat[idx],
+                   pch = 16,
+                   col = point_col,
+                   cex = point_cex)
 
   invisible()
 }
 
-plot_sd_scatter <- function(mat, membership_vec, de_idx,
-                            bool_iqr = T,
-                            xlab = ifelse(bool_iqr, "Between-celltype IQR", "Between-celltype Median"),
-                            ylab = ifelse(bool_iqr, "Within-celltype IQR", "Within-celltype Median"),
-                            xlim = NA,
-                            gridsize = 5,
-                            ...){
-  uniq_val <- sort(unique(membership_vec))
+plot_scatterplot_nb <- function(mat,
+                                prob_mat = NA,
+                                mean_mat = NA,
+                                size_vec,
+                                main = "",
+                                include_percentage_in_main = T,
+                                xlim = NA,
+                                quantile_vec = c(0.25, 0.75),
+                                only_nonzero = T,
+                                max_num = 1e5,
+                                log_scale = T,
+                                included_col = "black",
+                                excluded_col = "red",
+                                cex = 1,
+                                asp = T,
+                                ...){
+  stopifnot(length(size_vec) == ncol(prob_mat),
+            all(dim(mat) == dim(prob_mat)),
+            all(is.na(mean_mat)) | all(is.na(prob_mat)))
+  if(only_nonzero) {
+    idx <- which(mat != 0)
+  } else {
+    idx <- 1:prod(dim(mat))
+  }
+  if(length(idx) > max_num){
+    idx <- sample(idx, size = max_num)
+  }
 
-  mean_mat <- sapply(uniq_val, function(celltype){
-    idx <- which(membership_vec == celltype)
-    if(bool_iqr) {
-      matrixStats::colMedians(mat[idx,,drop = F])
+  size_mat <- matrix(size_vec,
+                     nrow = nrow(mat),
+                     ncol = ncol(mat),
+                     byrow = T)
+  if(all(is.na(mean_mat))){
+    mean_mat <- .mult_mat_vec(prob_mat/(1-prob_mat), size_vec)
+  } else {
+    prob_mat <- 1/(1+size_mat/mean_mat)
+  }
+  print(quantile(prob_mat))
+  lower_vec <- stats::qnbinom(quantile_vec[1],
+                              size = size_mat[idx],
+                              prob = 1-prob_mat[idx])
+  upper_vec <- stats::qnbinom(quantile_vec[2],
+                              size = size_mat[idx],
+                              prob = 1-prob_mat[idx])
+
+
+  col_vec <- sapply(1:length(idx), function(i){
+    if(mat[idx[i]] >= lower_vec[i] & mat[idx[i]] <= upper_vec[i]){
+      return(included_col)
     } else {
-      matrixStats::colMeans2(mat[idx,,drop = F])
+      return(excluded_col)
     }
   })
+  observed_percentage <- round(length(which(col_vec == included_col))/length(col_vec), 2)
 
-  if(bool_iqr){
-    between_sd_vec <- matrixStats::rowDiffs(matrixStats::rowQuantiles(mean_mat, probs = c(0.25, 0.75)))
+  if(log_scale){
+    x_vec <- log(mean_mat[idx])
+    y_vec <- log(mat[idx])
   } else {
-    between_sd_vec <- matrixStats::rowSds(mean_mat)
+    x_vec <- mean_mat[idx]
+    y_vec <- mat[idx]
   }
 
-  sd_mat <- sapply(uniq_val, function(celltype){
-    idx <- which(membership_vec == celltype)
-    if(bool_iqr){
-      matrixStats::rowDiffs(matrixStats::colQuantiles(mat[idx,,drop = F], probs = c(0.25, 0.75)))
-    } else {
-      matrixStats::colSds(mat[idx,,drop = F])
-    }
-  })
-  if(bool_iqr){
-    within_sd_vec <- matrixStats::rowMedians(sd_mat)
+  if(include_percentage_in_main){
+    main_modified = paste0(main, " (", 100*observed_percentage,  "% of ", 100*round(abs(diff(quantile_vec)),2), "%)")
   } else {
-    within_sd_vec <- matrixStats::rowSds(sd_mat)
+    main_modified = main
   }
-
-  if(all(is.na(xlim))) xlim <- range(c(between_sd_vec, within_sd_vec))
-  graphics::plot(NA, xlim = xlim, ylim = xlim, xlab = xlab, ylab = ylab, ...)
-
-  # draw grid
-  for(i in seq(xlim[1], xlim[2], length.out = gridsize)){
-    graphics::lines(rep(i, 2), c(-10,10)*max(abs(xlim)), lty = 3,
-                    lwd = 0.5, col = "gray")
-  }
-  for(i in seq(xlim[1], xlim[2], length.out = gridsize)){
-    graphics::lines(c(-10,10)*max(abs(xlim)), rep(i, 2), lty = 3,
-                    lwd = 0.5, col = "gray")
-  }
-
-  col_vec <- rep("black", length(between_sd_vec))
-  col_vec[de_idx] <- "red"
-  graphics::points(x = between_sd_vec, y = within_sd_vec,
-                   pch = 21, bg = col_vec, col = "black")
-
-  invisible()
+  if(all(is.na(xlim))) xlim <- range(c(0, x_vec, y_vec))
+  graphics::plot(x = x_vec,
+                 y = y_vec,
+                 xlim = xlim,
+                 ylim = xlim,
+                 asp = asp,
+                 pch = 16,
+                 cex = cex,
+                 col = col_vec,
+                 main = main_modified,
+                 ...)
 }

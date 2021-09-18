@@ -130,8 +130,6 @@ opt_esvd <- function(x_init, y_init, dat, family = "gaussian", method = c("newto
     x_mat <- opt_x(X0 = x_mat, Y = y_mat, B = b_mat, Z = covariates, A = dat,
                    family = family, s = library_size_vec, gamma = nuisance_param_vec,
                    opt_fun = opt_fun, verbose = verbose, ...)
-    save(x_mat, y_mat, b_mat, library_size_vec, nuisance_param_vec, dat,
-         file = "tmp.RData")
 
     # Optimize Y and B given X
     yb_mat <- cbind(y_mat, b_mat)
