@@ -156,6 +156,7 @@ feas_Yj <- function(Yj, X, Bj, Z, family, ...)
          exponential = .esvd.exponential,
          gaussian = .esvd.gaussian,
          neg_binom = .esvd.neg_binom,
+         neg_binom2 = .esvd.neg_binom2,
          poisson = .esvd.poisson,
          stop("unsupported distribution family"))
 }

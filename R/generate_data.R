@@ -78,6 +78,12 @@ generate_data <- function(
         vec <- stats::rnbinom(num_val, size = rep(nuisance_param_vec, each = n) * library_size_vec,
                               prob = 1 - canon_mat)
 
+    } else if(family$name == "neg_binom2") {
+        stopifnot(!is.na(nuisance_param_vec))
+        vec <- stats::rnbinom(num_val,
+                              size = rep(nuisance_param_vec, each = n) * library_size_vec,
+                              mu = canon_mat)
+
     } else if(family$name == "bernoulli") {
         vec <- stats::rbinom(num_val, size = 1, prob = canon_mat)
 

@@ -30,8 +30,8 @@ run_test <- function(dat, x_mat, y_mat, family, nuisance_param_vec = rep(1, nrow
     loss3[j] <- loss3[j] * sum(!is.na(dat[, j]))
   }
   # The three loss values should be equal
-  expect_lt(loss1 - sum(loss2) / sum(!is.na(dat)), 1e-8)
-  expect_lt(loss1 - sum(loss3) / sum(!is.na(dat)), 1e-8)
+  expect_lt(abs(loss1 - sum(loss2) / sum(!is.na(dat))), 1e-8)
+  expect_lt(abs(loss1 - sum(loss3) / sum(!is.na(dat))), 1e-8)
 
   # Test gradients
   for(i in 1:n)
@@ -307,6 +307,34 @@ test_that("Functions for negative binomial distribution", {
   dat[sample(length(dat), n * p * 0.1)] <- NA
   run_test(dat, x_mat, y_mat, .esvd.neg_binom, nuisance_param_vec = nuisance_param_vec,
            library_size_vec = library_size_vec)
+})
+
+######################## Negative binomial 2 ########################
+
+test_that("Functions for negative binomial 2 distribution", {
+  # Simulate data
+  set.seed(123)
+  n <- 10
+  p <- 15
+  k <- 2
+  nuisance_param_vec <- runif(p, 0, 10)
+  x_mat <- matrix(rnorm(n * k), nrow = n, ncol = k)
+  y_mat <- matrix(rnorm(p * k), nrow = p, ncol = k)
+  nat_mat <- tcrossprod(x_mat, y_mat)
+
+  dat <- eSVD2::generate_data(
+    nat_mat, family = "neg_binom2", nuisance_param_vec = nuisance_param_vec,
+    library_size_vec = 1
+  )
+
+  # Test
+  run_test(dat, x_mat, y_mat, .esvd.neg_binom2, nuisance_param_vec = nuisance_param_vec,
+           library_size_vec = 1)
+
+  # Test missing values
+  dat[sample(length(dat), n * p * 0.1)] <- NA
+  run_test(dat, x_mat, y_mat, .esvd.neg_binom2, nuisance_param_vec = nuisance_param_vec,
+           library_size_vec = 1)
 })
 
 # ######################## Bernoulli ########################

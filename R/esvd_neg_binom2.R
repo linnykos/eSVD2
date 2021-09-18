@@ -3,9 +3,9 @@
 .log_prob.neg_binom2 <- function(A, theta, s, gamma)
 {
   exptheta <- exp(theta)
-  logexpthetag <- sweep(exptheta, 2, gamma, "+")
+  logexpthetag <- log(sweep(exptheta, 2, gamma, "+"))
   Ag <- sweep(A, 2, gamma, "+")
-  A*theta - (Ag+logexpthetag)*logexpthetag
+  A*theta - Ag*logexpthetag
 }
 
 # Log-density for the i-th row of the data matrix [p x 1]
@@ -17,7 +17,7 @@
 # Log-density for the j-th column of the data matrix [n x 1]
 .log_prob_col.neg_binom2 <- function(Aj, thetaj, s, gammaj)
 {
-  Aj * thetaj + (Aj + gammaj) * log(exp(thetaj) + gammaj)
+  Aj * thetaj - (Aj + gammaj) * log(exp(thetaj) + gammaj)
 }
 
 # 1st derivative of log-density w.r.t. the i-th row of theta [p x 1]
