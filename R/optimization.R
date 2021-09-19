@@ -206,8 +206,14 @@ opt_esvd <- function(x_init,
 
       if(global_estimate){
         nuisance_param_vec <- rep(glmgampoi_res$estimate, p)
+        if(verbose >= 1)
+          cat("Updated nuisance value: ", round(glmgampoi_res$estimate, 2), "\n", sep = "")
       } else {
         nuisance_param_vec <- glmgampoi_res$estimate
+        if(verbose >= 1){
+          cat("Updated nuisance values:\n", sep = "")
+          print(round(quantile(nuisance_param_vec),2))
+        }
       }
     }
 
