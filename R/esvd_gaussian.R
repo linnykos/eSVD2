@@ -175,6 +175,7 @@
 
 .esvd.gaussian <- structure(
   list(
+    name           = "gaussian",
     log_prob       = .log_prob.gaussian,
     log_prob_row   = .log_prob_row.gaussian,
     log_prob_col   = .log_prob_col.gaussian,

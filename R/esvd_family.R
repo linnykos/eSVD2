@@ -9,19 +9,21 @@ wtdw <- function(w, d)
 
 # Objective function value for all the parameters (X, Y, B)
 #
-# A:     data matrix [n x p]
-# X:     latent factor for cells [n x k]
-# Y:     latent factor for genes [p x k]
-# Z:     covariates [n x r] or NULL
-# B:     regression coefficients for Z [p x r] or NULL
-# s:     library size vector [n x 1]
-# gamma: nuisance parameter vector [p x 1]
-objfn_all <- function(X, Y, B, Z, A, family, s, gamma, ...)
+# A:      data matrix [n x p]
+# X:      latent factor for cells [n x k]
+# Y:      latent factor for genes [p x k]
+# Z:      covariates [n x r] or NULL
+# B:      regression coefficients for Z [p x r] or NULL
+# s:      library size vector [n x 1]
+# gamma:  nuisance parameter vector [p x 1]
+# offset: offset vector [n x 1]
+objfn_all <- function(X, Y, B, Z, A, family, s, gamma, offset, ...)
 {
-  # theta = XY'+ZB'
+  # theta = XY'+ZB' + offset
   #
   # We allow Z and B to be NULL, meaning no covariates are in the model
   theta <- tcrossprod(cbind(X, Z), cbind(Y, B))  # [n x p]
+  theta <- sweep(theta, 1, offset, "+")
 
   # Call the family function log_prob() to compute entry-wise log-density value
   log_prob <- family$log_prob(A, theta, s, gamma)  # [n x p]
@@ -33,9 +35,9 @@ objfn_all <- function(X, Y, B, Z, A, family, s, gamma, ...)
 }
 
 # Objective function value for the i-th row of X
-objfn_Xi <- function(Xi, Y, B, Zi, Ai, family, si, gamma, ...)
+objfn_Xi <- function(Xi, Y, B, Zi, Ai, family, si, gamma, offseti, ...)
 {
-  thetai <- drop(cbind(Y, B) %*% c(Xi, Zi))               # [p x 1]
+  thetai <- drop(cbind(Y, B) %*% c(Xi, Zi)) + offseti     # [p x 1]
   log_prob <- family$log_prob_row(Ai, thetai, si, gamma)  # [p x 1]
   # Some entries in Ai may be NAs, and we only aggregate non-missing values
   obs_ind <- which(!is.na(Ai))
@@ -45,9 +47,9 @@ objfn_Xi <- function(Xi, Y, B, Zi, Ai, family, si, gamma, ...)
 }
 
 # Objective function value for the j-th row of Y
-objfn_Yj <- function(Yj, X, Bj, Z, Aj, family, s, gammaj, ...)
+objfn_Yj <- function(Yj, X, Bj, Z, Aj, family, s, gammaj, offset, ...)
 {
-  thetaj <- drop(cbind(X, Z) %*% c(Yj, Bj))               # [n x 1]
+  thetaj <- drop(cbind(X, Z) %*% c(Yj, Bj)) + offset      # [n x 1]
   log_prob <- family$log_prob_col(Aj, thetaj, s, gammaj)  # [n x 1]
   # Some entries in Aj may be NAs, and we only aggregate non-missing values
   obs_ind <- which(!is.na(Aj))
@@ -57,9 +59,9 @@ objfn_Yj <- function(Yj, X, Bj, Z, Aj, family, s, gammaj, ...)
 }
 
 # Gradient for the i-th row of X
-grad_Xi <- function(Xi, Y, B, Zi, Ai, family, si, gamma, ...)
+grad_Xi <- function(Xi, Y, B, Zi, Ai, family, si, gamma, offseti, ...)
 {
-  thetai <- drop(cbind(Y, B) %*% c(Xi, Zi))                 # [p x 1]
+  thetai <- drop(cbind(Y, B) %*% c(Xi, Zi)) + offseti       # [p x 1]
   dlog_prob <- family$dlog_prob_row(Ai, thetai, si, gamma)  # [p x 1]
   # Some entries in Ai may be NAs, and we only aggregate non-missing values
   obs_ind <- which(!is.na(Ai))
@@ -71,9 +73,9 @@ grad_Xi <- function(Xi, Y, B, Zi, Ai, family, si, gamma, ...)
 }
 
 # Gradient for the j-th row of Y
-grad_Yj <- function(Yj, X, Bj, Z, Aj, family, s, gammaj, ...)
+grad_Yj <- function(Yj, X, Bj, Z, Aj, family, s, gammaj, offset, ...)
 {
-  thetaj <- drop(cbind(X, Z) %*% c(Yj, Bj))                 # [n x 1]
+  thetaj <- drop(cbind(X, Z) %*% c(Yj, Bj)) + offset        # [n x 1]
   dlog_prob <- family$dlog_prob_col(Aj, thetaj, s, gammaj)  # [n x 1]
   # Some entries in Aj may be NAs, and we only aggregate non-missing values
   obs_ind <- which(!is.na(Aj))
@@ -85,9 +87,9 @@ grad_Yj <- function(Yj, X, Bj, Z, Aj, family, s, gammaj, ...)
 }
 
 # Hessian for the i-th row of X
-hessian_Xi <- function(Xi, Y, B, Zi, Ai, family, si, gamma, ...)
+hessian_Xi <- function(Xi, Y, B, Zi, Ai, family, si, gamma, offseti, ...)
 {
-  thetai <- drop(cbind(Y, B) %*% c(Xi, Zi))                   # [p x 1]
+  thetai <- drop(cbind(Y, B) %*% c(Xi, Zi)) + offseti         # [p x 1]
   d2log_prob <- family$d2log_prob_row(Ai, thetai, si, gamma)  # [p x 1]
   # Some entries in Ai may be NAs, and we only aggregate non-missing values
   obs_ind <- which(!is.na(Ai))
@@ -99,9 +101,9 @@ hessian_Xi <- function(Xi, Y, B, Zi, Ai, family, si, gamma, ...)
 }
 
 # Hessian for the j-th row of Y
-hessian_Yj <- function(Yj, X, Bj, Z, Aj, family, s, gammaj, ...)
+hessian_Yj <- function(Yj, X, Bj, Z, Aj, family, s, gammaj, offset, ...)
 {
-  thetaj <- drop(cbind(X, Z) %*% c(Yj, Bj))                   # [n x 1]
+  thetaj <- drop(cbind(X, Z) %*% c(Yj, Bj)) + offset          # [n x 1]
   d2log_prob <- family$d2log_prob_col(Aj, thetaj, s, gammaj)  # [n x 1]
   # Some entries in Aj may be NAs, and we only aggregate non-missing values
   obs_ind <- which(!is.na(Aj))
@@ -113,24 +115,24 @@ hessian_Yj <- function(Yj, X, Bj, Z, Aj, family, s, gammaj, ...)
 }
 
 # Feasibility of the i-th row of X
-# thetai = Xi * Y' + Zi * B'
-feas_Xi <- function(Xi, Y, B, Zi, family, ...)
+# thetai = Xi * Y' + Zi * B' + offseti
+feas_Xi <- function(Xi, Y, B, Zi, family, offseti, ...)
 {
   if(family$feas_always)
     return(TRUE)
 
-  thetai <- drop(cbind(Y, B) %*% c(Xi, Zi))
+  thetai <- drop(cbind(Y, B) %*% c(Xi, Zi)) + offseti
   family$feasibility(thetai)
 }
 
 # Feasibility of the j-th row of Y
-# thetaj = X * Yj' + Z * Bj'
-feas_Yj <- function(Yj, X, Bj, Z, family, ...)
+# thetaj = X * Yj' + Z * Bj' + offset
+feas_Yj <- function(Yj, X, Bj, Z, family, offset, ...)
 {
   if(family$feas_always)
     return(TRUE)
 
-  thetaj <- drop(cbind(X, Z) %*% c(Yj, Bj))
+  thetaj <- drop(cbind(X, Z) %*% c(Yj, Bj)) + offset
   family$feasibility(thetaj)
 }
 

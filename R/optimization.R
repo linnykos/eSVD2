@@ -1,7 +1,10 @@
 # Optimization for eSVD
 
 # Optimize X given Y and B
-opt_x <- function(X0, Y, B, Z, A, family, s, gamma, opt_fun, verbose = 0, ...)
+opt_x <- function(X0, Y, B, Z, A,
+                  family, s, gamma, offset_vec,
+                  opt_fun,
+                  verbose = 0, ...)
 {
   n <- nrow(A)
   X <- X0
@@ -13,9 +16,15 @@ opt_x <- function(X0, Y, B, Z, A, family, s, gamma, opt_fun, verbose = 0, ...)
     Zi <- if(is.null(Z)) NULL else Z[i, ]
 
     opt <- opt_fun(
-      x0 = X0[i, ], f = objfn_Xi, gr = grad_Xi, hn = hessian_Xi, feas = feas_Xi,
-      eps_rel = 1e-3, verbose = (verbose >= 3),
-      Y = Y, B = B, Zi = Zi, Ai = A[i, ], family = family, si = s[i], gamma = gamma, ...
+      x0 = X0[i, ],
+      f = objfn_Xi,
+      gr = grad_Xi,
+      hn = hessian_Xi,
+      feas = feas_Xi,
+      eps_rel = 1e-3,
+      verbose = (verbose >= 3),
+      Y = Y, B = B, Zi = Zi, Ai = A[i, ], offseti = offset_vec[i],
+      family = family, si = s[i], gamma = gamma, ...
     )
 
     X[i, ] <- opt$x
@@ -26,7 +35,10 @@ opt_x <- function(X0, Y, B, Z, A, family, s, gamma, opt_fun, verbose = 0, ...)
 }
 
 # Optimize Y and B given X
-opt_yb <- function(YB0, X, Z, A, family, s, gamma, opt_fun, verbose = 0, ...)
+opt_yb <- function(YB0, X, Z, A,
+                   family, s, gamma, offset_vec,
+                   opt_fun,
+                   verbose = 0, ...)
 {
   p <- ncol(A)
   YB <- YB0
@@ -38,9 +50,15 @@ opt_yb <- function(YB0, X, Z, A, family, s, gamma, opt_fun, verbose = 0, ...)
       cat("===== Optimizing Row ", j, " of Y =====\n", sep = "")
 
     opt <- opt_fun(
-      x0 = YB0[j, ], f = objfn_Yj, gr = grad_Yj, hn = hessian_Yj, feas = feas_Yj,
-      eps_rel = 1e-3, verbose = (verbose >= 3),
-      X = XZ, Bj = NULL, Z = NULL, Aj = A[, j], family = family, s = s, gammaj = gamma[j], ...
+      x0 = YB0[j, ],
+      f = objfn_Yj,
+      gr = grad_Yj,
+      hn = hessian_Yj,
+      feas = feas_Yj,
+      eps_rel = 1e-3,
+      verbose = (verbose >= 3),
+      X = XZ, Bj = NULL, Z = NULL, Aj = A[, j], offset = offset_vec,
+      family = family, s = s, gammaj = gamma[j], ...
     )
 
     YB[j, ] <- opt$x
@@ -73,6 +91,10 @@ opt_yb <- function(YB0, X, Z, A, family, s, gamma, opt_fun, verbose = 0, ...)
 #'                           or \code{family = "curved_gausian"})
 #' @param library_size_vec   either \code{NA} or a single numeric (default is \code{1}) or
 #'                           a length-\eqn{n} vector of numerics. If \code{NA}, the library size will be estimated
+#' @param offset_vec         a vector of length-\eqn{n} that represents a constant amount added to each row of the
+#'                           natural parameter matrix
+#' @param reestimate_nuisance a boolean for whether the nuisance parameter is reestimate after every iteration
+#' @param global_estimate    a boolean for whether or not the same nuisance parameter is used for all genes
 #' @param max_iter           a positive integer giving the maximum number of iterations
 #' @param tol                a small positive number for the tolerance of optimization error
 #' @param verbose            a non-negative integer to indicate the verbosity of messages
@@ -81,10 +103,22 @@ opt_yb <- function(YB0, X, Z, A, family, s, gamma, opt_fun, verbose = 0, ...)
 #' @return A list with elements \code{x_mat} and \code{y_mat} (and others), representing the two
 #'         latent matrices.
 #' @export
-opt_esvd <- function(x_init, y_init, dat, family = "gaussian", method = c("newton", "lbfgs"),
-                     b_init = NULL, covariates = NULL, nuisance_param_vec = NA, library_size_vec = NA,
-                     max_iter = 100, tol = 1e-6,
-                     verbose = 0, ...)
+opt_esvd <- function(x_init,
+                     y_init,
+                     dat,
+                     family = "gaussian",
+                     method = c("newton", "lbfgs"),
+                     b_init = NULL,
+                     covariates = NULL,
+                     nuisance_param_vec = NA,
+                     library_size_vec = NA,
+                     offset_vec = rep(0, nrow(x_init)),
+                     reestimate_nuisance = T,
+                     global_estimate = F,
+                     max_iter = 100,
+                     tol = 1e-6,
+                     verbose = 0,
+                     ...)
 {
   n <- nrow(dat)
   p <- ncol(dat)
@@ -127,15 +161,30 @@ opt_esvd <- function(x_init, y_init, dat, family = "gaussian", method = c("newto
     if(verbose >= 1)
       cat("========== eSVD Iter ", i, " ==========\n\n", sep = "")
     # Optimize X given Y and B
-    x_mat <- opt_x(X0 = x_mat, Y = y_mat, B = b_mat, Z = covariates, A = dat,
-                   family = family, s = library_size_vec, gamma = nuisance_param_vec,
-                   opt_fun = opt_fun, verbose = verbose, ...)
+    x_mat <- opt_x(X0 = x_mat,
+                   Y = y_mat,
+                   B = b_mat,
+                   Z = covariates,
+                   A = dat,
+                   family = family,
+                   s = library_size_vec,
+                   gamma = nuisance_param_vec,
+                   offset_vec = offset_vec,
+                   opt_fun = opt_fun,
+                   verbose = verbose, ...)
 
     # Optimize Y and B given X
     yb_mat <- cbind(y_mat, b_mat)
-    yb_mat <- opt_yb(yb_mat, X = x_mat, Z = covariates, A = dat,
-                     family = family, s = library_size_vec, gamma = nuisance_param_vec,
-                     opt_fun = opt_fun, verbose = verbose, ...)
+    yb_mat <- opt_yb(yb_mat,
+                     X = x_mat,
+                     Z = covariates,
+                     A = dat,
+                     family = family,
+                     s = library_size_vec,
+                     gamma = nuisance_param_vec,
+                     offset_vec = offset_vec,
+                     opt_fun = opt_fun,
+                     verbose = verbose, ...)
 
     # Split Y and B
     if(is.null(covariates))
@@ -147,9 +196,31 @@ opt_esvd <- function(x_init, y_init, dat, family = "gaussian", method = c("newto
       b_mat <- yb_mat[, -(1:k), drop = FALSE]
     }
 
+    if(reestimate_nuisance & family$name == "neg_binom2"){
+      theta_mat <- tcrossprod(yb_mat, cbind(x_mat, covariates))
+      theta_mat <- sweep(theta_mat, 2, offset_vec, "+")
+
+      glmgampoi_res <- glmGamPoi::overdispersion_mle(y = Matrix::t(dat),
+                                                     mean = exp(theta_mat),
+                                                     global_estimate = global_estimate)
+
+      if(global_estimate){
+        nuisance_param_vec <- rep(glmgampoi_res$estimate, p)
+      } else {
+        nuisance_param_vec <- glmgampoi_res$estimate
+      }
+    }
+
     # Loss function
-    loss <- objfn_all(X = x_mat, Y = y_mat, B = b_mat, Z = covariates, A = dat,
-                      family = family, s = library_size_vec, gamma = nuisance_param_vec)
+    loss <- objfn_all(X = x_mat,
+                      Y = y_mat,
+                      B = b_mat,
+                      Z = covariates,
+                      A = dat,
+                      family = family,
+                      s = library_size_vec,
+                      gamma = nuisance_param_vec,
+                      offset = offset_vec)
     losses <- c(losses, loss)
     if(verbose >= 1)
       cat("========== eSVD Iter ", i, ", loss = ", loss, " ==========\n\n", sep = "")
@@ -164,6 +235,11 @@ opt_esvd <- function(x_init, y_init, dat, family = "gaussian", method = c("newto
   tmp <- .reparameterize(x_mat, y_mat, equal_covariance = T)
   x_mat <- tmp$x_mat; y_mat <- tmp$y_mat
 
-  list(x_mat = x_mat, y_mat = y_mat, b_mat = b_mat, loss = losses,
-       nuisance_param_vec = nuisance_param_vec, library_size_vec = library_size_vec)
+  list(x_mat = x_mat,
+       y_mat = y_mat,
+       b_mat = b_mat,
+       loss = losses,
+       nuisance_param_vec = nuisance_param_vec,
+       library_size_vec = library_size_vec,
+       offset_vec = offset_vec)
 }
