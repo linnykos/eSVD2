@@ -93,6 +93,7 @@ opt_yb <- function(YB0, X, Z, A,
 #'                           a length-\eqn{n} vector of numerics. If \code{NA}, the library size will be estimated
 #' @param offset_vec         a vector of length-\eqn{n} that represents a constant amount added to each row of the
 #'                           natural parameter matrix
+#' @param reparameterize     reparameterize \code{x_mat} and \code{y_mat} after every iteration
 #' @param reestimate_nuisance a boolean for whether the nuisance parameter is reestimate after every iteration
 #' @param global_estimate    a boolean for whether or not the same nuisance parameter is used for all genes
 #' @param max_iter           a positive integer giving the maximum number of iterations
@@ -113,6 +114,7 @@ opt_esvd <- function(x_init,
                      nuisance_param_vec = NA,
                      library_size_vec = NA,
                      offset_vec = rep(0, nrow(x_init)),
+                     reparameterize = F,
                      reestimate_nuisance = F,
                      global_estimate = F,
                      max_iter = 100,
@@ -215,6 +217,11 @@ opt_esvd <- function(x_init,
           print(round(quantile(nuisance_param_vec),2))
         }
       }
+    }
+
+    if(reparameterize){
+      tmp <- .reparameterize(x_mat, y_mat, equal_covariance = T)
+      x_mat <- tmp$x_mat; y_mat <- tmp$y_mat
     }
 
     # Loss function
