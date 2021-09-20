@@ -96,6 +96,8 @@ opt_yb <- function(YB0, X, Z, A,
 #' @param reparameterize     reparameterize \code{x_mat} and \code{y_mat} after every iteration
 #' @param reestimate_nuisance a boolean for whether the nuisance parameter is reestimate after every iteration
 #' @param global_estimate    a boolean for whether or not the same nuisance parameter is used for all genes
+#' @param min_nuisance       a small positive number for the minimum nuisance parameter value
+#' @param max_nuisance       a large positive number for the maximum nuisance parameter value
 #' @param max_iter           a positive integer giving the maximum number of iterations
 #' @param tol                a small positive number for the tolerance of optimization error
 #' @param verbose            a non-negative integer to indicate the verbosity of messages
@@ -117,6 +119,8 @@ opt_esvd <- function(x_init,
                      reparameterize = F,
                      reestimate_nuisance = F,
                      global_estimate = F,
+                     min_nuisance = 0.01,
+                     max_nuisance = 1e5,
                      max_iter = 100,
                      tol = 1e-6,
                      verbose = 0,
@@ -212,6 +216,7 @@ opt_esvd <- function(x_init,
           cat("Updated nuisance value: ", round(glmgampoi_res$estimate, 2), "\n", sep = "")
       } else {
         nuisance_param_vec <- glmgampoi_res$estimate
+        nuisance_param_vec <- pmin(pmax(nuisance_param_vec, min_nuisance), max_nuisance)
         if(verbose >= 1){
           cat("Updated nuisance values:\n", sep = "")
           print(round(quantile(nuisance_param_vec),2))
