@@ -255,6 +255,7 @@ opt_esvd <- function(x_init,
 
   list(x_mat = x_mat,
        y_mat = y_mat,
+       covariates = covariates,
        b_mat = b_mat,
        loss = losses,
        nuisance_param_vec = nuisance_param_vec,

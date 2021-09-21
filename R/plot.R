@@ -60,7 +60,7 @@ plot_scores_heatmap <- function(score_mat, membership_vec = NA, num_col = 10,
 plot_scatterplot_poisson <- function(mat,
                                      mean_mat,
                                      xlim = NA,
-                                     quantile_vec = c(0.25, 0.75),
+                                     quantile_vec = c(0.1, 0.9),
                                      only_nonzero = T,
                                      max_num = 1e5,
                                      point_cex = 1,
@@ -111,7 +111,7 @@ plot_scatterplot_nb <- function(mat,
                                 main = "",
                                 include_percentage_in_main = T,
                                 xlim = NA,
-                                quantile_vec = c(0.25, 0.75),
+                                quantile_shoulder = 0.9,
                                 only_nonzero = T,
                                 max_num = 1e5,
                                 log_scale = T,
@@ -138,26 +138,34 @@ plot_scatterplot_nb <- function(mat,
                      byrow = T)
   if(all(is.na(mean_mat))){
     mean_mat <- .mult_mat_vec(prob_mat/(1-prob_mat), size_vec)
-  } else {
-    prob_mat <- 1/(1+size_mat/mean_mat)
   }
-  print(quantile(prob_mat))
-  lower_vec <- stats::qnbinom(quantile_vec[1],
-                              size = size_mat[idx],
-                              prob = 1-prob_mat[idx])
-  upper_vec <- stats::qnbinom(quantile_vec[2],
-                              size = size_mat[idx],
-                              prob = 1-prob_mat[idx])
 
+  tmp_mat <- cbind(mat[idx], mean_mat[idx])
+  angle_val <- .compute_principal_angle(tmp_mat)
 
-  col_vec <- sapply(1:length(idx), function(i){
-    if(mat[idx[i]] >= lower_vec[i] & mat[idx[i]] <= upper_vec[i]){
-      return(included_col)
-    } else {
-      return(excluded_col)
-    }
+  tabulated_mat <- sapply(idx, function(i){
+    quant <- stats::pnbinom(mean_mat[i],
+                            size = size_mat[i],
+                            mu = mean_mat[i])
+    lower_quant <- (1-quantile_shoulder)*quant
+    upper_quant <- quant + (1-quant)*quantile_shoulder
+
+    lower_val <- stats::qnbinom(lower_quant,
+                                size = size_mat[i],
+                                mu = mean_mat[i])
+    upper_val <- stats::qnbinom(upper_quant,
+                                size = size_mat[i],
+                                mu = mean_mat[i])
+
+    bool <- mat[i] >= lower_val & mat[i] <= upper_val
+    width <- upper_quant-lower_quant
+
+    c(bool = as.numeric(bool), width = width)
   })
+
+  col_vec <- c(excluded_col, included_col)[tabulated_mat["bool",]+1]
   observed_percentage <- round(length(which(col_vec == included_col))/length(col_vec), 2)
+  expected_percentage <- round(sum(tabulated_mat["width",]), 2)
 
   if(log_scale){
     x_vec <- log(mean_mat[idx])
@@ -168,19 +176,52 @@ plot_scatterplot_nb <- function(mat,
   }
 
   if(include_percentage_in_main){
-    main_modified = paste0(main, " (", 100*observed_percentage,  "% of ", 100*round(abs(diff(quantile_vec)),2), "%)")
+    main_modified = paste0(main, " (", 100*observed_percentage,  "% of ", 100*expected_percentage, "%)")
   } else {
     main_modified = main
   }
   if(all(is.na(xlim))) xlim <- range(c(0, x_vec, y_vec))
-  graphics::plot(x = x_vec,
-                 y = y_vec,
+  graphics::plot(NA,
                  xlim = xlim,
                  ylim = xlim,
                  asp = asp,
-                 pch = 16,
-                 cex = cex,
-                 col = col_vec,
                  main = main_modified,
                  ...)
+
+  # plot diagonal
+  seq_vec <- c(0, 2*max(abs(xlim)))
+  graphics::lines(x = seq_vec,
+                  y = seq_vec,
+                  col = "black",
+                  lwd = 2,
+                  lty = 2)
+  graphics::lines(x = seq_vec,
+                  y = seq_vec * tan(angle_val*pi/180),
+                  col = "blue",
+                  lwd = 2,
+                  lty = 2)
+
+  graphics::points(x = x_vec,
+                   y = y_vec,
+                   pch = 16,
+                   cex = cex,
+                   col = col_vec)
+
 }
+
+#############
+#' Compute principal angle
+#'
+#' @param tmp_mat a matrix with \code{n} rows (for \code{n} samples) and \code{2} columns,
+#' where the first column represents the observed data and the second column represents its
+#' corresponding predicted values
+#'
+#' @return numeric
+.compute_principal_angle <- function(tmp_mat){
+  pca_res <- stats::prcomp(tmp_mat, center = F, scale = F)
+  vec <- pca_res$rotation[,1]; vec <- vec/.l2norm(vec)
+  if(sign(vec[1]) < 0)  vec <- -1*vec
+  angle_val <- as.numeric(acos(as.numeric(c(0,1) %*% vec)))
+  angle_val * 180/pi
+}
+
