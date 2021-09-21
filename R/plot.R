@@ -142,6 +142,7 @@ plot_scatterplot_nb <- function(mat,
 
   tmp_mat <- cbind(mat[idx], mean_mat[idx])
   angle_val <- .compute_principal_angle(tmp_mat)
+  print(angle_val)
 
   tabulated_mat <- sapply(idx, function(i){
     quant <- stats::pnbinom(mean_mat[i],
@@ -165,7 +166,7 @@ plot_scatterplot_nb <- function(mat,
 
   col_vec <- c(excluded_col, included_col)[tabulated_mat["bool",]+1]
   observed_percentage <- round(length(which(col_vec == included_col))/length(col_vec), 2)
-  expected_percentage <- round(sum(tabulated_mat["width",]), 2)
+  expected_percentage <- round(mean(tabulated_mat["width",]), 2)
 
   if(log_scale){
     x_vec <- log(mean_mat[idx])
@@ -197,7 +198,7 @@ plot_scatterplot_nb <- function(mat,
                   lty = 2)
   graphics::lines(x = seq_vec,
                   y = seq_vec * tan(angle_val*pi/180),
-                  col = "blue",
+                  col = "green",
                   lwd = 2,
                   lty = 2)
 
