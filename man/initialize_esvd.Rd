@@ -9,9 +9,7 @@ initialize_esvd(
   k,
   family,
   covariates = NULL,
-  nuisance_param_vec = NA,
-  library_size_vec = NA,
-  config = initialization_options(),
+  offset_vec = rep(0, nrow(dat)),
   verbose = 0
 )
 }
@@ -26,16 +24,8 @@ or \code{"curved_gaussian"})}
 \item{covariates}{an \eqn{n \times d}{n × d} matrix representing the additional \eqn{d} covariates,
 or \code{NULL} if no covariate is given}
 
-\item{nuisance_param_vec}{either \code{NA} or a single numeric or a length-\eqn{p}
-vector of numerics representing nuisance parameters (for \code{family = "neg_binom"} or
-\code{family = "curved_gausian"}).}
-
-\item{library_size_vec}{either \code{NA} or a single numeric (default is \code{1}) or
-a length-\eqn{n} vector of numerics.
-If \code{NA}, the library size will be estimated.}
-
-\item{config}{additional parameters for the initialization, whose defaults can be
-set with \code{eSVD2::initialization_default()}}
+\item{offset_vec}{a vector of length-\eqn{n} that represents a constant amount added to each row of the
+natural parameter matrix}
 
 \item{verbose}{non-negative integer specifying level of printouts}
 }

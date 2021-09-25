@@ -6,16 +6,8 @@
 #'                                or \code{"curved_gaussian"})
 #' @param covariates              an \eqn{n \times d}{n × d} matrix representing the additional \eqn{d} covariates,
 #'                                or \code{NULL} if no covariate is given
-#' @param nuisance_param_vec      either \code{NA} or a single numeric or a length-\eqn{p}
-#'                                vector of numerics representing nuisance parameters (for \code{family = "neg_binom"} or
-#'                                \code{family = "curved_gausian"}).
-#' @param library_size_vec        either \code{NA} or a single numeric (default is \code{1}) or
-#'                                a length-\eqn{n} vector of numerics.
-#'                                If \code{NA}, the library size will be estimated.
-#' @param check_rank              boolean, on whether or not the natural parameter matrix will be checked
-#'                                for whether or not it numerically has the desired rank
-#' @param config                  additional parameters for the initialization, whose defaults can be
-#'                                set with \code{eSVD2::initialization_default()}
+#' @param offset_vec              a vector of length-\eqn{n} that represents a constant amount added to each row of the
+#'                                natural parameter matrix
 #' @param verbose                 non-negative integer specifying level of printouts
 #'
 #' @return a list with elements \code{x_mat} and \code{y_mat} (and others), representing the two
@@ -25,268 +17,65 @@ initialize_esvd <- function(dat,
                             k,
                             family,
                             covariates = NULL,
-                            nuisance_param_vec = NA,
-                            library_size_vec = NA,
-                            check_rank = T,
-                            config = initialization_options(),
+                            offset_vec = rep(0, nrow(dat)),
                             verbose = 0){
-  stopifnot(is.character(family))
-  if(family != "gaussian") stopifnot(all(dat[!is.na(dat)] >= 0))
-  if(all(!is.na(nuisance_param_vec)) & length(nuisance_param_vec) == 1) {
-    nuisance_param_vec <- rep(nuisance_param_vec[1], ncol(dat))
-  }
+  stopifnot(is.character(family),
+            family %in% c("gaussian", "poisson", "neg_binom2"),
+            all(is.null(covariates)) || is.matrix(covariates))
 
-  # estimate library sizes if asked
-  if(verbose > 0) print(paste0(Sys.time(),": Rescaling data"))
-  n <- nrow(dat); p <- ncol(dat)
   family <- .string_to_distr_funcs(family)
-  library_size_vec <- .parse_library_size(dat, library_size_vec = library_size_vec)
-  rescaled_dat <- t(sapply(1:nrow(dat), function(i){
-    dat[i,]/library_size_vec[i]
-  }))
+  if(family$name != "gaussian") stopifnot(all(dat[!is.na(dat)] >= 0))
 
-  # determine initial matrix taking into account to missing values and library size
-  # [note to self: this probably could be something a lot simpler]
-  if(verbose > 0) print(paste0(Sys.time(),": Applying matrix completion"))
-  rescaled_dat <- .matrix_completion(rescaled_dat, k = k)
-  if(verbose > 0) print(paste0(Sys.time(),": Determining initial matrix"))
-  init_res <- .determine_initial_matrix(rescaled_dat, k = k, family = family,
-                                        nuisance_param_vec = nuisance_param_vec,
-                                        max_val = config$max_val,
-                                        tol = config$tol)
-  nat_mat <- init_res$nat_mat; domain <- init_res$domain
+  n <- nrow(dat); p <- ncol(dat)
+  dat[is.na(dat)] <- 0
 
-  if(all(is.null(covariates)))
-  {
-    b_mat <- NULL
-    baseline <- matrix(0, n, p)
-    k2 <- k
-  } else {
-    r <- ncol(covariates)
-    # do regression
-    if(verbose > 0) print(paste0(Sys.time(),": Regressing out covariates"))
-    tmp <- lapply(1:p, function(j){
-      if(verbose == 1 && p > 10 && j %% floor(p/10) == 0) cat('*')
-      if(verbose == 2) print(j)
-      .regress_covariates(nat_mat[,j], covariates)
+  if(!all(is.null(covariates))){
+    b_init <- sapply(1:ncol(covariates), function(j){
+      if(stats::sd(covariates[,j]) == 0) {
+        log(matrixStats::colMeans2(dat))
+      } else {
+        rep(1, nrow(dat))
+      }
     })
-
-    nat_mat <- sapply(1:p, function(j){tmp[[j]]$residual})
-    b_mat <- do.call(rbind, (lapply(1:p, function(j){tmp[[j]]$coef})))
-    colnames(b_mat) <- colnames(covariates)
-    baseline <- tcrossprod(covariates, b_mat)
-    k2 <- k + r #[[note to self: check that this is correct]]
-  }
-
-  # project inital matrix into space of low-rank matrices
-  if(verbose > 0) print(paste0(Sys.time(),": Projecting to form low-rank matrix"))
-  nat_mat <- .initialize_nat_mat(nat_mat, k = k2, baseline = baseline,
-                                 domain = domain, config = config,
-                                 verbose = verbose)
-
-  # reparameterize
-  if(verbose > 0) print(paste0(Sys.time(),": Reparameterizing"))
-  res <- .factorize_matrix(nat_mat, k = k, equal_covariance = T)
-  if(check_rank){
-    if(verbose > 0) print(paste0(Sys.time(),": Fixing possible rank defficiency issues"))
-    res <- .fix_rank_defficiency(res$x_mat, res$y_mat, domain = domain)
-  }
-  if(verbose > 0) print(paste0(Sys.time(),": Fixing possible covariate issues"))
-  if(!all(is.null(covariates))) b_mat <- .fix_intercept(res$x_mat, res$y_mat, covariates, b_mat, domain)
-
-  structure(list(x_mat = res$x_mat, y_mat = res$y_mat, b_mat = b_mat,
-                 library_size_vec = library_size_vec, nuisance_param_vec = nuisance_param_vec,
-                 domain = domain), class = "eSVD")
-}
-
-#' Initialization defaults
-#'
-#' @param init_method character (\code{"kmean_rows"})
-#' @param max_val maximum magnitude of the inner product (positive numeric). This parameter
-#' could be \code{NA}.
-#' @param tol small positive value, which also controls (amongst other numerical things)
-#' the smallest magnitude of the inner product
-#'
-#' @return a list of values, of class \code{initialization_param}
-#' @export
-initialization_options <- function(init_method = "kmean_rows",
-                                 max_val = NA, tol = 1e-3){
-  stopifnot(init_method %in% c("kmean_rows"))
-  stopifnot(tol > 0, tol <= 1, (is.na(max_val) | max_val > 0))
-
-  structure(list(init_method = init_method, max_val = max_val, tol = tol), class = "initialization_param")
-}
-
-#######################
-
-#' Fill in missing values
-#'
-#' Uses \code{softImpute::softImpute} to fill in all the possible missing values.
-#' This function enforces all the resulting entries to be non-negative.
-#'
-#' @param dat dataset where the \code{n} rows represent cells and \code{d} columns represent genes
-#' @param k positive integer less than \code{min(c(nrow(dat), ncol(dat)))}
-#'
-#' @return a \code{n} by \code{p} matrix
-.matrix_completion <- function(dat, k){
-  if(any(is.na(dat))){
-    lambda0_val <- softImpute::lambda0(dat)
-    res <- softImpute::softImpute(dat, rank.max = k, lambda = min(30, lambda0_val/100))
-    pred_naive <- tcrossprod(.mult_mat_vec(res$u, res$d), res$v)
-    dat[which(is.na(dat))] <- pred_naive[which(is.na(dat))]
-  }
-
-  pmax(dat, 0)
-}
-
-#' Initialize the matrix of natural parameters
-#'
-#' This function first transforms each entry in \code{dat} according to the inverse function that maps
-#' natural parameters to their expectation (according to \code{eSVD:::.mean_transformation}) and then
-#' uses \code{eSVD:::.project_rank_feasibility} to get a rank-\code{k} approximation of this matrix
-#' that lies within the domain of \code{family}
-#'
-#' @param dat dataset where the \code{n} rows represent cells and \code{d} columns represent genes.
-#' @param k  positive integer less than \code{min(c(nrow(dat), ncol(dat)))}
-#' @param family character (\code{"gaussian"}, \code{"exponential"}, \code{"poisson"}, \code{"neg_binom"},
-#' or \code{"curved gaussian"})
-#' @param nuisance_param_vec length-\eqn{p}
-#' vector of numerics representing nuisance parameters (for \code{family = "neg_binom"} or
-#' \code{family = "curved_gausian"})
-#' @param max_val maximum magnitude of the inner product
-#' @param tol numeric
-#' or \code{"curved gaussian"} for \code{family}
-#'
-#' @return \code{n} by \code{p} matrix
-.determine_initial_matrix <- function(dat, k, family, nuisance_param_vec, max_val = NA, tol = 1e-3){
-  stopifnot((is.na(max_val) || max_val >= 0), all(dat >= 0))
-
-  domain <- family$domain
-  if(!is.na(max_val)) domain <- .intersect_intervals(domain, c(-max_val, max_val))
-
-  if(family$name != "bernoulli") dat[which(dat <= tol)] <- tol/2
-  nat_mat <- family$dat_to_nat(dat, gamma = nuisance_param_vec)
-  nat_mat <- pmax(nat_mat, domain[1])
-  nat_mat <- pmin(nat_mat, domain[2])
-
-  list(nat_mat = nat_mat, domain = domain)
-}
-
-#######################
-
-.regress_covariates <- function(vec, covariates){
-  res <- stats::lm(vec ~ covariates - 1)
-
-  list(coef = res$coefficients, residual = res$residuals)
-}
-
-###################
-
-.initialize_nat_mat <- function(nat_mat, k = k, baseline = baseline,
-                                domain = domain, config = config,
-                                verbose = 0){
-  idx <- which(nat_mat + baseline <= domain[1])
-  if(length(idx) > 0) nat_mat[idx] <- domain[1]-baseline[idx]
-
-  idx <- which(nat_mat + baseline >= domain[2])
-  if(length(idx) > 0) nat_mat[idx] <- domain[2]-baseline[idx]
-
-  if(config$init_method == "kmean_rows"){
-    nat_mat <- .projection_kmeans(nat_mat,
-                                  k = k,
-                                  domain = domain,
-                                  row = T,
-                                  verbose = verbose)
+    colnames(b_init) <- colnames(covariates)
+    nat_offset_mat <- tcrossprod(covariates, b_init)
   } else {
-    stop("config init_method not found")
+    b_init <- NULL
+    nat_offset_mat <- 0
   }
 
-  nat_mat
-}
+  nat_mat <- family$dat_to_nat(dat)
+  residual_mat <- nat_mat - nat_offset_mat
+  residual_mat <- sweep(residual_mat, 1, offset_vec, "-")
 
-#' Fix rank defficiency among two matrices
-#'
-#' Given two matrices, \code{x_mat} and \code{y_mat} (both with the same number of columns),
-#' adjust these two matrices so the \code{x_mat \%*\% t(y_mat)} is actually of the desired
-#' rank. This function is needed since sometimes upstream, the matrices \code{x_mat} and \code{y_mat}
-#' do not actually have the rank equal to the number of columns (i.e., empirically we have
-#' observed that \code{x_mat} might have a column that is all constant).
-#'
-#' Here, \code{domain} represents the domain where all the inner products in
-#' \code{x_mat \%*\% t(y_mat)} are assumed to lie between
-#'
-#' @param x_mat a numeric matrix
-#' @param y_mat a numeric matrix with the same number of columns as \code{x_mat}
-#' @param domain a vector where \code{domain[1] < domain[2]}
-#' @param tol small positive number
-#'
-#' @return a list of \code{x_mat} and \code{y_mat}
-.fix_rank_defficiency <- function(x_mat, y_mat, domain, tol = 1e-6){
-  k <- ncol(x_mat)
-  nat_mat <- tcrossprod(x_mat, y_mat)
-  svd_tmp <- .svd_truncated(nat_mat, K = k,
+  svd_res <- .svd_truncated(residual_mat,
+                            K = k,
                             symmetric = F,
                             rescale = F,
                             mean_vec = NULL,
                             sd_vec = NULL,
                             K_full_rank = F)
-  k2 <- length(which(svd_tmp$d >= tol))
+  x_init <- .mult_mat_vec(svd_res$u, sqrt(svd_res$d))
+  y_init <- .mult_mat_vec(svd_res$v, sqrt(svd_res$d))
 
-  if(k != k2){
-    stopifnot(k2 < k)
-    sign_val <- ifelse(abs(domain[1]) < abs(domain[2]), 1, -1)
+  init_theta <- tcrossprod(x_init, y_init) + nat_offset_mat
+  init_theta <- sweep(init_theta, 1, offset_vec, "+")
 
-    sd_val <- mean(c(apply(x_mat[,1:k2, drop = F], 2, stats::sd), apply(y_mat[,1:k2, drop = F], 2, stats::sd)))
-    for(i in (k2+1):k){
-      x_mat[,i] <- abs(stats::rnorm(nrow(x_mat), sd = sd_val/10))
-      y_mat[,i] <- sign_val*abs(stats::rnorm(nrow(y_mat), sd = sd_val/10))
-    }
-  }
-
-  # fix any remaining issue with lying within domain
-  nat_mat <- tcrossprod(x_mat, y_mat)
-  mag <- max(abs(domain))
-  if(max(abs(nat_mat)) > mag){
-    nat_mat <- nat_mat * (mag/max(abs(nat_mat)))
-    res <- .factorize_matrix(nat_mat, k = k, equal_covariance = T)
+  if(family$name %in% c("neg_binom", "neg_binom2")){
+    glmgampoi_init <- glmGamPoi::overdispersion_mle(y = Matrix::t(dat),
+                                                    mean = family$nat_to_canon(t(init_theta)),
+                                                    global_estimate = T)
+    nuisance_init <- rep(glmgampoi_init$estimate, p)
   } else {
-    res <- .reparameterize(x_mat, y_mat, equal_covariance = T)
+    nuisance_init <- NULL
   }
 
-  list(x_mat = res$x_mat, y_mat = res$y_mat)
-}
+  rownames(x_init) <- rownames(dat)
+  rownames(y_init) <- colnames(dat)
 
-.fix_intercept <- function(x_mat, y_mat, covariates, b_mat, domain, tol = 1e-4){
-  if(all(is.infinite(domain))) return(b_mat)
-  intercept_idx <- which(apply(covariates, 2, function(x){diff(range(x)) <= 1e-6}))[1]
-  nat_mat <- tcrossprod(x_mat, y_mat) + tcrossprod(covariates, b_mat)
-
-  # fix entries above domain
-  if(!is.infinite(domain[2])){
-    problem_idx <- which(nat_mat > domain[2], arr.ind = T)
-    if(length(problem_idx) > 0){
-      problem_col <- sort(unique(problem_idx[,2]))
-      for(j in problem_col){
-        diff_val <- max(pmax(nat_mat[,j] - domain[2], 0))
-        b_mat[j,intercept_idx] <- b_mat[j,intercept_idx] - (diff_val+tol)
-      }
-    }
-  }
-
-  # fix entries below domain
-  if(!is.infinite(domain[1])){
-    problem_idx <- which(nat_mat < domain[1], arr.ind = T)
-    if(length(problem_idx) > 0){
-      problem_col <- sort(unique(problem_idx[,2]))
-      for(j in problem_col){
-        diff_val <- max(pmax(domain[1] - nat_mat[,j], 0))
-        b_mat[j,intercept_idx] <- b_mat[j,intercept_idx] + (diff_val+tol)
-      }
-    }
-  }
-
-  nat_mat <- tcrossprod(x_mat, y_mat) + tcrossprod(covariates, b_mat)
-  if(any(nat_mat < domain[1]) | any(nat_mat > domain[2])) stop("Conflict in initialization")
-
-  b_mat
+  structure(list(x_mat = x_init, y_mat = y_init, b_mat = b_init,
+                 covariates = covariates,
+                 nuisance_param_vec = nuisance_init,
+                 offset_vec = offset_vec),
+            class = "eSVD")
 }

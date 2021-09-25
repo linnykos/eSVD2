@@ -64,7 +64,7 @@ plot_scatterplot_poisson <- function(mat,
                                      only_nonzero = T,
                                      max_num = 1e5,
                                      point_cex = 1,
-                                     point_col = rgb(0,0,0,0.1),
+                                     point_col = grDevices::rgb(0,0,0,0.1),
                                      mean_lwd = 2,
                                      polygon_density = 30,
                                      asp = T, ...){
@@ -105,8 +105,7 @@ plot_scatterplot_poisson <- function(mat,
 }
 
 plot_scatterplot_nb <- function(mat,
-                                prob_mat = NA,
-                                mean_mat = NA,
+                                mean_mat,
                                 size_vec,
                                 main = "",
                                 include_percentage_in_main = T,
@@ -114,15 +113,14 @@ plot_scatterplot_nb <- function(mat,
                                 quantile_shoulder = 0.9,
                                 only_nonzero = T,
                                 max_num = 1e5,
-                                log_scale = T,
                                 included_col = "black",
                                 excluded_col = "red",
                                 cex = 1,
                                 asp = T,
+                                verbose = T,
                                 ...){
-  stopifnot(length(size_vec) == ncol(prob_mat),
-            all(dim(mat) == dim(prob_mat)),
-            all(is.na(mean_mat)) | all(is.na(prob_mat)))
+  stopifnot(length(size_vec) == ncol(mat),
+            all(dim(mat) == dim(mean_mat)))
   if(only_nonzero) {
     idx <- which(mat != 0)
   } else {
@@ -136,15 +134,21 @@ plot_scatterplot_nb <- function(mat,
                      nrow = nrow(mat),
                      ncol = ncol(mat),
                      byrow = T)
-  if(all(is.na(mean_mat))){
-    mean_mat <- .mult_mat_vec(prob_mat/(1-prob_mat), size_vec)
-  }
+
+  x_vec <- mean_mat[idx]
+  y_vec <- mat[idx]
+  if(all(is.na(xlim))) xlim <- range(c(0, x_vec, y_vec))
 
   tmp_mat <- cbind(mat[idx], mean_mat[idx])
+  bool_vec <- apply(tmp_mat, 1, function(x){all(x >= xlim[1]) & all(x <= xlim[2])})
+  tmp_mat <- tmp_mat[which(bool_vec),]
   angle_val <- .compute_principal_angle(tmp_mat)
   print(angle_val)
 
-  tabulated_mat <- sapply(idx, function(i){
+  tabulated_mat <- sapply(1:length(idx), function(counter){
+    if(verbose & length(idx) > 10 & counter %% floor(length(idx)/10) == 0) cat('*')
+    i <- idx[counter]
+
     quant <- stats::pnbinom(mean_mat[i],
                             size = size_mat[i],
                             mu = mean_mat[i])
@@ -168,20 +172,12 @@ plot_scatterplot_nb <- function(mat,
   observed_percentage <- round(length(which(col_vec == included_col))/length(col_vec), 2)
   expected_percentage <- round(mean(tabulated_mat["width",]), 2)
 
-  if(log_scale){
-    x_vec <- log(mean_mat[idx])
-    y_vec <- log(mat[idx])
-  } else {
-    x_vec <- mean_mat[idx]
-    y_vec <- mat[idx]
-  }
 
   if(include_percentage_in_main){
     main_modified = paste0(main, " (", 100*observed_percentage,  "% of ", 100*expected_percentage, "%)")
   } else {
     main_modified = main
   }
-  if(all(is.na(xlim))) xlim <- range(c(0, x_vec, y_vec))
   graphics::plot(NA,
                  xlim = xlim,
                  ylim = xlim,

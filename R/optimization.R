@@ -219,7 +219,7 @@ opt_esvd <- function(x_init,
         nuisance_param_vec <- pmin(pmax(nuisance_param_vec, min_nuisance), max_nuisance)
         if(verbose >= 1){
           cat("Updated nuisance values:\n", sep = "")
-          print(round(quantile(nuisance_param_vec),2))
+          print(round(stats::quantile(nuisance_param_vec),2))
         }
       }
     }
