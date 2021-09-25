@@ -23,12 +23,16 @@ test_that("initialize_esvd works for poisson with covariates", {
   nat_mat <- sapply(log(canon_vec)+1, function(x){rep(x, 100)})
   dat <- generate_data(nat_mat, family = "poisson")
 
+  covariates <- cbind(1, log(matrixStats::rowMeans2(dat)))
+  colnames(covariates) <- c("Intercept", "Log-UMI")
+
   res <- initialize_esvd(dat, k = 2, family = "poisson",
-                         covariates = matrix(1, nrow = nrow(dat), ncol = 1))
+                         covariates = covariates)
 
   expect_true(class(res) == "eSVD")
   expect_true(all(dim(res$x_mat) == c(nrow(dat), 2)))
   expect_true(all(dim(res$y_mat) == c(ncol(dat), 2)))
+  expect_true(all(dim(res$b_mat) == c(ncol(dat), 2)))
 })
 
 test_that("initialize_esvd works for negative binomial", {

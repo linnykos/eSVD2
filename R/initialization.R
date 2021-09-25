@@ -8,6 +8,7 @@
 #'                                or \code{NULL} if no covariate is given
 #' @param offset_vec              a vector of length-\eqn{n} that represents a constant amount added to each row of the
 #'                                natural parameter matrix
+#' @param tol                     small positive number
 #' @param verbose                 non-negative integer specifying level of printouts
 #'
 #' @return a list with elements \code{x_mat} and \code{y_mat} (and others), representing the two
@@ -18,6 +19,7 @@ initialize_esvd <- function(dat,
                             family,
                             covariates = NULL,
                             offset_vec = rep(0, nrow(dat)),
+                            tol = 1e-3,
                             verbose = 0){
   stopifnot(is.character(family),
             family %in% c("gaussian", "poisson", "neg_binom2"),
@@ -32,9 +34,9 @@ initialize_esvd <- function(dat,
   if(!all(is.null(covariates))){
     b_init <- sapply(1:ncol(covariates), function(j){
       if(stats::sd(covariates[,j]) == 0) {
-        log(matrixStats::colMeans2(dat))
+        log(matrixStats::colMeans2(dat)+tol)
       } else {
-        rep(1, nrow(dat))
+        rep(1, ncol(dat))
       }
     })
     colnames(b_init) <- colnames(covariates)
