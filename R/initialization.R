@@ -23,7 +23,9 @@ initialize_esvd <- function(dat,
                             verbose = 0){
   stopifnot(is.character(family),
             family %in% c("gaussian", "poisson", "neg_binom2"),
-            all(is.null(covariates)) || is.matrix(covariates))
+            all(is.null(covariates)) || is.matrix(covariates),
+            length(offset_vec) == nrow(dat),
+            k <= ncol(dat), k > 0, k %% 1 == 0)
 
   family <- .string_to_distr_funcs(family)
   if(family$name != "gaussian") stopifnot(all(dat[!is.na(dat)] >= 0))
@@ -39,6 +41,12 @@ initialize_esvd <- function(dat,
         rep(1, ncol(dat))
       }
     })
+    print(head(covariates))
+    print(class(b_init))
+    print(length(b_init))
+    print(dim(b_init))
+    print(head(b_init))
+
     colnames(b_init) <- colnames(covariates)
     nat_offset_mat <- tcrossprod(covariates, b_init)
   } else {
