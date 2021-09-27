@@ -8,6 +8,7 @@
 #'                                or \code{NULL} if no covariate is given
 #' @param offset_vec              a vector of length-\eqn{n} that represents a constant amount added to each row of the
 #'                                natural parameter matrix
+#' @param column_set_to_one       vector of characters, all contained in \code{colnames(covariates)}
 #' @param tol                     small positive number
 #' @param verbose                 non-negative integer specifying level of printouts
 #'
@@ -19,6 +20,7 @@ initialize_esvd <- function(dat,
                             family,
                             covariates = NULL,
                             offset_vec = rep(0, nrow(dat)),
+                            column_set_to_one = NULL,
                             tol = 1e-3,
                             verbose = 0){
   stopifnot(is.character(family),
@@ -38,14 +40,13 @@ initialize_esvd <- function(dat,
       if(stats::sd(covariates[,j]) == 0) {
         log(matrixStats::colMeans2(dat)+tol)
       } else {
-        rep(1, ncol(dat))
+        if(colnames(covariates)[j] %in% column_set_to_one){
+          rep(1, ncol(dat))
+        } else {
+          rep(0, ncol(dat))
+        }
       }
     })
-    print(head(covariates))
-    print(class(b_init))
-    print(length(b_init))
-    print(dim(b_init))
-    print(head(b_init))
 
     colnames(b_init) <- colnames(covariates)
     nat_offset_mat <- tcrossprod(covariates, b_init)
