@@ -66,6 +66,8 @@ initialize_esvd <- function(dat,
                                verbose = verbose)
     residual_mat <- tmp$residual_mat
     b_init[,remaining_covarites] <- tmp$b_mat
+    residual_mat[is.na(residual_mat)] <- 0
+    b_init[is.na(b_init)] <- 0
     nat_offset_mat <- tcrossprod(covariates, b_init)
   }
 
