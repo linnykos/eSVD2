@@ -59,6 +59,16 @@ initialize_esvd <- function(dat,
   residual_mat <- nat_mat - nat_offset_mat
   residual_mat <- sweep(residual_mat, 1, offset_vec, "-")
 
+  remaining_covarites <- which(!colnames(covariates) %in% column_set_to_one)
+  if(length(remaining_covarites) > 0){
+    tmp <- .regress_out_matrix(residual_mat,
+                               covariates[,remaining_covarites,drop = F],
+                               verbose = verbose)
+    residual_mat <- tmp$residual_mat
+    b_init[,remaining_covarites] <- tmp$b_mat
+    nat_offset_mat <- tcrossprod(covariates, b_init)
+  }
+
   svd_res <- .svd_truncated(residual_mat,
                             K = k,
                             symmetric = F,
@@ -89,4 +99,37 @@ initialize_esvd <- function(dat,
                  nuisance_param_vec = nuisance_init,
                  offset_vec = offset_vec),
             class = "eSVD")
+}
+
+#####################
+
+# Inspired by the RegressOutMatrix function in
+# https://github.com/satijalab/seurat/blob/master/R/preprocessing.R
+.regress_out_matrix <- function(mat, covariates, verbose){
+  stopifnot(nrow(mat) == nrow(covariates))
+
+  vars_to_regress <- colnames(covariates)
+  fmla <- paste("GENE ~", paste(vars_to_regress, collapse = "+"), "-1")
+  fmla <- as.formula(object = fmla)
+  residual_mat <- matrix(0, nrow = nrow(mat), ncol = ncol(mat))
+  rownames(residual_mat) <- rownames(mat)
+  colnames(residual_mat) <- colnames(mat)
+  b_mat <- matrix(0, nrow = ncol(mat), ncol = ncol(covariates))
+  rownames(b_mat) <- colnames(mat)
+  covariates <- as.data.frame(covariates)
+
+  p <- ncol(mat)
+  for(j in 1:p){
+    if(verbose == 1 && p > 10 && j %% floor(p/10) == 0) cat('*')
+    if(verbose == 2) print(paste0("Working on gene ", j, " out of ", p))
+
+    regression_mat <- cbind(covariates, mat[,j])
+    colnames(x = regression_mat) <- c(vars_to_regress, "GENE")
+    lm_fit <- stats::lm(fmla, data = regression_mat)
+    residual_mat[,j] <- stats::residuals(lm_fit)
+    b_mat[j,] <- stats::coef(lm_fit)
+  }
+
+  list(residual_mat = residual_mat,
+       b_mat = b_mat)
 }
