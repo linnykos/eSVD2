@@ -1,4 +1,6 @@
-plot_scores_heatmap <- function(score_mat, membership_vec = NA, num_col = 10,
+plot_scores_heatmap <- function(score_mat, membership_vec = NA,
+                                major_breakpoint = NA,
+                                num_col = 10,
                                 bool_center = T, bool_scale = T,
                                 bool_log = F, scaling_power = 1, luminosity = F,
                                 ...){
@@ -43,7 +45,11 @@ plot_scores_heatmap <- function(score_mat, membership_vec = NA, num_col = 10,
     if(!all(is.na(membership_vec))){
       for(i in 1:length(breakpoints)){
         graphics::lines(c(-10, 10), rep(breakpoints[i], 2), lwd = 2.1, col = "white")
-        graphics::lines(c(-10, 10), rep(breakpoints[i], 2), lwd = 2, lty = 2)
+        if(!all(is.na(major_breakpoint)) && i %in% major_breakpoint){
+          graphics::lines(c(-10, 10), rep(breakpoints[i], 2), lwd = 2.2, lty = 1)
+        } else {
+          graphics::lines(c(-10, 10), rep(breakpoints[i], 2), lwd = 2, lty = 2)
+        }
       }
     }
   }
@@ -145,6 +151,7 @@ plot_scatterplot_nb <- function(mat,
   angle_val <- .compute_principal_angle(tmp_mat)
   print(angle_val)
 
+  if(verbose) print("Starting to compute quantiles")
   tabulated_mat <- sapply(1:length(idx), function(counter){
     if(verbose & length(idx) > 10 & counter %% floor(length(idx)/10) == 0) cat('*')
     i <- idx[counter]
@@ -171,7 +178,6 @@ plot_scatterplot_nb <- function(mat,
   col_vec <- c(excluded_col, included_col)[tabulated_mat["bool",]+1]
   observed_percentage <- round(length(which(col_vec == included_col))/length(col_vec), 2)
   expected_percentage <- round(mean(tabulated_mat["width",]), 2)
-
 
   if(include_percentage_in_main){
     main_modified = paste0(main, " (", 100*observed_percentage,  "% of ", 100*expected_percentage, "%)")
