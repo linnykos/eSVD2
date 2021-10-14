@@ -1,4 +1,7 @@
 # Distribution: negative binomial
+
+# See eSVD2_writing/writeup/2021-05-20-covariates.pdf
+#
 # Log-density for the whole data matrix [n x p]
 .log_prob.neg_binom <- function(A, theta, s, gamma)
 {
@@ -52,11 +55,11 @@
   all(theta < 0)
 }
 
-.dat_to_nat.neg_binom <- function(A, gamma, tol = 1e-3){
-  res <- sapply(1:ncol(A), function(j){
-    (A[,j] + tol)/gamma[j]
-  })
-  res <- log(res/(1+res))
+# Initialize the natural parameter from data
+# theta = log(p), mean = r * p / (1 - p)
+.dat_to_nat.neg_binom <- function(A, gamma, tol = 1e-3) {
+  res <- sweep(A + tol, 2, gamma, "/")
+  res <- log(res / (1 + res))
 
   if(length(rownames(A)) != 0) rownames(res) <- rownames(A)
   if(length(colnames(A)) != 0) colnames(res) <- colnames(A)
@@ -64,7 +67,8 @@
   res
 }
 
-.nat_to_canon.neg_binom <- function(theta){
+# Convert natural parameter to mean
+.nat_to_canon.neg_binom <- function(theta) {
   exp(theta)
 }
 
