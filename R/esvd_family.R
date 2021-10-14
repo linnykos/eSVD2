@@ -36,6 +36,7 @@ objfn_all <- function(X, Y, B, Z, A, family, s, gamma, offset, ...)
 # Objective function value for the i-th row of X
 objfn_Xi <- function(Xi, Y, B, Zi, Ai, family, si, gamma, offseti, ...)
 {
+  # Call the C++ version if the given family has C++ implementation
   if(!is.null(family$cpp_functions))
   {
     return(objfn_Xi_impl(Xi, Y, B, Zi, Ai, family, si, gamma, offseti))
@@ -53,6 +54,7 @@ objfn_Xi <- function(Xi, Y, B, Zi, Ai, family, si, gamma, offseti, ...)
 # Objective function value for the j-th row of Y
 objfn_Yj <- function(Yj, X, Bj, Z, Aj, family, s, gammaj, offset, ...)
 {
+  # Call the C++ version if the given family has C++ implementation
   if(!is.null(family$cpp_functions))
   {
     return(objfn_Yj_impl(Yj, X, Bj, Z, Aj, family, s, gammaj, offset))
@@ -70,6 +72,7 @@ objfn_Yj <- function(Yj, X, Bj, Z, Aj, family, s, gammaj, offset, ...)
 # Gradient for the i-th row of X
 grad_Xi <- function(Xi, Y, B, Zi, Ai, family, si, gamma, offseti, ...)
 {
+  # Call the C++ version if the given family has C++ implementation
   if(!is.null(family$cpp_functions))
   {
     return(grad_Xi_impl(Xi, Y, B, Zi, Ai, family, si, gamma, offseti))
@@ -89,6 +92,7 @@ grad_Xi <- function(Xi, Y, B, Zi, Ai, family, si, gamma, offseti, ...)
 # Gradient for the j-th row of Y
 grad_Yj <- function(Yj, X, Bj, Z, Aj, family, s, gammaj, offset, ...)
 {
+  # Call the C++ version if the given family has C++ implementation
   if(!is.null(family$cpp_functions))
   {
     return(grad_Yj_impl(Yj, X, Bj, Z, Aj, family, s, gammaj, offset))
@@ -108,6 +112,7 @@ grad_Yj <- function(Yj, X, Bj, Z, Aj, family, s, gammaj, offset, ...)
 # Hessian for the i-th row of X
 hessian_Xi <- function(Xi, Y, B, Zi, Ai, family, si, gamma, offseti, ...)
 {
+  # Call the C++ version if the given family has C++ implementation
   if(!is.null(family$cpp_functions))
   {
     return(hessian_Xi_impl(Xi, Y, B, Zi, Ai, family, si, gamma, offseti))
@@ -127,6 +132,7 @@ hessian_Xi <- function(Xi, Y, B, Zi, Ai, family, si, gamma, offseti, ...)
 # Hessian for the j-th row of Y
 hessian_Yj <- function(Yj, X, Bj, Z, Aj, family, s, gammaj, offset, ...)
 {
+  # Call the C++ version if the given family has C++ implementation
   if(!is.null(family$cpp_functions))
   {
     return(hessian_Yj_impl(Yj, X, Bj, Z, Aj, family, s, gammaj, offset))
@@ -146,6 +152,7 @@ hessian_Yj <- function(Yj, X, Bj, Z, Aj, family, s, gammaj, offset, ...)
 # Move direction for the i-th row of X, d = -inv(H) * g
 direction_Xi <- function(Xi, Y, B, Zi, Ai, family, si, gamma, offseti, ...)
 {
+  # Call the C++ version if the given family has C++ implementation
   if(!is.null(family$cpp_functions))
   {
     return(direction_Xi_impl(Xi, Y, B, Zi, Ai, family, si, gamma, offseti))
@@ -179,6 +186,7 @@ direction_Xi <- function(Xi, Y, B, Zi, Ai, family, si, gamma, offseti, ...)
 # Move direction for the j-th row of Y
 direction_Yj <- function(Yj, X, Bj, Z, Aj, family, s, gammaj, offset, ...)
 {
+  # Call the C++ version if the given family has C++ implementation
   if(!is.null(family$cpp_functions))
   {
     return(direction_Yj_impl(Yj, X, Bj, Z, Aj, family, s, gammaj, offset))
@@ -231,29 +239,30 @@ feas_Yj <- function(Yj, X, Bj, Z, family, offset, ...)
   family$feasibility(thetaj)
 }
 
-#################
+# Properly handle the library size parameter
 .parse_library_size <- function(dat, library_size_vec) {
-  stopifnot(length(library_size_vec) %in% c(1, nrow(dat)))
   n <- nrow(dat)
+  stopifnot(length(library_size_vec) %in% c(1, n))
 
-  if(any(is.na(library_size_vec))){
+  if(any(is.na(library_size_vec))) {
     library_size_vec <- rowSums(dat)
   } else if(length(library_size_vec) == 1) {
-    library_size_vec <- rep(library_size_vec[1], n)
+    library_size_vec <- rep(library_size_vec, n)
   }
 
-  library_size_vec/min(library_size_vec)
+  library_size_vec / min(library_size_vec)
 }
 
+# Convert family name to the actual distribution structure
 .string_to_distr_funcs <- function(family)
 {
   switch(family,
-         bernoulli = .esvd.bernoulli,
+         bernoulli       = .esvd.bernoulli,
          curved_gaussian = .esvd.curved_gaussian,
-         exponential = .esvd.exponential,
-         gaussian = .esvd.gaussian,
-         neg_binom = .esvd.neg_binom,
-         neg_binom2 = .esvd.neg_binom2,
-         poisson = .esvd.poisson,
+         exponential     = .esvd.exponential,
+         gaussian        = .esvd.gaussian,
+         neg_binom       = .esvd.neg_binom,
+         neg_binom2      = .esvd.neg_binom2,
+         poisson         = .esvd.poisson,
          stop("unsupported distribution family"))
 }
