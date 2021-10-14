@@ -1,3 +1,5 @@
+.l2norm <- function(x){sqrt(sum(x^2))}
+
 .intersect_intervals <- function(vec1, vec2){
   stopifnot(length(vec1) == 2, length(vec2) == 2, vec1[1] <= vec1[2], vec2[1] <= vec2[2])
 

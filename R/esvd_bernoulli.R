@@ -168,6 +168,7 @@ softplus <- function(x)
 
 .esvd.bernoulli <- structure(
   list(
+    name           = "bernoulli",
     log_prob       = .log_prob.bernoulli,
     log_prob_row   = .log_prob_row.bernoulli,
     log_prob_col   = .log_prob_col.bernoulli,

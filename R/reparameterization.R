@@ -10,7 +10,8 @@
  Vx <- eigen_x$vectors
  Vy <- eigen_y$vectors
 
- if(any(eigen_x$values <= tol) | any(eigen_y$values <= tol)) warning("Detecting rank defficiency in reparameterization step")
+ if(any(eigen_x$values <= tol) | any(eigen_y$values <= tol))
+   warning("Detecting rank defficiency in reparameterization step")
 
  Dx <- eigen_x$values
  Dy <- eigen_y$values

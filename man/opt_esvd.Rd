@@ -14,6 +14,12 @@ opt_esvd(
   covariates = NULL,
   nuisance_param_vec = NA,
   library_size_vec = NA,
+  offset_vec = rep(0, nrow(x_init)),
+  reparameterize = F,
+  reestimate_nuisance = F,
+  global_estimate = F,
+  min_nuisance = 0.01,
+  max_nuisance = 1e+05,
   max_iter = 100,
   tol = 1e-06,
   verbose = 0,
@@ -48,6 +54,19 @@ or \code{family = "curved_gausian"})}
 
 \item{library_size_vec}{either \code{NA} or a single numeric (default is \code{1}) or
 a length-\eqn{n} vector of numerics. If \code{NA}, the library size will be estimated}
+
+\item{offset_vec}{a vector of length-\eqn{n} that represents a constant amount added to each row of the
+natural parameter matrix}
+
+\item{reparameterize}{reparameterize \code{x_mat} and \code{y_mat} after every iteration}
+
+\item{reestimate_nuisance}{a boolean for whether the nuisance parameter is reestimate after every iteration}
+
+\item{global_estimate}{a boolean for whether or not the same nuisance parameter is used for all genes}
+
+\item{min_nuisance}{a small positive number for the minimum nuisance parameter value}
+
+\item{max_nuisance}{a large positive number for the maximum nuisance parameter value}
 
 \item{max_iter}{a positive integer giving the maximum number of iterations}
 

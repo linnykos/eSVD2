@@ -173,8 +173,17 @@
   TRUE
 }
 
+.dat_to_nat.gaussian <- function(A, gamma, tol = 1e-3){
+  A
+}
+
+.nat_to_canon.gaussian <- function(theta){
+  theta
+}
+
 .esvd.gaussian <- structure(
   list(
+    name           = "gaussian",
     log_prob       = .log_prob.gaussian,
     log_prob_row   = .log_prob_row.gaussian,
     log_prob_col   = .log_prob_col.gaussian,
@@ -183,7 +192,10 @@
     d2log_prob_row = .d2log_prob_row.gaussian,
     d2log_prob_col = .d2log_prob_col.gaussian,
     feasibility    = .feasibility.gaussian,
-    feas_always    = TRUE
+    feas_always    = TRUE,
+    domain         = c(-Inf, Inf),
+    dat_to_nat     = .dat_to_nat.gaussian,
+    nat_to_canon   = .nat_to_canon.gaussian
   ),
   class = "esvd_family"
 )
