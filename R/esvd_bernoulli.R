@@ -161,7 +161,7 @@ softplus <- function(x)
 }
 
 # Feasibility of the natural parameter
-.feasibility.gaussian <- function(theta)
+.feasibility.bernoulli <- function(theta)
 {
   TRUE
 }
@@ -177,7 +177,9 @@ softplus <- function(x)
     d2log_prob_row = .d2log_prob_row.bernoulli,
     d2log_prob_col = .d2log_prob_col.bernoulli,
     feasibility    = .feasibility.bernoulli,
-    feas_always    = TRUE
+    feas_always    = TRUE,
+    domain         = c(-Inf, Inf)
   ),
   class = "esvd_family"
 )
+.esvd.bernoulli <- list2env(.esvd.bernoulli)

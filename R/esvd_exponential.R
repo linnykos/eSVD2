@@ -159,7 +159,9 @@
     d2log_prob_row = .d2log_prob_row.exponential,
     d2log_prob_col = .d2log_prob_col.exponential,
     feasibility    = .feasibility.exponential,
-    feas_always    = FALSE
+    feas_always    = FALSE,
+    domain         = c(-Inf, 0)
   ),
   class = "esvd_family"
 )
+.esvd.exponential <- list2env(.esvd.exponential)

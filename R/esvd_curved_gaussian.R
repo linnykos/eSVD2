@@ -187,7 +187,9 @@
     d2log_prob_row = .d2log_prob_row.curved_gaussian,
     d2log_prob_col = .d2log_prob_col.curved_gaussian,
     feasibility    = .feasibility.curved_gaussian,
-    feas_always    = FALSE
+    feas_always    = FALSE,
+    domain         = c(0, Inf)
   ),
   class = "esvd_family"
 )
+.esvd.curved_gaussian <- list2env(.esvd.curved_gaussian)

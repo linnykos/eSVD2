@@ -199,3 +199,4 @@
   ),
   class = "esvd_family"
 )
+.esvd.gaussian <- list2env(.esvd.gaussian)

@@ -85,3 +85,4 @@
   ),
   class = "esvd_family"
 )
+.esvd.neg_binom2 <- list2env(.esvd.neg_binom2)
