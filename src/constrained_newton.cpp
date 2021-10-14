@@ -146,7 +146,7 @@ List constr_newton(
 NumericMatrix opt_x_cpp(
     NumericMatrix X0, NumericMatrix Y, SEXP B, SEXP Z,
     NumericMatrix A, Environment family,
-    NumericVector s, NumericVector gamma,
+    NumericVector s, NumericVector gamma, NumericVector offset,
     int verbose = 0
 )
 {
@@ -193,7 +193,7 @@ NumericMatrix opt_x_cpp(
             Ai[j] = A(i, j);
         }
         // Objective function, gradient, Hessian, and feasibility
-        ObjectiveX obj(Y, B, Zi, Ai, family, s[i], gamma);
+        ObjectiveX obj(Y, B, Zi, Ai, family, s[i], gamma, offset[i]);
 
         // Run optimizer
         List opt = constr_newton(Xi, obj, 100, 30, 0.001, (verbose >= 3));
@@ -215,7 +215,7 @@ NumericMatrix opt_x_cpp(
 NumericMatrix opt_yb_cpp(
     NumericMatrix YB0, NumericMatrix XZ,
     NumericMatrix A, Environment family,
-    NumericVector s, NumericVector gamma,
+    NumericVector s, NumericVector gamma, NumericVector offset,
     int verbose = 0
 )
 {
@@ -241,7 +241,7 @@ NumericMatrix opt_yb_cpp(
         // Prepare Aj
         std::copy(A.begin() + n * j, A.begin() + n * (j + 1), Aj.begin());
         // Objective function, gradient, Hessian, and feasibility
-        ObjectiveY obj(XZ, Aj, family, s, gamma[j]);
+        ObjectiveY obj(XZ, Aj, family, s, gamma[j], offset);
 
         // Run optimizer
         List opt = constr_newton(YBj, obj, 100, 30, 0.001, (verbose >= 3));

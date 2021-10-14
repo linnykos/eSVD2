@@ -33,15 +33,36 @@ inline VectorXd compute_theta(NumericMatrix U_, NumericVector Vi_, SEXP P_, SEXP
     return theta;
 }
 
+// offset is a scalar
+template <typename T>
+inline VectorXd compute_theta_with_offset(NumericMatrix U, NumericVector Vi, SEXP P, SEXP Qi, T offset)
+{
+  VectorXd theta = compute_theta(U, Vi, P, Qi);
+  theta.array() += offset;
+  return theta;
+}
+
+// offset is a vector
+template <>
+inline VectorXd compute_theta_with_offset(NumericMatrix U, NumericVector Vi, SEXP P, SEXP Qi, NumericVector offset)
+{
+  VectorXd theta = compute_theta(U, Vi, P, Qi);
+  MapVec offset_vec = Rcpp::as<MapVec>(offset);
+  theta.noalias() += offset_vec;
+  return theta;
+}
+
+
+
 // [[Rcpp::export]]
 double objfn_Xi_impl(
     NumericVector Xi_, NumericMatrix Y_, SEXP B_, SEXP Zi_,
     NumericVector Ai_, Environment family_,
-    double si_, NumericVector gamma_
+    double si_, NumericVector gamma_, double offseti
 )
 {
     const int p = Y_.nrow();
-    VectorXd thetai = compute_theta(Y_, Xi_, B_, Zi_);
+    VectorXd thetai = compute_theta_with_offset(Y_, Xi_, B_, Zi_, offseti);
 
     Rcpp::XPtr<Distribution> distr = family_["cpp_functions"];
     VectorXd log_prob(p);
@@ -55,11 +76,11 @@ double objfn_Xi_impl(
 double objfn_Yj_impl(
     NumericVector Yj_, NumericMatrix X_, SEXP Bj_, SEXP Z_,
     NumericVector Aj_, Environment family_,
-    NumericVector s_, double gammaj_
+    NumericVector s_, double gammaj_, NumericVector offset
 )
 {
     const int n = X_.nrow();
-    VectorXd thetaj = compute_theta(X_, Yj_, Z_, Bj_);
+    VectorXd thetaj = compute_theta_with_offset(X_, Yj_, Z_, Bj_, offset);
 
     Rcpp::XPtr<Distribution> distr = family_["cpp_functions"];
     VectorXd log_prob(n);
@@ -73,7 +94,7 @@ double objfn_Yj_impl(
 NumericVector grad_Xi_impl(
     NumericVector Xi_, NumericMatrix Y_, SEXP B_, SEXP Zi_,
     NumericVector Ai_, Environment family_,
-    double si_, NumericVector gamma_
+    double si_, NumericVector gamma_, double offseti
 )
 {
     const int k = Xi_.length();
@@ -81,7 +102,7 @@ NumericVector grad_Xi_impl(
     NumericVector res_ = NumericVector(Rcpp::no_init_vector(k));
     MapVec res = Rcpp::as<MapVec>(res_);
     MapMat Y = Rcpp::as<MapMat>(Y_);
-    VectorXd thetai = compute_theta(Y_, Xi_, B_, Zi_);
+    VectorXd thetai = compute_theta_with_offset(Y_, Xi_, B_, Zi_, offseti);
 
     Rcpp::XPtr<Distribution> distr = family_["cpp_functions"];
     VectorXd dlog_prob(p);
@@ -97,7 +118,7 @@ NumericVector grad_Xi_impl(
 NumericVector grad_Yj_impl(
     NumericVector Yj_, NumericMatrix X_, SEXP Bj_, SEXP Z_,
     NumericVector Aj_, Environment family_,
-    NumericVector s_, double gammaj_
+    NumericVector s_, double gammaj_, NumericVector offset
 )
 {
     const int k = Yj_.length();
@@ -105,7 +126,7 @@ NumericVector grad_Yj_impl(
     NumericVector res_ = NumericVector(Rcpp::no_init_vector(k));
     MapVec res = Rcpp::as<MapVec>(res_);
     MapMat X = Rcpp::as<MapMat>(X_);
-    VectorXd thetaj = compute_theta(X_, Yj_, Z_, Bj_);
+    VectorXd thetaj = compute_theta_with_offset(X_, Yj_, Z_, Bj_, offset);
 
     Rcpp::XPtr<Distribution> distr = family_["cpp_functions"];
     VectorXd dlog_prob(n);
@@ -121,7 +142,7 @@ NumericVector grad_Yj_impl(
 NumericMatrix hessian_Xi_impl(
     NumericVector Xi_, NumericMatrix Y_, SEXP B_, SEXP Zi_,
     NumericVector Ai_, Environment family_,
-    double si_, NumericVector gamma_
+    double si_, NumericVector gamma_, double offseti
 )
 {
     const int k = Xi_.length();
@@ -129,7 +150,7 @@ NumericMatrix hessian_Xi_impl(
     NumericMatrix res_ = NumericMatrix(Rcpp::no_init_matrix(k, k));
     MapMat res = Rcpp::as<MapMat>(res_);
     MapMat Y = Rcpp::as<MapMat>(Y_);
-    VectorXd thetai = compute_theta(Y_, Xi_, B_, Zi_);
+    VectorXd thetai = compute_theta_with_offset(Y_, Xi_, B_, Zi_, offseti);
 
     Rcpp::XPtr<Distribution> distr = family_["cpp_functions"];
     VectorXd d2log_prob(p);
@@ -145,7 +166,7 @@ NumericMatrix hessian_Xi_impl(
 NumericMatrix hessian_Yj_impl(
     NumericVector Yj_, NumericMatrix X_, SEXP Bj_, SEXP Z_,
     NumericVector Aj_, Environment family_,
-    NumericVector s_, double gammaj_
+    NumericVector s_, double gammaj_, NumericVector offset
 )
 {
     const int k = Yj_.length();
@@ -153,7 +174,7 @@ NumericMatrix hessian_Yj_impl(
     NumericMatrix res_ = NumericMatrix(Rcpp::no_init_matrix(k, k));
     MapMat res = Rcpp::as<MapMat>(res_);
     MapMat X = Rcpp::as<MapMat>(X_);
-    VectorXd thetaj = compute_theta(X_, Yj_, Z_, Bj_);
+    VectorXd thetaj = compute_theta_with_offset(X_, Yj_, Z_, Bj_, offset);
 
     Rcpp::XPtr<Distribution> distr = family_["cpp_functions"];
     VectorXd d2log_prob(n);
@@ -169,12 +190,12 @@ NumericMatrix hessian_Yj_impl(
 List direction_Xi_impl(
     NumericVector Xi_, NumericMatrix Y_, SEXP B_, SEXP Zi_,
     NumericVector Ai_, Environment family_,
-    double si_, NumericVector gamma_
+    double si_, NumericVector gamma_, double offseti
 )
 {
     const int p = Y_.nrow();
     MapMat Y = Rcpp::as<MapMat>(Y_);
-    VectorXd thetai = compute_theta(Y_, Xi_, B_, Zi_);
+    VectorXd thetai = compute_theta_with_offset(Y_, Xi_, B_, Zi_, offseti);
 
     Rcpp::XPtr<Distribution> distr = family_["cpp_functions"];
     VectorXd dlog_prob(p), d2log_prob(p);
@@ -200,12 +221,12 @@ List direction_Xi_impl(
 List direction_Yj_impl(
     NumericVector Yj_, NumericMatrix X_, SEXP Bj_, SEXP Z_,
     NumericVector Aj_, Environment family_,
-    NumericVector s_, double gammaj_
+    NumericVector s_, double gammaj_, NumericVector offset
 )
 {
     const int n = X_.nrow();
     MapMat X = Rcpp::as<MapMat>(X_);
-    VectorXd thetaj = compute_theta(X_, Yj_, Z_, Bj_);
+    VectorXd thetaj = compute_theta_with_offset(X_, Yj_, Z_, Bj_, offset);
 
     Rcpp::XPtr<Distribution> distr = family_["cpp_functions"];
     VectorXd dlog_prob(n), d2log_prob(n);
@@ -228,25 +249,25 @@ List direction_Yj_impl(
 }
 
 bool feas_Xi_impl(
-    NumericVector Xi_, NumericMatrix Y_, SEXP B_, SEXP Zi_, Environment family_
+    NumericVector Xi_, NumericMatrix Y_, SEXP B_, SEXP Zi_, Environment family_, double offseti
 )
 {
     Rcpp::XPtr<Distribution> distr = family_["cpp_functions"];
     if(distr->feas_always())
         return true;
 
-    VectorXd thetai = compute_theta(Y_, Xi_, B_, Zi_);
+    VectorXd thetai = compute_theta_with_offset(Y_, Xi_, B_, Zi_, offseti);
     return distr->feasibility(thetai.size(), thetai.data());
 }
 
 bool feas_Yj_impl(
-    NumericVector Yj_, NumericMatrix X_, SEXP Bj_, SEXP Z_, Environment family_
+    NumericVector Yj_, NumericMatrix X_, SEXP Bj_, SEXP Z_, Environment family_, NumericVector offset
 )
 {
     Rcpp::XPtr<Distribution> distr = family_["cpp_functions"];
     if(distr->feas_always())
         return true;
 
-    VectorXd thetaj = compute_theta(X_, Yj_, Z_, Bj_);
+    VectorXd thetaj = compute_theta_with_offset(X_, Yj_, Z_, Bj_, offset);
     return distr->feasibility(thetaj.size(), thetaj.data());
 }
