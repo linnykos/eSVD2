@@ -55,7 +55,7 @@ initialize_esvd <- function(dat,
     nat_offset_mat <- 0
   }
 
-  nat_mat <- family$dat_to_nat(dat)
+  nat_mat <- family$dat_to_nat(dat, gamma = rep(1, ncol(dat)))
   residual_mat <- nat_mat - nat_offset_mat
   residual_mat <- sweep(residual_mat, 1, offset_vec, "-")
 
