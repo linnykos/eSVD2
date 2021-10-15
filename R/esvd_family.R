@@ -238,31 +238,3 @@ feas_Yj <- function(Yj, X, Bj, Z, family, offset, ...)
   thetaj <- drop(cbind(X, Z) %*% c(Yj, Bj)) + offset
   family$feasibility(thetaj)
 }
-
-# Properly handle the library size parameter
-.parse_library_size <- function(dat, library_size_vec) {
-  n <- nrow(dat)
-  stopifnot(length(library_size_vec) %in% c(1, n))
-
-  if(any(is.na(library_size_vec))) {
-    library_size_vec <- rowSums(dat)
-  } else if(length(library_size_vec) == 1) {
-    library_size_vec <- rep(library_size_vec, n)
-  }
-
-  library_size_vec / min(library_size_vec)
-}
-
-# Convert family name to the actual distribution structure
-.string_to_distr_funcs <- function(family)
-{
-  switch(family,
-         bernoulli       = .esvd.bernoulli,
-         curved_gaussian = .esvd.curved_gaussian,
-         exponential     = .esvd.exponential,
-         gaussian        = .esvd.gaussian,
-         neg_binom       = .esvd.neg_binom,
-         neg_binom2      = .esvd.neg_binom2,
-         poisson         = .esvd.poisson,
-         stop("unsupported distribution family"))
-}

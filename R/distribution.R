@@ -48,6 +48,7 @@ compute_mean <- function(nat_mat, family, nuisance_param_vec = NA,
   }
 }
 
+# Compute mean for negative binomial
 .compute_mean_neg_binom <- function(nat_mat, nuisance_param_vec = NA,
                                     library_size_vec = rep(1, nrow(nat_mat))){
   stopifnot(length(nuisance_param_vec) == ncol(nat_mat))
@@ -59,4 +60,32 @@ compute_mean <- function(nat_mat, family, nuisance_param_vec = NA,
   rownames(res) <- rownames(nat_mat)
 
   res
+}
+
+# Properly handle the library size parameter
+.parse_library_size <- function(dat, library_size_vec) {
+  n <- nrow(dat)
+  stopifnot(length(library_size_vec) %in% c(1, n))
+
+  if(any(is.na(library_size_vec))) {
+    library_size_vec <- rowSums(dat)
+  } else if(length(library_size_vec) == 1) {
+    library_size_vec <- rep(library_size_vec, n)
+  }
+
+  library_size_vec / min(library_size_vec)
+}
+
+# Convert family name to the actual distribution structure
+.string_to_distr_funcs <- function(family)
+{
+  switch(family,
+         bernoulli       = .esvd.bernoulli,
+         curved_gaussian = .esvd.curved_gaussian,
+         exponential     = .esvd.exponential,
+         gaussian        = .esvd.gaussian,
+         neg_binom       = .esvd.neg_binom,
+         neg_binom2      = .esvd.neg_binom2,
+         poisson         = .esvd.poisson,
+         stop("unsupported distribution family"))
 }
