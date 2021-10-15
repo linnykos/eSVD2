@@ -1,4 +1,6 @@
 # Distribution: Gaussian
+# Canonical parameter: mu
+# Natural parameter: theta = mu
 
 # See eSVD2_writing/writeup/2021-05-20-covariates.pdf
 #
@@ -57,7 +59,7 @@
   A
 }
 
-# Convert natural parameter to mean
+# Convert natural parameter to canonical parameter
 .nat_to_canon.gaussian <- function(theta) {
   theta
 }

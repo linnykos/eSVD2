@@ -1,4 +1,6 @@
 # Distribution: one-parameter Gaussian where sd = mean/scalar
+# Canonical parameter: mu
+# Natural parameter: theta = 1/mu
 
 # See eSVD2_writing/writeup/2021-05-20-covariates.pdf
 #
@@ -66,7 +68,7 @@
   res
 }
 
-# Convert natural parameter to mean
+# Convert natural parameter to canonical parameter
 .nat_to_canon.curved_gaussian <- function(theta) {
   1 / theta
 }

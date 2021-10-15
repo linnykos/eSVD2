@@ -1,4 +1,6 @@
 # Distribution: exponential
+# Canonical parameter: lambda (mean = lambda)
+# Natural parameter: theta = -1/lambda
 
 # See eSVD2_writing/writeup/2021-05-20-covariates.pdf
 #
@@ -51,7 +53,7 @@
 }
 
 # Initialize the natural parameter from data
-# theta = -lambda = -1/mean
+# theta = -1/lambda = -1/mean
 .dat_to_nat.exponential <- function(A, gamma, tol = 1e-3) {
   res <- -1 / (A + tol)
 
@@ -61,7 +63,7 @@
   res
 }
 
-# Convert natural parameter to mean
+# Convert natural parameter to canonical parameter
 .nat_to_canon.exponential <- function(theta) {
    -1 / theta
 }

@@ -1,4 +1,6 @@
 # Distribution: negative binomial
+# Canonical parameter: mu (mean = mu = rp/(1-p))
+# Natural parameter: theta = log(mu)
 
 # See eSVD2_writing/writeup/2021-05-20-covariates.pdf
 #
@@ -68,7 +70,7 @@
   res
 }
 
-# Convert natural parameter to mean
+# Convert natural parameter to canonical parameter
 .nat_to_canon.neg_binom2 <- function(theta) {
   exp(theta)
 }

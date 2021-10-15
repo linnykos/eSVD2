@@ -1,4 +1,6 @@
 # Distribution: Bernoulli
+# Canonical parameter: p
+# Natural parameter: theta = log(p/(1-p))
 
 # Softplus function
 # log(1 + exp(x)) = log(1 + exp(-|x|)) + max(x, 0)
@@ -71,7 +73,7 @@ softplus <- function(x)
   res
 }
 
-# Convert natural parameter to mean
+# Convert natural parameter to canonical parameter
 .nat_to_canon.bernoulli <- function(theta) {
   stats::plogis(theta)
 }

@@ -1,4 +1,6 @@
 # Distribution: Poisson
+# Canonical parameter: lambda
+# Natural parameter: theta = log(lambda)
 
 # See eSVD2_writing/writeup/2021-05-20-covariates.pdf
 #
@@ -61,7 +63,7 @@
   res
 }
 
-# Convert natural parameter to mean
+# Convert natural parameter to canonical parameter
 .nat_to_canon.poisson <- function(theta) {
   exp(theta)
 }
