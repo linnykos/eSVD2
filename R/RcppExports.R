@@ -9,36 +9,36 @@ opt_yb_cpp <- function(YB0, XZ, A, family, s, gamma, offset, verbose = 0L) {
     .Call(`_eSVD2_opt_yb_cpp`, YB0, XZ, A, family, s, gamma, offset, verbose)
 }
 
-objfn_Xi_impl <- function(Xi_, Y_, B_, Zi_, Ai_, family_, si_, gamma_, offseti) {
-    .Call(`_eSVD2_objfn_Xi_impl`, Xi_, Y_, B_, Zi_, Ai_, family_, si_, gamma_, offseti)
+objfn_Xi_impl <- function(Xi, Y, B, Zi, Ai, family, si, gamma, offseti) {
+    .Call(`_eSVD2_objfn_Xi_impl`, Xi, Y, B, Zi, Ai, family, si, gamma, offseti)
 }
 
-objfn_Yj_impl <- function(Yj_, X_, Bj_, Z_, Aj_, family_, s_, gammaj_, offset) {
-    .Call(`_eSVD2_objfn_Yj_impl`, Yj_, X_, Bj_, Z_, Aj_, family_, s_, gammaj_, offset)
+objfn_Yj_impl <- function(Yj, X, Bj, Z, Aj, family, s, gammaj, offset) {
+    .Call(`_eSVD2_objfn_Yj_impl`, Yj, X, Bj, Z, Aj, family, s, gammaj, offset)
 }
 
-grad_Xi_impl <- function(Xi_, Y_, B_, Zi_, Ai_, family_, si_, gamma_, offseti) {
-    .Call(`_eSVD2_grad_Xi_impl`, Xi_, Y_, B_, Zi_, Ai_, family_, si_, gamma_, offseti)
+grad_Xi_impl <- function(Xi, Y, B, Zi, Ai, family, si, gamma, offseti) {
+    .Call(`_eSVD2_grad_Xi_impl`, Xi, Y, B, Zi, Ai, family, si, gamma, offseti)
 }
 
-grad_Yj_impl <- function(Yj_, X_, Bj_, Z_, Aj_, family_, s_, gammaj_, offset) {
-    .Call(`_eSVD2_grad_Yj_impl`, Yj_, X_, Bj_, Z_, Aj_, family_, s_, gammaj_, offset)
+grad_Yj_impl <- function(Yj, X, Bj, Z, Aj, family, s, gammaj, offset) {
+    .Call(`_eSVD2_grad_Yj_impl`, Yj, X, Bj, Z, Aj, family, s, gammaj, offset)
 }
 
-hessian_Xi_impl <- function(Xi_, Y_, B_, Zi_, Ai_, family_, si_, gamma_, offseti) {
-    .Call(`_eSVD2_hessian_Xi_impl`, Xi_, Y_, B_, Zi_, Ai_, family_, si_, gamma_, offseti)
+hessian_Xi_impl <- function(Xi, Y, B, Zi, Ai, family, si, gamma, offseti) {
+    .Call(`_eSVD2_hessian_Xi_impl`, Xi, Y, B, Zi, Ai, family, si, gamma, offseti)
 }
 
-hessian_Yj_impl <- function(Yj_, X_, Bj_, Z_, Aj_, family_, s_, gammaj_, offset) {
-    .Call(`_eSVD2_hessian_Yj_impl`, Yj_, X_, Bj_, Z_, Aj_, family_, s_, gammaj_, offset)
+hessian_Yj_impl <- function(Yj, X, Bj, Z, Aj, family, s, gammaj, offset) {
+    .Call(`_eSVD2_hessian_Yj_impl`, Yj, X, Bj, Z, Aj, family, s, gammaj, offset)
 }
 
-direction_Xi_impl <- function(Xi_, Y_, B_, Zi_, Ai_, family_, si_, gamma_, offseti) {
-    .Call(`_eSVD2_direction_Xi_impl`, Xi_, Y_, B_, Zi_, Ai_, family_, si_, gamma_, offseti)
+direction_Xi_impl <- function(Xi, Y, B, Zi, Ai, family, si, gamma, offseti) {
+    .Call(`_eSVD2_direction_Xi_impl`, Xi, Y, B, Zi, Ai, family, si, gamma, offseti)
 }
 
-direction_Yj_impl <- function(Yj_, X_, Bj_, Z_, Aj_, family_, s_, gammaj_, offset) {
-    .Call(`_eSVD2_direction_Yj_impl`, Yj_, X_, Bj_, Z_, Aj_, family_, s_, gammaj_, offset)
+direction_Yj_impl <- function(Yj, X, Bj, Z, Aj, family, s, gammaj, offset) {
+    .Call(`_eSVD2_direction_Yj_impl`, Yj, X, Bj, Z, Aj, family, s, gammaj, offset)
 }
 
 distribution_neg_binom <- function() {

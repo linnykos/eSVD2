@@ -145,11 +145,18 @@ opt_esvd <- function(x_init,
     sum(!is.na(dat)) > 0
   )
 
+  # C++ code needs double type
+  storage.mode(x_init) <- "double"
+  storage.mode(y_init) <- "double"
+  storage.mode(dat) <- "double"
+
   family <- .string_to_distr_funcs(family)
   library_size_vec <- .parse_library_size(dat, library_size_vec)
   if(all(!is.na(nuisance_param_vec)) && length(nuisance_param_vec) == 1) {
     nuisance_param_vec <- rep(nuisance_param_vec[1], ncol(dat))
   }
+  library_size_vec <- as.numeric(library_size_vec)
+  nuisance_param_vec <- as.numeric(nuisance_param_vec)
 
   method <- match.arg(method)
   opt_fun <- if(method == "newton") constr_newton else constr_lbfgs
