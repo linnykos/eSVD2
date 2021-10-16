@@ -2,13 +2,13 @@
 
 # Optimize X given Y and B
 opt_x <- function(X0, Y, B, Z, A,
-                  family, s, gamma, offset_vec,
+                  family, s, gamma, offset_vec, l2pen,
                   opt_fun,
                   verbose = 0, ...)
 {
   if(!is.null(family$cpp_functions) && identical(opt_fun, constr_newton))
   {
-    return(opt_x_cpp(X0, Y, B, Z, A, family, s, gamma, offset_vec, verbose))
+    return(opt_x_cpp(X0, Y, B, Z, A, family, s, gamma, offset_vec, l2pen, verbose))
   }
 
   n <- nrow(A)
@@ -30,7 +30,7 @@ opt_x <- function(X0, Y, B, Z, A,
       eps_rel = 1e-3,
       verbose = (verbose >= 3),
       Y = Y, B = B, Zi = Zi, Ai = A[i, ],
-      family = family, si = s[i], gamma = gamma, offseti = offset_vec[i], ...
+      family = family, si = s[i], gamma = gamma, offseti = offset_vec[i], l2pen = l2pen, ...
     )
 
     X[i, ] <- opt$x
@@ -41,11 +41,11 @@ opt_x <- function(X0, Y, B, Z, A,
 }
 
 # Optimize Y and B given X
-opt_yb <- function(YB0, XZ, A, family, s, gamma, offset_vec, opt_fun, verbose = 0, ...)
+opt_yb <- function(YB0, XZ, A, family, s, gamma, offset_vec, l2pen, opt_fun, verbose = 0, ...)
 {
   if(!is.null(family$cpp_functions) && identical(opt_fun, constr_newton))
   {
-    return(opt_yb_cpp(YB0, XZ, A, family, s, gamma, offset_vec, verbose))
+    return(opt_yb_cpp(YB0, XZ, A, family, s, gamma, offset_vec, l2pen, verbose))
   }
 
   p <- ncol(A)
@@ -66,7 +66,7 @@ opt_yb <- function(YB0, XZ, A, family, s, gamma, offset_vec, opt_fun, verbose = 
       eps_rel = 1e-3,
       verbose = (verbose >= 3),
       X = XZ, Bj = NULL, Z = NULL, Aj = A[, j],
-      family = family, s = s, gammaj = gamma[j], offset = offset_vec, ...
+      family = family, s = s, gammaj = gamma[j], offset = offset_vec, l2pen = l2pen, ...
     )
 
     YB[j, ] <- opt$x
@@ -101,6 +101,7 @@ opt_yb <- function(YB0, XZ, A, family, s, gamma, offset_vec, opt_fun, verbose = 
 #'                           a length-\eqn{n} vector of numerics. If \code{NA}, the library size will be estimated
 #' @param offset_vec         a vector of length-\eqn{n} that represents a constant amount added to each row of the
 #'                           natural parameter matrix
+#' @param l2pen              the ridge penalty parameter for (X, Y, B)
 #' @param reparameterize     reparameterize \code{x_mat} and \code{y_mat} after every iteration
 #' @param reestimate_nuisance a boolean for whether the nuisance parameter is reestimate after every iteration
 #' @param global_estimate    a boolean for whether or not the same nuisance parameter is used for all genes
@@ -124,6 +125,7 @@ opt_esvd <- function(x_init,
                      nuisance_param_vec = NA,
                      library_size_vec = NA,
                      offset_vec = rep(0, nrow(x_init)),
+                     l2pen = 0,
                      reparameterize = F,
                      reestimate_nuisance = F,
                      global_estimate = F,
@@ -191,6 +193,7 @@ opt_esvd <- function(x_init,
                    s = library_size_vec,
                    gamma = nuisance_param_vec,
                    offset_vec = offset_vec,
+                   l2pen = l2pen,
                    opt_fun = opt_fun,
                    verbose = verbose, ...)
 
@@ -204,6 +207,7 @@ opt_esvd <- function(x_init,
                      s = library_size_vec,
                      gamma = nuisance_param_vec,
                      offset_vec = offset_vec,
+                     l2pen = l2pen,
                      opt_fun = opt_fun,
                      verbose = verbose, ...)
 
@@ -253,7 +257,8 @@ opt_esvd <- function(x_init,
                       family = family,
                       s = library_size_vec,
                       gamma = nuisance_param_vec,
-                      offset = offset_vec)
+                      offset = offset_vec,
+                      l2pen = l2pen)
     losses <- c(losses, loss)
     if(verbose >= 1)
       cat("========== eSVD Iter ", i, ", loss = ", loss, " ==========\n\n", sep = "")

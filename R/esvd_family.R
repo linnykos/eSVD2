@@ -16,12 +16,15 @@ wtdw <- function(w, d)
 # s:      library size vector [n x 1]
 # gamma:  nuisance parameter vector [p x 1]
 # offset: offset vector [n x 1]
-objfn_all <- function(X, Y, B, Z, A, family, s, gamma, offset, ...)
+# l2pen:  ridge penalty [1]
+objfn_all <- function(X, Y, B, Z, A, family, s, gamma, offset, l2pen, ...)
 {
   # theta = XY'+ZB' + offset
   #
   # We allow Z and B to be NULL, meaning no covariates are in the model
-  theta <- tcrossprod(cbind(X, Z), cbind(Y, B))  # [n x p]
+  XZ <- cbind(X, Z)
+  YB <- cbind(Y, B)
+  theta <- tcrossprod(XZ, YB)  # [n x p]
   theta <- sweep(theta, 1, offset, "+")
 
   # Call the family function log_prob() to compute entry-wise log-density value
@@ -30,16 +33,19 @@ objfn_all <- function(X, Y, B, Z, A, family, s, gamma, offset, ...)
   obs_ind <- which(!is.na(A))
   stopifnot(length(obs_ind) > 0)
   # Compute negative log-likelihood function value
-  -mean(log_prob[obs_ind])
+  nll <- -mean(log_prob[obs_ind])
+  # Ridge penalty
+  ridge <- if(l2pen > 0) l2pen / length(obs_ind) * (sum(X^2) + sum(YB^2)) else 0
+  nll + ridge
 }
 
 # Objective function value for the i-th row of X
-objfn_Xi <- function(Xi, Y, B, Zi, Ai, family, si, gamma, offseti, ...)
+objfn_Xi <- function(Xi, Y, B, Zi, Ai, family, si, gamma, offseti, l2pen, ...)
 {
   # Call the C++ version if the given family has C++ implementation
   if(!is.null(family$cpp_functions))
   {
-    return(objfn_Xi_impl(Xi, Y, B, Zi, Ai, family, si, gamma, offseti))
+    return(objfn_Xi_impl(Xi, Y, B, Zi, Ai, family, si, gamma, offseti, l2pen))
   }
 
   thetai <- drop(cbind(Y, B) %*% c(Xi, Zi)) + offseti     # [p x 1]
@@ -48,16 +54,19 @@ objfn_Xi <- function(Xi, Y, B, Zi, Ai, family, si, gamma, offseti, ...)
   obs_ind <- which(!is.na(Ai))
   stopifnot(length(obs_ind) > 0)
   # Compute negative log-likelihood function value
-  -mean(log_prob[obs_ind])
+  nll <- -mean(log_prob[obs_ind])
+  # Ridge penalty
+  ridge <- if(l2pen > 0) l2pen * sum(Xi^2) / length(obs_ind) else 0
+  nll + ridge
 }
 
 # Objective function value for the j-th row of Y
-objfn_Yj <- function(Yj, X, Bj, Z, Aj, family, s, gammaj, offset, ...)
+objfn_Yj <- function(Yj, X, Bj, Z, Aj, family, s, gammaj, offset, l2pen, ...)
 {
   # Call the C++ version if the given family has C++ implementation
   if(!is.null(family$cpp_functions))
   {
-    return(objfn_Yj_impl(Yj, X, Bj, Z, Aj, family, s, gammaj, offset))
+    return(objfn_Yj_impl(Yj, X, Bj, Z, Aj, family, s, gammaj, offset, l2pen))
   }
 
   thetaj <- drop(cbind(X, Z) %*% c(Yj, Bj)) + offset      # [n x 1]
@@ -66,16 +75,19 @@ objfn_Yj <- function(Yj, X, Bj, Z, Aj, family, s, gammaj, offset, ...)
   obs_ind <- which(!is.na(Aj))
   stopifnot(length(obs_ind) > 0)
   # Compute negative log-likelihood function value
-  -mean(log_prob[obs_ind])
+  nll <- -mean(log_prob[obs_ind])
+  # Ridge penalty
+  ridge <- if(l2pen > 0) l2pen * sum(Yj^2) / length(obs_ind) else 0
+  nll + ridge
 }
 
 # Gradient for the i-th row of X
-grad_Xi <- function(Xi, Y, B, Zi, Ai, family, si, gamma, offseti, ...)
+grad_Xi <- function(Xi, Y, B, Zi, Ai, family, si, gamma, offseti, l2pen, ...)
 {
   # Call the C++ version if the given family has C++ implementation
   if(!is.null(family$cpp_functions))
   {
-    return(grad_Xi_impl(Xi, Y, B, Zi, Ai, family, si, gamma, offseti))
+    return(grad_Xi_impl(Xi, Y, B, Zi, Ai, family, si, gamma, offseti, l2pen))
   }
 
   thetai <- drop(cbind(Y, B) %*% c(Xi, Zi)) + offseti       # [p x 1]
@@ -86,16 +98,16 @@ grad_Xi <- function(Xi, Y, B, Zi, Ai, family, si, gamma, offseti, ...)
   # Compute the gradient
   Ysub <- Y[obs_ind, , drop = FALSE]
   prod <- crossprod(Ysub, dlog_prob[obs_ind])
-  -drop(prod) / length(obs_ind)
+  (-drop(prod) + 2 * l2pen * Xi) / length(obs_ind)
 }
 
 # Gradient for the j-th row of Y
-grad_Yj <- function(Yj, X, Bj, Z, Aj, family, s, gammaj, offset, ...)
+grad_Yj <- function(Yj, X, Bj, Z, Aj, family, s, gammaj, offset, l2pen, ...)
 {
   # Call the C++ version if the given family has C++ implementation
   if(!is.null(family$cpp_functions))
   {
-    return(grad_Yj_impl(Yj, X, Bj, Z, Aj, family, s, gammaj, offset))
+    return(grad_Yj_impl(Yj, X, Bj, Z, Aj, family, s, gammaj, offset, l2pen))
   }
 
   thetaj <- drop(cbind(X, Z) %*% c(Yj, Bj)) + offset        # [n x 1]
@@ -106,16 +118,16 @@ grad_Yj <- function(Yj, X, Bj, Z, Aj, family, s, gammaj, offset, ...)
   # Compute the gradient
   Xsub <- X[obs_ind, , drop = FALSE]
   prod <- crossprod(Xsub, dlog_prob[obs_ind])
-  -drop(prod) / length(obs_ind)
+  (-drop(prod) + 2 * l2pen * Yj) / length(obs_ind)
 }
 
 # Hessian for the i-th row of X
-hessian_Xi <- function(Xi, Y, B, Zi, Ai, family, si, gamma, offseti, ...)
+hessian_Xi <- function(Xi, Y, B, Zi, Ai, family, si, gamma, offseti, l2pen, ...)
 {
   # Call the C++ version if the given family has C++ implementation
   if(!is.null(family$cpp_functions))
   {
-    return(hessian_Xi_impl(Xi, Y, B, Zi, Ai, family, si, gamma, offseti))
+    return(hessian_Xi_impl(Xi, Y, B, Zi, Ai, family, si, gamma, offseti, l2pen))
   }
 
   thetai <- drop(cbind(Y, B) %*% c(Xi, Zi)) + offseti         # [p x 1]
@@ -125,17 +137,19 @@ hessian_Xi <- function(Xi, Y, B, Zi, Ai, family, si, gamma, offseti, ...)
   stopifnot(length(obs_ind) > 0)
   # Compute the Hessian
   Ysub <- Y[obs_ind, , drop = FALSE]
-  diag <- d2log_prob[obs_ind]
-  -wtdw(Ysub, diag) / length(obs_ind)
+  d2 <- d2log_prob[obs_ind]
+  hess <- -wtdw(Ysub, d2)
+  diag(hess) <- diag(hess) + 2 * l2pen
+  hess / length(obs_ind)
 }
 
 # Hessian for the j-th row of Y
-hessian_Yj <- function(Yj, X, Bj, Z, Aj, family, s, gammaj, offset, ...)
+hessian_Yj <- function(Yj, X, Bj, Z, Aj, family, s, gammaj, offset, l2pen, ...)
 {
   # Call the C++ version if the given family has C++ implementation
   if(!is.null(family$cpp_functions))
   {
-    return(hessian_Yj_impl(Yj, X, Bj, Z, Aj, family, s, gammaj, offset))
+    return(hessian_Yj_impl(Yj, X, Bj, Z, Aj, family, s, gammaj, offset, l2pen))
   }
 
   thetaj <- drop(cbind(X, Z) %*% c(Yj, Bj)) + offset          # [n x 1]
@@ -145,17 +159,19 @@ hessian_Yj <- function(Yj, X, Bj, Z, Aj, family, s, gammaj, offset, ...)
   stopifnot(length(obs_ind) > 0)
   # Compute the Hessian
   Xsub <- X[obs_ind, , drop = FALSE]
-  diag <- d2log_prob[obs_ind]
-  -wtdw(Xsub, diag) / length(obs_ind)
+  d2 <- d2log_prob[obs_ind]
+  hess <- -wtdw(Xsub, d2)
+  diag(hess) <- diag(hess) + 2 * l2pen
+  hess / length(obs_ind)
 }
 
 # Move direction for the i-th row of X, d = -inv(H) * g
-direction_Xi <- function(Xi, Y, B, Zi, Ai, family, si, gamma, offseti, ...)
+direction_Xi <- function(Xi, Y, B, Zi, Ai, family, si, gamma, offseti, l2pen, ...)
 {
   # Call the C++ version if the given family has C++ implementation
   if(!is.null(family$cpp_functions))
   {
-    return(direction_Xi_impl(Xi, Y, B, Zi, Ai, family, si, gamma, offseti))
+    return(direction_Xi_impl(Xi, Y, B, Zi, Ai, family, si, gamma, offseti, l2pen))
   }
 
   thetai <- drop(cbind(Y, B) %*% c(Xi, Zi)) + offseti         # [p x 1]
@@ -166,8 +182,12 @@ direction_Xi <- function(Xi, Y, B, Zi, Ai, family, si, gamma, offseti, ...)
   stopifnot(length(obs_ind) > 0)
   # Compute the Hessian and gradient
   Ysub <- Y[obs_ind, , drop = FALSE]
-  g <- crossprod(Ysub, -dlog_prob[obs_ind])
-  direc <- -solve(wtdw(Ysub, -d2log_prob[obs_ind]), g)
+  d2 <- d2log_prob[obs_ind]
+  hess <- -wtdw(Ysub, d2)
+  diag(hess) <- diag(hess) + 2 * l2pen
+  g <- -crossprod(Ysub, dlog_prob[obs_ind])
+  g <- drop(g) + 2 * l2pen * Xi
+  direc <- -solve(hess, g)
 
   # # H = VY' * VY / N
   # # g = Y' * w / N
@@ -184,12 +204,12 @@ direction_Xi <- function(Xi, Y, B, Zi, Ai, family, si, gamma, offseti, ...)
 }
 
 # Move direction for the j-th row of Y
-direction_Yj <- function(Yj, X, Bj, Z, Aj, family, s, gammaj, offset, ...)
+direction_Yj <- function(Yj, X, Bj, Z, Aj, family, s, gammaj, offset, l2pen, ...)
 {
   # Call the C++ version if the given family has C++ implementation
   if(!is.null(family$cpp_functions))
   {
-    return(direction_Yj_impl(Yj, X, Bj, Z, Aj, family, s, gammaj, offset))
+    return(direction_Yj_impl(Yj, X, Bj, Z, Aj, family, s, gammaj, offset, l2pen))
   }
 
   thetaj <- drop(cbind(X, Z) %*% c(Yj, Bj)) + offset          # [n x 1]
@@ -200,8 +220,12 @@ direction_Yj <- function(Yj, X, Bj, Z, Aj, family, s, gammaj, offset, ...)
   stopifnot(length(obs_ind) > 0)
   # Compute the Hessian and gradient
   Xsub <- X[obs_ind, , drop = FALSE]
-  g <- crossprod(Xsub, -dlog_prob[obs_ind])
-  direc <- -solve(wtdw(Xsub, -d2log_prob[obs_ind]), g)
+  d2 <- d2log_prob[obs_ind]
+  hess <- -wtdw(Xsub, d2)
+  diag(hess) <- diag(hess) + 2 * l2pen
+  g <- -crossprod(Xsub, dlog_prob[obs_ind])
+  g <- drop(g) + 2 * l2pen * Yj
+  direc <- -solve(hess, g)
 
   # # H = VX' * VX / N
   # # g = X' * w / N
