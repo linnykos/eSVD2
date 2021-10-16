@@ -55,7 +55,7 @@ inline VectorXd compute_theta_with_offset(MapMat U, MapVec Vi, SEXP P, SEXP Qi, 
 double objfn_Xi_impl(
     MapVec Xi, MapMat Y, SEXP B, SEXP Zi,
     MapVec Ai, Environment family,
-    double si, MapVec gamma, double offseti
+    double si, MapVec gamma, double offseti, double l2pen
 )
 {
     const int p = Y.rows();
@@ -66,14 +66,14 @@ double objfn_Xi_impl(
     int non_na = distr->log_prob_row(p, Ai.data(), thetai.data(), si, gamma.data(), log_prob.data());
     if(non_na < 1)
         Rcpp::stop("all elements in Ai are NA");
-    return -log_prob.sum() / double(non_na);
+    return (-log_prob.sum() + l2pen * Xi.squaredNorm()) / double(non_na);
 }
 
 // [[Rcpp::export]]
 double objfn_Yj_impl(
     MapVec Yj, MapMat X, SEXP Bj, SEXP Z,
     MapVec Aj, Environment family,
-    MapVec s, double gammaj, MapVec offset
+    MapVec s, double gammaj, MapVec offset, double l2pen
 )
 {
     const int n = X.rows();
@@ -84,14 +84,14 @@ double objfn_Yj_impl(
     int non_na = distr->log_prob_col(n, Aj.data(), thetaj.data(), s.data(), gammaj, log_prob.data());
     if(non_na < 1)
         Rcpp::stop("all elements in Aj are NA");
-    return -log_prob.sum() / double(non_na);
+    return (-log_prob.sum() + l2pen * Yj.squaredNorm()) / double(non_na);
 }
 
 // [[Rcpp::export]]
 NumericVector grad_Xi_impl(
     MapVec Xi, MapMat Y, SEXP B, SEXP Zi,
     MapVec Ai, Environment family,
-    double si, MapVec gamma, double offseti
+    double si, MapVec gamma, double offseti, double l2pen
 )
 {
     const int k = Xi.size();
@@ -105,8 +105,8 @@ NumericVector grad_Xi_impl(
     int non_na = distr->d12log_prob_row(p, Ai.data(), thetai.data(), si, gamma.data(), dlog_prob.data(), NULL);
     if(non_na < 1)
         Rcpp::stop("all elements in Ai are NA");
-    res.noalias() = Y.transpose() * dlog_prob;
-    res /= -double(non_na);
+    res.noalias() = -Y.transpose() * dlog_prob + 2.0 * l2pen * Xi;
+    res /= double(non_na);
     return res_;
 }
 
@@ -114,7 +114,7 @@ NumericVector grad_Xi_impl(
 NumericVector grad_Yj_impl(
     MapVec Yj, MapMat X, SEXP Bj, SEXP Z,
     MapVec Aj, Environment family,
-    MapVec s, double gammaj, MapVec offset
+    MapVec s, double gammaj, MapVec offset, double l2pen
 )
 {
     const int k = Yj.size();
@@ -128,8 +128,8 @@ NumericVector grad_Yj_impl(
     int non_na = distr->d12log_prob_col(n, Aj.data(), thetaj.data(), s.data(), gammaj, dlog_prob.data(), NULL);
     if(non_na < 1)
         Rcpp::stop("all elements in Aj are NA");
-    res.noalias() = X.transpose() * dlog_prob;
-    res /= -double(non_na);
+    res.noalias() = -X.transpose() * dlog_prob + 2.0 * l2pen * Yj;
+    res /= double(non_na);
     return res_;
 }
 
@@ -137,7 +137,7 @@ NumericVector grad_Yj_impl(
 NumericMatrix hessian_Xi_impl(
     MapVec Xi, MapMat Y, SEXP B, SEXP Zi,
     MapVec Ai, Environment family,
-    double si, MapVec gamma, double offseti
+    double si, MapVec gamma, double offseti, double l2pen
 )
 {
     const int k = Xi.size();
@@ -151,8 +151,9 @@ NumericMatrix hessian_Xi_impl(
     int non_na = distr->d12log_prob_row(p, Ai.data(), thetai.data(), si, gamma.data(), NULL, d2log_prob.data());
     if(non_na < 1)
         Rcpp::stop("all elements in Ai are NA");
-    res.noalias() = Y.transpose() * d2log_prob.asDiagonal() * Y;
-    res /= -double(non_na);
+    res.noalias() = -Y.transpose() * d2log_prob.asDiagonal() * Y;
+    res.diagonal().array() += 2.0 * l2pen;
+    res /= double(non_na);
     return res_;
 }
 
@@ -160,7 +161,7 @@ NumericMatrix hessian_Xi_impl(
 NumericMatrix hessian_Yj_impl(
     MapVec Yj, MapMat X, SEXP Bj, SEXP Z,
     MapVec Aj, Environment family,
-    MapVec s, double gammaj, MapVec offset
+    MapVec s, double gammaj, MapVec offset, double l2pen
 )
 {
     const int k = Yj.size();
@@ -174,8 +175,9 @@ NumericMatrix hessian_Yj_impl(
     int non_na = distr->d12log_prob_col(n, Aj.data(), thetaj.data(), s.data(), gammaj, NULL, d2log_prob.data());
     if(non_na < 1)
         Rcpp::stop("all elements in Aj are NA");
-    res.noalias() = X.transpose() * d2log_prob.asDiagonal() * X;
-    res /= -double(non_na);
+    res.noalias() = -X.transpose() * d2log_prob.asDiagonal() * X;
+    res.diagonal().array() += 2.0 * l2pen;
+    res /= double(non_na);
     return res_;
 }
 
@@ -183,7 +185,7 @@ NumericMatrix hessian_Yj_impl(
 List direction_Xi_impl(
     MapVec Xi, MapMat Y, SEXP B, SEXP Zi,
     MapVec Ai, Environment family,
-    double si, MapVec gamma, double offseti
+    double si, MapVec gamma, double offseti, double l2pen
 )
 {
     const int p = Y.rows();
@@ -196,8 +198,9 @@ List direction_Xi_impl(
     if(non_na < 1)
         Rcpp::stop("all elements in Ai are NA");
 
-    VectorXd g = Y.transpose() * (-dlog_prob);
+    VectorXd g = Y.transpose() * (-dlog_prob) + 2.0 * l2pen * Xi;
     MatrixXd H = Y.transpose() * (-d2log_prob).asDiagonal() * Y;
+    H.diagonal().array() += 2.0 * l2pen;
     Eigen::LLT<MatrixXd> solver(H);
     if(solver.info() != Eigen::Success)
         Rcpp::stop("the Hessian matrix of Xi is singular");
@@ -213,7 +216,7 @@ List direction_Xi_impl(
 List direction_Yj_impl(
     MapVec Yj, MapMat X, SEXP Bj, SEXP Z,
     MapVec Aj, Environment family,
-    MapVec s, double gammaj, MapVec offset
+    MapVec s, double gammaj, MapVec offset, double l2pen
 )
 {
     const int n = X.rows();
@@ -226,8 +229,9 @@ List direction_Yj_impl(
     if(non_na < 1)
         Rcpp::stop("all elements in Aj are NA");
 
-    VectorXd g = X.transpose() * (-dlog_prob);
+    VectorXd g = X.transpose() * (-dlog_prob) + 2.0 * l2pen * Yj;
     MatrixXd H = X.transpose() * (-d2log_prob).asDiagonal() * X;
+    H.diagonal().array() += 2.0 * l2pen;
     Eigen::LLT<MatrixXd> solver(H);
     if(solver.info() != Eigen::Success)
         Rcpp::stop("the Hessian matrix of Yj is singular");

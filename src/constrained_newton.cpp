@@ -146,7 +146,7 @@ List constr_newton(
 NumericMatrix opt_x_cpp(
     MapMat X0, MapMat Y, SEXP B, SEXP Z,
     MapMat A, Environment family,
-    MapVec s, MapVec gamma, MapVec offset,
+    MapVec s, MapVec gamma, MapVec offset, double l2pen,
     int verbose = 0
 )
 {
@@ -187,7 +187,7 @@ NumericMatrix opt_x_cpp(
         // Prepare Ai
         Ai.noalias() = A.row(i).transpose();
         // Objective function, gradient, Hessian, and feasibility
-        ObjectiveX obj(Y, B, Zi, Ai, family, s[i], gamma, offset[i]);
+        ObjectiveX obj(Y, B, Zi, Ai, family, s[i], gamma, offset[i], l2pen);
 
         // Run optimizer
         List opt = constr_newton(Xi, obj, 100, 30, 0.001, (verbose >= 3));
@@ -209,7 +209,7 @@ NumericMatrix opt_x_cpp(
 NumericMatrix opt_yb_cpp(
     MapMat YB0, MapMat XZ,
     MapMat A, Environment family,
-    MapVec s, MapVec gamma, MapVec offset,
+    MapVec s, MapVec gamma, MapVec offset, double l2pen,
     int verbose = 0
 )
 {
@@ -231,7 +231,7 @@ NumericMatrix opt_yb_cpp(
         // Prepare Aj
         MapVec Aj(&A(0, j), n);
         // Objective function, gradient, Hessian, and feasibility
-        ObjectiveY obj(XZ, Aj, family, s, gamma[j], offset);
+        ObjectiveY obj(XZ, Aj, family, s, gamma[j], offset, l2pen);
 
         // Run optimizer
         List opt = constr_newton(YBj, obj, 100, 30, 0.001, (verbose >= 3));

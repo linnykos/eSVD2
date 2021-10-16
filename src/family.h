@@ -16,49 +16,49 @@ typedef Eigen::Map<VectorXd> MapVec;
 double objfn_Xi_impl(
     MapVec Xi, MapMat Y, SEXP B, SEXP Zi,
     MapVec Ai, Environment family,
-    double si, MapVec gamma, double offseti
+    double si, MapVec gamma, double offseti, double l2pen
 );
 
 double objfn_Yj_impl(
     MapVec Yj, MapMat X, SEXP Bj, SEXP Z,
     MapVec Aj, Environment family,
-    MapVec s, double gammaj, MapVec offset
+    MapVec s, double gammaj, MapVec offset, double l2pen
 );
 
 NumericVector grad_Xi_impl(
     MapVec Xi, MapMat Y, SEXP B, SEXP Zi,
     MapVec Ai, Environment family,
-    double si, MapVec gamma, double offseti
+    double si, MapVec gamma, double offseti, double l2pen
 );
 
 NumericVector grad_Yj_impl(
     MapVec Yj, MapMat X, SEXP Bj, SEXP Z,
     MapVec Aj, Environment family,
-    MapVec s, double gammaj, MapVec offset
+    MapVec s, double gammaj, MapVec offset, double l2pen
 );
 
 NumericMatrix hessian_Xi_impl(
     MapVec Xi, MapMat Y, SEXP B, SEXP Zi,
     MapVec Ai, Environment family,
-    double si, MapVec gamma, double offseti
+    double si, MapVec gamma, double offseti, double l2pen
 );
 
 NumericMatrix hessian_Yj_impl(
     MapVec Yj, MapMat X, SEXP Bj, SEXP Z,
     MapVec Aj, Environment family,
-    MapVec s, double gammaj, MapVec offset
+    MapVec s, double gammaj, MapVec offset, double l2pen
 );
 
 List direction_Xi_impl(
     MapVec Xi, MapMat Y, SEXP B, SEXP Zi,
     MapVec Ai, Environment family,
-    double si, MapVec gamma, double offseti
+    double si, MapVec gamma, double offseti, double l2pen
 );
 
 List direction_Yj_impl(
     MapVec Yj, MapMat X, SEXP Bj, SEXP Z,
     MapVec Aj, Environment family,
-    MapVec s, double gammaj, MapVec offset
+    MapVec s, double gammaj, MapVec offset, double l2pen
 );
 
 bool feas_Xi_impl(

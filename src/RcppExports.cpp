@@ -13,8 +13,8 @@ Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
 // opt_x_cpp
-NumericMatrix opt_x_cpp(MapMat X0, MapMat Y, SEXP B, SEXP Z, MapMat A, Environment family, MapVec s, MapVec gamma, MapVec offset, int verbose);
-RcppExport SEXP _eSVD2_opt_x_cpp(SEXP X0SEXP, SEXP YSEXP, SEXP BSEXP, SEXP ZSEXP, SEXP ASEXP, SEXP familySEXP, SEXP sSEXP, SEXP gammaSEXP, SEXP offsetSEXP, SEXP verboseSEXP) {
+NumericMatrix opt_x_cpp(MapMat X0, MapMat Y, SEXP B, SEXP Z, MapMat A, Environment family, MapVec s, MapVec gamma, MapVec offset, double l2pen, int verbose);
+RcppExport SEXP _eSVD2_opt_x_cpp(SEXP X0SEXP, SEXP YSEXP, SEXP BSEXP, SEXP ZSEXP, SEXP ASEXP, SEXP familySEXP, SEXP sSEXP, SEXP gammaSEXP, SEXP offsetSEXP, SEXP l2penSEXP, SEXP verboseSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -27,14 +27,15 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< MapVec >::type s(sSEXP);
     Rcpp::traits::input_parameter< MapVec >::type gamma(gammaSEXP);
     Rcpp::traits::input_parameter< MapVec >::type offset(offsetSEXP);
+    Rcpp::traits::input_parameter< double >::type l2pen(l2penSEXP);
     Rcpp::traits::input_parameter< int >::type verbose(verboseSEXP);
-    rcpp_result_gen = Rcpp::wrap(opt_x_cpp(X0, Y, B, Z, A, family, s, gamma, offset, verbose));
+    rcpp_result_gen = Rcpp::wrap(opt_x_cpp(X0, Y, B, Z, A, family, s, gamma, offset, l2pen, verbose));
     return rcpp_result_gen;
 END_RCPP
 }
 // opt_yb_cpp
-NumericMatrix opt_yb_cpp(MapMat YB0, MapMat XZ, MapMat A, Environment family, MapVec s, MapVec gamma, MapVec offset, int verbose);
-RcppExport SEXP _eSVD2_opt_yb_cpp(SEXP YB0SEXP, SEXP XZSEXP, SEXP ASEXP, SEXP familySEXP, SEXP sSEXP, SEXP gammaSEXP, SEXP offsetSEXP, SEXP verboseSEXP) {
+NumericMatrix opt_yb_cpp(MapMat YB0, MapMat XZ, MapMat A, Environment family, MapVec s, MapVec gamma, MapVec offset, double l2pen, int verbose);
+RcppExport SEXP _eSVD2_opt_yb_cpp(SEXP YB0SEXP, SEXP XZSEXP, SEXP ASEXP, SEXP familySEXP, SEXP sSEXP, SEXP gammaSEXP, SEXP offsetSEXP, SEXP l2penSEXP, SEXP verboseSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -45,14 +46,15 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< MapVec >::type s(sSEXP);
     Rcpp::traits::input_parameter< MapVec >::type gamma(gammaSEXP);
     Rcpp::traits::input_parameter< MapVec >::type offset(offsetSEXP);
+    Rcpp::traits::input_parameter< double >::type l2pen(l2penSEXP);
     Rcpp::traits::input_parameter< int >::type verbose(verboseSEXP);
-    rcpp_result_gen = Rcpp::wrap(opt_yb_cpp(YB0, XZ, A, family, s, gamma, offset, verbose));
+    rcpp_result_gen = Rcpp::wrap(opt_yb_cpp(YB0, XZ, A, family, s, gamma, offset, l2pen, verbose));
     return rcpp_result_gen;
 END_RCPP
 }
 // objfn_Xi_impl
-double objfn_Xi_impl(MapVec Xi, MapMat Y, SEXP B, SEXP Zi, MapVec Ai, Environment family, double si, MapVec gamma, double offseti);
-RcppExport SEXP _eSVD2_objfn_Xi_impl(SEXP XiSEXP, SEXP YSEXP, SEXP BSEXP, SEXP ZiSEXP, SEXP AiSEXP, SEXP familySEXP, SEXP siSEXP, SEXP gammaSEXP, SEXP offsetiSEXP) {
+double objfn_Xi_impl(MapVec Xi, MapMat Y, SEXP B, SEXP Zi, MapVec Ai, Environment family, double si, MapVec gamma, double offseti, double l2pen);
+RcppExport SEXP _eSVD2_objfn_Xi_impl(SEXP XiSEXP, SEXP YSEXP, SEXP BSEXP, SEXP ZiSEXP, SEXP AiSEXP, SEXP familySEXP, SEXP siSEXP, SEXP gammaSEXP, SEXP offsetiSEXP, SEXP l2penSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -65,13 +67,14 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< double >::type si(siSEXP);
     Rcpp::traits::input_parameter< MapVec >::type gamma(gammaSEXP);
     Rcpp::traits::input_parameter< double >::type offseti(offsetiSEXP);
-    rcpp_result_gen = Rcpp::wrap(objfn_Xi_impl(Xi, Y, B, Zi, Ai, family, si, gamma, offseti));
+    Rcpp::traits::input_parameter< double >::type l2pen(l2penSEXP);
+    rcpp_result_gen = Rcpp::wrap(objfn_Xi_impl(Xi, Y, B, Zi, Ai, family, si, gamma, offseti, l2pen));
     return rcpp_result_gen;
 END_RCPP
 }
 // objfn_Yj_impl
-double objfn_Yj_impl(MapVec Yj, MapMat X, SEXP Bj, SEXP Z, MapVec Aj, Environment family, MapVec s, double gammaj, MapVec offset);
-RcppExport SEXP _eSVD2_objfn_Yj_impl(SEXP YjSEXP, SEXP XSEXP, SEXP BjSEXP, SEXP ZSEXP, SEXP AjSEXP, SEXP familySEXP, SEXP sSEXP, SEXP gammajSEXP, SEXP offsetSEXP) {
+double objfn_Yj_impl(MapVec Yj, MapMat X, SEXP Bj, SEXP Z, MapVec Aj, Environment family, MapVec s, double gammaj, MapVec offset, double l2pen);
+RcppExport SEXP _eSVD2_objfn_Yj_impl(SEXP YjSEXP, SEXP XSEXP, SEXP BjSEXP, SEXP ZSEXP, SEXP AjSEXP, SEXP familySEXP, SEXP sSEXP, SEXP gammajSEXP, SEXP offsetSEXP, SEXP l2penSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -84,13 +87,14 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< MapVec >::type s(sSEXP);
     Rcpp::traits::input_parameter< double >::type gammaj(gammajSEXP);
     Rcpp::traits::input_parameter< MapVec >::type offset(offsetSEXP);
-    rcpp_result_gen = Rcpp::wrap(objfn_Yj_impl(Yj, X, Bj, Z, Aj, family, s, gammaj, offset));
+    Rcpp::traits::input_parameter< double >::type l2pen(l2penSEXP);
+    rcpp_result_gen = Rcpp::wrap(objfn_Yj_impl(Yj, X, Bj, Z, Aj, family, s, gammaj, offset, l2pen));
     return rcpp_result_gen;
 END_RCPP
 }
 // grad_Xi_impl
-NumericVector grad_Xi_impl(MapVec Xi, MapMat Y, SEXP B, SEXP Zi, MapVec Ai, Environment family, double si, MapVec gamma, double offseti);
-RcppExport SEXP _eSVD2_grad_Xi_impl(SEXP XiSEXP, SEXP YSEXP, SEXP BSEXP, SEXP ZiSEXP, SEXP AiSEXP, SEXP familySEXP, SEXP siSEXP, SEXP gammaSEXP, SEXP offsetiSEXP) {
+NumericVector grad_Xi_impl(MapVec Xi, MapMat Y, SEXP B, SEXP Zi, MapVec Ai, Environment family, double si, MapVec gamma, double offseti, double l2pen);
+RcppExport SEXP _eSVD2_grad_Xi_impl(SEXP XiSEXP, SEXP YSEXP, SEXP BSEXP, SEXP ZiSEXP, SEXP AiSEXP, SEXP familySEXP, SEXP siSEXP, SEXP gammaSEXP, SEXP offsetiSEXP, SEXP l2penSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -103,13 +107,14 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< double >::type si(siSEXP);
     Rcpp::traits::input_parameter< MapVec >::type gamma(gammaSEXP);
     Rcpp::traits::input_parameter< double >::type offseti(offsetiSEXP);
-    rcpp_result_gen = Rcpp::wrap(grad_Xi_impl(Xi, Y, B, Zi, Ai, family, si, gamma, offseti));
+    Rcpp::traits::input_parameter< double >::type l2pen(l2penSEXP);
+    rcpp_result_gen = Rcpp::wrap(grad_Xi_impl(Xi, Y, B, Zi, Ai, family, si, gamma, offseti, l2pen));
     return rcpp_result_gen;
 END_RCPP
 }
 // grad_Yj_impl
-NumericVector grad_Yj_impl(MapVec Yj, MapMat X, SEXP Bj, SEXP Z, MapVec Aj, Environment family, MapVec s, double gammaj, MapVec offset);
-RcppExport SEXP _eSVD2_grad_Yj_impl(SEXP YjSEXP, SEXP XSEXP, SEXP BjSEXP, SEXP ZSEXP, SEXP AjSEXP, SEXP familySEXP, SEXP sSEXP, SEXP gammajSEXP, SEXP offsetSEXP) {
+NumericVector grad_Yj_impl(MapVec Yj, MapMat X, SEXP Bj, SEXP Z, MapVec Aj, Environment family, MapVec s, double gammaj, MapVec offset, double l2pen);
+RcppExport SEXP _eSVD2_grad_Yj_impl(SEXP YjSEXP, SEXP XSEXP, SEXP BjSEXP, SEXP ZSEXP, SEXP AjSEXP, SEXP familySEXP, SEXP sSEXP, SEXP gammajSEXP, SEXP offsetSEXP, SEXP l2penSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -122,13 +127,14 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< MapVec >::type s(sSEXP);
     Rcpp::traits::input_parameter< double >::type gammaj(gammajSEXP);
     Rcpp::traits::input_parameter< MapVec >::type offset(offsetSEXP);
-    rcpp_result_gen = Rcpp::wrap(grad_Yj_impl(Yj, X, Bj, Z, Aj, family, s, gammaj, offset));
+    Rcpp::traits::input_parameter< double >::type l2pen(l2penSEXP);
+    rcpp_result_gen = Rcpp::wrap(grad_Yj_impl(Yj, X, Bj, Z, Aj, family, s, gammaj, offset, l2pen));
     return rcpp_result_gen;
 END_RCPP
 }
 // hessian_Xi_impl
-NumericMatrix hessian_Xi_impl(MapVec Xi, MapMat Y, SEXP B, SEXP Zi, MapVec Ai, Environment family, double si, MapVec gamma, double offseti);
-RcppExport SEXP _eSVD2_hessian_Xi_impl(SEXP XiSEXP, SEXP YSEXP, SEXP BSEXP, SEXP ZiSEXP, SEXP AiSEXP, SEXP familySEXP, SEXP siSEXP, SEXP gammaSEXP, SEXP offsetiSEXP) {
+NumericMatrix hessian_Xi_impl(MapVec Xi, MapMat Y, SEXP B, SEXP Zi, MapVec Ai, Environment family, double si, MapVec gamma, double offseti, double l2pen);
+RcppExport SEXP _eSVD2_hessian_Xi_impl(SEXP XiSEXP, SEXP YSEXP, SEXP BSEXP, SEXP ZiSEXP, SEXP AiSEXP, SEXP familySEXP, SEXP siSEXP, SEXP gammaSEXP, SEXP offsetiSEXP, SEXP l2penSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -141,13 +147,14 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< double >::type si(siSEXP);
     Rcpp::traits::input_parameter< MapVec >::type gamma(gammaSEXP);
     Rcpp::traits::input_parameter< double >::type offseti(offsetiSEXP);
-    rcpp_result_gen = Rcpp::wrap(hessian_Xi_impl(Xi, Y, B, Zi, Ai, family, si, gamma, offseti));
+    Rcpp::traits::input_parameter< double >::type l2pen(l2penSEXP);
+    rcpp_result_gen = Rcpp::wrap(hessian_Xi_impl(Xi, Y, B, Zi, Ai, family, si, gamma, offseti, l2pen));
     return rcpp_result_gen;
 END_RCPP
 }
 // hessian_Yj_impl
-NumericMatrix hessian_Yj_impl(MapVec Yj, MapMat X, SEXP Bj, SEXP Z, MapVec Aj, Environment family, MapVec s, double gammaj, MapVec offset);
-RcppExport SEXP _eSVD2_hessian_Yj_impl(SEXP YjSEXP, SEXP XSEXP, SEXP BjSEXP, SEXP ZSEXP, SEXP AjSEXP, SEXP familySEXP, SEXP sSEXP, SEXP gammajSEXP, SEXP offsetSEXP) {
+NumericMatrix hessian_Yj_impl(MapVec Yj, MapMat X, SEXP Bj, SEXP Z, MapVec Aj, Environment family, MapVec s, double gammaj, MapVec offset, double l2pen);
+RcppExport SEXP _eSVD2_hessian_Yj_impl(SEXP YjSEXP, SEXP XSEXP, SEXP BjSEXP, SEXP ZSEXP, SEXP AjSEXP, SEXP familySEXP, SEXP sSEXP, SEXP gammajSEXP, SEXP offsetSEXP, SEXP l2penSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -160,13 +167,14 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< MapVec >::type s(sSEXP);
     Rcpp::traits::input_parameter< double >::type gammaj(gammajSEXP);
     Rcpp::traits::input_parameter< MapVec >::type offset(offsetSEXP);
-    rcpp_result_gen = Rcpp::wrap(hessian_Yj_impl(Yj, X, Bj, Z, Aj, family, s, gammaj, offset));
+    Rcpp::traits::input_parameter< double >::type l2pen(l2penSEXP);
+    rcpp_result_gen = Rcpp::wrap(hessian_Yj_impl(Yj, X, Bj, Z, Aj, family, s, gammaj, offset, l2pen));
     return rcpp_result_gen;
 END_RCPP
 }
 // direction_Xi_impl
-List direction_Xi_impl(MapVec Xi, MapMat Y, SEXP B, SEXP Zi, MapVec Ai, Environment family, double si, MapVec gamma, double offseti);
-RcppExport SEXP _eSVD2_direction_Xi_impl(SEXP XiSEXP, SEXP YSEXP, SEXP BSEXP, SEXP ZiSEXP, SEXP AiSEXP, SEXP familySEXP, SEXP siSEXP, SEXP gammaSEXP, SEXP offsetiSEXP) {
+List direction_Xi_impl(MapVec Xi, MapMat Y, SEXP B, SEXP Zi, MapVec Ai, Environment family, double si, MapVec gamma, double offseti, double l2pen);
+RcppExport SEXP _eSVD2_direction_Xi_impl(SEXP XiSEXP, SEXP YSEXP, SEXP BSEXP, SEXP ZiSEXP, SEXP AiSEXP, SEXP familySEXP, SEXP siSEXP, SEXP gammaSEXP, SEXP offsetiSEXP, SEXP l2penSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -179,13 +187,14 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< double >::type si(siSEXP);
     Rcpp::traits::input_parameter< MapVec >::type gamma(gammaSEXP);
     Rcpp::traits::input_parameter< double >::type offseti(offsetiSEXP);
-    rcpp_result_gen = Rcpp::wrap(direction_Xi_impl(Xi, Y, B, Zi, Ai, family, si, gamma, offseti));
+    Rcpp::traits::input_parameter< double >::type l2pen(l2penSEXP);
+    rcpp_result_gen = Rcpp::wrap(direction_Xi_impl(Xi, Y, B, Zi, Ai, family, si, gamma, offseti, l2pen));
     return rcpp_result_gen;
 END_RCPP
 }
 // direction_Yj_impl
-List direction_Yj_impl(MapVec Yj, MapMat X, SEXP Bj, SEXP Z, MapVec Aj, Environment family, MapVec s, double gammaj, MapVec offset);
-RcppExport SEXP _eSVD2_direction_Yj_impl(SEXP YjSEXP, SEXP XSEXP, SEXP BjSEXP, SEXP ZSEXP, SEXP AjSEXP, SEXP familySEXP, SEXP sSEXP, SEXP gammajSEXP, SEXP offsetSEXP) {
+List direction_Yj_impl(MapVec Yj, MapMat X, SEXP Bj, SEXP Z, MapVec Aj, Environment family, MapVec s, double gammaj, MapVec offset, double l2pen);
+RcppExport SEXP _eSVD2_direction_Yj_impl(SEXP YjSEXP, SEXP XSEXP, SEXP BjSEXP, SEXP ZSEXP, SEXP AjSEXP, SEXP familySEXP, SEXP sSEXP, SEXP gammajSEXP, SEXP offsetSEXP, SEXP l2penSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -198,7 +207,8 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< MapVec >::type s(sSEXP);
     Rcpp::traits::input_parameter< double >::type gammaj(gammajSEXP);
     Rcpp::traits::input_parameter< MapVec >::type offset(offsetSEXP);
-    rcpp_result_gen = Rcpp::wrap(direction_Yj_impl(Yj, X, Bj, Z, Aj, family, s, gammaj, offset));
+    Rcpp::traits::input_parameter< double >::type l2pen(l2penSEXP);
+    rcpp_result_gen = Rcpp::wrap(direction_Yj_impl(Yj, X, Bj, Z, Aj, family, s, gammaj, offset, l2pen));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -224,16 +234,16 @@ END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_eSVD2_opt_x_cpp", (DL_FUNC) &_eSVD2_opt_x_cpp, 10},
-    {"_eSVD2_opt_yb_cpp", (DL_FUNC) &_eSVD2_opt_yb_cpp, 8},
-    {"_eSVD2_objfn_Xi_impl", (DL_FUNC) &_eSVD2_objfn_Xi_impl, 9},
-    {"_eSVD2_objfn_Yj_impl", (DL_FUNC) &_eSVD2_objfn_Yj_impl, 9},
-    {"_eSVD2_grad_Xi_impl", (DL_FUNC) &_eSVD2_grad_Xi_impl, 9},
-    {"_eSVD2_grad_Yj_impl", (DL_FUNC) &_eSVD2_grad_Yj_impl, 9},
-    {"_eSVD2_hessian_Xi_impl", (DL_FUNC) &_eSVD2_hessian_Xi_impl, 9},
-    {"_eSVD2_hessian_Yj_impl", (DL_FUNC) &_eSVD2_hessian_Yj_impl, 9},
-    {"_eSVD2_direction_Xi_impl", (DL_FUNC) &_eSVD2_direction_Xi_impl, 9},
-    {"_eSVD2_direction_Yj_impl", (DL_FUNC) &_eSVD2_direction_Yj_impl, 9},
+    {"_eSVD2_opt_x_cpp", (DL_FUNC) &_eSVD2_opt_x_cpp, 11},
+    {"_eSVD2_opt_yb_cpp", (DL_FUNC) &_eSVD2_opt_yb_cpp, 9},
+    {"_eSVD2_objfn_Xi_impl", (DL_FUNC) &_eSVD2_objfn_Xi_impl, 10},
+    {"_eSVD2_objfn_Yj_impl", (DL_FUNC) &_eSVD2_objfn_Yj_impl, 10},
+    {"_eSVD2_grad_Xi_impl", (DL_FUNC) &_eSVD2_grad_Xi_impl, 10},
+    {"_eSVD2_grad_Yj_impl", (DL_FUNC) &_eSVD2_grad_Yj_impl, 10},
+    {"_eSVD2_hessian_Xi_impl", (DL_FUNC) &_eSVD2_hessian_Xi_impl, 10},
+    {"_eSVD2_hessian_Yj_impl", (DL_FUNC) &_eSVD2_hessian_Yj_impl, 10},
+    {"_eSVD2_direction_Xi_impl", (DL_FUNC) &_eSVD2_direction_Xi_impl, 10},
+    {"_eSVD2_direction_Yj_impl", (DL_FUNC) &_eSVD2_direction_Yj_impl, 10},
     {"_eSVD2_distribution_neg_binom", (DL_FUNC) &_eSVD2_distribution_neg_binom, 0},
     {"_eSVD2_distribution_poisson", (DL_FUNC) &_eSVD2_distribution_poisson, 0},
     {NULL, NULL, 0}
