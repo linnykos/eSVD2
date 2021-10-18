@@ -1,6 +1,9 @@
 context("Test distribution family functions")
 
-run_test <- function(dat, x_mat, y_mat, family, nuisance_param_vec = rep(1, nrow(y_mat)), library_size_vec = rep(1, nrow(x_mat)))
+run_test <- function(
+  dat, x_mat, y_mat, family, l2pen = 0.001, offset = rnorm(nrow(x_mat)),
+  nuisance_param_vec = rep(1, nrow(y_mat)), library_size_vec = rep(1, nrow(x_mat))
+)
 {
   n <- nrow(dat)
   p <- ncol(dat)
@@ -10,7 +13,7 @@ run_test <- function(dat, x_mat, y_mat, family, nuisance_param_vec = rep(1, nrow
   loss1 <- objfn_all(
     X = x_mat, Y = y_mat, B = NULL, Z = NULL, A = dat,
     family = family, s = library_size_vec, gamma = nuisance_param_vec,
-    offset = rep(0, nrow(x_mat))
+    offset = offset, l2pen = l2pen
   )
   loss2 <- numeric(n)
   for(i in 1:n)
@@ -18,7 +21,7 @@ run_test <- function(dat, x_mat, y_mat, family, nuisance_param_vec = rep(1, nrow
     loss2[i] <- objfn_Xi(
       Xi = x_mat[i, ], Y = y_mat, B = NULL, Zi = NULL, Ai = dat[i, ],
       family = family, si = library_size_vec[i], gamma = nuisance_param_vec,
-      offseti = 0
+      offseti = offset[i], l2pen = l2pen
     )
     loss2[i] <- loss2[i] * sum(!is.na(dat[i, ]))
   }
@@ -28,7 +31,7 @@ run_test <- function(dat, x_mat, y_mat, family, nuisance_param_vec = rep(1, nrow
     loss3[j] <- objfn_Yj(
       Yj = y_mat[j, ], X = x_mat, Bj = NULL, Z = NULL, Aj = dat[, j],
       family = family, s = library_size_vec, gammaj = nuisance_param_vec[j],
-      offset = rep(0, nrow(x_mat))
+      offset = offset, l2pen = l2pen
     )
     loss3[j] <- loss3[j] * sum(!is.na(dat[, j]))
   }
@@ -42,12 +45,12 @@ run_test <- function(dat, x_mat, y_mat, family, nuisance_param_vec = rep(1, nrow
     grad1 <- grad_Xi(
       Xi = x_mat[i, ], Y = y_mat, B = NULL, Zi = NULL, Ai = dat[i, ],
       family = family, si = library_size_vec[i], gamma = nuisance_param_vec,
-      offseti = 0
+      offseti = offset[i], l2pen = l2pen
     )
     grad2 <- numDeriv::grad(
       objfn_Xi, x_mat[i, ], side = NULL, Y = y_mat, B = NULL, Zi = NULL, Ai = dat[i, ],
       family = family, si = library_size_vec[i], gamma = nuisance_param_vec,
-      offseti = 0
+      offseti = offset[i], l2pen = l2pen
     )
     expect_lt(max(abs(grad1 - grad2)), 1e-6)
   }
@@ -56,12 +59,12 @@ run_test <- function(dat, x_mat, y_mat, family, nuisance_param_vec = rep(1, nrow
     grad1 <- grad_Yj(
       Yj = y_mat[j, ], X = x_mat, Bj = NULL, Z = NULL, Aj = dat[, j],
       family = family, s = library_size_vec, gammaj = nuisance_param_vec[j],
-      offset = rep(0, nrow(x_mat))
+      offset = offset, l2pen = l2pen
     )
     grad2 <- numDeriv::grad(
       objfn_Yj, y_mat[j, ], side = NULL, X = x_mat, Bj = NULL, Z = NULL, Aj = dat[, j],
       family = family, s = library_size_vec, gammaj = nuisance_param_vec[j],
-      offset = rep(0, nrow(x_mat))
+      offset = offset, l2pen = l2pen
     )
     expect_lt(max(abs(grad1 - grad2)), 1e-6)
   }
@@ -72,12 +75,12 @@ run_test <- function(dat, x_mat, y_mat, family, nuisance_param_vec = rep(1, nrow
     hess1 <- hessian_Xi(
       Xi = x_mat[i, ], Y = y_mat, B = NULL, Zi = NULL, Ai = dat[i, ],
       family = family, si = library_size_vec[i], gamma = nuisance_param_vec,
-      offseti = 0
+      offseti = offset[i], l2pen = l2pen
     )
     hess2 <- numDeriv::hessian(
       objfn_Xi, x_mat[i, ], Y = y_mat, B = NULL, Zi = NULL, Ai = dat[i, ],
       family = family, si = library_size_vec[i], gamma = nuisance_param_vec,
-      offseti = 0
+      offseti = offset[i], l2pen = l2pen
     )
     expect_lt(max(abs(hess1 - hess2)), 1e-5)
   }
@@ -86,12 +89,12 @@ run_test <- function(dat, x_mat, y_mat, family, nuisance_param_vec = rep(1, nrow
     hess1 <- hessian_Yj(
       Yj = y_mat[j, ], X = x_mat, Bj = NULL, Z = NULL, Aj = dat[, j],
       family = family, s = library_size_vec, gammaj = nuisance_param_vec[j],
-      offset = rep(0, nrow(x_mat))
+      offset = offset, l2pen = l2pen
     )
     hess2 <- numDeriv::hessian(
       objfn_Yj, y_mat[j, ], X = x_mat, Bj = NULL, Z = NULL, Aj = dat[, j],
       family = family, s = library_size_vec, gammaj = nuisance_param_vec[j],
-      offset = rep(0, nrow(x_mat))
+      offset = offset, l2pen = l2pen
     )
     expect_lt(max(abs(hess1 - hess2)), 1e-5)
   }
@@ -294,14 +297,17 @@ test_that("Functions for negative binomial distribution", {
     library_size_vec = 1
   )
 
+  # Force a negative offset
+  offset = -runif(n)
+
   # Test
   run_test(dat, x_mat, y_mat, .esvd.neg_binom, nuisance_param_vec = nuisance_param_vec,
-           library_size_vec = 1)
+           library_size_vec = 1, offset = offset)
 
   # Test missing values
   dat[sample(length(dat), n * p * 0.1)] <- NA
   run_test(dat, x_mat, y_mat, .esvd.neg_binom, nuisance_param_vec = nuisance_param_vec,
-           library_size_vec = 1)
+           library_size_vec = 1, offset = offset)
 
   # Simulate data with a library size vector
   library_size_vec <- sample(10:20, n, replace = TRUE)
@@ -312,12 +318,12 @@ test_that("Functions for negative binomial distribution", {
 
   # Test
   run_test(dat, x_mat, y_mat, .esvd.neg_binom, nuisance_param_vec = nuisance_param_vec,
-           library_size_vec = library_size_vec)
+           library_size_vec = library_size_vec, offset = offset)
 
   # Test missing values
   dat[sample(length(dat), n * p * 0.1)] <- NA
   run_test(dat, x_mat, y_mat, .esvd.neg_binom, nuisance_param_vec = nuisance_param_vec,
-           library_size_vec = library_size_vec)
+           library_size_vec = library_size_vec, offset = offset)
 })
 
 ######################## Negative binomial 2 ########################
