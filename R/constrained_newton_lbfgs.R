@@ -74,7 +74,8 @@ constr_newton <- function(x0, f, gr, hn, direc, feas,
     return(list(x = x, fn = fx, grad = grad))
 
   Hess <- hn(x, ...)
-  direction <- -solve(Hess, grad)
+  # Fall back to gradient direction if Hessian is singular
+  direction <- tryCatch(-solve(Hess, grad), error = function(e) -grad)
 
   for(i in seq_len(max_iter))
   {

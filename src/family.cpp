@@ -188,6 +188,7 @@ List direction_Xi_impl(
     double si, MapVec gamma, double offseti, double l2pen
 )
 {
+    const int k = Xi.size();
     const int p = Y.rows();
     VectorXd thetai = compute_theta_with_offset(Y, Xi, B, Zi, offseti);
 
@@ -201,10 +202,16 @@ List direction_Xi_impl(
     VectorXd g = Y.transpose() * (-dlog_prob) + 2.0 * l2pen * Xi;
     MatrixXd H = Y.transpose() * (-d2log_prob).asDiagonal() * Y;
     H.diagonal().array() += 2.0 * l2pen;
+
+    VectorXd direc(k);
     Eigen::LLT<MatrixXd> solver(H);
     if(solver.info() != Eigen::Success)
-        Rcpp::stop("the Hessian matrix of Xi is singular");
-    VectorXd direc = -solver.solve(g);
+    {
+        // Fall back to gradient direction if Hessian is singular
+        direc.noalias() = -g / double(non_na);
+    } else {
+        direc.noalias() = -solver.solve(g);
+    }
     g /= double(non_na);
     return List::create(
         Rcpp::Named("grad") = g,
@@ -219,6 +226,7 @@ List direction_Yj_impl(
     MapVec s, double gammaj, MapVec offset, double l2pen
 )
 {
+    const int k = Yj.size();
     const int n = X.rows();
     VectorXd thetaj = compute_theta_with_offset(X, Yj, Z, Bj, offset);
 
@@ -232,10 +240,16 @@ List direction_Yj_impl(
     VectorXd g = X.transpose() * (-dlog_prob) + 2.0 * l2pen * Yj;
     MatrixXd H = X.transpose() * (-d2log_prob).asDiagonal() * X;
     H.diagonal().array() += 2.0 * l2pen;
+
+    VectorXd direc(k);
     Eigen::LLT<MatrixXd> solver(H);
     if(solver.info() != Eigen::Success)
-        Rcpp::stop("the Hessian matrix of Yj is singular");
-    VectorXd direc = -solver.solve(g);
+    {
+        // Fall back to gradient direction if Hessian is singular
+        direc.noalias() = -g / double(non_na);
+    } else {
+        direc.noalias() = -solver.solve(g);
+    }
     g /= double(non_na);
     return List::create(
         Rcpp::Named("grad") = g,

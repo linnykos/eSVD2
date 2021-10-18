@@ -194,7 +194,8 @@ direction_Xi <- function(Xi, Y, B, Zi, Ai, family, si, gamma, offseti, l2pen, ..
   diag(hess) <- diag(hess) + 2 * l2pen
   g <- -crossprod(Ysub, dlog_prob[obs_ind])
   g <- drop(g) + 2 * l2pen * Xi
-  direc <- -solve(hess, g)
+  # Fall back to gradient direction if Hessian is singular
+  direc <- tryCatch(-solve(hess, g), error = function(e) -g / length(obs_ind))
 
   # # H = VY' * VY / N
   # # g = Y' * w / N
@@ -233,7 +234,8 @@ direction_Yj <- function(Yj, X, Bj, Z, Aj, family, s, gammaj, offset, l2pen, ...
   diag(hess) <- diag(hess) + 2 * l2pen
   g <- -crossprod(Xsub, dlog_prob[obs_ind])
   g <- drop(g) + 2 * l2pen * Yj
-  direc <- -solve(hess, g)
+  # Fall back to gradient direction if Hessian is singular
+  direc <- tryCatch(-solve(hess, g), error = function(e) -g / length(obs_ind))
 
   # # H = VX' * VX / N
   # # g = X' * w / N

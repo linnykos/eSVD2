@@ -81,8 +81,12 @@ inline NumericVector compute_direction(NumericMatrix H_, NumericVector g_)
 
     Eigen::LLT<MatrixXd> solver(H);
     if(solver.info() != Eigen::Success)
-        Rcpp::stop("the Hessian matrix is singular");
-    direc.noalias() = -solver.solve(g);
+    {
+        // Fall back to gradient direction if Hessian is singular
+        direc.noalias() = -g;
+    } else {
+        direc.noalias() = -solver.solve(g);
+    }
     return res;
 }
 
