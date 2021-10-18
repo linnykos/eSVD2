@@ -222,6 +222,16 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// distribution_neg_binom2
+SEXP distribution_neg_binom2();
+RcppExport SEXP _eSVD2_distribution_neg_binom2() {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    rcpp_result_gen = Rcpp::wrap(distribution_neg_binom2());
+    return rcpp_result_gen;
+END_RCPP
+}
 // distribution_poisson
 SEXP distribution_poisson();
 RcppExport SEXP _eSVD2_distribution_poisson() {
@@ -245,6 +255,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_eSVD2_direction_Xi_impl", (DL_FUNC) &_eSVD2_direction_Xi_impl, 10},
     {"_eSVD2_direction_Yj_impl", (DL_FUNC) &_eSVD2_direction_Yj_impl, 10},
     {"_eSVD2_distribution_neg_binom", (DL_FUNC) &_eSVD2_distribution_neg_binom, 0},
+    {"_eSVD2_distribution_neg_binom2", (DL_FUNC) &_eSVD2_distribution_neg_binom2, 0},
     {"_eSVD2_distribution_poisson", (DL_FUNC) &_eSVD2_distribution_poisson, 0},
     {NULL, NULL, 0}
 };

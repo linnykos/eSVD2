@@ -45,6 +45,10 @@ distribution_neg_binom <- function() {
     .Call(`_eSVD2_distribution_neg_binom`)
 }
 
+distribution_neg_binom2 <- function() {
+    .Call(`_eSVD2_distribution_neg_binom2`)
+}
+
 distribution_poisson <- function() {
     .Call(`_eSVD2_distribution_poisson`)
 }
