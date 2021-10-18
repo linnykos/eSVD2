@@ -2,55 +2,75 @@
 # Canonical parameter: mu (mean = mu = rp/(1-p))
 # Natural parameter: theta = log(mu)
 
+# Compute log(r + exp(x)), r > 0 with numerical stability
+# log(r + exp(x)) = log(r) + log(1 + exp(x - log(r))) = log(r) + softplus(x - log(r))
+# softplus(x) defined in esvd_bernoulli.R
+softplusr <- function(x, r)
+{
+  logr <- log(r)
+  logr + softplus(x - logr)
+}
+
+# x [n x p], r [p x 1], apply r to every row of x
+softplusr_mat <- function(x, r)
+{
+  logr <- log(r)
+  xr <- sweep(x, 2, logr, "-")
+  sweep(softplus(xr), 2, logr, "+")
+}
+
+# Compute exp(x) / (r + exp(x)) with numerical stability
+# exp(x) / (r + exp(x)) = exp(x - log(r)) / (1 + exp(x - log(r))) = sigmoid(x - log(r))
+sigmoidr <- function(x, r)
+{
+  stats::plogis(x - log(r))
+}
+
 # See eSVD2_writing/writeup/2021-05-20-covariates.pdf
 #
 # Log-density for the whole data matrix [n x p]
 .log_prob.neg_binom2 <- function(A, theta, s, gamma)
 {
-  exptheta <- exp(theta)
-  logexpthetag <- log(sweep(exptheta, 2, gamma, "+"))
+  logexpthetag <- softplusr_mat(theta, gamma)
   Ag <- sweep(A, 2, gamma, "+")
-  A*theta - Ag*logexpthetag
+  A * theta - Ag * logexpthetag
 }
 
 # Log-density for the i-th row of the data matrix [p x 1]
 .log_prob_row.neg_binom2 <- function(Ai, thetai, si, gamma)
 {
-  Ai * thetai - (Ai + gamma) * log(exp(thetai) + gamma)
+  Ai * thetai - (Ai + gamma) * softplusr(thetai, gamma)
 }
 
 # Log-density for the j-th column of the data matrix [n x 1]
 .log_prob_col.neg_binom2 <- function(Aj, thetaj, s, gammaj)
 {
-  Aj * thetaj - (Aj + gammaj) * log(exp(thetaj) + gammaj)
+  Aj * thetaj - (Aj + gammaj) * softplusr(thetaj, gammaj)
 }
 
 # 1st derivative of log-density w.r.t. the i-th row of theta [p x 1]
 .dlog_prob_row.neg_binom2 <- function(Ai, thetai, si, gamma)
 {
-  exptheta <- exp(thetai)
-  Ai - (Ai + gamma)*(exptheta / (exptheta + gamma))
+  Ai - (Ai + gamma) * sigmoidr(thetai, gamma)
 }
 
 # 1st derivative of log-density w.r.t. the j-th column of theta [n x 1]
 .dlog_prob_col.neg_binom2 <- function(Aj, thetaj, s, gammaj)
 {
-  exptheta <- exp(thetaj)
-  Aj - (Aj + gammaj) * (exptheta / (exptheta + gammaj))
+  Aj - (Aj + gammaj) * sigmoidr(thetaj, gammaj)
 }
 
 # 2nd derivative of log-density w.r.t. the i-th row of theta [p x 1]
 .d2log_prob_row.neg_binom2 <- function(Ai, thetai, si, gamma)
 {
-  exptheta <- exp(thetai)
-  -(Ai + gamma) * exptheta * gamma / (exptheta + gamma)^2
+  -(Ai + gamma) * sigmoidr(thetai, gamma) * gamma / (gamma + exp(thetai))
 }
 
 # 2nd derivative of log-density w.r.t. the j-th column of theta [n x 1]
 .d2log_prob_col.neg_binom2 <- function(Aj, thetaj, s, gammaj)
 {
   exptheta <- exp(thetaj)
-  -(Aj + gammaj) * exptheta * gammaj / (exptheta + gammaj)^2
+  -(Aj + gammaj) * sigmoidr(thetaj, gammaj) * gammaj / (gammaj + exp(thetaj))
 }
 
 # Feasibility of the natural parameter
