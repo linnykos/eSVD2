@@ -45,6 +45,7 @@ objfn_Xi <- function(Xi, Y, B, Zi, Ai, family, si, gamma, offseti, l2pen, ...)
   # Call the C++ version if the given family has C++ implementation
   if(!is.null(family$cpp_functions))
   {
+    storage.mode(Xi) <- storage.mode(Y) <- storage.mode(Ai) <- storage.mode(gamma) <- "double"
     return(objfn_Xi_impl(Xi, Y, B, Zi, Ai, family, si, gamma, offseti, l2pen))
   }
 
@@ -66,6 +67,7 @@ objfn_Yj <- function(Yj, X, Bj, Z, Aj, family, s, gammaj, offset, l2pen, ...)
   # Call the C++ version if the given family has C++ implementation
   if(!is.null(family$cpp_functions))
   {
+    storage.mode(Yj) <- storage.mode(X) <- storage.mode(Aj) <- storage.mode(s) <- storage.mode(offset) <- "double"
     return(objfn_Yj_impl(Yj, X, Bj, Z, Aj, family, s, gammaj, offset, l2pen))
   }
 
@@ -87,6 +89,7 @@ grad_Xi <- function(Xi, Y, B, Zi, Ai, family, si, gamma, offseti, l2pen, ...)
   # Call the C++ version if the given family has C++ implementation
   if(!is.null(family$cpp_functions))
   {
+    storage.mode(Xi) <- storage.mode(Y) <- storage.mode(Ai) <- storage.mode(gamma) <- "double"
     return(grad_Xi_impl(Xi, Y, B, Zi, Ai, family, si, gamma, offseti, l2pen))
   }
 
@@ -107,6 +110,7 @@ grad_Yj <- function(Yj, X, Bj, Z, Aj, family, s, gammaj, offset, l2pen, ...)
   # Call the C++ version if the given family has C++ implementation
   if(!is.null(family$cpp_functions))
   {
+    storage.mode(Yj) <- storage.mode(X) <- storage.mode(Aj) <- storage.mode(s) <- storage.mode(offset) <- "double"
     return(grad_Yj_impl(Yj, X, Bj, Z, Aj, family, s, gammaj, offset, l2pen))
   }
 
@@ -127,6 +131,7 @@ hessian_Xi <- function(Xi, Y, B, Zi, Ai, family, si, gamma, offseti, l2pen, ...)
   # Call the C++ version if the given family has C++ implementation
   if(!is.null(family$cpp_functions))
   {
+    storage.mode(Xi) <- storage.mode(Y) <- storage.mode(Ai) <- storage.mode(gamma) <- "double"
     return(hessian_Xi_impl(Xi, Y, B, Zi, Ai, family, si, gamma, offseti, l2pen))
   }
 
@@ -149,6 +154,7 @@ hessian_Yj <- function(Yj, X, Bj, Z, Aj, family, s, gammaj, offset, l2pen, ...)
   # Call the C++ version if the given family has C++ implementation
   if(!is.null(family$cpp_functions))
   {
+    storage.mode(Yj) <- storage.mode(X) <- storage.mode(Aj) <- storage.mode(s) <- storage.mode(offset) <- "double"
     return(hessian_Yj_impl(Yj, X, Bj, Z, Aj, family, s, gammaj, offset, l2pen))
   }
 
@@ -171,6 +177,7 @@ direction_Xi <- function(Xi, Y, B, Zi, Ai, family, si, gamma, offseti, l2pen, ..
   # Call the C++ version if the given family has C++ implementation
   if(!is.null(family$cpp_functions))
   {
+    storage.mode(Xi) <- storage.mode(Y) <- storage.mode(Ai) <- storage.mode(gamma) <- "double"
     return(direction_Xi_impl(Xi, Y, B, Zi, Ai, family, si, gamma, offseti, l2pen))
   }
 
@@ -209,6 +216,7 @@ direction_Yj <- function(Yj, X, Bj, Z, Aj, family, s, gammaj, offset, l2pen, ...
   # Call the C++ version if the given family has C++ implementation
   if(!is.null(family$cpp_functions))
   {
+    storage.mode(Yj) <- storage.mode(X) <- storage.mode(Aj) <- storage.mode(s) <- storage.mode(offset) <- "double"
     return(direction_Yj_impl(Yj, X, Bj, Z, Aj, family, s, gammaj, offset, l2pen))
   }
 
