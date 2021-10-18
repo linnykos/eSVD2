@@ -75,6 +75,7 @@
 
 .esvd.curved_gaussian <- structure(
   list(
+    name           = "curved_gaussian",
     log_prob       = .log_prob.curved_gaussian,
     log_prob_row   = .log_prob_row.curved_gaussian,
     log_prob_col   = .log_prob_col.curved_gaussian,

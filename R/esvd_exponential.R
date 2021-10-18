@@ -70,6 +70,7 @@
 
 .esvd.exponential <- structure(
   list(
+    name           = "exponential",
     log_prob       = .log_prob.exponential,
     log_prob_row   = .log_prob_row.exponential,
     log_prob_col   = .log_prob_col.exponential,
