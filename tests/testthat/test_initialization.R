@@ -24,7 +24,7 @@ test_that("initialize_esvd works for poisson with covariates", {
   dat <- generate_data(nat_mat, family = "poisson")
 
   covariates <- cbind(1, log(matrixStats::rowMeans2(dat)))
-  colnames(covariates) <- c("Intercept", "Log-UMI")
+  colnames(covariates) <- c("Intercept", "Log_UMI")
 
   res <- initialize_esvd(dat, k = 2, family = "poisson",
                          covariates = covariates)
