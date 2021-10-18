@@ -36,8 +36,8 @@ run_test <- function(
     loss3[j] <- loss3[j] * sum(!is.na(dat[, j]))
   }
   # The three loss values should be equal
-  expect_lt(abs(loss1 - sum(loss2) / sum(!is.na(dat))), 1e-8)
-  expect_lt(abs(loss1 - sum(loss3) / sum(!is.na(dat))), 1e-8)
+  expect_lt(abs(loss1 - (sum(loss2) + l2pen * sum(y_mat^2)) / sum(!is.na(dat))), 1e-8)
+  expect_lt(abs(loss1 - (sum(loss3) + l2pen * sum(x_mat^2)) / sum(!is.na(dat))), 1e-8)
 
   # Test gradients
   for(i in 1:n)
