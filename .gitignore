@@ -9,6 +9,8 @@
 .Rout
 *.ROut
 .ROut
+*/.DS_Store
+.DS_Store
 main/beta_vec
 results/
 figures/*.RData

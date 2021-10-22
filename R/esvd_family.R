@@ -8,19 +8,24 @@ wtdw <- function(w, d)
 
 # Objective function value for all the parameters (X, Y, B)
 #
-# A:     data matrix [n x p]
-# X:     latent factor for cells [n x k]
-# Y:     latent factor for genes [p x k]
-# Z:     covariates [n x r] or NULL
-# B:     regression coefficients for Z [p x r] or NULL
-# s:     library size vector [n x 1]
-# gamma: nuisance parameter vector [p x 1]
-objfn_all <- function(X, Y, B, Z, A, family, s, gamma, ...)
+# A:      data matrix [n x p]
+# X:      latent factor for cells [n x k]
+# Y:      latent factor for genes [p x k]
+# Z:      covariates [n x r] or NULL
+# B:      regression coefficients for Z [p x r] or NULL
+# s:      library size vector [n x 1]
+# gamma:  nuisance parameter vector [p x 1]
+# offset: offset vector [n x 1]
+# l2pen:  ridge penalty [1]
+objfn_all <- function(X, Y, B, Z, A, family, s, gamma, offset, l2pen, ...)
 {
-  # theta = XY'+ZB'
+  # theta = XY'+ZB' + offset
   #
   # We allow Z and B to be NULL, meaning no covariates are in the model
-  theta <- tcrossprod(cbind(X, Z), cbind(Y, B))  # [n x p]
+  XZ <- cbind(X, Z)
+  YB <- cbind(Y, B)
+  theta <- tcrossprod(XZ, YB)  # [n x p]
+  theta <- sweep(theta, 1, offset, "+")
 
   # Call the family function log_prob() to compute entry-wise log-density value
   log_prob <- family$log_prob(A, theta, s, gamma)  # [n x p]
@@ -28,52 +33,67 @@ objfn_all <- function(X, Y, B, Z, A, family, s, gamma, ...)
   obs_ind <- which(!is.na(A))
   stopifnot(length(obs_ind) > 0)
   # Compute negative log-likelihood function value
-  -mean(log_prob[obs_ind])
+  nll <- -mean(log_prob[obs_ind])
+  # Ridge penalty
+  ridge <- if(l2pen > 0) l2pen / length(obs_ind) * (sum(X^2) + sum(YB^2)) else 0
+  nll + ridge
 }
 
 # Objective function value for the i-th row of X
-objfn_Xi <- function(Xi, Y, B, Zi, Ai, family, si, gamma, ...)
+objfn_Xi <- function(Xi, Y, B, Zi, Ai, family, si, gamma, offseti, l2pen, ...)
 {
+  # Call the C++ version if the given family has C++ implementation
   if(!is.null(family$cpp_functions))
   {
-    return(objfn_Xi_impl(Xi, Y, B, Zi, Ai, family, si, gamma))
+    storage.mode(Xi) <- storage.mode(Y) <- storage.mode(Ai) <- storage.mode(gamma) <- "double"
+    return(objfn_Xi_impl(Xi, Y, B, Zi, Ai, family, si, gamma, offseti, l2pen))
   }
 
-  thetai <- drop(cbind(Y, B) %*% c(Xi, Zi))               # [p x 1]
+  thetai <- drop(cbind(Y, B) %*% c(Xi, Zi)) + offseti     # [p x 1]
   log_prob <- family$log_prob_row(Ai, thetai, si, gamma)  # [p x 1]
   # Some entries in Ai may be NAs, and we only aggregate non-missing values
   obs_ind <- which(!is.na(Ai))
   stopifnot(length(obs_ind) > 0)
   # Compute negative log-likelihood function value
-  -mean(log_prob[obs_ind])
+  nll <- -mean(log_prob[obs_ind])
+  # Ridge penalty
+  ridge <- if(l2pen > 0) l2pen * sum(Xi^2) / length(obs_ind) else 0
+  nll + ridge
 }
 
 # Objective function value for the j-th row of Y
-objfn_Yj <- function(Yj, X, Bj, Z, Aj, family, s, gammaj, ...)
+objfn_Yj <- function(Yj, X, Bj, Z, Aj, family, s, gammaj, offset, l2pen, ...)
 {
+  # Call the C++ version if the given family has C++ implementation
   if(!is.null(family$cpp_functions))
   {
-    return(objfn_Yj_impl(Yj, X, Bj, Z, Aj, family, s, gammaj))
+    storage.mode(Yj) <- storage.mode(X) <- storage.mode(Aj) <- storage.mode(s) <- storage.mode(offset) <- "double"
+    return(objfn_Yj_impl(Yj, X, Bj, Z, Aj, family, s, gammaj, offset, l2pen))
   }
 
-  thetaj <- drop(cbind(X, Z) %*% c(Yj, Bj))               # [n x 1]
+  thetaj <- drop(cbind(X, Z) %*% c(Yj, Bj)) + offset      # [n x 1]
   log_prob <- family$log_prob_col(Aj, thetaj, s, gammaj)  # [n x 1]
   # Some entries in Aj may be NAs, and we only aggregate non-missing values
   obs_ind <- which(!is.na(Aj))
   stopifnot(length(obs_ind) > 0)
   # Compute negative log-likelihood function value
-  -mean(log_prob[obs_ind])
+  nll <- -mean(log_prob[obs_ind])
+  # Ridge penalty
+  ridge <- if(l2pen > 0) l2pen * sum(Yj^2) / length(obs_ind) else 0
+  nll + ridge
 }
 
 # Gradient for the i-th row of X
-grad_Xi <- function(Xi, Y, B, Zi, Ai, family, si, gamma, ...)
+grad_Xi <- function(Xi, Y, B, Zi, Ai, family, si, gamma, offseti, l2pen, ...)
 {
+  # Call the C++ version if the given family has C++ implementation
   if(!is.null(family$cpp_functions))
   {
-    return(grad_Xi_impl(Xi, Y, B, Zi, Ai, family, si, gamma))
+    storage.mode(Xi) <- storage.mode(Y) <- storage.mode(Ai) <- storage.mode(gamma) <- "double"
+    return(grad_Xi_impl(Xi, Y, B, Zi, Ai, family, si, gamma, offseti, l2pen))
   }
 
-  thetai <- drop(cbind(Y, B) %*% c(Xi, Zi))                 # [p x 1]
+  thetai <- drop(cbind(Y, B) %*% c(Xi, Zi)) + offseti       # [p x 1]
   dlog_prob <- family$dlog_prob_row(Ai, thetai, si, gamma)  # [p x 1]
   # Some entries in Ai may be NAs, and we only aggregate non-missing values
   obs_ind <- which(!is.na(Ai))
@@ -81,18 +101,20 @@ grad_Xi <- function(Xi, Y, B, Zi, Ai, family, si, gamma, ...)
   # Compute the gradient
   Ysub <- Y[obs_ind, , drop = FALSE]
   prod <- crossprod(Ysub, dlog_prob[obs_ind])
-  -drop(prod) / length(obs_ind)
+  (-drop(prod) + 2 * l2pen * Xi) / length(obs_ind)
 }
 
 # Gradient for the j-th row of Y
-grad_Yj <- function(Yj, X, Bj, Z, Aj, family, s, gammaj, ...)
+grad_Yj <- function(Yj, X, Bj, Z, Aj, family, s, gammaj, offset, l2pen, ...)
 {
+  # Call the C++ version if the given family has C++ implementation
   if(!is.null(family$cpp_functions))
   {
-    return(grad_Yj_impl(Yj, X, Bj, Z, Aj, family, s, gammaj))
+    storage.mode(Yj) <- storage.mode(X) <- storage.mode(Aj) <- storage.mode(s) <- storage.mode(offset) <- "double"
+    return(grad_Yj_impl(Yj, X, Bj, Z, Aj, family, s, gammaj, offset, l2pen))
   }
 
-  thetaj <- drop(cbind(X, Z) %*% c(Yj, Bj))                 # [n x 1]
+  thetaj <- drop(cbind(X, Z) %*% c(Yj, Bj)) + offset        # [n x 1]
   dlog_prob <- family$dlog_prob_col(Aj, thetaj, s, gammaj)  # [n x 1]
   # Some entries in Aj may be NAs, and we only aggregate non-missing values
   obs_ind <- which(!is.na(Aj))
@@ -100,56 +122,66 @@ grad_Yj <- function(Yj, X, Bj, Z, Aj, family, s, gammaj, ...)
   # Compute the gradient
   Xsub <- X[obs_ind, , drop = FALSE]
   prod <- crossprod(Xsub, dlog_prob[obs_ind])
-  -drop(prod) / length(obs_ind)
+  (-drop(prod) + 2 * l2pen * Yj) / length(obs_ind)
 }
 
 # Hessian for the i-th row of X
-hessian_Xi <- function(Xi, Y, B, Zi, Ai, family, si, gamma, ...)
+hessian_Xi <- function(Xi, Y, B, Zi, Ai, family, si, gamma, offseti, l2pen, ...)
 {
+  # Call the C++ version if the given family has C++ implementation
   if(!is.null(family$cpp_functions))
   {
-    return(hessian_Xi_impl(Xi, Y, B, Zi, Ai, family, si, gamma))
+    storage.mode(Xi) <- storage.mode(Y) <- storage.mode(Ai) <- storage.mode(gamma) <- "double"
+    return(hessian_Xi_impl(Xi, Y, B, Zi, Ai, family, si, gamma, offseti, l2pen))
   }
 
-  thetai <- drop(cbind(Y, B) %*% c(Xi, Zi))                   # [p x 1]
+  thetai <- drop(cbind(Y, B) %*% c(Xi, Zi)) + offseti         # [p x 1]
   d2log_prob <- family$d2log_prob_row(Ai, thetai, si, gamma)  # [p x 1]
   # Some entries in Ai may be NAs, and we only aggregate non-missing values
   obs_ind <- which(!is.na(Ai))
   stopifnot(length(obs_ind) > 0)
   # Compute the Hessian
   Ysub <- Y[obs_ind, , drop = FALSE]
-  diag <- d2log_prob[obs_ind]
-  -wtdw(Ysub, diag) / length(obs_ind)
+  d2 <- d2log_prob[obs_ind]
+  hess <- -wtdw(Ysub, d2)
+  diag(hess) <- diag(hess) + 2 * l2pen
+  hess / length(obs_ind)
 }
 
 # Hessian for the j-th row of Y
-hessian_Yj <- function(Yj, X, Bj, Z, Aj, family, s, gammaj, ...)
+hessian_Yj <- function(Yj, X, Bj, Z, Aj, family, s, gammaj, offset, l2pen, ...)
 {
+  # Call the C++ version if the given family has C++ implementation
   if(!is.null(family$cpp_functions))
   {
-    return(hessian_Yj_impl(Yj, X, Bj, Z, Aj, family, s, gammaj))
+    storage.mode(Yj) <- storage.mode(X) <- storage.mode(Aj) <- storage.mode(s) <- storage.mode(offset) <- "double"
+    return(hessian_Yj_impl(Yj, X, Bj, Z, Aj, family, s, gammaj, offset, l2pen))
   }
 
-  thetaj <- drop(cbind(X, Z) %*% c(Yj, Bj))                   # [n x 1]
+  thetaj <- drop(cbind(X, Z) %*% c(Yj, Bj)) + offset          # [n x 1]
   d2log_prob <- family$d2log_prob_col(Aj, thetaj, s, gammaj)  # [n x 1]
   # Some entries in Aj may be NAs, and we only aggregate non-missing values
   obs_ind <- which(!is.na(Aj))
   stopifnot(length(obs_ind) > 0)
   # Compute the Hessian
   Xsub <- X[obs_ind, , drop = FALSE]
-  diag <- d2log_prob[obs_ind]
-  -wtdw(Xsub, diag) / length(obs_ind)
+  d2 <- d2log_prob[obs_ind]
+  hess <- -wtdw(Xsub, d2)
+  diag(hess) <- diag(hess) + 2 * l2pen
+  hess / length(obs_ind)
 }
 
 # Move direction for the i-th row of X, d = -inv(H) * g
-direction_Xi <- function(Xi, Y, B, Zi, Ai, family, si, gamma, ...)
+direction_Xi <- function(Xi, Y, B, Zi, Ai, family, si, gamma, offseti, l2pen, ...)
 {
+  # Call the C++ version if the given family has C++ implementation
   if(!is.null(family$cpp_functions))
   {
-    return(direction_Xi_impl(Xi, Y, B, Zi, Ai, family, si, gamma))
+    storage.mode(Xi) <- storage.mode(Y) <- storage.mode(Ai) <- storage.mode(gamma) <- "double"
+    return(direction_Xi_impl(Xi, Y, B, Zi, Ai, family, si, gamma, offseti, l2pen))
   }
 
-  thetai <- drop(cbind(Y, B) %*% c(Xi, Zi))                   # [p x 1]
+  thetai <- drop(cbind(Y, B) %*% c(Xi, Zi)) + offseti         # [p x 1]
   dlog_prob <- family$dlog_prob_row(Ai, thetai, si, gamma)    # [p x 1]
   d2log_prob <- family$d2log_prob_row(Ai, thetai, si, gamma)  # [p x 1]
   # Some entries in Ai may be NAs, and we only aggregate non-missing values
@@ -157,8 +189,13 @@ direction_Xi <- function(Xi, Y, B, Zi, Ai, family, si, gamma, ...)
   stopifnot(length(obs_ind) > 0)
   # Compute the Hessian and gradient
   Ysub <- Y[obs_ind, , drop = FALSE]
-  g <- crossprod(Ysub, -dlog_prob[obs_ind])
-  direc <- -solve(wtdw(Ysub, -d2log_prob[obs_ind]), g)
+  d2 <- d2log_prob[obs_ind]
+  hess <- -wtdw(Ysub, d2)
+  diag(hess) <- diag(hess) + 2 * l2pen
+  g <- -crossprod(Ysub, dlog_prob[obs_ind])
+  g <- drop(g) + 2 * l2pen * Xi
+  # Fall back to gradient direction if Hessian is singular
+  direc <- tryCatch(-solve(hess, g), error = function(e) -g / length(obs_ind))
 
   # # H = VY' * VY / N
   # # g = Y' * w / N
@@ -175,14 +212,16 @@ direction_Xi <- function(Xi, Y, B, Zi, Ai, family, si, gamma, ...)
 }
 
 # Move direction for the j-th row of Y
-direction_Yj <- function(Yj, X, Bj, Z, Aj, family, s, gammaj, ...)
+direction_Yj <- function(Yj, X, Bj, Z, Aj, family, s, gammaj, offset, l2pen, ...)
 {
+  # Call the C++ version if the given family has C++ implementation
   if(!is.null(family$cpp_functions))
   {
-    return(direction_Yj_impl(Yj, X, Bj, Z, Aj, family, s, gammaj))
+    storage.mode(Yj) <- storage.mode(X) <- storage.mode(Aj) <- storage.mode(s) <- storage.mode(offset) <- "double"
+    return(direction_Yj_impl(Yj, X, Bj, Z, Aj, family, s, gammaj, offset, l2pen))
   }
 
-  thetaj <- drop(cbind(X, Z) %*% c(Yj, Bj))                   # [n x 1]
+  thetaj <- drop(cbind(X, Z) %*% c(Yj, Bj)) + offset          # [n x 1]
   dlog_prob <- family$dlog_prob_col(Aj, thetaj, s, gammaj)    # [n x 1]
   d2log_prob <- family$d2log_prob_col(Aj, thetaj, s, gammaj)  # [n x 1]
   # Some entries in Aj may be NAs, and we only aggregate non-missing values
@@ -190,8 +229,13 @@ direction_Yj <- function(Yj, X, Bj, Z, Aj, family, s, gammaj, ...)
   stopifnot(length(obs_ind) > 0)
   # Compute the Hessian and gradient
   Xsub <- X[obs_ind, , drop = FALSE]
-  g <- crossprod(Xsub, -dlog_prob[obs_ind])
-  direc <- -solve(wtdw(Xsub, -d2log_prob[obs_ind]), g)
+  d2 <- d2log_prob[obs_ind]
+  hess <- -wtdw(Xsub, d2)
+  diag(hess) <- diag(hess) + 2 * l2pen
+  g <- -crossprod(Xsub, dlog_prob[obs_ind])
+  g <- drop(g) + 2 * l2pen * Yj
+  # Fall back to gradient direction if Hessian is singular
+  direc <- tryCatch(-solve(hess, g), error = function(e) -g / length(obs_ind))
 
   # # H = VX' * VX / N
   # # g = X' * w / N
@@ -208,49 +252,23 @@ direction_Yj <- function(Yj, X, Bj, Z, Aj, family, s, gammaj, ...)
 }
 
 # Feasibility of the i-th row of X
-# thetai = Xi * Y' + Zi * B'
-feas_Xi <- function(Xi, Y, B, Zi, family, ...)
+# thetai = Xi * Y' + Zi * B' + offseti
+feas_Xi <- function(Xi, Y, B, Zi, family, offseti, ...)
 {
   if(family$feas_always)
     return(TRUE)
 
-  thetai <- drop(cbind(Y, B) %*% c(Xi, Zi))
+  thetai <- drop(cbind(Y, B) %*% c(Xi, Zi)) + offseti
   family$feasibility(thetai)
 }
 
 # Feasibility of the j-th row of Y
-# thetaj = X * Yj' + Z * Bj'
-feas_Yj <- function(Yj, X, Bj, Z, family, ...)
+# thetaj = X * Yj' + Z * Bj' + offset
+feas_Yj <- function(Yj, X, Bj, Z, family, offset, ...)
 {
   if(family$feas_always)
     return(TRUE)
 
-  thetaj <- drop(cbind(X, Z) %*% c(Yj, Bj))
+  thetaj <- drop(cbind(X, Z) %*% c(Yj, Bj)) + offset
   family$feasibility(thetaj)
-}
-
-#################
-.parse_library_size <- function(dat, library_size_vec) {
-  stopifnot(length(library_size_vec) %in% c(1, nrow(dat)))
-  n <- nrow(dat)
-
-  if(any(is.na(library_size_vec))){
-    library_size_vec <- rowSums(dat)
-  } else if(length(library_size_vec) == 1) {
-    library_size_vec <- rep(library_size_vec[1], n)
-  }
-
-  library_size_vec/min(library_size_vec)
-}
-
-.string_to_distr_funcs <- function(family)
-{
-  switch(family,
-         bernoulli = .esvd.bernoulli,
-         curved_gaussian = .esvd.curved_gaussian,
-         exponential = .esvd.exponential,
-         gaussian = .esvd.gaussian,
-         neg_binom = .esvd.neg_binom,
-         poisson = .esvd.poisson,
-         stop("unsupported distribution family"))
 }

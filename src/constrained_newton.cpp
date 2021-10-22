@@ -81,18 +81,22 @@ inline NumericVector compute_direction(NumericMatrix H_, NumericVector g_)
 
     Eigen::LLT<MatrixXd> solver(H);
     if(solver.info() != Eigen::Success)
-        Rcpp::stop("the Hessian matrix is singular");
-    direc.noalias() = -solver.solve(g);
+    {
+        // Fall back to gradient direction if Hessian is singular
+        direc.noalias() = -g;
+    } else {
+        direc.noalias() = -solver.solve(g);
+    }
     return res;
 }
 
 // C++ translation of constr_newton() in constrained_newton_lbfgs.R
 List constr_newton(
-    NumericVector x0, Objective& objective, int max_iter = 100,
+    const VectorXd& x0, Objective& objective, int max_iter = 100,
     int max_linesearch = 30, double eps_rel = 1e-5, bool verbose = false
 )
 {
-    NumericVector x = Rcpp::clone(x0);
+    NumericVector x(x0.data(), x0.data() + x0.size());
     double fx = objective.objfn(x);
     NumericVector grad = objective.grad(x);
     double xnorm = vec_norm(x);
@@ -144,21 +148,21 @@ List constr_newton(
 // C++ translation of opt_x() in optimization.R
 // [[Rcpp::export]]
 NumericMatrix opt_x_cpp(
-    NumericMatrix X0, NumericMatrix Y, SEXP B, SEXP Z,
-    NumericMatrix A, Environment family,
-    NumericVector s, NumericVector gamma,
+    MapMat X0, MapMat Y, SEXP B, SEXP Z,
+    MapMat A, Environment family,
+    MapVec s, MapVec gamma, MapVec offset, double l2pen,
     int verbose = 0
 )
 {
     // Get dimensions
-    const int n = A.nrow();
-    const int p = A.ncol();
-    const int k = X0.ncol();
+    const int n = A.rows();
+    const int p = A.cols();
+    const int k = X0.cols();
     NumericMatrix X = NumericMatrix(Rcpp::no_init_matrix(n, k));
-    NumericVector Xi = NumericVector(Rcpp::no_init_vector(k));
-    NumericVector Ai = NumericVector(Rcpp::no_init_vector(p));
+    VectorXd Xi(k), Ai_(p);
+    MapVec Ai(Ai_.data(), p);
 
-    // Optimize each row of X
+    // Determine size of Z
     int r = 0;
     if(Z != R_NilValue)
     {
@@ -167,6 +171,7 @@ NumericMatrix opt_x_cpp(
     }
     NumericVector Zi_data = NumericVector(Rcpp::no_init_vector(r));
 
+    // Optimize each row of X
     for(int i = 0; i < n; i++)
     {
         if(verbose >= 2)
@@ -181,19 +186,12 @@ NumericMatrix opt_x_cpp(
                 Zi_data[j] = Z_data(i, j);
             Zi = Zi_data;
         }
-
         // Prepare Xi
-        for(int j = 0; j < k; j++)
-        {
-            Xi[j] = X0(i, j);
-        }
+        Xi.noalias() = X0.row(i).transpose();
         // Prepare Ai
-        for(int j = 0; j < p; j++)
-        {
-            Ai[j] = A(i, j);
-        }
+        Ai.noalias() = A.row(i).transpose();
         // Objective function, gradient, Hessian, and feasibility
-        ObjectiveX obj(Y, B, Zi, Ai, family, s[i], gamma);
+        ObjectiveX obj(Y, B, Zi, Ai, family, s[i], gamma, offset[i], l2pen);
 
         // Run optimizer
         List opt = constr_newton(Xi, obj, 100, 30, 0.001, (verbose >= 3));
@@ -213,19 +211,18 @@ NumericMatrix opt_x_cpp(
 // C++ translation of opt_yb() in optimization.R
 // [[Rcpp::export]]
 NumericMatrix opt_yb_cpp(
-    NumericMatrix YB0, NumericMatrix XZ,
-    NumericMatrix A, Environment family,
-    NumericVector s, NumericVector gamma,
+    MapMat YB0, MapMat XZ,
+    MapMat A, Environment family,
+    MapVec s, MapVec gamma, MapVec offset, double l2pen,
     int verbose = 0
 )
 {
     // Get dimensions
-    const int n = A.nrow();
-    const int p = A.ncol();
-    const int k = YB0.ncol();
+    const int n = A.rows();
+    const int p = A.cols();
+    const int k = YB0.cols();
     NumericMatrix YB = NumericMatrix(Rcpp::no_init_matrix(p, k));
-    NumericVector YBj = NumericVector(Rcpp::no_init_vector(k));
-    NumericVector Aj = NumericVector(Rcpp::no_init_vector(n));
+    VectorXd YBj(k);
 
     // Optimize each row of Y
     for(int j = 0; j < p; j++)
@@ -234,14 +231,11 @@ NumericMatrix opt_yb_cpp(
             Rcpp::Rcout << "===== Optimizing Row " << j + 1 << " of Y =====" << std::endl;
 
         // Prepare YBj
-        for(int i = 0; i < k; i++)
-        {
-            YBj[i] = YB0(j, i);
-        }
+        YBj.noalias() = YB0.row(j).transpose();
         // Prepare Aj
-        std::copy(A.begin() + n * j, A.begin() + n * (j + 1), Aj.begin());
+        MapVec Aj(&A(0, j), n);
         // Objective function, gradient, Hessian, and feasibility
-        ObjectiveY obj(XZ, Aj, family, s, gamma[j]);
+        ObjectiveY obj(XZ, Aj, family, s, gamma[j], offset, l2pen);
 
         // Run optimizer
         List opt = constr_newton(YBj, obj, 100, 30, 0.001, (verbose >= 3));
