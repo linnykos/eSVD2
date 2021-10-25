@@ -277,7 +277,7 @@ opt_esvd <- function(x_init,
   rownames(y_mat) <- colnames(mat)
   colnames(x_mat) <- paste0("latent_", 1:ncol(x_mat))
   colnames(y_mat) <- paste0("latent_", 1:ncol(y_mat))
-  rownames(b_mat) <- rownames(mat)
+  rownames(b_mat) <- colnames(mat)
   colnames(b_mat) <- colnames(covariates)
 
   list(x_mat = x_mat,
