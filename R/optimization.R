@@ -245,7 +245,7 @@ opt_esvd <- function(x_init,
 
     if(reparameterize){
       tmp <- tryCatch(.reparameterize(x_mat, y_mat, equal_covariance = T),
-                      error = function(e){list(x_mat = x_mat, y_mat = ymat)})
+                      error = function(e){list(x_mat = x_mat, y_mat = y_mat)})
       x_mat <- tmp$x_mat; y_mat <- tmp$y_mat
     }
 
@@ -272,7 +272,7 @@ opt_esvd <- function(x_init,
   }
 
   tmp <- tryCatch(.reparameterize(x_mat, y_mat, equal_covariance = T),
-                  error = function(e){list(x_mat = x_mat, y_mat = ymat)})
+                  error = function(e){list(x_mat = x_mat, y_mat = y_mat)})
   x_mat <- tmp$x_mat; y_mat <- tmp$y_mat
 
   rownames(x_mat) <- rownames(mat)
