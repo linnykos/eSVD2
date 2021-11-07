@@ -35,8 +35,12 @@ opt_x <- function(X0, Y, B, Z, A,
     )
 
     X[i, ] <- opt$x
-    if(verbose >= 3)
-      cat("==========\n\n")
+    if(verbose >= 4) {
+      print(paste0("Iteration ", i))
+      print(X[i, ])
+    }
+    if(i > 10) stop()
+    if(verbose >= 3) cat("==========\n\n")
   }
   X
 }
@@ -75,8 +79,7 @@ opt_yb <- function(YB0, XZ, A,
     )
 
     YB[j, ] <- opt$x
-    if(verbose >= 3)
-      cat("==========\n\n")
+    if(verbose >= 3)  cat("==========\n\n")
   }
   YB
 }
