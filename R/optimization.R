@@ -39,7 +39,6 @@ opt_x <- function(X0, Y, B, Z, A,
       print(paste0("Iteration ", i))
       print(X[i, ])
     }
-    if(i > 10) stop()
     if(verbose >= 3) cat("==========\n\n")
   }
   X
@@ -79,6 +78,10 @@ opt_yb <- function(YB0, XZ, A,
     )
 
     YB[j, ] <- opt$x
+    if(verbose >= 4) {
+      print(paste0("Iteration ", i))
+      print(X[i, ])
+    }
     if(verbose >= 3)  cat("==========\n\n")
   }
   YB
@@ -232,9 +235,6 @@ opt_esvd <- function(x_init,
       b_mat <- yb_mat[, -(1:k), drop = FALSE]
     }
 
-    save(x_mat, y_mat, covariates, b_mat, nuisance_param_vec,
-         file = "tmp_b.RData")
-
     if(reestimate_nuisance & family$name == "neg_binom2"){
       theta_mat <- tcrossprod(yb_mat, cbind(x_mat, covariates))
       theta_mat <- sweep(theta_mat, 2, offset_vec, "+")
@@ -256,9 +256,6 @@ opt_esvd <- function(x_init,
         }
       }
     }
-
-    save(x_mat, y_mat, covariates, b_mat, nuisance_param_vec,
-         file = "tmp2_b.RData")
 
     if(reparameterize){
       tmp <- tryCatch(.reparameterize(x_mat, y_mat, equal_covariance = T),
