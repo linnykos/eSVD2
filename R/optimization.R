@@ -4,9 +4,10 @@
 opt_x <- function(X0, Y, B, Z, A,
                   family, s, gamma, offset_vec, l2pen,
                   opt_fun,
+                  bool_run_cpp,
                   verbose = 0, ...)
 {
-  if(!is.null(family$cpp_functions) && identical(opt_fun, constr_newton))
+  if(bool_run_cpp && !is.null(family$cpp_functions) && identical(opt_fun, constr_newton))
   {
     return(opt_x_cpp(X0, Y, B, Z, A, family, s, gamma, offset_vec, l2pen, verbose))
   }
@@ -41,9 +42,13 @@ opt_x <- function(X0, Y, B, Z, A,
 }
 
 # Optimize Y and B given X
-opt_yb <- function(YB0, XZ, A, family, s, gamma, offset_vec, l2pen, opt_fun, verbose = 0, ...)
+opt_yb <- function(YB0, XZ, A,
+                   family, s, gamma, offset_vec, l2pen,
+                   opt_fun,
+                   bool_run_cpp,
+                   verbose = 0, ...)
 {
-  if(!is.null(family$cpp_functions) && identical(opt_fun, constr_newton))
+  if(bool_run_cpp && !is.null(family$cpp_functions) && identical(opt_fun, constr_newton))
   {
     return(opt_yb_cpp(YB0, XZ, A, family, s, gamma, offset_vec, l2pen, verbose))
   }
@@ -131,6 +136,7 @@ opt_esvd <- function(x_init,
                      global_estimate = F,
                      min_nuisance = 0.01,
                      max_nuisance = 1e5,
+                     bool_run_cpp = T,
                      max_iter = 100,
                      tol = 1e-6,
                      verbose = 0,
@@ -195,6 +201,7 @@ opt_esvd <- function(x_init,
                    offset_vec = offset_vec,
                    l2pen = l2pen,
                    opt_fun = opt_fun,
+                   bool_run_cpp = bool_run_cpp,
                    verbose = verbose, ...)
 
     # Optimize Y and B given X
@@ -209,6 +216,7 @@ opt_esvd <- function(x_init,
                      offset_vec = offset_vec,
                      l2pen = l2pen,
                      opt_fun = opt_fun,
+                     bool_run_cpp = bool_run_cpp,
                      verbose = verbose, ...)
 
     # Split Y and B
@@ -222,7 +230,7 @@ opt_esvd <- function(x_init,
     }
 
     save(x_mat, y_mat, covariates, b_mat, nuisance_param_vec,
-         file = "tmp.RData")
+         file = "tmp_b.RData")
 
     if(reestimate_nuisance & family$name == "neg_binom2"){
       theta_mat <- tcrossprod(yb_mat, cbind(x_mat, covariates))
@@ -247,7 +255,7 @@ opt_esvd <- function(x_init,
     }
 
     save(x_mat, y_mat, covariates, b_mat, nuisance_param_vec,
-         file = "tmp2.RData")
+         file = "tmp2_b.RData")
 
     if(reparameterize){
       tmp <- tryCatch(.reparameterize(x_mat, y_mat, equal_covariance = T),
