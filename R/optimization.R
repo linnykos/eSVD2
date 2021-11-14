@@ -84,9 +84,11 @@ opt_esvd <- function(x_init,
   )
 
   # C++ code needs double type
-  storage.mode(x_init) <- "double"
-  storage.mode(y_init) <- "double"
-  storage.mode(dat) <- "double"
+  if(param$bool_run_cpp){
+    storage.mode(x_init) <- "double"
+    storage.mode(y_init) <- "double"
+    storage.mode(dat) <- "double"
+  }
 
   family <- .string_to_distr_funcs(family)
   library_size_vec <- .parse_library_size(dat, library_size_vec)
@@ -154,10 +156,11 @@ opt_esvd <- function(x_init,
                                           dat = dat,
                                           gene_group_factor = param$gene_group_factor,
                                           max_cell_subsample = param$max_cell_subsample,
+                                          offset_vec = offset_vec,
                                           x_mat = x_mat,
                                           yb_mat = yb_mat,
-                                          value_lower = param$value_lower,
-                                          value_upper = param$value_upper,
+                                          value_lower = param$nuisance_value_lower,
+                                          value_upper = param$nuisance_value_upper,
                                           verbose = verbose)
     }
 
@@ -198,8 +201,8 @@ opt_esvd <- function(x_init,
                                         offset_vec = offset_vec,
                                         x_mat = x_mat,
                                         yb_mat = yb_mat,
-                                        value_lower = param$value_lower,
-                                        value_upper = param$value_upper,
+                                        value_lower = param$nuisance_value_lower,
+                                        value_upper = param$nuisance_value_upper,
                                         verbose = verbose)
   }
 

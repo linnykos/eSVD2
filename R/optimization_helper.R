@@ -98,9 +98,7 @@ opt_yb <- function(YB0, XZ, A,
                           value_lower,
                           value_upper,
                           verbose){
-
   stopifnot(is.factor(gene_group_factor), length(gene_group_factor) == ncol(dat),
-            length(offset_vec) == nrow(x_mat),
             nrow(x_mat) == nrow(dat), nrow(yb_mat) == ncol(dat),
             max_cell_subsample > 0,
             length(value_lower) == length(levels(gene_group_factor)),
@@ -113,7 +111,10 @@ opt_yb <- function(YB0, XZ, A,
   nuisance_param_vec <- rep(NA, p)
 
   theta_mat <- tcrossprod(cbind(x_mat, covariates), yb_mat)
-  theta_mat <- sweep(theta_mat, 1, offset_vec, "+")
+  if(all(!is.null(offset_vec))) {
+    stopifnot(length(offset_vec) == nrow(x_mat))
+    theta_mat <- sweep(theta_mat, 1, offset_vec, "+")
+  }
 
   gene_groups <- levels(gene_group_factor)
   for(i in 1:length(gene_groups)){
@@ -146,7 +147,6 @@ opt_yb <- function(YB0, XZ, A,
 
     nuisance_param_vec[gene_idx] <- val
   }
-
 
   nuisance_param_vec
 }
