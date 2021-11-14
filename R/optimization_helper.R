@@ -117,14 +117,15 @@ opt_yb <- function(YB0, XZ, A,
   }
 
   gene_groups <- levels(gene_group_factor)
+  print(gene_groups)
   for(i in 1:length(gene_groups)){
-    if(verbose >= 1) print("Updating nuisance parameter for group ", gene_groups[i])
+    if(verbose >= 1) print(paste0("Updating nuisance parameter for group ", gene_groups[i]))
     gene_idx <- which(gene_group_factor == gene_groups[i])
 
     tmp_dat <- dat[,gene_idx]
     tmp_theta <- theta_mat[,gene_idx]
-    if(prod(dim(tmp_dat)) > max_cell_subsample){
-      cell_idx <- sample(1:prod(dim(tmp_dat)), size = max_cell_subsample, replace = F)
+    if(length(tmp_dat) > max_cell_subsample){
+      cell_idx <- sample(1:length(tmp_dat), size = max_cell_subsample, replace = F)
       y_vec <- as.numeric(tmp_dat[cell_idx])
       mean_vec <- as.numeric(exp(tmp_theta[cell_idx]))
     } else {
