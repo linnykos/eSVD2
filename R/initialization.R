@@ -107,6 +107,8 @@ initialize_esvd <- function(dat,
 
 # Inspired by the RegressOutMatrix function in
 # https://github.com/satijalab/seurat/blob/master/R/preprocessing.R
+## [[change to use the QR functions as in https://github.com/satijalab/seurat/blob/master/R/preprocessing.R in Line 3420]]
+## [[there are other functions in https://www.rdocumentation.org/packages/base/versions/3.6.2/topics/qr]]
 .regress_out_matrix <- function(mat, covariates, verbose){
   stopifnot(nrow(mat) == nrow(covariates))
 
@@ -131,6 +133,11 @@ initialize_esvd <- function(dat,
     residual_mat[,j] <- stats::residuals(lm_fit)
     b_mat[j,] <- stats::coef(lm_fit)
   }
+
+  colnames(b_mat) <- colnames(covariates)
+  rownames(b_mat) <- colnames(mat)
+  rownames(residual_mat) <- rownames(mat)
+  colnames(residual_mat) <- colnames(mat)
 
   list(residual_mat = residual_mat,
        b_mat = b_mat)

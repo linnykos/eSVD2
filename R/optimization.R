@@ -1,94 +1,5 @@
 # Optimization for eSVD
 
-# Optimize X given Y and B
-opt_x <- function(X0, Y, B, Z, A,
-                  family, s, gamma, offset_vec, l2pen,
-                  opt_fun,
-                  bool_run_cpp,
-                  verbose = 0, ...)
-{
-  if(bool_run_cpp && !is.null(family$cpp_functions) && identical(opt_fun, constr_newton))
-  {
-    return(opt_x_cpp(X0, Y, B, Z, A, family, s, gamma, offset_vec, l2pen, verbose))
-  }
-
-  n <- nrow(A)
-  X <- X0
-  # Optimize each row of X
-  for(i in 1:n)
-  {
-    if(verbose >= 2)
-      cat("===== Optimizing Row ", i, " of X =====\n", sep = "")
-    Zi <- if(is.null(Z)) NULL else Z[i, ]
-
-    opt <- opt_fun(
-      x0 = X0[i, ],
-      f = objfn_Xi,
-      gr = grad_Xi,
-      hn = hessian_Xi,
-      direc = direction_Xi,
-      feas = feas_Xi,
-      eps_rel = 1e-3,
-      verbose = (verbose >= 3),
-      Y = Y, B = B, Zi = Zi, Ai = A[i, ],
-      family = family, si = s[i], gamma = gamma, offseti = offset_vec[i], l2pen = l2pen, ...
-    )
-
-    X[i, ] <- opt$x
-    if(verbose >= 4) {
-      print(paste0("Iteration ", i))
-      print(X[i, ])
-    }
-    if(verbose >= 3) cat("==========\n\n")
-  }
-  X
-}
-
-# Optimize Y and B given X
-opt_yb <- function(YB0, XZ, A,
-                   family, s, gamma, offset_vec, l2pen,
-                   opt_fun,
-                   bool_run_cpp,
-                   verbose = 0, ...)
-{
-  if(bool_run_cpp && !is.null(family$cpp_functions) && identical(opt_fun, constr_newton))
-  {
-    return(opt_yb_cpp(YB0, XZ, A, family, s, gamma, offset_vec, l2pen, verbose))
-  }
-
-  p <- ncol(A)
-  YB <- YB0
-  # Optimize each row of Y and B
-  for(j in 1:p)
-  {
-    if(verbose >= 2)
-      cat("===== Optimizing Row ", j, " of Y =====\n", sep = "")
-
-    opt <- opt_fun(
-      x0 = YB0[j, ],
-      f = objfn_Yj,
-      gr = grad_Yj,
-      hn = hessian_Yj,
-      direc = direction_Yj,
-      feas = feas_Yj,
-      eps_rel = 1e-3,
-      verbose = (verbose >= 3),
-      X = XZ, Bj = NULL, Z = NULL, Aj = A[, j],
-      family = family, s = s, gammaj = gamma[j], offset = offset_vec, l2pen = l2pen, ...
-    )
-
-    YB[j, ] <- opt$x
-    if(verbose >= 4) {
-      print(paste0("Iteration ", i))
-      print(X[i, ])
-    }
-    if(verbose >= 3)  cat("==========\n\n")
-  }
-  YB
-}
-
-#######################
-
 #' Main optimization function for eSVD
 #'
 #' @param x_init             initial estimate of a \eqn{n \times k}{n × k} matrix for the \eqn{k}-dimensional
@@ -130,20 +41,22 @@ opt_esvd <- function(x_init,
                      y_init,
                      dat,
                      family = "gaussian",
-                     method = c("newton", "lbfgs"),
                      b_init = NULL,
                      covariates = NULL,
-                     nuisance_param_vec = NA,
                      library_size_vec = NA,
+                     nuisance_param_vec = NA,
                      offset_vec = rep(0, nrow(x_init)),
+                     bool_run_cpp = T,
+                     gene_group_factor = factor(rep("1", ncol(dat))),
                      l2pen = 0,
+                     max_cell_subsample = 10*nrow(dat),
+                     max_iter = 100,
+                     method = c("newton", "lbfgs"),
+                     nuisance_value_lower = NA,
+                     nuisance_value_upper = NA,
                      reparameterize = F,
                      reestimate_nuisance = F,
-                     global_estimate = F,
-                     min_nuisance = 0.01,
-                     max_nuisance = 1e5,
-                     bool_run_cpp = T,
-                     max_iter = 100,
+                     reestimate_nuisance_per_iteration = 1,
                      tol = 1e-6,
                      verbose = 0,
                      ...)
@@ -151,12 +64,23 @@ opt_esvd <- function(x_init,
   n <- nrow(dat)
   p <- ncol(dat)
   k <- ncol(x_init)
+  param <- .opt_esvd_format_param(bool_run_cpp = bool_run_cpp,
+                                  family = family,
+                                  gene_group_factor = gene_group_factor,
+                                  l2pen = l2pen,
+                                  max_cell_subsample = max_cell_subsample,
+                                  max_iter = max_iter,
+                                  method = method,
+                                  nuisance_value_lower = nuisance_value_lower,
+                                  nuisance_value_upper = nuisance_value_upper,
+                                  reparameterize = reparameterize,
+                                  reestimate_nuisance = reestimate_nuisance,
+                                  reestimate_nuisance_per_iteration = reestimate_nuisance_per_iteration,
+                                  tol = tol,
+                                  verbose = verbose)
   stopifnot(
-    nrow(x_init) == n,
-    nrow(y_init) == p,
-    ncol(y_init) == k,
-    is.character(family),
-    sum(!is.na(dat)) > 0
+    nrow(x_init) == n, nrow(y_init) == p, ncol(y_init) == k,
+    is.character(family), sum(!is.na(dat)) > 0
   )
 
   # C++ code needs double type
@@ -175,23 +99,11 @@ opt_esvd <- function(x_init,
   method <- match.arg(method)
   opt_fun <- if(method == "newton") constr_newton else constr_lbfgs
 
-  if(is.null(covariates))
-  {
-    b_mat <- NULL
-  } else {
-    if(is.null(b_init))
-    {
-      r <- ncol(covariates)
-      b_mat <- matrix(0, p, r)
-    } else {
-      b_mat <- b_init
-    }
-  }
-  x_mat <- x_init
-  y_mat <- y_init
+  b_mat <- .opt_esvd_setup_b_mat(b_init, covariates)
+  x_mat <- x_init; y_mat <- y_init
 
   losses <- c()
-  for(i in 1:max_iter)
+  for(i in 1:param$max_iter)
   {
     if(verbose >= 1)
       cat("========== eSVD Iter ", i, " ==========\n\n", sep = "")
@@ -205,9 +117,9 @@ opt_esvd <- function(x_init,
                    s = library_size_vec,
                    gamma = nuisance_param_vec,
                    offset_vec = offset_vec,
-                   l2pen = l2pen,
+                   l2pen = param$l2pen,
                    opt_fun = opt_fun,
-                   bool_run_cpp = bool_run_cpp,
+                   bool_run_cpp = param$bool_run_cpp,
                    verbose = verbose, ...)
 
     # Optimize Y and B given X
@@ -220,9 +132,9 @@ opt_esvd <- function(x_init,
                      s = library_size_vec,
                      gamma = nuisance_param_vec,
                      offset_vec = offset_vec,
-                     l2pen = l2pen,
+                     l2pen = param$l2pen,
                      opt_fun = opt_fun,
-                     bool_run_cpp = bool_run_cpp,
+                     bool_run_cpp = param$bool_run_cpp,
                      verbose = verbose, ...)
 
     # Split Y and B
@@ -235,29 +147,21 @@ opt_esvd <- function(x_init,
       b_mat <- yb_mat[, -(1:k), drop = FALSE]
     }
 
-    if(reestimate_nuisance & family$name == "neg_binom2"){
-      theta_mat <- tcrossprod(yb_mat, cbind(x_mat, covariates))
-      theta_mat <- sweep(theta_mat, 2, offset_vec, "+")
-
-      glmgampoi_res <- glmGamPoi::overdispersion_mle(y = Matrix::t(dat),
-                                                     mean = exp(theta_mat),
-                                                     global_estimate = global_estimate)
-
-      if(global_estimate){
-        nuisance_param_vec <- rep(glmgampoi_res$estimate, p)
-        if(verbose >= 1)
-          cat("Updated nuisance value: ", round(glmgampoi_res$estimate, 2), "\n", sep = "")
-      } else {
-        nuisance_param_vec <- glmgampoi_res$estimate
-        nuisance_param_vec <- pmin(pmax(nuisance_param_vec, min_nuisance), max_nuisance)
-        if(verbose >= 1){
-          cat("Updated nuisance values:\n", sep = "")
-          print(round(stats::quantile(nuisance_param_vec),2))
-        }
-      }
+    if(param$reestimate_nuisance &
+       family$name == "neg_binom2" &
+       i %% param$reestimate_nuisance_per_iteration == 0){
+      nuisance_param_vec <- .opt_nuisance(covariates = covariates,
+                                          dat = dat,
+                                          gene_group_factor = param$gene_group_factor,
+                                          max_cell_subsample = param$max_cell_subsample,
+                                          x_mat = x_mat,
+                                          yb_mat = yb_mat,
+                                          value_lower = param$value_lower,
+                                          value_upper = param$value_upper,
+                                          verbose = verbose)
     }
 
-    if(reparameterize){
+    if(param$reparameterize){
       tmp <- tryCatch(.reparameterize(x_mat, y_mat, equal_covariance = T),
                       error = function(e){list(x_mat = x_mat, y_mat = y_mat)})
       x_mat <- tmp$x_mat; y_mat <- tmp$y_mat
@@ -273,35 +177,47 @@ opt_esvd <- function(x_init,
                       s = library_size_vec,
                       gamma = nuisance_param_vec,
                       offset = offset_vec,
-                      l2pen = l2pen)
+                      l2pen = param$l2pen)
     losses <- c(losses, loss)
     if(verbose >= 1)
       cat("========== eSVD Iter ", i, ", loss = ", loss, " ==========\n\n", sep = "")
 
     # Convergence test
     resid <- abs(losses[i] - losses[i - 1])
-    thresh <- tol * max(1, abs(losses[i - 1]))
+    thresh <- param$tol * max(1, abs(losses[i - 1]))
     if(i >=2 && resid <= thresh)
       break
+  }
+
+  # update nuisances one last time
+  if(param$reestimate_nuisance & family$name == "neg_binom2"){
+    nuisance_param_vec <- .opt_nuisance(covariates = covariates,
+                                        dat = dat,
+                                        gene_group_factor = param$gene_group_factor,
+                                        max_cell_subsample = param$max_cell_subsample,
+                                        offset_vec = offset_vec,
+                                        x_mat = x_mat,
+                                        yb_mat = yb_mat,
+                                        value_lower = param$value_lower,
+                                        value_upper = param$value_upper,
+                                        verbose = verbose)
   }
 
   tmp <- tryCatch(.reparameterize(x_mat, y_mat, equal_covariance = T),
                   error = function(e){list(x_mat = x_mat, y_mat = y_mat)})
   x_mat <- tmp$x_mat; y_mat <- tmp$y_mat
 
-  rownames(x_mat) <- rownames(dat)
-  rownames(y_mat) <- colnames(dat)
-  colnames(x_mat) <- paste0("latent_", 1:ncol(x_mat))
-  colnames(y_mat) <- paste0("latent_", 1:ncol(y_mat))
-  rownames(b_mat) <- colnames(dat)
-  colnames(b_mat) <- colnames(covariates)
+  tmp <- .opt_esvd_format_matrices(b_mat, covariates,
+                                   dat, x_mat, y_mat)
 
-  list(x_mat = x_mat,
-       y_mat = y_mat,
+  list(x_mat = tmp$x_mat,
+       y_mat = tmp$y_mat,
        covariates = covariates,
-       b_mat = b_mat,
+       b_mat = tmp$b_mat,
        loss = losses,
        nuisance_param_vec = nuisance_param_vec,
        library_size_vec = library_size_vec,
-       offset_vec = offset_vec)
+       offset_vec = offset_vec,
+       param = param)
 }
+
