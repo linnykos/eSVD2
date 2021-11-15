@@ -107,6 +107,8 @@ opt_yb <- function(YB0, XZ, A,
                           value_lower,
                           value_upper,
                           verbose){
+  print(gene_group_factor)
+  print(class(gene_group_factor))
   stopifnot(is.factor(gene_group_factor), length(gene_group_factor) == ncol(dat),
             nrow(x_mat) == nrow(dat), nrow(yb_mat) == ncol(dat),
             max_cell_subsample > 0,
