@@ -125,7 +125,7 @@ opt_esvd <- function(x_init,
                    opt_fun = opt_fun,
                    bool_run_cpp = param$bool_run_cpp,
                    gene_group_factor = gene_group_factor,
-                   gene_ignore_excessive_zero = gene_ignore_excessive_zero,
+                   gene_ignore_excessive_zero = param$gene_ignore_excessive_zero,
                    verbose = verbose, ...)
 
     # Optimize Y and B given X
