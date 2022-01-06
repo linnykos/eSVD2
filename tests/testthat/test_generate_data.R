@@ -89,7 +89,6 @@ test_that("generate_data works for poisson", {
   empirical_mean2 <- apply(dat_array[1:100,,], c(2,3), mean)
   empirical_var2 <- apply(dat_array[1:100,,], c(2,3), stats::var)
 
-
   predicted_mean <- matrix(0, nrow = n, ncol = p)
   predicted_var <- matrix(0, nrow = n, ncol = p)
   for(i in 1:n){

@@ -10,6 +10,8 @@ initialize_esvd(
   family,
   covariates = NULL,
   offset_vec = rep(0, nrow(dat)),
+  column_set_to_one = NULL,
+  tol = 0.001,
   verbose = 0
 )
 }
@@ -26,6 +28,10 @@ or \code{NULL} if no covariate is given}
 
 \item{offset_vec}{a vector of length-\eqn{n} that represents a constant amount added to each row of the
 natural parameter matrix}
+
+\item{column_set_to_one}{vector of characters, all contained in \code{colnames(covariates)}}
+
+\item{tol}{small positive number}
 
 \item{verbose}{non-negative integer specifying level of printouts}
 }

@@ -5,7 +5,6 @@ opt_x <- function(X0, Y, B, Z, A,
                   opt_fun,
                   bool_run_cpp,
                   gene_group_factor,
-                  gene_ignore_excessive_zero,
                   verbose = 0, ...)
 {
   if(bool_run_cpp && !is.null(family$cpp_functions) && identical(opt_fun, constr_newton))
@@ -21,11 +20,6 @@ opt_x <- function(X0, Y, B, Z, A,
     if(verbose >= 2)
       cat("===== Optimizing Row ", i, " of X =====\n", sep = "")
     Zi <- if(is.null(Z)) NULL else Z[i, ]
-    if(gene_ignore_excessive_zero){
-      gene_idx <- sort(unique(c(which(A[i,] > 0), grep("normal", gene_group_factor))))
-    } else {
-      gene_idx <- 1:ncol(A)
-    }
 
     opt <- opt_fun(
       x0 = X0[i, ],
@@ -36,9 +30,9 @@ opt_x <- function(X0, Y, B, Z, A,
       feas = feas_Xi,
       eps_rel = 1e-3,
       verbose = (verbose >= 3),
-      Y = Y[gene_idx,,drop=F], B = B[gene_idx,,drop=F], Zi = Zi,
-      Ai = A[i, gene_idx],
-      family = family, si = s[i], gamma = gamma[gene_idx],
+      Y = Y, B = B, Zi = Zi,
+      Ai = A[i, ],
+      family = family, si = s[i], gamma = gamma,
       offseti = offset_vec[i], l2pen = l2pen, ...
     )
 
@@ -126,9 +120,12 @@ opt_yb <- function(YB0, XZ, A,
   }
 
   gene_groups <- levels(gene_group_factor)
-  print(gene_groups)
   for(i in 1:length(gene_groups)){
-    if(verbose >= 1) print(paste0("Updating nuisance parameter for group ", gene_groups[i]))
+    if(verbose == 1 & length(gene_groups) > 10 & i %% floor(length(gene_groups)/10) == 0){
+      cat('*')
+    } else if(verbose >= 2) {
+      print(paste0("Updating nuisance parameter for group ", gene_groups[i]))
+    }
     gene_idx <- which(gene_group_factor == gene_groups[i])
 
     tmp_dat <- dat[,gene_idx]
@@ -166,7 +163,6 @@ opt_yb <- function(YB0, XZ, A,
 .opt_esvd_format_param <- function(bool_run_cpp,
                                    family,
                                    gene_group_factor,
-                                   gene_ignore_excessive_zero,
                                    l2pen,
                                    max_cell_subsample,
                                    max_iter,
@@ -181,7 +177,6 @@ opt_yb <- function(YB0, XZ, A,
   list(bool_run_cpp = bool_run_cpp,
        family = family,
        gene_group_factor = gene_group_factor,
-       gene_ignore_excessive_zero = gene_ignore_excessive_zero,
        l2pen = l2pen,
        max_cell_subsample = max_cell_subsample,
        max_iter = max_iter,
