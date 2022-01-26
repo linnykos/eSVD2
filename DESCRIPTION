@@ -23,6 +23,6 @@ Imports:
 Suggests:
     testthat, numDeriv
 LinkingTo:
-    Rcpp, RcppEigen
+    Rcpp, RcppEigen, BH
 NeedsCompilation: yes
 RoxygenNote: 7.1.2
