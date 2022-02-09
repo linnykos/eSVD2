@@ -31,6 +31,7 @@
 #' @param max_nuisance       a large positive number for the maximum nuisance parameter value
 #' @param max_iter           a positive integer giving the maximum number of iterations
 #' @param tol                a small positive number for the tolerance of optimization error
+#' @param run_cpp            whether to use C++ code
 #' @param verbose            a non-negative integer to indicate the verbosity of messages
 #' @param ...                additional parameters, currently not used
 #'
@@ -46,18 +47,18 @@ opt_esvd <- function(x_init,
                      library_size_vec = NA,
                      nuisance_param_vec = NA,
                      offset_vec = rep(0, nrow(x_init)),
-                     bool_run_cpp = T,
                      gene_group_factor = factor(rep("1", ncol(dat))),
                      l2pen = 0,
-                     max_cell_subsample = 10*nrow(dat),
+                     max_cell_subsample = 10 * nrow(dat),
                      max_iter = 100,
                      method = c("newton", "lbfgs"),
                      nuisance_value_lower = NA,
                      nuisance_value_upper = NA,
-                     reparameterize = F,
-                     reestimate_nuisance = F,
+                     reparameterize = FALSE,
+                     reestimate_nuisance = FALSE,
                      reestimate_nuisance_per_iteration = 1,
                      tol = 1e-6,
+                     run_cpp = TRUE,
                      verbose = 0,
                      ...)
 {
@@ -70,7 +71,7 @@ opt_esvd <- function(x_init,
   )
 
   # Whether to use C++ code
-  if(bool_run_cpp)
+  if(run_cpp)
   {
     load_cpp_code()
     # C++ code needs double type
@@ -129,6 +130,7 @@ opt_esvd <- function(x_init,
                    l2pen = param$l2pen,
                    opt_fun = opt_fun,
                    gene_group_factor = gene_group_factor,
+                   run_cpp = run_cpp,
                    verbose = verbose, ...)
 
     # Optimize Y and B given X
@@ -143,6 +145,7 @@ opt_esvd <- function(x_init,
                      offset_vec = offset_vec,
                      l2pen = param$l2pen,
                      opt_fun = opt_fun,
+                     run_cpp = run_cpp,
                      verbose = verbose, ...)
 
     # Split Y and B

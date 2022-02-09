@@ -4,10 +4,11 @@ opt_x <- function(X0, Y, B, Z, A,
                   family, s, gamma, offset_vec, l2pen,
                   opt_fun,
                   gene_group_factor,
+                  run_cpp = TRUE,
                   verbose = 0, ...)
 {
   # Use C++ version if loaded
-  if(!is.null(family$cpp_functions) && identical(opt_fun, constr_newton))
+  if(run_cpp && (!is.null(family$cpp_functions)) && identical(opt_fun, constr_newton))
   {
     return(opt_x_cpp(X0, Y, B, Z, A, family, s, gamma, offset_vec, l2pen, verbose))
   }
@@ -50,9 +51,10 @@ opt_x <- function(X0, Y, B, Z, A,
 opt_yb <- function(YB0, XZ, A,
                    family, s, gamma, offset_vec, l2pen,
                    opt_fun,
+                   run_cpp = TRUE,
                    verbose = 0, ...)
 {
-  if(!is.null(family$cpp_functions) && identical(opt_fun, constr_newton))
+  if(run_cpp && (!is.null(family$cpp_functions)) && identical(opt_fun, constr_newton))
   {
     return(opt_yb_cpp(YB0, XZ, A, family, s, gamma, offset_vec, l2pen, verbose))
   }
