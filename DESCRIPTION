@@ -15,7 +15,6 @@ Imports:
     RSpectra,
     irlba,
     matrixStats,
-    sparseMatrixStats,
     gtools,
     glmnet,
     glmGamPoi,
