@@ -58,7 +58,7 @@ public:
             dl += dli;
             d2l += d2li;
         }
-        Rcpp::Rcout << "b = " << b << ", dl = " << dl << ", d2l = " << d2l << std::endl;
+        // Rcpp::Rcout << "b = " << b << ", dl = " << dl << ", d2l = " << d2l << std::endl;
         return std::make_pair(dl / m_n, d2l / m_n);
     }
 };
