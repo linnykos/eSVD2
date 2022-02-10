@@ -106,7 +106,7 @@
   if(length(mean_vec) == 1 && !is.null(mean_vec)){
     if(mean_vec){
       if(inherits(x = mat, what = c('dgCMatrix', 'dgTMatrix'))){
-        mean_vec <- sparseMatrixStats::colMeans2(mat)
+        mean_vec <- Matrix::colMeans(mat)
       } else {
         mean_vec <- matrixStats::colMeans2(mat)
       }

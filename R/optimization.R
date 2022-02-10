@@ -31,6 +31,7 @@
 #' @param max_nuisance       a large positive number for the maximum nuisance parameter value
 #' @param max_iter           a positive integer giving the maximum number of iterations
 #' @param tol                a small positive number for the tolerance of optimization error
+#' @param run_cpp            whether to use C++ code
 #' @param verbose            a non-negative integer to indicate the verbosity of messages
 #' @param ...                additional parameters, currently not used
 #'
@@ -46,26 +47,40 @@ opt_esvd <- function(x_init,
                      library_size_vec = NA,
                      nuisance_param_vec = NA,
                      offset_vec = rep(0, nrow(x_init)),
-                     bool_run_cpp = T,
                      gene_group_factor = factor(rep("1", ncol(dat))),
                      l2pen = 0,
-                     max_cell_subsample = 10*nrow(dat),
+                     max_cell_subsample = 10 * nrow(dat),
                      max_iter = 100,
                      method = c("newton", "lbfgs"),
                      nuisance_value_lower = NA,
                      nuisance_value_upper = NA,
-                     reparameterize = F,
-                     reestimate_nuisance = F,
+                     reparameterize = FALSE,
+                     reestimate_nuisance = FALSE,
                      reestimate_nuisance_per_iteration = 1,
                      tol = 1e-6,
+                     run_cpp = TRUE,
                      verbose = 0,
                      ...)
 {
   n <- nrow(dat)
   p <- ncol(dat)
   k <- ncol(x_init)
-  param <- .opt_esvd_format_param(bool_run_cpp = bool_run_cpp,
-                                  family = family,
+  stopifnot(
+    nrow(x_init) == n, nrow(y_init) == p, ncol(y_init) == k,
+    is.character(family), sum(!is.na(dat)) > 0
+  )
+
+  # Whether to use C++ code
+  if(run_cpp)
+  {
+    load_cpp_code()
+    # C++ code needs double type
+    storage.mode(x_init) <- "double"
+    storage.mode(y_init) <- "double"
+    storage.mode(dat)    <- "double"
+  }
+
+  param <- .opt_esvd_format_param(family = family,
                                   gene_group_factor = gene_group_factor,
                                   l2pen = l2pen,
                                   max_cell_subsample = max_cell_subsample,
@@ -78,34 +93,27 @@ opt_esvd <- function(x_init,
                                   reestimate_nuisance_per_iteration = reestimate_nuisance_per_iteration,
                                   tol = tol,
                                   verbose = verbose)
-  stopifnot(
-    nrow(x_init) == n, nrow(y_init) == p, ncol(y_init) == k,
-    is.character(family), sum(!is.na(dat)) > 0
-  )
 
-  # C++ code needs double type
-  if(param$bool_run_cpp){
-    storage.mode(x_init) <- "double"
-    storage.mode(y_init) <- "double"
-    storage.mode(dat) <- "double"
-  }
-
+  # Convert family string to internal family object, e.g. `.esvd.poisson` and `.esvd.neg_binom2`
   family <- .string_to_distr_funcs(family)
+  # Parse library size and nuisance parameter
   library_size_vec <- .parse_library_size(dat, library_size_vec)
   if(all(!is.na(nuisance_param_vec)) && length(nuisance_param_vec) == 1) {
     nuisance_param_vec <- rep(nuisance_param_vec[1], ncol(dat))
   }
   library_size_vec <- as.numeric(library_size_vec)
   nuisance_param_vec <- as.numeric(nuisance_param_vec)
-
+  # Parse optimization method
   method <- match.arg(method)
   opt_fun <- if(method == "newton") constr_newton else constr_lbfgs
 
+  # Initialize embedding matrices
   b_mat <- .opt_esvd_setup_b_mat(b_init, covariates)
-  x_mat <- x_init; y_mat <- y_init
+  x_mat <- x_init
+  y_mat <- y_init
 
   losses <- c()
-  for(i in 1:param$max_iter)
+  for(i in seq_len(param$max_iter))
   {
     if(verbose >= 1)
       cat("========== eSVD Iter ", i, " ==========\n\n", sep = "")
@@ -121,8 +129,8 @@ opt_esvd <- function(x_init,
                    offset_vec = offset_vec,
                    l2pen = param$l2pen,
                    opt_fun = opt_fun,
-                   bool_run_cpp = param$bool_run_cpp,
                    gene_group_factor = gene_group_factor,
+                   run_cpp = run_cpp,
                    verbose = verbose, ...)
 
     # Optimize Y and B given X
@@ -137,7 +145,7 @@ opt_esvd <- function(x_init,
                      offset_vec = offset_vec,
                      l2pen = param$l2pen,
                      opt_fun = opt_fun,
-                     bool_run_cpp = param$bool_run_cpp,
+                     run_cpp = run_cpp,
                      verbose = verbose, ...)
 
     # Split Y and B
@@ -168,7 +176,8 @@ opt_esvd <- function(x_init,
     if(param$reparameterize){
       tmp <- tryCatch(.reparameterize(x_mat, y_mat, equal_covariance = T),
                       error = function(e){list(x_mat = x_mat, y_mat = y_mat)})
-      x_mat <- tmp$x_mat; y_mat <- tmp$y_mat
+      x_mat <- tmp$x_mat
+      y_mat <- tmp$y_mat
     }
 
     # Loss function
@@ -209,10 +218,10 @@ opt_esvd <- function(x_init,
 
   tmp <- tryCatch(.reparameterize(x_mat, y_mat, equal_covariance = T),
                   error = function(e){list(x_mat = x_mat, y_mat = y_mat)})
-  x_mat <- tmp$x_mat; y_mat <- tmp$y_mat
+  x_mat <- tmp$x_mat
+  y_mat <- tmp$y_mat
 
-  tmp <- .opt_esvd_format_matrices(b_mat, covariates,
-                                   dat, x_mat, y_mat)
+  tmp <- .opt_esvd_format_matrices(b_mat, covariates, dat, x_mat, y_mat)
 
   list(x_mat = tmp$x_mat,
        y_mat = tmp$y_mat,
@@ -224,4 +233,3 @@ opt_esvd <- function(x_init,
        offset_vec = offset_vec,
        param = param)
 }
-

@@ -3,11 +3,12 @@
 opt_x <- function(X0, Y, B, Z, A,
                   family, s, gamma, offset_vec, l2pen,
                   opt_fun,
-                  bool_run_cpp,
                   gene_group_factor,
+                  run_cpp = TRUE,
                   verbose = 0, ...)
 {
-  if(bool_run_cpp && !is.null(family$cpp_functions) && identical(opt_fun, constr_newton))
+  # Use C++ version if loaded
+  if(run_cpp && (!is.null(family$cpp_functions)) && identical(opt_fun, constr_newton))
   {
     return(opt_x_cpp(X0, Y, B, Z, A, family, s, gamma, offset_vec, l2pen, verbose))
   }
@@ -50,10 +51,10 @@ opt_x <- function(X0, Y, B, Z, A,
 opt_yb <- function(YB0, XZ, A,
                    family, s, gamma, offset_vec, l2pen,
                    opt_fun,
-                   bool_run_cpp,
+                   run_cpp = TRUE,
                    verbose = 0, ...)
 {
-  if(bool_run_cpp && !is.null(family$cpp_functions) && identical(opt_fun, constr_newton))
+  if(run_cpp && (!is.null(family$cpp_functions)) && identical(opt_fun, constr_newton))
   {
     return(opt_yb_cpp(YB0, XZ, A, family, s, gamma, offset_vec, l2pen, verbose))
   }
@@ -100,7 +101,7 @@ opt_yb <- function(YB0, XZ, A,
                           yb_mat,
                           value_lower,
                           value_upper,
-                          verbose){
+                          verbose) {
   stopifnot(is.factor(gene_group_factor), length(gene_group_factor) == ncol(dat),
             nrow(x_mat) == nrow(dat), nrow(yb_mat) == ncol(dat),
             max_cell_subsample > 0,
@@ -160,8 +161,7 @@ opt_yb <- function(YB0, XZ, A,
 
 ##########################
 
-.opt_esvd_format_param <- function(bool_run_cpp,
-                                   family,
+.opt_esvd_format_param <- function(family,
                                    gene_group_factor,
                                    l2pen,
                                    max_cell_subsample,
@@ -173,9 +173,8 @@ opt_yb <- function(YB0, XZ, A,
                                    reestimate_nuisance,
                                    reestimate_nuisance_per_iteration,
                                    tol,
-                                   verbose){
-  list(bool_run_cpp = bool_run_cpp,
-       family = family,
+                                   verbose) {
+  list(family = family,
        gene_group_factor = gene_group_factor,
        l2pen = l2pen,
        max_cell_subsample = max_cell_subsample,
@@ -190,7 +189,8 @@ opt_yb <- function(YB0, XZ, A,
        verbose = verbose)
 }
 
-.opt_esvd_setup_b_mat <- function(b_init, covariates){
+# Initialize the B matrix according to covariates
+.opt_esvd_setup_b_mat <- function(b_init, covariates) {
   if(is.null(covariates))
   {
     b_mat <- NULL
@@ -205,8 +205,8 @@ opt_yb <- function(YB0, XZ, A,
   }
 }
 
-.opt_esvd_format_matrices <- function(b_mat, covariates,
-                                      dat, x_mat, y_mat){
+# Set row and column names of output matrices
+.opt_esvd_format_matrices <- function(b_mat, covariates, dat, x_mat, y_mat) {
   rownames(x_mat) <- rownames(dat)
   rownames(y_mat) <- colnames(dat)
   colnames(x_mat) <- paste0("latent_", 1:ncol(x_mat))
