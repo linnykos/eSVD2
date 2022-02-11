@@ -41,6 +41,10 @@ direction_Yj_impl <- function(Yj, X, Bj, Z, Aj, family, s, gammaj, offset, l2pen
     .Call(`_eSVD2_direction_Yj_impl`, Yj, X, Bj, Z, Aj, family, s, gammaj, offset, l2pen)
 }
 
+gamma_rate <- function(x, mu, s) {
+    .Call(`_eSVD2_gamma_rate`, x, mu, s)
+}
+
 distribution_neg_binom <- function() {
     .Call(`_eSVD2_distribution_neg_binom`)
 }

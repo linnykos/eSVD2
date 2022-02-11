@@ -212,6 +212,19 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// gamma_rate
+double gamma_rate(NumericVector x, NumericVector mu, NumericVector s);
+RcppExport SEXP _eSVD2_gamma_rate(SEXP xSEXP, SEXP muSEXP, SEXP sSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< NumericVector >::type x(xSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type mu(muSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type s(sSEXP);
+    rcpp_result_gen = Rcpp::wrap(gamma_rate(x, mu, s));
+    return rcpp_result_gen;
+END_RCPP
+}
 // distribution_neg_binom
 SEXP distribution_neg_binom();
 RcppExport SEXP _eSVD2_distribution_neg_binom() {
@@ -254,6 +267,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_eSVD2_hessian_Yj_impl", (DL_FUNC) &_eSVD2_hessian_Yj_impl, 10},
     {"_eSVD2_direction_Xi_impl", (DL_FUNC) &_eSVD2_direction_Xi_impl, 10},
     {"_eSVD2_direction_Yj_impl", (DL_FUNC) &_eSVD2_direction_Yj_impl, 10},
+    {"_eSVD2_gamma_rate", (DL_FUNC) &_eSVD2_gamma_rate, 3},
     {"_eSVD2_distribution_neg_binom", (DL_FUNC) &_eSVD2_distribution_neg_binom, 0},
     {"_eSVD2_distribution_neg_binom2", (DL_FUNC) &_eSVD2_distribution_neg_binom2, 0},
     {"_eSVD2_distribution_poisson", (DL_FUNC) &_eSVD2_distribution_poisson, 0},
