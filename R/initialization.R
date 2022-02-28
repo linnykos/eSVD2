@@ -16,60 +16,165 @@
 #' latent matrices
 #' @export
 initialize_esvd <- function(dat,
-                            k,
-                            family,
-                            covariates = NULL,
-                            offset_vec = rep(0, nrow(dat)),
-                            column_set_to_one = NULL,
+                            covariates,
+                            case_control_variable,
+                            offset_variables,
+                            family = "poisson",
+                            k = 10,
+                            lambda = 0.01,
+                            p_val_thres = 0.05,
                             tol = 1e-3,
                             verbose = 0){
   stopifnot(is.character(family),
             family %in% c("gaussian", "poisson", "neg_binom2"),
-            all(is.null(covariates)) || is.matrix(covariates),
-            length(offset_vec) == nrow(dat),
-            k <= ncol(dat), k > 0, k %% 1 == 0)
-
-  family <- .string_to_distr_funcs(family)
-  if(family$name != "gaussian") stopifnot(all(dat[!is.na(dat)] >= 0))
-
+            is.matrix(covariates),
+            all(offset_variables %in% colnames(covariates)),
+            length(case_control_variable) == 1,
+            case_control_variable %in% colnames(covariates),
+            k <= ncol(dat), k > 0, k %% 1 == 0,
+            lambda <= 1e4)
   n <- nrow(dat); p <- ncol(dat)
   dat[is.na(dat)] <- 0
 
-  if(!all(is.null(covariates))){
-    b_init <- sapply(1:ncol(covariates), function(j){
-      if(stats::sd(covariates[,j]) == 0) {
-        log(matrixStats::colMeans2(dat)+tol)
-      } else {
-        if(colnames(covariates)[j] %in% column_set_to_one){
-          rep(1, ncol(dat))
-        } else {
-          rep(0, ncol(dat))
-        }
-      }
-    })
+  offset_vec <- Matrix::rowSums(covariates[,offset_variables])
 
-    colnames(b_init) <- colnames(covariates)
-    nat_offset_mat <- tcrossprod(covariates, b_init)
+  b_mat <- .initialize_coefficient(case_control_variable = case_control_variable,
+                                   covariates = covariates,
+                                   dat = dat,
+                                   lambda = lambda,
+                                   offset_variables = offset_variables,
+                                   offset_vec = offset_vec,
+                                   p_val_thres = p_val_thres,
+                                   verbose = verbose)
+  if(include_intercept) {
+    covariates <- cbind(rep(1, n), covariates)
+    colnames(covariates) <- "Intercept"
+  }
+
+  tmp <- .initialize_residuals(b_mat = b_mat,
+                               covariates = covariates,
+                               dat = dat,
+                               k = k)
+
+  structure(list(x_mat = tmp$x_mat, y_mat = tmp$y_mat,
+                 b_mat = b_mat,
+                 covariates = covariates,
+                 nuisance_param_vec = rep(0, ncol(dat))),
+            class = "eSVD")
+}
+
+#####################
+
+.initialize_coefficient <- function(case_control_variable,
+                                    covariates,
+                                    dat,
+                                    lambda,
+                                    offset_variables,
+                                    offset_vec,
+                                    p_val_thres,
+                                    verbose = 0){
+  n <- nrow(dat); p <- ncol(dat)
+  covariates_nooffset <- covariates[,which(!colnames(covariates) %in% offset_variables)]
+
+  b_mat <- sapply(1:p, function(j){
+    .lrt_coefficient(case_control_variable = case_control_variable,
+                     covariates = covariates_nooffset,
+                     lambda = lambda,
+                     offset_vec = offset_vec,
+                     p_val_thres = p_val_thres,
+                     vec = dat[,j],
+                     verbose = verbose,
+                     verbose_gene_name = colnames(dat)[j])
+  })
+  b_mat <- t(b_mat)
+  rownames(b_mat) <- colnames(dat)
+  colnames(b_mat) <- colnames(covariates_nooffset)
+
+  b_mat <- .append_offset(b_mat = b_mat,
+                          covariates = covariates,
+                          offset_variables = offset_variables)
+
+  b_mat
+}
+
+# [[note to self: hard coded for Poisson at the moment]]
+.lrt_coefficient <- function(case_control_variable,
+                             covariates,
+                             lambda,
+                             offset_vec,
+                             p_val_thres,
+                             vec,
+                             verbose = 0,
+                             verbose_gene_name = ""){
+  glm_fit1 <- glmnet::glmnet(x = covariates,
+                             y = vec,
+                             family = "poisson",
+                             offset = offset_vec,
+                             alpha = 0,
+                             standardize = F,
+                             intercept = T,
+                             lambda = exp(seq(log(1e4), log(lambda), length.out = 100)))
+  coef_vec1 <- c(glm_fit1$a0[length(glm_fit1$a0)], glm_fit1$beta[,ncol(glm_fit1$beta)])
+  mean_vec1 <- exp(covariates %*% coef_vec1[-1] + offset_vec + coef_vec1[1])
+  log_vec <- vec/mean_vec1; log_vec[vec != 0] <- log(log_vec[vec != 0])
+  deviance1 <- 2*sum(vec*log_vec - (vec - mean_vec1))
+
+  covariates2 <- covariates[,which(colnames(covariates) != case_control_variable), drop = F]
+  glm_fit2 <- glmnet::glmnet(x = covariates2,
+                             y = vec,
+                             family = "poisson",
+                             offset = offset_vec,
+                             alpha = 0,
+                             standardize = F,
+                             intercept = T,
+                             lambda = exp(seq(log(1e4), log(lambda), length.out = 100)))
+  coef_vec2 <- c(glm_fit2$a0[length(glm_fit2$a0)], glm_fit2$beta[,ncol(glm_fit2$beta)])
+  mean_vec2 <- exp(covariates2 %*% coef_vec2[-1] + offset_vec + coef_vec2[1])
+  log_vec <- vec/mean_vec2; log_vec[vec != 0] <- log(log_vec[vec != 0])
+  deviance2 <- 2*sum(vec*log_vec - (vec - mean_vec2))
+
+  residual_deviance <- max(deviance2 - deviance1, 0)
+  p_val <- 1-stats::pchisq(residual_deviance, df = 1)
+
+  if(p_val <= p_val_thres){
+    names(coef_vec1) <- c("Intercept", colnames(covariates))
+    if(verbose >= 2) print(paste0(verbose_gene_name, ": Significant (deviance=", round(residual_deviance,1), "), coefficent: ",
+                             round(coef_vec1[case_control_variable], 2)))
+    return(coef_vec1)
   } else {
-    b_init <- NULL
-    nat_offset_mat <- 0
+    names(coef_vec2) <- c("Intercept", colnames(covariates2))
+    vec2 <- sapply(c("Intercept", colnames(covariates)), function(var){
+      if(var %in% names(coef_vec2)) coef_vec2[var] else 0
+    })
+    names(vec2) <- c("Intercept", colnames(covariates))
+    if(verbose <= 2) print(paste0(verbose_gene_name, ": Insignificant (deviance=", round(residual_deviance,1), ")"))
+    return(vec2)
+  }
+}
+
+.append_offset <- function(b_mat,
+                           covariates){
+  b_mat2 <- matrix(1, nrow = nrow(b_mat), ncol = ncol(covariates))
+  for(j in 1:ncol(covariates)){
+    if(colnames(covariates)[j] %in% colnames(b_mat)){
+      idx <- which(colnames(b_mat) == colnames(covariates)[j])
+      b_mat2[,j] <- b_mat[,j]
+    }
   }
 
-  nat_mat <- family$dat_to_nat(dat, gamma = rep(1, ncol(dat)))
-  residual_mat <- nat_mat - nat_offset_mat
-  residual_mat <- sweep(residual_mat, 1, offset_vec, "-")
+  rownames(b_mat2) <- rownames(b_mat)
+  colnames(b_mat2) <- colnames(covariates)
 
-  remaining_covarites <- which(!colnames(covariates) %in% column_set_to_one)
-  if(length(remaining_covarites) > 0){
-    tmp <- .regress_out_matrix(residual_mat,
-                               covariates[,remaining_covarites,drop = F],
-                               verbose = verbose)
-    residual_mat <- tmp$residual_mat
-    b_init[,remaining_covarites] <- tmp$b_mat
-    residual_mat[is.na(residual_mat)] <- 0
-    b_init[is.na(b_init)] <- 0
-    nat_offset_mat <- tcrossprod(covariates, b_init)
-  }
+  b_mat2
+}
+
+.initialize_residuals <- function(b_mat,
+                                  covariates,
+                                  dat,
+                                  k){
+  dat_transform <- log1p(dat)
+  nat_mat <- tcrossprod(covariates, b_mat)
+  residual_mat <- dat_transform - nat_mat
 
   svd_res <- .svd_truncated(residual_mat,
                             K = k,
@@ -78,67 +183,25 @@ initialize_esvd <- function(dat,
                             mean_vec = NULL,
                             sd_vec = NULL,
                             K_full_rank = F)
-  x_init <- .mult_mat_vec(svd_res$u, sqrt(svd_res$d))
-  y_init <- .mult_mat_vec(svd_res$v, sqrt(svd_res$d))
+  x_mat <- .mult_mat_vec(svd_res$u, sqrt(svd_res$d))
+  y_mat <- .mult_mat_vec(svd_res$v, sqrt(svd_res$d))
 
-  init_theta <- tcrossprod(x_init, y_init) + nat_offset_mat
-  init_theta <- sweep(init_theta, 1, offset_vec, "+")
+  rownames(x_mat) <- rownames(dat)
+  rownames(y_mat) <- colnames(dat)
 
-  if(family$name %in% c("neg_binom", "neg_binom2")){
-    glmgampoi_init <- glmGamPoi::overdispersion_mle(y = Matrix::t(dat),
-                                                    mean = family$nat_to_canon(t(init_theta)),
-                                                    global_estimate = T)
-    nuisance_init <- rep(glmgampoi_init$estimate, p)
-  } else {
-    nuisance_init <- NULL
-  }
-
-  rownames(x_init) <- rownames(dat)
-  rownames(y_init) <- colnames(dat)
-
-  structure(list(x_mat = x_init, y_mat = y_init, b_mat = b_init,
-                 covariates = covariates,
-                 nuisance_param_vec = nuisance_init,
-                 offset_vec = offset_vec),
-            class = "eSVD")
+  list(x_mat = x_mat, y_mat = y_mat)
 }
 
-#####################
-
-# Inspired by the RegressOutMatrix function in
-# https://github.com/satijalab/seurat/blob/master/R/preprocessing.R
-## [[change to use the QR functions as in https://github.com/satijalab/seurat/blob/master/R/preprocessing.R in Line 3420]]
-## [[there are other functions in https://www.rdocumentation.org/packages/base/versions/3.6.2/topics/qr]]
-.regress_out_matrix <- function(mat, covariates, verbose){
-  stopifnot(nrow(mat) == nrow(covariates))
-
-  vars_to_regress <- colnames(covariates)
-  fmla <- paste("GENE ~", paste(vars_to_regress, collapse = "+"), "-1")
-  fmla <- as.formula(object = fmla)
-  residual_mat <- matrix(0, nrow = nrow(mat), ncol = ncol(mat))
-  rownames(residual_mat) <- rownames(mat)
-  colnames(residual_mat) <- colnames(mat)
-  b_mat <- matrix(0, nrow = ncol(mat), ncol = ncol(covariates))
-  rownames(b_mat) <- colnames(mat)
-  covariates <- as.data.frame(covariates)
-
-  p <- ncol(mat)
-  for(j in 1:p){
-    if(verbose == 1 && p > 10 && j %% floor(p/10) == 0) cat('*')
-    if(verbose == 2) print(paste0("Working on gene ", j, " out of ", p))
-
-    regression_mat <- cbind(covariates, mat[,j])
-    colnames(x = regression_mat) <- c(vars_to_regress, "GENE")
-    lm_fit <- stats::lm(fmla, data = regression_mat)
-    residual_mat[,j] <- stats::residuals(lm_fit)
-    b_mat[j,] <- stats::coef(lm_fit)
-  }
-
-  colnames(b_mat) <- colnames(covariates)
-  rownames(b_mat) <- colnames(mat)
-  rownames(residual_mat) <- rownames(mat)
-  colnames(residual_mat) <- colnames(mat)
-
-  list(residual_mat = residual_mat,
-       b_mat = b_mat)
-}
+# .initialize_nuisance <- function(){
+#   init_theta <- tcrossprod(x_init, y_init) + nat_offset_mat
+#   init_theta <- sweep(init_theta, 1, offset_vec, "+")
+#
+#   if(family$name %in% c("neg_binom", "neg_binom2")){
+#     glmgampoi_init <- glmGamPoi::overdispersion_mle(y = Matrix::t(dat),
+#                                                     mean = family$nat_to_canon(t(init_theta)),
+#                                                     global_estimate = T)
+#     nuisance_init <- rep(glmgampoi_init$estimate, p)
+#   } else {
+#     nuisance_init <- NULL
+#   }
+# }
