@@ -197,8 +197,7 @@ opt_yb <- function(YB0, XZ, A,
   } else {
     if(is.null(b_init))
     {
-      r <- ncol(covariates)
-      b_mat <- matrix(0, nrow = p, r = ncol(covariates))
+      b_mat <- matrix(0, nrow = p, ncol = ncol(covariates))
     } else {
       b_mat <- b_init
     }
