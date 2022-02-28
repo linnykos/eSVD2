@@ -69,6 +69,11 @@ initialize_esvd <- function(dat,
   colnames(b_mat) <- c("Intercept", colnames(covariates_nooffset))
   for(j in 1:p){
     if(verbose == 1 && p >= 10 && j %% floor(p/10) == 0) cat('*')
+    if(verbose >= 2){
+      verbose_additional_msg <- paste0(" (", j , " of ", p, ")")
+    } else {
+      verbose_additional_msg <- ""
+    }
     b_mat[j,] <- .lrt_coefficient(case_control_variable = case_control_variable,
                                   covariates = covariates_nooffset,
                                   lambda = lambda,
@@ -76,6 +81,7 @@ initialize_esvd <- function(dat,
                                   p_val_thres = p_val_thres,
                                   vec = dat[,j],
                                   verbose = verbose,
+                                  verbose_additional_msg = verbose_additional_msg,
                                   verbose_gene_name = colnames(dat)[j])
 
     if(!is.null(tmp_path) && p >= 10 && floor(p/10) == 0){
@@ -97,6 +103,7 @@ initialize_esvd <- function(dat,
                              p_val_thres,
                              vec,
                              verbose = 0,
+                             verbose_additional_msg = "",
                              verbose_gene_name = ""){
   glm_fit1 <- glmnet::glmnet(x = covariates,
                              y = vec,
@@ -130,7 +137,8 @@ initialize_esvd <- function(dat,
 
   if(p_val <= p_val_thres){
     names(coef_vec1) <- c("Intercept", colnames(covariates))
-    if(verbose >= 2) print(paste0(verbose_gene_name, ": Significant (deviance=", round(residual_deviance,1), "), coefficent: ",
+    if(verbose >= 2) print(paste0(verbose_gene_name, verbose_additional_msg,
+                                  ": Significant (deviance=", round(residual_deviance,1), "), coefficent: ",
                                   round(coef_vec1[case_control_variable], 2)))
     return(coef_vec1)
   } else {
@@ -139,7 +147,8 @@ initialize_esvd <- function(dat,
       if(var %in% names(coef_vec2)) coef_vec2[var] else 0
     })
     names(vec2) <- c("Intercept", colnames(covariates))
-    if(verbose >= 2) print(paste0(verbose_gene_name, ": Insignificant (deviance=", round(residual_deviance,1), ")"))
+    if(verbose >= 2) print(paste0(verbose_gene_name, verbose_additional_msg,
+                                  ": Insignificant (deviance=", round(residual_deviance,1), ")"))
     return(vec2)
   }
 }
