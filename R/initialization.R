@@ -1,33 +1,14 @@
-#' Initialize eSVD
-#'
-#' @param dat                     dataset where the \eqn{n} rows represent cells and \eqn{p} columns represent genes
-#' @param k                       positive integer less than \code{min(c(nrow(dat), ncol(dat)))}
-#' @param family                  character (\code{"gaussian"}, \code{"exponential"}, \code{"poisson"}, \code{"neg_binom"},
-#'                                or \code{"curved_gaussian"})
-#' @param covariates              an \eqn{n \times d}{n × d} matrix representing the additional \eqn{d} covariates,
-#'                                or \code{NULL} if no covariate is given
-#' @param offset_vec              a vector of length-\eqn{n} that represents a constant amount added to each row of the
-#'                                natural parameter matrix
-#' @param column_set_to_one       vector of characters, all contained in \code{colnames(covariates)}
-#' @param tol                     small positive number
-#' @param verbose                 non-negative integer specifying level of printouts
-#'
-#' @return a list with elements \code{x_mat} and \code{y_mat} (and others), representing the two
-#' latent matrices
-#' @export
 initialize_esvd <- function(dat,
                             covariates,
                             case_control_variable,
                             offset_variables,
-                            family = "poisson",
                             k = 10,
                             lambda = 0.01,
                             p_val_thres = 0.05,
                             tol = 1e-3,
-                            verbose = 0){
-  stopifnot(is.character(family),
-            family %in% c("gaussian", "poisson", "neg_binom2"),
-            is.matrix(covariates),
+                            verbose = 0,
+                            tmp_path = NULL){
+  stopifnot(is.matrix(covariates),
             all(offset_variables %in% colnames(covariates)),
             length(case_control_variable) == 1,
             case_control_variable %in% colnames(covariates),
@@ -36,21 +17,27 @@ initialize_esvd <- function(dat,
   n <- nrow(dat); p <- ncol(dat)
   dat[is.na(dat)] <- 0
 
-  offset_vec <- Matrix::rowSums(covariates[,offset_variables])
-
+  if(verbose >= 1) print("Step 1: Performing GLMs")
   b_mat <- .initialize_coefficient(case_control_variable = case_control_variable,
                                    covariates = covariates,
                                    dat = dat,
                                    lambda = lambda,
                                    offset_variables = offset_variables,
-                                   offset_vec = offset_vec,
                                    p_val_thres = p_val_thres,
-                                   verbose = verbose)
-  if(include_intercept) {
-    covariates <- cbind(rep(1, n), covariates)
-    colnames(covariates) <- "Intercept"
-  }
+                                   verbose = verbose,
+                                   tmp_path = tmp_path)
+  if(!is.null(tmp_path)) save(b_mat, file = tmp_path)
 
+  # do some cleanup
+  if(verbose >= 1) print("Step 1b: Cleaning up coefficients")
+  covariates <- cbind(rep(1, n), covariates)
+  colnames(covariates)[1] <- "Intercept"
+  print(dim(covariates))
+  print(dim(b_mat))
+  col_idx <- sapply(colnames(covariates), function(i){which(colnames(b_mat) == i)})
+  b_mat <- b_mat[,as.numeric(col_idx)]
+
+  if(verbose >= 1) print("Step 2: Computing residuals")
   tmp <- .initialize_residuals(b_mat = b_mat,
                                covariates = covariates,
                                dat = dat,
@@ -70,29 +57,34 @@ initialize_esvd <- function(dat,
                                     dat,
                                     lambda,
                                     offset_variables,
-                                    offset_vec,
                                     p_val_thres,
-                                    verbose = 0){
+                                    verbose = 0,
+                                    tmp_path = NULL){
   n <- nrow(dat); p <- ncol(dat)
   covariates_nooffset <- covariates[,which(!colnames(covariates) %in% offset_variables)]
+  offset_vec <- Matrix::rowSums(covariates[,offset_variables,drop = F])
 
-  b_mat <- sapply(1:p, function(j){
-    .lrt_coefficient(case_control_variable = case_control_variable,
-                     covariates = covariates_nooffset,
-                     lambda = lambda,
-                     offset_vec = offset_vec,
-                     p_val_thres = p_val_thres,
-                     vec = dat[,j],
-                     verbose = verbose,
-                     verbose_gene_name = colnames(dat)[j])
-  })
-  b_mat <- t(b_mat)
+  b_mat <- matrix(NA, nrow = ncol(dat), ncol = ncol(covariates_nooffset)+1)
   rownames(b_mat) <- colnames(dat)
-  colnames(b_mat) <- colnames(covariates_nooffset)
+  colnames(b_mat) <- c("Intercept", colnames(covariates_nooffset))
+  for(j in 1:p){
+    if(verbose == 1 && p >= 10 && j %% floor(p/10) == 0) cat('*')
+    b_mat[j,] <- .lrt_coefficient(case_control_variable = case_control_variable,
+                                  covariates = covariates_nooffset,
+                                  lambda = lambda,
+                                  offset_vec = offset_vec,
+                                  p_val_thres = p_val_thres,
+                                  vec = dat[,j],
+                                  verbose = verbose,
+                                  verbose_gene_name = colnames(dat)[j])
+
+    if(!is.null(tmp_path) && p >= 10 && floor(p/10) == 0){
+      save(b_mat, file = tmp_path)
+    }
+  }
 
   b_mat <- .append_offset(b_mat = b_mat,
-                          covariates = covariates,
-                          offset_variables = offset_variables)
+                          covariates = covariates)
 
   b_mat
 }
@@ -139,7 +131,7 @@ initialize_esvd <- function(dat,
   if(p_val <= p_val_thres){
     names(coef_vec1) <- c("Intercept", colnames(covariates))
     if(verbose >= 2) print(paste0(verbose_gene_name, ": Significant (deviance=", round(residual_deviance,1), "), coefficent: ",
-                             round(coef_vec1[case_control_variable], 2)))
+                                  round(coef_vec1[case_control_variable], 2)))
     return(coef_vec1)
   } else {
     names(coef_vec2) <- c("Intercept", colnames(covariates2))
@@ -147,23 +139,25 @@ initialize_esvd <- function(dat,
       if(var %in% names(coef_vec2)) coef_vec2[var] else 0
     })
     names(vec2) <- c("Intercept", colnames(covariates))
-    if(verbose <= 2) print(paste0(verbose_gene_name, ": Insignificant (deviance=", round(residual_deviance,1), ")"))
+    if(verbose >= 2) print(paste0(verbose_gene_name, ": Insignificant (deviance=", round(residual_deviance,1), ")"))
     return(vec2)
   }
 }
 
 .append_offset <- function(b_mat,
                            covariates){
-  b_mat2 <- matrix(1, nrow = nrow(b_mat), ncol = ncol(covariates))
-  for(j in 1:ncol(covariates)){
-    if(colnames(covariates)[j] %in% colnames(b_mat)){
-      idx <- which(colnames(b_mat) == colnames(covariates)[j])
-      b_mat2[,j] <- b_mat[,j]
+  b_mat2 <- matrix(1, nrow = nrow(b_mat), ncol = ncol(covariates)+1)
+  rownames(b_mat2) <- rownames(b_mat)
+  colnames(b_mat2) <- c("Intercept", colnames(covariates))
+
+  for(j in 1:ncol(b_mat2)){
+    if(colnames(b_mat2)[j] %in% colnames(b_mat)){
+      idx <- which(colnames(b_mat) == colnames(b_mat2)[j])
+      b_mat2[,j] <- b_mat[,idx]
+    } else if(colnames(b_mat2)[j] == "Intercept"){
+      b_mat2[,j] <- b_mat[,"Intercept"]
     }
   }
-
-  rownames(b_mat2) <- rownames(b_mat)
-  colnames(b_mat2) <- colnames(covariates)
 
   b_mat2
 }
