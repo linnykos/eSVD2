@@ -14,7 +14,6 @@ opt_esvd(
   library_size_vec = NA,
   nuisance_param_vec = NA,
   offset_vec = rep(0, nrow(x_init)),
-  bool_run_cpp = T,
   gene_group_factor = factor(rep("1", ncol(dat))),
   l2pen = 0,
   max_cell_subsample = 10 * nrow(dat),
@@ -22,10 +21,11 @@ opt_esvd(
   method = c("newton", "lbfgs"),
   nuisance_value_lower = NA,
   nuisance_value_upper = NA,
-  reparameterize = F,
-  reestimate_nuisance = F,
+  reparameterize = FALSE,
+  reestimate_nuisance = FALSE,
   reestimate_nuisance_per_iteration = 1,
   tol = 1e-06,
+  run_cpp = TRUE,
   verbose = 0,
   ...
 )
@@ -71,6 +71,8 @@ either \code{"newton"} or \code{"lbfgs"}}
 \item{reestimate_nuisance}{a boolean for whether the nuisance parameter is reestimate after every iteration}
 
 \item{tol}{a small positive number for the tolerance of optimization error}
+
+\item{run_cpp}{whether to use C++ code}
 
 \item{verbose}{a non-negative integer to indicate the verbosity of messages}
 

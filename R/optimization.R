@@ -108,7 +108,9 @@ opt_esvd <- function(x_init,
   opt_fun <- if(method == "newton") constr_newton else constr_lbfgs
 
   # Initialize embedding matrices
-  b_mat <- .opt_esvd_setup_b_mat(b_init, covariates)
+  b_mat <- .opt_esvd_setup_b_mat(b_init,
+                                 covariates,
+                                 p = ncol(dat))
   x_mat <- x_init
   y_mat <- y_init
 

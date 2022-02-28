@@ -2,7 +2,6 @@
 
 export(compute_mean)
 export(generate_data)
-export(initialize_esvd)
 export(opt_esvd)
 importFrom(Rcpp,evalCpp)
 useDynLib(eSVD2, .registration = TRUE)

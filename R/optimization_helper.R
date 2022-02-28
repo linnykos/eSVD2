@@ -82,8 +82,8 @@ opt_yb <- function(YB0, XZ, A,
 
     YB[j, ] <- opt$x
     if(verbose >= 4) {
-      print(paste0("Iteration ", i))
-      print(X[i, ])
+      print(paste0("Iteration ", j))
+      print(YB[j, ])
     }
     if(verbose >= 3)  cat("==========\n\n")
   }
@@ -190,7 +190,7 @@ opt_yb <- function(YB0, XZ, A,
 }
 
 # Initialize the B matrix according to covariates
-.opt_esvd_setup_b_mat <- function(b_init, covariates) {
+.opt_esvd_setup_b_mat <- function(b_init, covariates, p) {
   if(is.null(covariates))
   {
     b_mat <- NULL
@@ -198,7 +198,7 @@ opt_yb <- function(YB0, XZ, A,
     if(is.null(b_init))
     {
       r <- ncol(covariates)
-      b_mat <- matrix(0, p, r)
+      b_mat <- matrix(0, nrow = p, r = ncol(covariates))
     } else {
       b_mat <- b_init
     }
