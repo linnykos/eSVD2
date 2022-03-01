@@ -17,7 +17,7 @@ wtdw <- function(w, d)
 # gamma:  nuisance parameter vector [p x 1]
 # offset: offset vector [n x 1]
 # l2pen:  ridge penalty [1]
-objfn_all <- function(X, Y, B, Z, A, family, s, gamma, offset, l2pen, ...)
+objfn_all <- function(X, Y, B, Z, A, family, s, gamma, offset_mat, l2pen, ...)
 {
   # theta = XY'+ZB' + offset
   #
@@ -25,7 +25,7 @@ objfn_all <- function(X, Y, B, Z, A, family, s, gamma, offset, l2pen, ...)
   XZ <- cbind(X, Z)
   YB <- cbind(Y, B)
   theta <- tcrossprod(XZ, YB)  # [n x p]
-  theta <- sweep(theta, 1, offset, "+")
+  theta <- theta + offset_mat
 
   # Call the family function log_prob() to compute entry-wise log-density value
   log_prob <- family$log_prob(A, theta, s, gamma)  # [n x p]
@@ -40,7 +40,7 @@ objfn_all <- function(X, Y, B, Z, A, family, s, gamma, offset, l2pen, ...)
 }
 
 # Objective function value for the i-th row of X
-objfn_Xi <- function(Xi, Y, B, Zi, Ai, family, si, gamma, offseti, l2pen, ...)
+objfn_Xi <- function(Xi, Y, B, Zi, Ai, family, si, gamma, offseti, offset, l2pen, ...)
 {
   # Call the C++ version if the given family has C++ implementation
   if(!is.null(family$cpp_functions))
@@ -49,7 +49,7 @@ objfn_Xi <- function(Xi, Y, B, Zi, Ai, family, si, gamma, offseti, l2pen, ...)
     return(objfn_Xi_impl(Xi, Y, B, Zi, Ai, family, si, gamma, offseti, l2pen))
   }
 
-  thetai <- drop(cbind(Y, B) %*% c(Xi, Zi)) + offseti     # [p x 1]
+  thetai <- drop(cbind(Y, B) %*% c(Xi, Zi)) + offset     # [p x 1]
   log_prob <- family$log_prob_row(Ai, thetai, si, gamma)  # [p x 1]
   # Some entries in Ai may be NAs, and we only aggregate non-missing values
   obs_ind <- which(!is.na(Ai))
@@ -84,7 +84,7 @@ objfn_Yj <- function(Yj, X, Bj, Z, Aj, family, s, gammaj, offset, l2pen, ...)
 }
 
 # Gradient for the i-th row of X
-grad_Xi <- function(Xi, Y, B, Zi, Ai, family, si, gamma, offseti, l2pen, ...)
+grad_Xi <- function(Xi, Y, B, Zi, Ai, family, si, gamma, offseti, offset, l2pen, ...)
 {
   # Call the C++ version if the given family has C++ implementation
   if(!is.null(family$cpp_functions))
@@ -93,7 +93,7 @@ grad_Xi <- function(Xi, Y, B, Zi, Ai, family, si, gamma, offseti, l2pen, ...)
     return(grad_Xi_impl(Xi, Y, B, Zi, Ai, family, si, gamma, offseti, l2pen))
   }
 
-  thetai <- drop(cbind(Y, B) %*% c(Xi, Zi)) + offseti       # [p x 1]
+  thetai <- drop(cbind(Y, B) %*% c(Xi, Zi)) + offset       # [p x 1]
   dlog_prob <- family$dlog_prob_row(Ai, thetai, si, gamma)  # [p x 1]
   # Some entries in Ai may be NAs, and we only aggregate non-missing values
   obs_ind <- which(!is.na(Ai))
@@ -126,7 +126,7 @@ grad_Yj <- function(Yj, X, Bj, Z, Aj, family, s, gammaj, offset, l2pen, ...)
 }
 
 # Hessian for the i-th row of X
-hessian_Xi <- function(Xi, Y, B, Zi, Ai, family, si, gamma, offseti, l2pen, ...)
+hessian_Xi <- function(Xi, Y, B, Zi, Ai, family, si, gamma, offseti, offset, l2pen, ...)
 {
   # Call the C++ version if the given family has C++ implementation
   if(!is.null(family$cpp_functions))
@@ -135,7 +135,7 @@ hessian_Xi <- function(Xi, Y, B, Zi, Ai, family, si, gamma, offseti, l2pen, ...)
     return(hessian_Xi_impl(Xi, Y, B, Zi, Ai, family, si, gamma, offseti, l2pen))
   }
 
-  thetai <- drop(cbind(Y, B) %*% c(Xi, Zi)) + offseti         # [p x 1]
+  thetai <- drop(cbind(Y, B) %*% c(Xi, Zi)) + offset         # [p x 1]
   d2log_prob <- family$d2log_prob_row(Ai, thetai, si, gamma)  # [p x 1]
   # Some entries in Ai may be NAs, and we only aggregate non-missing values
   obs_ind <- which(!is.na(Ai))
@@ -172,7 +172,7 @@ hessian_Yj <- function(Yj, X, Bj, Z, Aj, family, s, gammaj, offset, l2pen, ...)
 }
 
 # Move direction for the i-th row of X, d = -inv(H) * g
-direction_Xi <- function(Xi, Y, B, Zi, Ai, family, si, gamma, offseti, l2pen, ...)
+direction_Xi <- function(Xi, Y, B, Zi, Ai, family, si, gamma, offseti, offset, l2pen, ...)
 {
   # Call the C++ version if the given family has C++ implementation
   if(!is.null(family$cpp_functions))
@@ -181,7 +181,7 @@ direction_Xi <- function(Xi, Y, B, Zi, Ai, family, si, gamma, offseti, l2pen, ..
     return(direction_Xi_impl(Xi, Y, B, Zi, Ai, family, si, gamma, offseti, l2pen))
   }
 
-  thetai <- drop(cbind(Y, B) %*% c(Xi, Zi)) + offseti         # [p x 1]
+  thetai <- drop(cbind(Y, B) %*% c(Xi, Zi)) + offset          # [p x 1]
   dlog_prob <- family$dlog_prob_row(Ai, thetai, si, gamma)    # [p x 1]
   d2log_prob <- family$d2log_prob_row(Ai, thetai, si, gamma)  # [p x 1]
   # Some entries in Ai may be NAs, and we only aggregate non-missing values
@@ -253,12 +253,12 @@ direction_Yj <- function(Yj, X, Bj, Z, Aj, family, s, gammaj, offset, l2pen, ...
 
 # Feasibility of the i-th row of X
 # thetai = Xi * Y' + Zi * B' + offseti
-feas_Xi <- function(Xi, Y, B, Zi, family, offseti, ...)
+feas_Xi <- function(Xi, Y, B, Zi, family, offset, ...)
 {
   if(family$feas_always)
     return(TRUE)
 
-  thetai <- drop(cbind(Y, B) %*% c(Xi, Zi)) + offseti
+  thetai <- drop(cbind(Y, B) %*% c(Xi, Zi)) + offset
   family$feasibility(thetai)
 }
 

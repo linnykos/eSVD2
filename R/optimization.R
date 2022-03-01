@@ -41,24 +41,24 @@
 opt_esvd <- function(x_init,
                      y_init,
                      dat,
-                     family = "gaussian",
                      b_init = NULL,
                      covariates = NULL,
-                     library_size_vec = NA,
-                     nuisance_param_vec = NA,
-                     offset_vec = rep(0, nrow(x_init)),
-                     gene_group_factor = factor(rep("1", ncol(dat))),
+                     family = "poisson",
                      l2pen = 0,
+                     library_size_vec = NA,
+                     offset_mat = NULL,
+                     offset_vec = rep(0, nrow(x_init)),
                      max_cell_subsample = 10 * nrow(dat),
                      max_iter = 100,
                      method = c("newton", "lbfgs"),
                      nuisance_value_lower = NA,
                      nuisance_value_upper = NA,
+                     nuisance_param_vec = NA,
                      reparameterize = FALSE,
                      reestimate_nuisance = FALSE,
                      reestimate_nuisance_per_iteration = 1,
-                     tol = 1e-6,
                      run_cpp = TRUE,
+                     tol = 1e-6,
                      verbose = 0,
                      ...)
 {
@@ -67,7 +67,8 @@ opt_esvd <- function(x_init,
   k <- ncol(x_init)
   stopifnot(
     nrow(x_init) == n, nrow(y_init) == p, ncol(y_init) == k,
-    is.character(family), sum(!is.na(dat)) > 0
+    is.character(family), sum(!is.na(dat)) > 0,
+    all(is.null(offset_vec)) || all(is.null(offset_mat))
   )
 
   # Whether to use C++ code
@@ -79,9 +80,20 @@ opt_esvd <- function(x_init,
     storage.mode(y_init) <- "double"
     storage.mode(dat)    <- "double"
   }
+  # Convert family string to internal family object, e.g. `.esvd.poisson` and `.esvd.neg_binom2`
+  family_str <- family
+  family <- .string_to_distr_funcs(family_str)
+  if(!run_cpp) family$cpp_functions <- NULL
+  # [[note to self: remove this clunky interface when finished with coding]]
+  if(run_cpp & !all(is.null(offset_mat))){
+    warning("The C++ backend is not yet coded to handle an offset matrix. The offset matrix will be ignored.")
+  }
+  if(all(is.null(offset_mat))){
+    offset_mat <- matrix(rep(offset_vec, times = p),
+                         nrow = n, ncol = p)
+  }
 
-  param <- .opt_esvd_format_param(family = family,
-                                  gene_group_factor = gene_group_factor,
+  param <- .opt_esvd_format_param(family = family_str,
                                   l2pen = l2pen,
                                   max_cell_subsample = max_cell_subsample,
                                   max_iter = max_iter,
@@ -94,8 +106,6 @@ opt_esvd <- function(x_init,
                                   tol = tol,
                                   verbose = verbose)
 
-  # Convert family string to internal family object, e.g. `.esvd.poisson` and `.esvd.neg_binom2`
-  family <- .string_to_distr_funcs(family)
   # Parse library size and nuisance parameter
   library_size_vec <- .parse_library_size(dat, library_size_vec)
   if(all(!is.na(nuisance_param_vec)) && length(nuisance_param_vec) == 1) {
@@ -120,18 +130,19 @@ opt_esvd <- function(x_init,
     if(verbose >= 1)
       cat("========== eSVD Iter ", i, " ==========\n\n", sep = "")
     # Optimize X given Y and B
+    # [[note to self: When all the coding is done, fix the notation -- Z should be the coefficients (currently B), while C should be the covariates (currently)]]
     x_mat <- opt_x(X0 = x_mat,
                    Y = y_mat,
                    B = b_mat,
                    Z = covariates,
                    A = dat,
                    family = family,
-                   s = library_size_vec,
                    gamma = nuisance_param_vec,
-                   offset_vec = offset_vec,
                    l2pen = param$l2pen,
+                   offset_mat = offset_mat,
+                   offset_vec = offset_vec,
+                   s = library_size_vec,
                    opt_fun = opt_fun,
-                   gene_group_factor = gene_group_factor,
                    run_cpp = run_cpp,
                    verbose = verbose, ...)
 
@@ -142,10 +153,11 @@ opt_esvd <- function(x_init,
                      XZ = xz_mat,
                      A = dat,
                      family = family,
-                     s = library_size_vec,
                      gamma = nuisance_param_vec,
-                     offset_vec = offset_vec,
                      l2pen = param$l2pen,
+                     offset_mat = offset_mat,
+                     offset_vec = offset_vec,
+                     s = library_size_vec,
                      opt_fun = opt_fun,
                      run_cpp = run_cpp,
                      verbose = verbose, ...)
@@ -160,20 +172,20 @@ opt_esvd <- function(x_init,
       b_mat <- yb_mat[, -(1:k), drop = FALSE]
     }
 
-    if(param$reestimate_nuisance &
-       family$name == "neg_binom2" &
-       i %% param$reestimate_nuisance_per_iteration == 0){
-      nuisance_param_vec <- .opt_nuisance(covariates = covariates,
-                                          dat = dat,
-                                          gene_group_factor = param$gene_group_factor,
-                                          max_cell_subsample = param$max_cell_subsample,
-                                          offset_vec = offset_vec,
-                                          x_mat = x_mat,
-                                          yb_mat = yb_mat,
-                                          value_lower = param$nuisance_value_lower,
-                                          value_upper = param$nuisance_value_upper,
-                                          verbose = verbose)
-    }
+    # if(param$reestimate_nuisance &
+    #    family$name == "neg_binom2" &
+    #    i %% param$reestimate_nuisance_per_iteration == 0){
+    #   nuisance_param_vec <- .opt_nuisance(covariates = covariates,
+    #                                       dat = dat,
+    #                                       gene_group_factor = param$gene_group_factor,
+    #                                       max_cell_subsample = param$max_cell_subsample,
+    #                                       offset_vec = offset_vec,
+    #                                       x_mat = x_mat,
+    #                                       yb_mat = yb_mat,
+    #                                       value_lower = param$nuisance_value_lower,
+    #                                       value_upper = param$nuisance_value_upper,
+    #                                       verbose = verbose)
+    # }
 
     if(param$reparameterize){
       tmp <- tryCatch(.reparameterize(x_mat, y_mat, equal_covariance = T),
@@ -191,7 +203,7 @@ opt_esvd <- function(x_init,
                       family = family,
                       s = library_size_vec,
                       gamma = nuisance_param_vec,
-                      offset = offset_vec,
+                      offset_mat = offset_mat,
                       l2pen = param$l2pen)
     losses <- c(losses, loss)
     if(verbose >= 1)
@@ -204,19 +216,19 @@ opt_esvd <- function(x_init,
       break
   }
 
-  # update nuisances one last time
-  if(param$reestimate_nuisance & family$name == "neg_binom2"){
-    nuisance_param_vec <- .opt_nuisance(covariates = covariates,
-                                        dat = dat,
-                                        gene_group_factor = param$gene_group_factor,
-                                        max_cell_subsample = param$max_cell_subsample,
-                                        offset_vec = offset_vec,
-                                        x_mat = x_mat,
-                                        yb_mat = yb_mat,
-                                        value_lower = param$nuisance_value_lower,
-                                        value_upper = param$nuisance_value_upper,
-                                        verbose = verbose)
-  }
+  # # update nuisances one last time
+  # if(param$reestimate_nuisance & family$name == "neg_binom2"){
+  #   nuisance_param_vec <- .opt_nuisance(covariates = covariates,
+  #                                       dat = dat,
+  #                                       gene_group_factor = param$gene_group_factor,
+  #                                       max_cell_subsample = param$max_cell_subsample,
+  #                                       offset_vec = offset_vec,
+  #                                       x_mat = x_mat,
+  #                                       yb_mat = yb_mat,
+  #                                       value_lower = param$nuisance_value_lower,
+  #                                       value_upper = param$nuisance_value_upper,
+  #                                       verbose = verbose)
+  # }
 
   tmp <- tryCatch(.reparameterize(x_mat, y_mat, equal_covariance = T),
                   error = function(e){list(x_mat = x_mat, y_mat = y_mat)})
@@ -229,9 +241,10 @@ opt_esvd <- function(x_init,
        y_mat = tmp$y_mat,
        covariates = covariates,
        b_mat = tmp$b_mat,
+       library_size_vec = library_size_vec,
        loss = losses,
        nuisance_param_vec = nuisance_param_vec,
-       library_size_vec = library_size_vec,
+       offset_mat = offset_mat,
        offset_vec = offset_vec,
        param = param)
 }

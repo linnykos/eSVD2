@@ -1,9 +1,8 @@
 
 # Optimize X given Y and B
 opt_x <- function(X0, Y, B, Z, A,
-                  family, s, gamma, offset_vec, l2pen,
+                  family, gamma, l2pen, offset_mat, offset_vec, s,
                   opt_fun,
-                  gene_group_factor,
                   run_cpp = TRUE,
                   verbose = 0, ...)
 {
@@ -34,7 +33,8 @@ opt_x <- function(X0, Y, B, Z, A,
       Y = Y, B = B, Zi = Zi,
       Ai = A[i, ],
       family = family, si = s[i], gamma = gamma,
-      offseti = offset_vec[i], l2pen = l2pen, ...
+      offseti = offset_vec[i], offset = offset_mat[i,],
+      l2pen = l2pen, ...
     )
 
     X[i, ] <- opt$x
@@ -49,7 +49,7 @@ opt_x <- function(X0, Y, B, Z, A,
 
 # Optimize Y and B given X
 opt_yb <- function(YB0, XZ, A,
-                   family, s, gamma, offset_vec, l2pen,
+                   family, gamma, l2pen, offset_mat, offset_vec, s,
                    opt_fun,
                    run_cpp = TRUE,
                    verbose = 0, ...)
@@ -77,7 +77,8 @@ opt_yb <- function(YB0, XZ, A,
       eps_rel = 1e-3,
       verbose = (verbose >= 3),
       X = XZ, Bj = NULL, Z = NULL, Aj = A[, j],
-      family = family, s = s, gammaj = gamma[j], offset = offset_vec, l2pen = l2pen, ...
+      family = family, s = s, gammaj = gamma[j],
+      offset = offset_mat[,j], l2pen = l2pen, ...
     )
 
     YB[j, ] <- opt$x
@@ -92,77 +93,76 @@ opt_yb <- function(YB0, XZ, A,
 
 #############################
 
-.opt_nuisance <- function(covariates,
-                          dat,
-                          gene_group_factor,
-                          max_cell_subsample,
-                          offset_vec,
-                          x_mat,
-                          yb_mat,
-                          value_lower,
-                          value_upper,
-                          verbose) {
-  stopifnot(is.factor(gene_group_factor), length(gene_group_factor) == ncol(dat),
-            nrow(x_mat) == nrow(dat), nrow(yb_mat) == ncol(dat),
-            max_cell_subsample > 0,
-            length(value_lower) == length(levels(gene_group_factor)),
-            length(value_upper) == length(levels(gene_group_factor)))
-  if(all(!is.null(covariates))){
-    stopifnot(nrow(covariates) == nrow(dat),
-    ncol(x_mat) + ncol(covariates) == ncol(yb_mat))
-  }
-  p <- ncol(dat); n <- nrow(dat)
-  nuisance_param_vec <- rep(NA, p)
-
-  theta_mat <- tcrossprod(cbind(x_mat, covariates), yb_mat)
-  if(all(!is.null(offset_vec))) {
-    stopifnot(length(offset_vec) == nrow(x_mat))
-    theta_mat <- sweep(theta_mat, 1, offset_vec, "+")
-  }
-
-  gene_groups <- levels(gene_group_factor)
-  for(i in 1:length(gene_groups)){
-    if(verbose == 1 & length(gene_groups) > 10 & i %% floor(length(gene_groups)/10) == 0){
-      cat('*')
-    } else if(verbose >= 2) {
-      print(paste0("Updating nuisance parameter for group ", gene_groups[i]))
-    }
-    gene_idx <- which(gene_group_factor == gene_groups[i])
-
-    tmp_dat <- dat[,gene_idx]
-    tmp_theta <- theta_mat[,gene_idx]
-    if(length(tmp_dat) > max_cell_subsample){
-      cell_idx <- sample(1:length(tmp_dat), size = max_cell_subsample, replace = F)
-      y_vec <- as.numeric(tmp_dat[cell_idx])
-      mean_vec <- as.numeric(exp(tmp_theta[cell_idx]))
-    } else {
-      y_vec <- as.numeric(tmp_dat)
-      mean_vec <- as.numeric(exp(tmp_theta))
-    }
-
-    # seems more robust than glmGamPoi::overdispersion_mle
-    val <- MASS::theta.mm(y = y_vec,
-                          mu = mean_vec,
-                          dfr = length(y_vec)-1)
-
-    # apply the constraints
-    if(!is.na(value_lower[i])){
-      val <- max(val, value_lower[i])
-    }
-    if(!is.na(value_upper[i])){
-      val <- min(val, value_upper[i])
-    }
-
-    nuisance_param_vec[gene_idx] <- val
-  }
-
-  nuisance_param_vec
-}
+# .opt_nuisance <- function(covariates,
+#                           dat,
+#                           gene_group_factor,
+#                           max_cell_subsample,
+#                           offset_vec,
+#                           x_mat,
+#                           yb_mat,
+#                           value_lower,
+#                           value_upper,
+#                           verbose) {
+#   stopifnot(is.factor(gene_group_factor), length(gene_group_factor) == ncol(dat),
+#             nrow(x_mat) == nrow(dat), nrow(yb_mat) == ncol(dat),
+#             max_cell_subsample > 0,
+#             length(value_lower) == length(levels(gene_group_factor)),
+#             length(value_upper) == length(levels(gene_group_factor)))
+#   if(all(!is.null(covariates))){
+#     stopifnot(nrow(covariates) == nrow(dat),
+#     ncol(x_mat) + ncol(covariates) == ncol(yb_mat))
+#   }
+#   p <- ncol(dat); n <- nrow(dat)
+#   nuisance_param_vec <- rep(NA, p)
+#
+#   theta_mat <- tcrossprod(cbind(x_mat, covariates), yb_mat)
+#   if(all(!is.null(offset_vec))) {
+#     stopifnot(length(offset_vec) == nrow(x_mat))
+#     theta_mat <- sweep(theta_mat, 1, offset_vec, "+")
+#   }
+#
+#   gene_groups <- levels(gene_group_factor)
+#   for(i in 1:length(gene_groups)){
+#     if(verbose == 1 & length(gene_groups) > 10 & i %% floor(length(gene_groups)/10) == 0){
+#       cat('*')
+#     } else if(verbose >= 2) {
+#       print(paste0("Updating nuisance parameter for group ", gene_groups[i]))
+#     }
+#     gene_idx <- which(gene_group_factor == gene_groups[i])
+#
+#     tmp_dat <- dat[,gene_idx]
+#     tmp_theta <- theta_mat[,gene_idx]
+#     if(length(tmp_dat) > max_cell_subsample){
+#       cell_idx <- sample(1:length(tmp_dat), size = max_cell_subsample, replace = F)
+#       y_vec <- as.numeric(tmp_dat[cell_idx])
+#       mean_vec <- as.numeric(exp(tmp_theta[cell_idx]))
+#     } else {
+#       y_vec <- as.numeric(tmp_dat)
+#       mean_vec <- as.numeric(exp(tmp_theta))
+#     }
+#
+#     # seems more robust than glmGamPoi::overdispersion_mle
+#     val <- MASS::theta.mm(y = y_vec,
+#                           mu = mean_vec,
+#                           dfr = length(y_vec)-1)
+#
+#     # apply the constraints
+#     if(!is.na(value_lower[i])){
+#       val <- max(val, value_lower[i])
+#     }
+#     if(!is.na(value_upper[i])){
+#       val <- min(val, value_upper[i])
+#     }
+#
+#     nuisance_param_vec[gene_idx] <- val
+#   }
+#
+#   nuisance_param_vec
+# }
 
 ##########################
 
 .opt_esvd_format_param <- function(family,
-                                   gene_group_factor,
                                    l2pen,
                                    max_cell_subsample,
                                    max_iter,
