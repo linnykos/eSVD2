@@ -2,8 +2,9 @@ initialize_esvd <- function(dat,
                             covariates,
                             case_control_variable,
                             offset_variables,
-                            k = 10,
-                            lambda = 0.01,
+                            k = 30,
+                            lambda = 0.1,
+                            mixed_effect_variables = NULL,
                             p_val_thres = 0.05,
                             tol = 1e-3,
                             verbose = 0,
@@ -17,11 +18,14 @@ initialize_esvd <- function(dat,
   n <- nrow(dat); p <- ncol(dat)
   dat[is.na(dat)] <- 0
 
+  # [[note to self: make mixed_effect_variables easier to use]]
+
   if(verbose >= 1) print("Step 1: Performing GLMs")
   b_mat <- .initialize_coefficient(case_control_variable = case_control_variable,
                                    covariates = covariates,
                                    dat = dat,
                                    lambda = lambda,
+                                   mixed_effect_variables = mixed_effect_variables,
                                    offset_variables = offset_variables,
                                    p_val_thres = p_val_thres,
                                    verbose = verbose,
@@ -56,6 +60,7 @@ initialize_esvd <- function(dat,
                                     covariates,
                                     dat,
                                     lambda,
+                                    mixed_effect_variables,
                                     offset_variables,
                                     p_val_thres,
                                     verbose = 0,
@@ -77,6 +82,7 @@ initialize_esvd <- function(dat,
     b_mat[j,] <- .lrt_coefficient(case_control_variable = case_control_variable,
                                   covariates = covariates_nooffset,
                                   lambda = lambda,
+                                  mixed_effect_variables = mixed_effect_variables,
                                   offset_vec = offset_vec,
                                   p_val_thres = p_val_thres,
                                   vec = dat[,j],
@@ -99,20 +105,26 @@ initialize_esvd <- function(dat,
 .lrt_coefficient <- function(case_control_variable,
                              covariates,
                              lambda,
+                             mixed_effect_variables,
                              offset_vec,
                              p_val_thres,
                              vec,
                              verbose = 0,
                              verbose_additional_msg = "",
                              verbose_gene_name = ""){
+  penalty_factor <- rep(0, ncol(covariates))
+  penalty_factor[colnames(covariates) %in% mixed_effect_variables] <- 1
+
+  # see https://statisticaloddsandends.wordpress.com/2018/11/13/a-deep-dive-into-glmnet-penalty-factor/
   glm_fit1 <- glmnet::glmnet(x = covariates,
                              y = vec,
-                             family = "poisson",
-                             offset = offset_vec,
                              alpha = 0,
-                             standardize = F,
+                             family = "poisson",
                              intercept = T,
-                             lambda = exp(seq(log(1e4), log(lambda), length.out = 100)))
+                             lambda = exp(seq(log(1e4), log(lambda), length.out = 100)),
+                             offset = offset_vec,
+                             penalty.factor = penalty_factor,
+                             standardize = F)
   coef_vec1 <- c(glm_fit1$a0[length(glm_fit1$a0)], glm_fit1$beta[,ncol(glm_fit1$beta)])
   mean_vec1 <- exp(covariates %*% coef_vec1[-1] + offset_vec + coef_vec1[1])
   log_vec <- vec/mean_vec1; log_vec[vec != 0] <- log(log_vec[vec != 0])
@@ -121,12 +133,13 @@ initialize_esvd <- function(dat,
   covariates2 <- covariates[,which(colnames(covariates) != case_control_variable), drop = F]
   glm_fit2 <- glmnet::glmnet(x = covariates2,
                              y = vec,
-                             family = "poisson",
-                             offset = offset_vec,
                              alpha = 0,
-                             standardize = F,
+                             family = "poisson",
                              intercept = T,
-                             lambda = exp(seq(log(1e4), log(lambda), length.out = 100)))
+                             lambda = exp(seq(log(1e4), log(lambda), length.out = 100)),
+                             offset = offset_vec,
+                             penalty.factor = penalty_factor,
+                             standardize = F)
   coef_vec2 <- c(glm_fit2$a0[length(glm_fit2$a0)], glm_fit2$beta[,ncol(glm_fit2$beta)])
   mean_vec2 <- exp(covariates2 %*% coef_vec2[-1] + offset_vec + coef_vec2[1])
   log_vec <- vec/mean_vec2; log_vec[vec != 0] <- log(log_vec[vec != 0])
