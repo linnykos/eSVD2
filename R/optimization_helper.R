@@ -175,7 +175,6 @@ opt_yb <- function(YB0, XZ, A,
                                    tol,
                                    verbose) {
   list(family = family,
-       gene_group_factor = gene_group_factor,
        l2pen = l2pen,
        max_cell_subsample = max_cell_subsample,
        max_iter = max_iter,
