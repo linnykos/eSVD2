@@ -112,10 +112,9 @@ initialize_esvd <- function(dat,
                              verbose = 0,
                              verbose_additional_msg = "",
                              verbose_gene_name = ""){
-  penalty_factor <- rep(0, ncol(covariates))
-  penalty_factor[colnames(covariates) %in% mixed_effect_variables] <- 1
-
   # see https://statisticaloddsandends.wordpress.com/2018/11/13/a-deep-dive-into-glmnet-penalty-factor/
+  penalty_factor1 <- rep(0, ncol(covariates))
+  penalty_factor1[colnames(covariates) %in% mixed_effect_variables] <- 1
   glm_fit1 <- glmnet::glmnet(x = covariates,
                              y = vec,
                              alpha = 0,
@@ -123,7 +122,7 @@ initialize_esvd <- function(dat,
                              intercept = T,
                              lambda = exp(seq(log(1e4), log(lambda), length.out = 100)),
                              offset = offset_vec,
-                             penalty.factor = penalty_factor,
+                             penalty.factor = penalty_factor1,
                              standardize = F)
   coef_vec1 <- c(glm_fit1$a0[length(glm_fit1$a0)], glm_fit1$beta[,ncol(glm_fit1$beta)])
   mean_vec1 <- exp(covariates %*% coef_vec1[-1] + offset_vec + coef_vec1[1])
@@ -131,6 +130,8 @@ initialize_esvd <- function(dat,
   deviance1 <- 2*sum(vec*log_vec - (vec - mean_vec1))
 
   covariates2 <- covariates[,which(colnames(covariates) != case_control_variable), drop = F]
+  penalty_factor2 <- rep(0, ncol(covariates2))
+  penalty_factor2[colnames(covariates2) %in% mixed_effect_variables] <- 1
   glm_fit2 <- glmnet::glmnet(x = covariates2,
                              y = vec,
                              alpha = 0,
@@ -138,7 +139,7 @@ initialize_esvd <- function(dat,
                              intercept = T,
                              lambda = exp(seq(log(1e4), log(lambda), length.out = 100)),
                              offset = offset_vec,
-                             penalty.factor = penalty_factor,
+                             penalty.factor = penalty_factor2,
                              standardize = F)
   coef_vec2 <- c(glm_fit2$a0[length(glm_fit2$a0)], glm_fit2$beta[,ncol(glm_fit2$beta)])
   mean_vec2 <- exp(covariates2 %*% coef_vec2[-1] + offset_vec + coef_vec2[1])
