@@ -17,6 +17,12 @@ initialize_esvd <- function(dat,
             lambda <= 1e4)
   n <- nrow(dat); p <- ncol(dat)
   dat[is.na(dat)] <- 0
+  param <- .initalize_format_param(case_control_variable = case_control_variable,
+                                   offset_variables = offset_variables,
+                                   k = k,
+                                   lambda = lambda,
+                                   mixed_effect_variables = mixed_effect_variables,
+                                   p_val_thres = p_val_thres)
 
   # [[note to self: make mixed_effect_variables easier to use]]
 
@@ -36,8 +42,6 @@ initialize_esvd <- function(dat,
   if(verbose >= 1) print("Step 1b: Cleaning up coefficients")
   covariates <- cbind(rep(1, n), covariates)
   colnames(covariates)[1] <- "Intercept"
-  print(dim(covariates))
-  print(dim(b_mat))
   col_idx <- sapply(colnames(covariates), function(i){which(colnames(b_mat) == i)})
   b_mat <- b_mat[,as.numeric(col_idx)]
 
@@ -50,7 +54,8 @@ initialize_esvd <- function(dat,
   structure(list(x_mat = tmp$x_mat, y_mat = tmp$y_mat,
                  b_mat = b_mat,
                  covariates = covariates,
-                 nuisance_param_vec = rep(0, ncol(dat))),
+                 nuisance_param_vec = rep(0, ncol(dat)),
+                 param = param),
             class = "eSVD")
 }
 
@@ -222,3 +227,18 @@ initialize_esvd <- function(dat,
 #     nuisance_init <- NULL
 #   }
 # }
+
+
+.initalize_format_param <- function(case_control_variable,
+                                    offset_variables,
+                                    k,
+                                    lambda,
+                                    mixed_effect_variables,
+                                    p_val_thres) {
+  list(case_control_variable = case_control_variable,
+       offset_variables = offset_variables,
+       k = k,
+       lambda = lambda,
+       mixed_effect_variables = mixed_effect_variables,
+       p_val_thres = p_val_thres)
+}
