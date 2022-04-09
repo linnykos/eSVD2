@@ -9,6 +9,18 @@ opt_yb_cpp <- function(YB0, XZ, A, family, s, gamma, offset, l2pen, verbose = 0L
     .Call(`_eSVD2_opt_yb_cpp`, YB0, XZ, A, family, s, gamma, offset, l2pen, verbose)
 }
 
+.data_loader <- function(mat) {
+    .Call(`_eSVD2_data_loader`, mat)
+}
+
+data_loader_description <- function(loader_) {
+    invisible(.Call(`_eSVD2_data_loader_description`, loader_))
+}
+
+test_data_loader <- function(mat) {
+    invisible(.Call(`_eSVD2_test_data_loader`, mat))
+}
+
 objfn_Xi_impl <- function(Xi, Y, B, Zi, Ai, family, si, gamma, offseti, l2pen) {
     .Call(`_eSVD2_objfn_Xi_impl`, Xi, Y, B, Zi, Ai, family, si, gamma, offseti, l2pen)
 }

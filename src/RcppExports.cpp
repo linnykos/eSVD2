@@ -52,6 +52,37 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// data_loader
+SEXP data_loader(SEXP mat);
+RcppExport SEXP _eSVD2_data_loader(SEXP matSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type mat(matSEXP);
+    rcpp_result_gen = Rcpp::wrap(data_loader(mat));
+    return rcpp_result_gen;
+END_RCPP
+}
+// data_loader_description
+void data_loader_description(SEXP loader_);
+RcppExport SEXP _eSVD2_data_loader_description(SEXP loader_SEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type loader_(loader_SEXP);
+    data_loader_description(loader_);
+    return R_NilValue;
+END_RCPP
+}
+// test_data_loader
+void test_data_loader(SEXP mat);
+RcppExport SEXP _eSVD2_test_data_loader(SEXP matSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type mat(matSEXP);
+    test_data_loader(mat);
+    return R_NilValue;
+END_RCPP
+}
 // objfn_Xi_impl
 double objfn_Xi_impl(MapVec Xi, MapMat Y, SEXP B, SEXP Zi, MapVec Ai, Environment family, double si, MapVec gamma, double offseti, double l2pen);
 RcppExport SEXP _eSVD2_objfn_Xi_impl(SEXP XiSEXP, SEXP YSEXP, SEXP BSEXP, SEXP ZiSEXP, SEXP AiSEXP, SEXP familySEXP, SEXP siSEXP, SEXP gammaSEXP, SEXP offsetiSEXP, SEXP l2penSEXP) {
@@ -259,6 +290,9 @@ END_RCPP
 static const R_CallMethodDef CallEntries[] = {
     {"_eSVD2_opt_x_cpp", (DL_FUNC) &_eSVD2_opt_x_cpp, 11},
     {"_eSVD2_opt_yb_cpp", (DL_FUNC) &_eSVD2_opt_yb_cpp, 9},
+    {"_eSVD2_data_loader", (DL_FUNC) &_eSVD2_data_loader, 1},
+    {"_eSVD2_data_loader_description", (DL_FUNC) &_eSVD2_data_loader_description, 1},
+    {"_eSVD2_test_data_loader", (DL_FUNC) &_eSVD2_test_data_loader, 1},
     {"_eSVD2_objfn_Xi_impl", (DL_FUNC) &_eSVD2_objfn_Xi_impl, 10},
     {"_eSVD2_objfn_Yj_impl", (DL_FUNC) &_eSVD2_objfn_Yj_impl, 10},
     {"_eSVD2_grad_Xi_impl", (DL_FUNC) &_eSVD2_grad_Xi_impl, 10},
