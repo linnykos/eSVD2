@@ -7,7 +7,23 @@
 // Type of the element
 enum class Flag { na, regular, zero };
 
-// Abstract class to represent the iterator for a row or a column
+// Abstract class to represent the iterator for a vector,
+// typically a row or a column of a matrix
+//
+// The purpose of this class is to unify the interface of iterations
+// over vectors, as the vector can be either dense or sparse.
+// To loop over all elements in the vector, including sparse zeros,
+// we can do:
+//
+// for(; iter; ++iter)
+// {
+//     double val;
+//     Flag flag = iter.value(val);
+// }
+//
+// The `flag` variable indicates whether the current element is
+// NA, a regular value, or a sparse zero
+//
 class VecIterator
 {
 protected:
@@ -42,8 +58,11 @@ public:
 
     inline Flag value(double& val) const override
     {
+        // Get the element of the original type
         const T Tval = m_data[this->m_pos];
+        // Cast to double type
         val = static_cast<double>(Tval);
+        // Test NA according to the original type
         const bool isna = (std::is_same<T, int>::value) ?
             Rcpp::IntegerVector::is_na(Tval) :
             Rcpp::NumericVector::is_na(val);
@@ -52,6 +71,7 @@ public:
 };
 
 // VecIterator for a sparse vector
+// The element type is always double
 class SparseVecIterator: public VecIterator
 {
 private:
@@ -103,6 +123,11 @@ public:
 
 
 // Abstract class for data loader
+//
+// The purpose of this class is to unify the interface of data loading,
+// as the data matrix can be either dense or sparse. Also, for dense
+// matrices, the element type can be int or double.
+//
 class DataLoader
 {
 protected:
