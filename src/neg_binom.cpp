@@ -1,130 +1,58 @@
 #include <Rcpp.h>
 #include "distribution.h"
 
-using Rcpp::NumericVector;
-
 class NegBinom: public Distribution
 {
 public:
-    // Log-density for the i-th row of the data matrix, res[p x 1]
-    // res[j] <- 0 if Ai[j] is NA
-    // Returns the number of non-NA elements in Ai
-    int log_prob_row(
-        int p, const double* Ai, const double* thetai,
-        double si, const double* gamma, double* res
-    )
+    // Log-density for a single data point Aij
+    inline double log_prob_single(
+        double Aij, double thetaij, double si, double gammaj,
+        double fn_si, double fn_gammaj
+    ) const override
     {
-        int non_na = 0;
-        for(int j = 0; j < p; j++)
-        {
-            if(NumericVector::is_na(Ai[j]))
-            {
-                res[j] = 0.0;
-            } else {
-                non_na++;
-                res[j] = Ai[j] * thetai[j] + si * gamma[j] * std::log(1.0 - std::exp(thetai[j]));
-            }
-        }
-        return non_na;
+        return Aij * thetaij + si * gammaj * std::log(1.0 - std::exp(thetaij));
     }
 
-    // Log-density for the j-th column of the data matrix, res [n x 1]
-    // res[i] <- 0 if Aj[i] is NA
-    // Returns the number of non-NA elements in Aj
-    int log_prob_col(
-        int n, const double* Aj, const double* thetaj,
-        const double* s, double gammaj, double* res
-    )
+    // Special case of Aij==0
+    inline double log_prob_single(
+        double thetaij, double si, double gammaj,
+        double fn_si, double fn_gammaj
+    ) const override
     {
-        int non_na = 0;
-        for(int i = 0; i < n; i++)
-        {
-            if(NumericVector::is_na(Aj[i]))
-            {
-                res[i] = 0.0;
-            } else {
-                non_na++;
-                res[i] = Aj[i] * thetaj[i] + s[i] * gammaj * std::log(1.0 - std::exp(thetaj[i]));
-            }
-        }
-        return non_na;
+        return si * gammaj * std::log(1.0 - std::exp(thetaij));
     }
 
-    // 1st and 2nd derivatives of log-density w.r.t. the i-th row of theta, res [p x 1]
-    // res[j] <- 0 if Ai[j] is NA
-    // res1 or res2 can be NULL, in which case the corresponding derivatives are not computed
-    // Returns the number of non-NA elements in Ai
-    int d12log_prob_row(
-        int p, const double* Ai, const double* thetai,
-        double si, const double* gamma, double* res1, double* res2
-    )
+    // 1st and 2nd derivatives of the log-density function w.r.t. thetaij
+    inline void d12log_prob_single(
+        double Aij, double thetaij, double si, double gammaj,
+        double fn_si, double fn_gammaj, bool compute_d1, bool compute_d2,
+        double* res1, double* res2
+    ) const override
     {
-        const bool compute_d1 = (res1 != NULL);
-        const bool compute_d2 = (res2 != NULL);
-        int non_na = 0;
-        for(int j = 0; j < p; j++)
-        {
-            if(NumericVector::is_na(Ai[j]))
-            {
-                if(compute_d1)
-                    res1[j] = 0.0;
-                if(compute_d2)
-                    res2[j] = 0.0;
-            } else {
-                non_na++;
-                const double exp_theta = std::exp(thetai[j]);
-                const double one_minus_exp_theta = 1.0 - exp_theta;
-                const double common = -si * gamma[j] * exp_theta / one_minus_exp_theta;
-                if(compute_d1)
-                    res1[j] = Ai[j] + common;
-                if(compute_d2)
-                    res2[j] = common / one_minus_exp_theta;
-            }
-        }
-        return non_na;
+        const double exp_theta = std::exp(thetaij);
+        const double one_minus_exp_theta = 1.0 - exp_theta;
+        const double common = -si * gammaj * exp_theta / one_minus_exp_theta;
+        if(compute_d1) *res1 = Aij + common;
+        if(compute_d2) *res2 = common / one_minus_exp_theta;
     }
 
-    // 1st and 2nd derivatives of log-density w.r.t. the j-th column of theta, res [n x 1]
-    // res[i] <- 0 if Aj[i] is NA
-    // res1 or res2 can be NULL, in which case the corresponding derivatives are not computed
-    // Returns the number of non-NA elements in Aj
-    int d12log_prob_col(
-        int n, const double* Aj, const double* thetaj,
-        const double* s, double gammaj, double* res1, double* res2
-    )
+    // Special case of Aij==0
+    inline void d12log_prob_single(
+        double thetaij, double si, double gammaj,
+        double fn_si, double fn_gammaj, bool compute_d1, bool compute_d2,
+        double* res1, double* res2
+    ) const override
     {
-        const bool compute_d1 = (res1 != NULL);
-        const bool compute_d2 = (res2 != NULL);
-        int non_na = 0;
-        for(int i = 0; i < n; i++)
-        {
-            if(NumericVector::is_na(Aj[i]))
-            {
-                if(compute_d1)
-                    res1[i] = 0.0;
-                if(compute_d2)
-                    res2[i] = 0.0;
-            } else {
-                non_na++;
-                const double exp_theta = std::exp(thetaj[i]);
-                const double one_minus_exp_theta = 1.0 - exp_theta;
-                const double common = -s[i] * gammaj * exp_theta / one_minus_exp_theta;
-                if(compute_d1)
-                    res1[i] = Aj[i] + common;
-                if(compute_d2)
-                    res2[i] = common / one_minus_exp_theta;
-            }
-        }
-        return non_na;
+        const double exp_theta = std::exp(thetaij);
+        const double one_minus_exp_theta = 1.0 - exp_theta;
+        const double common = -si * gammaj * exp_theta / one_minus_exp_theta;
+        if(compute_d1) *res1 = common;
+        if(compute_d2) *res2 = common / one_minus_exp_theta;
     }
 
     // Feasibility of the natural parameter
-    bool feas_always()
-    {
-        return false;
-    };
-
-    bool feasibility(int n, const double* theta)
+    inline bool feas_always() const override { return false; }
+    inline bool feasibility(int n, const double* theta) const override
     {
         for(int i = 0; i < n; i++)
             if(theta[i] >= 0.0)
