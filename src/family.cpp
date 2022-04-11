@@ -1,4 +1,4 @@
-#include "family2.h"
+#include "family.h"
 
 using Rcpp::NumericMatrix;
 using Rcpp::NumericVector;

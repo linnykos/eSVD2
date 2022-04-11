@@ -1,5 +1,5 @@
 #include "distribution.h"
-#include "family2.h"
+#include "family.h"
 
 using Rcpp::List;
 
