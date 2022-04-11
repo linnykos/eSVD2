@@ -27,10 +27,10 @@ List esvd_family(std::string family)
         Rcpp::stop("unimplemented family");
 
     return List::create(
+        Rcpp::Named("internal") = Rcpp::XPtr<Distribution>(distr, true),
         Rcpp::Named("name") = family,
-        Rcpp::Named("feas_always") = distr->feas_always(),
         Rcpp::Named("domain") = distr->domain(),
-        Rcpp::Named("internal") = Rcpp::XPtr<Distribution>(distr, true)
+        Rcpp::Named("feas_always") = distr->feas_always()
     );
 }
 

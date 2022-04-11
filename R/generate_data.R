@@ -20,7 +20,7 @@
 generate_data <- function(
     nat_mat, family, nuisance_param_vec = NA, library_size_vec = 1, tol = 1e-3
 ) {
-  family <- .string_to_distr_funcs(family)
+  family <- esvd_family(as.character(family))
   stopifnot(
     is.matrix(nat_mat),
     length(nuisance_param_vec) %in% c(1, ncol(nat_mat)),

@@ -106,7 +106,15 @@ esvd_family <- function(family)
 {
   family <- as.character(family)
   obj <- .esvd_family(family)
+
+  # Additional functions
+  obj$feasibility <- function(nat)
+  {
+    obj$feas_always ||
+      (all(nat > obj$domain[1]) && all(nat < obj$domain[2]))
+  }
   obj$dat_to_nat <- get(sprintf(".dat_to_nat.%s", family))
   obj$nat_to_canon <- .nat_to_canon(family)
+
   structure(obj, class = "esvd_family")
 }

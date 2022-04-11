@@ -75,17 +75,3 @@ compute_mean <- function(nat_mat, family, nuisance_param_vec = NA,
 
   library_size_vec / min(library_size_vec)
 }
-
-# Convert family name to the actual distribution structure
-.string_to_distr_funcs <- function(family)
-{
-  switch(family,
-         bernoulli       = .esvd.bernoulli,
-         curved_gaussian = .esvd.curved_gaussian,
-         exponential     = .esvd.exponential,
-         gaussian        = .esvd.gaussian,
-         neg_binom       = .esvd.neg_binom,
-         neg_binom2      = .esvd.neg_binom2,
-         poisson         = .esvd.poisson,
-         stop("unsupported distribution family"))
-}
