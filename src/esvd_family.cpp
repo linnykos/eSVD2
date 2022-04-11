@@ -1,8 +1,10 @@
 #include "distribution.h"
 #include "family2.h"
 
+using Rcpp::List;
+
 // [[Rcpp::export(.esvd_family)]]
-SEXP esvd_family(std::string family)
+List esvd_family(std::string family)
 {
     Distribution* distr;
 
@@ -16,7 +18,12 @@ SEXP esvd_family(std::string family)
     else
         Rcpp::stop("unimplemented family");
 
-    return Rcpp::XPtr<Distribution>(distr, true);
+    return List::create(
+        Rcpp::Named("name") = family,
+        Rcpp::Named("feas_always") = distr->feas_always(),
+        Rcpp::Named("domain") = distr->domain(),
+        Rcpp::Named("internal") = Rcpp::XPtr<Distribution>(distr, true)
+    );
 }
 
 
@@ -24,13 +31,13 @@ SEXP esvd_family(std::string family)
 // X [n x k], C [n x r], Y [p x k], Z [p x r]
 // [[Rcpp::export]]
 double objfn_all_r(
-    MapMat XC, MapMat YZ, int k, SEXP loader, SEXP family,
+    MapMat XC, MapMat YZ, int k, SEXP loader, List family,
     NumericVector s, NumericVector gamma,
     NumericVector l2penx, NumericVector l2peny, NumericVector l2penz
 )
 {
     Rcpp::XPtr<DataLoader> data_loader(loader);
-    Rcpp::XPtr<Distribution> distr(family);
+    Rcpp::XPtr<Distribution> distr = family["internal"];
     MapVec l2penxv = Rcpp::as<MapVec>(l2penx);
     MapVec l2penyv = Rcpp::as<MapVec>(l2peny);
     MapVec l2penzv = Rcpp::as<MapVec>(l2penz);
@@ -67,12 +74,12 @@ double objfn_all_r(
 // [[Rcpp::export]]
 double objfn_Xi_r(
     MapVec XCi, MapMat YZ, int k,
-    SEXP loader, int row_ind, SEXP family,
+    SEXP loader, int row_ind, List family,
     double si, NumericVector gamma, double l2penx
 )
 {
     Rcpp::XPtr<DataLoader> data_loader(loader);
-    Rcpp::XPtr<Distribution> distr(family);
+    Rcpp::XPtr<Distribution> distr = family["internal"];
     MapVec gammav = Rcpp::as<MapVec>(gamma);
     return objfn_Xi(XCi, YZ, k, data_loader, row_ind, distr, si, gammav, l2penx);
 }
@@ -80,12 +87,12 @@ double objfn_Xi_r(
 // [[Rcpp::export]]
 NumericVector grad_Xi_r(
     MapVec XCi, MapMat YZ, int k,
-    SEXP loader, int row_ind, SEXP family,
+    SEXP loader, int row_ind, List family,
     double si, NumericVector gamma, double l2penx
 )
 {
     Rcpp::XPtr<DataLoader> data_loader(loader);
-    Rcpp::XPtr<Distribution> distr(family);
+    Rcpp::XPtr<Distribution> distr = family["internal"];
     MapVec gammav = Rcpp::as<MapVec>(gamma);
     return grad_Xi(XCi, YZ, k, data_loader, row_ind, distr, si, gammav, l2penx);
 }
@@ -93,32 +100,32 @@ NumericVector grad_Xi_r(
 // [[Rcpp::export]]
 NumericMatrix hessian_Xi_r(
     MapVec XCi, MapMat YZ, int k,
-    SEXP loader, int row_ind, SEXP family,
+    SEXP loader, int row_ind, List family,
     double si, NumericVector gamma, double l2penx
 )
 {
     Rcpp::XPtr<DataLoader> data_loader(loader);
-    Rcpp::XPtr<Distribution> distr(family);
+    Rcpp::XPtr<Distribution> distr = family["internal"];
     MapVec gammav = Rcpp::as<MapVec>(gamma);
     return hessian_Xi(XCi, YZ, k, data_loader, row_ind, distr, si, gammav, l2penx);
 }
 
 // [[Rcpp::export]]
-bool feas_Xi_r(MapVec XCi, MapMat YZ, SEXP family)
+bool feas_Xi_r(MapVec XCi, MapMat YZ, List family)
 {
-    Rcpp::XPtr<Distribution> distr(family);
+    Rcpp::XPtr<Distribution> distr = family["internal"];
     return feas_Xi(XCi, YZ, distr);
 }
 
 // [[Rcpp::export]]
 double objfn_YZj_r(
     MapMat XC, MapVec YZj, int k, IntegerVector YZind,
-    SEXP loader, int col_ind, SEXP family,
+    SEXP loader, int col_ind, List family,
     NumericVector s, double gammaj, double l2peny, double l2penz
 )
 {
     Rcpp::XPtr<DataLoader> data_loader(loader);
-    Rcpp::XPtr<Distribution> distr(family);
+    Rcpp::XPtr<Distribution> distr = family["internal"];
     MapVec sv = Rcpp::as<MapVec>(s);
     return objfn_YZj(XC, YZj, k, YZind, data_loader, col_ind, distr, sv, gammaj, l2peny, l2penz);
 }
@@ -126,12 +133,12 @@ double objfn_YZj_r(
 // [[Rcpp::export]]
 NumericVector grad_YZj_r(
     MapMat XC, MapVec YZj, int k, IntegerVector YZind,
-    SEXP loader, int col_ind, SEXP family,
+    SEXP loader, int col_ind, List family,
     NumericVector s, double gammaj, double l2peny, double l2penz
 )
 {
     Rcpp::XPtr<DataLoader> data_loader(loader);
-    Rcpp::XPtr<Distribution> distr(family);
+    Rcpp::XPtr<Distribution> distr = family["internal"];
     MapVec sv = Rcpp::as<MapVec>(s);
     return grad_YZj(XC, YZj, k, YZind, data_loader, col_ind, distr, sv, gammaj, l2peny, l2penz);
 }
@@ -139,19 +146,19 @@ NumericVector grad_YZj_r(
 // [[Rcpp::export]]
 NumericMatrix hessian_YZj_r(
     MapMat XC, MapVec YZj, int k, IntegerVector YZind,
-    SEXP loader, int col_ind, SEXP family,
+    SEXP loader, int col_ind, List family,
     NumericVector s, double gammaj, double l2peny, double l2penz
 )
 {
     Rcpp::XPtr<DataLoader> data_loader(loader);
-    Rcpp::XPtr<Distribution> distr(family);
+    Rcpp::XPtr<Distribution> distr = family["internal"];
     MapVec sv = Rcpp::as<MapVec>(s);
     return hessian_YZj(XC, YZj, k, YZind, data_loader, col_ind, distr, sv, gammaj, l2peny, l2penz);
 }
 
 // [[Rcpp::export]]
-bool feas_YZj_r(MapMat XC, MapVec YZj, SEXP family)
+bool feas_YZj_r(MapMat XC, MapVec YZj, List family)
 {
-    Rcpp::XPtr<Distribution> distr(family);
+    Rcpp::XPtr<Distribution> distr = family["internal"];
     return feas_YZj(XC, YZj, distr);
 }

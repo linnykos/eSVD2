@@ -230,6 +230,10 @@ public:
     // Feasibility of the natural parameter
     virtual bool feas_always() const = 0;
     virtual bool feasibility(int n, const double* theta) const = 0;
+    virtual Rcpp::NumericVector domain() const
+    {
+        return Rcpp::NumericVector::create(R_NegInf, R_PosInf);
+    }
 };
 
 

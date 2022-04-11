@@ -56,6 +56,10 @@ public:
 
         return true;
     }
+    Rcpp::NumericVector domain() const override
+    {
+        return Rcpp::NumericVector::create(R_NegInf, 0.0);
+    }
 };
 
 Distribution* get_neg_binom()

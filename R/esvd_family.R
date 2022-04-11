@@ -277,8 +277,6 @@ feas_Yj <- function(Yj, X, Bj, Z, family, offset, ...)
 
 esvd_family <- function(family)
 {
-  family <- as.character(family)
-  distr <- .esvd_family(family)
-
-  structure(distr, class = "esvd_family")
+  family <- .esvd_family(as.character(family))
+  structure(family, class = "esvd_family")
 }
