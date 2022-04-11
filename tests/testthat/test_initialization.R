@@ -6,13 +6,13 @@ test_that("initialize_esvd works", {
  set.seed(10)
  dat <- matrix(1:40, nrow = 10, ncol = 4)
 
- res <- initialize_esvd(dat, k = 2, family = "poisson")
+ res <- initialize_esvd(dat, k = 2)
 
  expect_true(is.list(res))
  expect_true(class(res) == "eSVD")
  expect_true(all(sort(names(res)) == sort(c("x_mat", "y_mat", "covariates",
                                             "offset_vec",
-                                            "nuisance_param_vec", "b_mat"))))
+                                            "nuisance_param_vec", "b_mat", "pval_vec"))))
  expect_true(all(dim(res$x_mat) == c(nrow(dat), 2)))
  expect_true(all(dim(res$y_mat) == c(ncol(dat), 2)))
 })
