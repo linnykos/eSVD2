@@ -60,7 +60,7 @@ public:
     ) const
     {
         // Function of si that can be shared by A[i, ]
-        double fn_si = 0.0;
+        double fn_si = 0.0, fn_gammaj = 0.0;
         compute_fn_si(si, fn_si);
 
         // Iterate on A[i, ]
@@ -68,6 +68,8 @@ public:
         int num_non_na = 0;
         for(; iter; ++iter, ++thetai, ++gamma, ++res)
         {
+            // Compute fn_gammaj
+            compute_fn_gammaj(*gamma, fn_gammaj);
             // Get the flag and the value
             double val;
             Flag flag = iter.value(val);
@@ -75,11 +77,11 @@ public:
             {
             case Flag::regular:
                 num_non_na++;
-                *res = log_prob_single(val, *thetai, si, *gamma, fn_si, 0.0);
+                *res = log_prob_single(val, *thetai, si, *gamma, fn_si, fn_gammaj);
                 break;
             case Flag::zero:
                 num_non_na++;
-                *res = log_prob_single(*thetai, si, *gamma, fn_si, 0.0);
+                *res = log_prob_single(*thetai, si, *gamma, fn_si, fn_gammaj);
                 break;
             default:
                 // Set result to be zero if Aij is NA
@@ -99,7 +101,7 @@ public:
     ) const
     {
         // Function of si that can be shared by A[i, ]
-        double fn_si = 0.0;
+        double fn_si = 0.0, fn_gammaj = 0.0;
         compute_fn_si(si, fn_si);
         // Whether to compute d1 and d2
         const bool compute_d1 = (res1 != nullptr);
@@ -110,6 +112,8 @@ public:
         int num_non_na = 0;
         for(; iter; ++iter, ++thetai, ++gamma, ++res1, ++res2)
         {
+            // Compute fn_gammaj
+            compute_fn_gammaj(*gamma, fn_gammaj);
             // Get the flag and the value
             double val;
             Flag flag = iter.value(val);
@@ -118,14 +122,14 @@ public:
             case Flag::regular:
                 num_non_na++;
                 d12log_prob_single(
-                    val, *thetai, si, *gamma, fn_si, 0.0,
+                    val, *thetai, si, *gamma, fn_si, fn_gammaj,
                     compute_d1, compute_d2, res1, res2
                 );
                 break;
             case Flag::zero:
                 num_non_na++;
                 d12log_prob_single(
-                    *thetai, si, *gamma, fn_si, 0.0,
+                    *thetai, si, *gamma, fn_si, fn_gammaj,
                     compute_d1, compute_d2, res1, res2
                 );
                 break;
@@ -147,7 +151,7 @@ public:
     ) const
     {
         // Function of gammaj that can be shared by A[, j]
-        double fn_gammaj = 0.0;
+        double fn_si = 0.0, fn_gammaj = 0.0;
         compute_fn_gammaj(gammaj, fn_gammaj);
 
         // Iterate on A[, j]
@@ -155,6 +159,8 @@ public:
         int num_non_na = 0;
         for(; iter; ++iter, ++thetaj, ++s, ++res)
         {
+            // Compute fn_si
+            compute_fn_si(*s, fn_si);
             // Get the flag and the value
             double val;
             Flag flag = iter.value(val);
@@ -162,11 +168,11 @@ public:
             {
             case Flag::regular:
                 num_non_na++;
-                *res = log_prob_single(val, *thetaj, *s, gammaj, 0.0, fn_gammaj);
+                *res = log_prob_single(val, *thetaj, *s, gammaj, fn_si, fn_gammaj);
                 break;
             case Flag::zero:
                 num_non_na++;
-                *res = log_prob_single(*thetaj, *s, gammaj, 0.0, fn_gammaj);
+                *res = log_prob_single(*thetaj, *s, gammaj, fn_si, fn_gammaj);
                 break;
             default:
                 // Set result to be zero if Aij is NA
@@ -186,7 +192,7 @@ public:
     ) const
     {
         // Function of gammaj that can be shared by A[, j]
-        double fn_gammaj = 0.0;
+        double fn_si = 0.0, fn_gammaj = 0.0;
         compute_fn_gammaj(gammaj, fn_gammaj);
         // Whether to compute d1 and d2
         const bool compute_d1 = (res1 != nullptr);
@@ -197,6 +203,8 @@ public:
         int num_non_na = 0;
         for(; iter; ++iter, ++thetaj, ++s, ++res1, ++res2)
         {
+            // Compute fn_si
+            compute_fn_si(*s, fn_si);
             // Get the flag and the value
             double val;
             Flag flag = iter.value(val);
@@ -205,14 +213,14 @@ public:
             case Flag::regular:
                 num_non_na++;
                 d12log_prob_single(
-                    val, *thetaj, *s, gammaj, 0.0, fn_gammaj,
+                    val, *thetaj, *s, gammaj, fn_si, fn_gammaj,
                     compute_d1, compute_d2, res1, res2
                 );
                 break;
             case Flag::zero:
                 num_non_na++;
                 d12log_prob_single(
-                    *thetaj, *s, gammaj, 0.0, fn_gammaj,
+                    *thetaj, *s, gammaj, fn_si, fn_gammaj,
                     compute_d1, compute_d2, res1, res2
                 );
                 break;
@@ -229,5 +237,6 @@ public:
     virtual bool feas_always() const = 0;
     virtual bool feasibility(int n, const double* theta) const = 0;
 };
+
 
 #endif  // ESVD2_DISTRIBUTION_H
