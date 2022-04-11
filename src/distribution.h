@@ -245,5 +245,6 @@ Distribution* get_exponential();
 Distribution* get_poisson();
 Distribution* get_neg_binom();
 Distribution* get_neg_binom2();
+Distribution* get_bernoulli();
 
 #endif  // ESVD2_DISTRIBUTION_H

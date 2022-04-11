@@ -21,6 +21,8 @@ List esvd_family(std::string family)
         distr = get_neg_binom();
     else if(family == "neg_binom2")
         distr = get_neg_binom2();
+    else if(family == "bernoulli")
+        distr = get_bernoulli();
     else
         Rcpp::stop("unimplemented family");
 
