@@ -32,8 +32,7 @@ public:
     // fn_gammaj = log(gammaj)
     inline double log_prob_single(
         double Aij, double thetaij, double si, double gammaj,
-        double fn_si, double fn_gammaj
-    ) const override
+        double fn_si, double fn_gammaj) const override
     {
         return Aij * thetaij - (Aij + gammaj) * softplusr(thetaij, fn_gammaj);
     }
@@ -42,8 +41,7 @@ public:
     // fn_gammaj = log(gammaj)
     inline double log_prob_single(
         double thetaij, double si, double gammaj,
-        double fn_si, double fn_gammaj
-    ) const override
+        double fn_si, double fn_gammaj) const override
     {
         return -gammaj * softplusr(thetaij, fn_gammaj);
     }
@@ -53,8 +51,7 @@ public:
     inline void d12log_prob_single(
         double Aij, double thetaij, double si, double gammaj,
         double fn_si, double fn_gammaj, bool compute_d1, bool compute_d2,
-        double* res1, double* res2
-    ) const override
+        double* res1, double* res2) const override
     {
         const double common = -(Aij + gammaj) * sigmoidr(thetaij, fn_gammaj);
         if(compute_d1) *res1 = Aij + common;
@@ -66,8 +63,7 @@ public:
     inline void d12log_prob_single(
         double thetaij, double si, double gammaj,
         double fn_si, double fn_gammaj, bool compute_d1, bool compute_d2,
-        double* res1, double* res2
-    ) const override
+        double* res1, double* res2) const override
     {
         const double common = -gammaj * sigmoidr(thetaij, fn_gammaj);
         if(compute_d1) *res1 = common;

@@ -14,8 +14,7 @@ public:
     // fn_si = log(si)
     inline double log_prob_single(
         double Aij, double thetaij, double si, double gammaj,
-        double fn_si, double fn_gammaj
-    ) const override
+        double fn_si, double fn_gammaj) const override
     {
         return Aij * thetaij - std::exp(fn_si + thetaij);
     }
@@ -24,8 +23,7 @@ public:
     // fn_si = log(si)
     inline double log_prob_single(
         double thetaij, double si, double gammaj,
-        double fn_si, double fn_gammaj
-    ) const override
+        double fn_si, double fn_gammaj) const override
     {
         return -std::exp(fn_si + thetaij);
     }
@@ -35,8 +33,7 @@ public:
     inline void d12log_prob_single(
         double Aij, double thetaij, double si, double gammaj,
         double fn_si, double fn_gammaj, bool compute_d1, bool compute_d2,
-        double* res1, double* res2
-    ) const override
+        double* res1, double* res2) const override
     {
         const double d2 = -std::exp(fn_si + thetaij);
         if(compute_d1) *res1 = Aij + d2;
@@ -48,8 +45,7 @@ public:
     inline void d12log_prob_single(
         double thetaij, double si, double gammaj,
         double fn_si, double fn_gammaj, bool compute_d1, bool compute_d2,
-        double* res1, double* res2
-    ) const override
+        double* res1, double* res2) const override
     {
         const double d2 = -std::exp(fn_si + thetaij);
         if(compute_d1) *res1 = d2;

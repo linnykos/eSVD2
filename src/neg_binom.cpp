@@ -7,8 +7,7 @@ public:
     // Log-density for a single data point Aij
     inline double log_prob_single(
         double Aij, double thetaij, double si, double gammaj,
-        double fn_si, double fn_gammaj
-    ) const override
+        double fn_si, double fn_gammaj) const override
     {
         return Aij * thetaij + si * gammaj * std::log(1.0 - std::exp(thetaij));
     }
@@ -16,8 +15,7 @@ public:
     // Special case of Aij==0
     inline double log_prob_single(
         double thetaij, double si, double gammaj,
-        double fn_si, double fn_gammaj
-    ) const override
+        double fn_si, double fn_gammaj) const override
     {
         return si * gammaj * std::log(1.0 - std::exp(thetaij));
     }
@@ -26,8 +24,7 @@ public:
     inline void d12log_prob_single(
         double Aij, double thetaij, double si, double gammaj,
         double fn_si, double fn_gammaj, bool compute_d1, bool compute_d2,
-        double* res1, double* res2
-    ) const override
+        double* res1, double* res2) const override
     {
         const double exp_theta = std::exp(thetaij);
         const double one_minus_exp_theta = 1.0 - exp_theta;
@@ -40,8 +37,7 @@ public:
     inline void d12log_prob_single(
         double thetaij, double si, double gammaj,
         double fn_si, double fn_gammaj, bool compute_d1, bool compute_d2,
-        double* res1, double* res2
-    ) const override
+        double* res1, double* res2) const override
     {
         const double exp_theta = std::exp(thetaij);
         const double one_minus_exp_theta = 1.0 - exp_theta;

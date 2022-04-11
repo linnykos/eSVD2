@@ -15,13 +15,12 @@ public:
     // fn_gammaj is a function of gammaj that can be shared by A[, j]
     virtual double log_prob_single(
         double Aij, double thetaij, double si, double gammaj,
-        double fn_si, double fn_gammaj
-    ) const = 0;
+        double fn_si, double fn_gammaj) const = 0;
+
     // Special case of Aij==0
     virtual double log_prob_single(
         double thetaij, double si, double gammaj,
-        double fn_si, double fn_gammaj
-    ) const
+        double fn_si, double fn_gammaj) const
     {
         return log_prob_single(0.0, thetaij, si, gammaj, fn_si, fn_gammaj);
     }
@@ -30,14 +29,13 @@ public:
     virtual void d12log_prob_single(
         double Aij, double thetaij, double si, double gammaj,
         double fn_si, double fn_gammaj, bool compute_d1, bool compute_d2,
-        double* res1, double* res2
-    ) const = 0;
+        double* res1, double* res2) const = 0;
+
     // Special case of Aij==0
     virtual void d12log_prob_single(
         double thetaij, double si, double gammaj,
         double fn_si, double fn_gammaj, bool compute_d1, bool compute_d2,
-        double* res1, double* res2
-    ) const
+        double* res1, double* res2) const
     {
         d12log_prob_single(
             0.0, thetaij, si, gammaj, fn_si, fn_gammaj,
@@ -56,8 +54,7 @@ public:
     // Returns the number of non-NA elements in A[i, ]
     int log_prob_row(
         DataLoader* loader, std::size_t row_ind, const double* thetai,
-        double si, const double* gamma, double* res
-    ) const
+        double si, const double* gamma, double* res) const
     {
         // Function of si that can be shared by A[i, ]
         double fn_si = 0.0, fn_gammaj = 0.0;
@@ -97,8 +94,7 @@ public:
     // Returns the number of non-NA elements in A[i, ]
     int d12log_prob_row(
         DataLoader* loader, std::size_t row_ind, const double* thetai,
-        double si, const double* gamma, double* res1, double* res2
-    ) const
+        double si, const double* gamma, double* res1, double* res2) const
     {
         // Function of si that can be shared by A[i, ]
         double fn_si = 0.0, fn_gammaj = 0.0;
@@ -147,8 +143,7 @@ public:
     // Returns the number of non-NA elements in A[, j]
     int log_prob_col(
         DataLoader* loader, std::size_t col_ind, const double* thetaj,
-        const double* s, double gammaj, double* res
-    ) const
+        const double* s, double gammaj, double* res) const
     {
         // Function of gammaj that can be shared by A[, j]
         double fn_si = 0.0, fn_gammaj = 0.0;
@@ -188,8 +183,7 @@ public:
     // Returns the number of non-NA elements in A[, j]
     int d12log_prob_col(
         DataLoader* loader, std::size_t col_ind, const double* thetaj,
-        const double* s, double gammaj, double* res1, double* res2
-    ) const
+        const double* s, double gammaj, double* res1, double* res2) const
     {
         // Function of gammaj that can be shared by A[, j]
         double fn_si = 0.0, fn_gammaj = 0.0;
