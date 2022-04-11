@@ -1,6 +1,11 @@
 #include <Rcpp.h>
 #include "distribution.h"
 
+// Distribution: Poisson
+// Canonical parameter: lambda
+// Natural parameter: theta = log(lambda)
+// Log-likelihood: A * theta - exp(log(s) + theta)
+
 class Poisson: public Distribution
 {
 public:

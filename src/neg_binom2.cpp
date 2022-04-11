@@ -1,6 +1,11 @@
 #include <Rcpp.h>
 #include "distribution.h"
 
+// Distribution: negative binomial
+// Canonical parameter: mu (mean = mu = rp/(1-p))
+// Natural parameter: theta = log(mu)
+// Log-likelihood: A * theta - (A + gamma) * log(gamma + exp(theta))
+
 // Compute log(r + exp(x)), r > 0 with numerical stability
 // log(r + exp(x)) = log(r) + log(1 + exp(x - log(r))) = log(r) + softplus(x - log(r))
 // softplus(x) = log(1 + exp(x)) = log(1 + exp(-|x|)) + max(x, 0)

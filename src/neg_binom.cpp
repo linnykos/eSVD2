@@ -1,6 +1,11 @@
 #include <Rcpp.h>
 #include "distribution.h"
 
+// Distribution: negative binomial
+// Canonical parameter: p
+// Natural parameter: theta = log(p)
+// Log-likelihood: A * theta + s * gamma * log(1 - exp(theta))
+
 class NegBinom: public Distribution
 {
 public:
