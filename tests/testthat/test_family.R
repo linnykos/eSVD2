@@ -2,101 +2,136 @@ context("Test distribution family functions")
 
 run_test <- function(
   dat, x_mat, y_mat, family, l2pen = 0.001, offset = rnorm(nrow(x_mat)),
-  nuisance_param_vec = rep(1, nrow(y_mat)), library_size_vec = rep(1, nrow(x_mat))
+  nuisance_param_vec = rep(1, nrow(y_mat)), library_size_vec = rep(1, nrow(x_mat)),
+  tol = 1e-6
 )
 {
   n <- nrow(dat)
   p <- ncol(dat)
-  library_size_vec <- .parse_library_size(dat, library_size_vec)
+  k <- ncol(x_mat)
 
-  # Test objective functions
-  loss1 <- objfn_all(
-    X = x_mat, Y = y_mat, B = NULL, Z = NULL, A = dat,
-    family = family, s = library_size_vec, gamma = nuisance_param_vec,
-    offset = offset, l2pen = l2pen
+  c_mat <- matrix(offset, ncol = 1)
+  z_mat <- matrix(1, nrow = p, ncol = 1)
+  xc_mat <- cbind(x_mat, c_mat)
+  yz_mat <- cbind(y_mat, z_mat)
+  loader <- data_loader(dat)
+  family <- esvd_family(family)
+  library_size_vec <- .parse_library_size(dat, library_size_vec)
+  if(length(nuisance_param_vec) == 1)
+    nuisance_param_vec <- rep(nuisance_param_vec, p)
+  yzind <- (1:k) - 1
+
+  ############# Test objective functions #############
+  loss1 <- objfn_all_r(
+    XC = xc_mat, YZ = yz_mat, k = k, loader = loader, family = family,
+    s = library_size_vec, gamma = nuisance_param_vec,
+    l2penx = rep(l2pen, n), l2peny = rep(l2pen, p), l2penz = rep(l2pen, p)
   )
+
   loss2 <- numeric(n)
   for(i in 1:n)
   {
-    loss2[i] <- objfn_Xi(
-      Xi = x_mat[i, ], Y = y_mat, B = NULL, Zi = NULL, Ai = dat[i, ],
+    loss2[i] <- objfn_Xi_r(
+      XCi = xc_mat[i, ], YZ = yz_mat, k = k, loader = loader, row_ind = i - 1,
       family = family, si = library_size_vec[i], gamma = nuisance_param_vec,
-      offseti = offset[i], l2pen = l2pen
+      l2penx = l2pen
     )
     loss2[i] <- loss2[i] * sum(!is.na(dat[i, ]))
   }
+
   loss3 <- numeric(p)
   for(j in 1:p)
   {
-    loss3[j] <- objfn_Yj(
-      Yj = y_mat[j, ], X = x_mat, Bj = NULL, Z = NULL, Aj = dat[, j],
-      family = family, s = library_size_vec, gammaj = nuisance_param_vec[j],
-      offset = offset, l2pen = l2pen
+    loss3[j] <- objfn_YZj_r(
+      XC = xc_mat, YZj = yz_mat[j, ], k = k, YZind = yzind,
+      loader = loader, col_ind = j - 1, family = family,
+      s = library_size_vec, gammaj = nuisance_param_vec[j],
+      l2peny = l2pen, l2penz = l2pen
     )
     loss3[j] <- loss3[j] * sum(!is.na(dat[, j]))
   }
+
   # The three loss values should be equal
-  expect_lt(abs(loss1 - (sum(loss2) + l2pen * sum(y_mat^2)) / sum(!is.na(dat))), 1e-8)
-  expect_lt(abs(loss1 - (sum(loss3) + l2pen * sum(x_mat^2)) / sum(!is.na(dat))), 1e-8)
+  loss2 <- sum(loss2) + l2pen * sum(y_mat^2) + l2pen * sum(z_mat^2)
+  loss2 <- loss2 / sum(!is.na(dat))
+  loss3 <- sum(loss3) + l2pen * sum(x_mat^2)
+  loss3 <- loss3 / sum(!is.na(dat))
 
-  # Test gradients
+  expect_lt(abs(loss1 - loss2), tol)
+  expect_lt(abs(loss1 - loss3), tol)
+
+  ############# Test gradients #############
   for(i in 1:n)
   {
-    grad1 <- grad_Xi(
-      Xi = x_mat[i, ], Y = y_mat, B = NULL, Zi = NULL, Ai = dat[i, ],
+    grad1 <- grad_Xi_r(
+      XCi = xc_mat[i, ], YZ = yz_mat, k = k, loader = loader, row_ind = i - 1,
       family = family, si = library_size_vec[i], gamma = nuisance_param_vec,
-      offseti = offset[i], l2pen = l2pen
+      l2penx = l2pen
     )
     grad2 <- numDeriv::grad(
-      objfn_Xi, x_mat[i, ], side = NULL, Y = y_mat, B = NULL, Zi = NULL, Ai = dat[i, ],
+      function(x, ...) objfn_Xi_r(XCi = c(x, c_mat[i, ]), ...),
+      x_mat[i, ], side = NULL, method.args = list(r = 6),
+      YZ = yz_mat, k = k, loader = loader, row_ind = i - 1,
       family = family, si = library_size_vec[i], gamma = nuisance_param_vec,
-      offseti = offset[i], l2pen = l2pen
+      l2penx = l2pen
     )
-    expect_lt(max(abs(grad1 - grad2)), 1e-6)
-  }
-  for(j in 1:p)
-  {
-    grad1 <- grad_Yj(
-      Yj = y_mat[j, ], X = x_mat, Bj = NULL, Z = NULL, Aj = dat[, j],
-      family = family, s = library_size_vec, gammaj = nuisance_param_vec[j],
-      offset = offset, l2pen = l2pen
-    )
-    grad2 <- numDeriv::grad(
-      objfn_Yj, y_mat[j, ], side = NULL, X = x_mat, Bj = NULL, Z = NULL, Aj = dat[, j],
-      family = family, s = library_size_vec, gammaj = nuisance_param_vec[j],
-      offset = offset, l2pen = l2pen
-    )
-    expect_lt(max(abs(grad1 - grad2)), 1e-6)
+    expect_lt(max(abs(grad1 - grad2)), tol)
   }
 
-  # Test Hessians
-  for(i in 1:n)
-  {
-    hess1 <- hessian_Xi(
-      Xi = x_mat[i, ], Y = y_mat, B = NULL, Zi = NULL, Ai = dat[i, ],
-      family = family, si = library_size_vec[i], gamma = nuisance_param_vec,
-      offseti = offset[i], l2pen = l2pen
-    )
-    hess2 <- numDeriv::hessian(
-      objfn_Xi, x_mat[i, ], Y = y_mat, B = NULL, Zi = NULL, Ai = dat[i, ],
-      family = family, si = library_size_vec[i], gamma = nuisance_param_vec,
-      offseti = offset[i], l2pen = l2pen
-    )
-    expect_lt(max(abs(hess1 - hess2)), 1e-5)
-  }
   for(j in 1:p)
   {
-    hess1 <- hessian_Yj(
-      Yj = y_mat[j, ], X = x_mat, Bj = NULL, Z = NULL, Aj = dat[, j],
-      family = family, s = library_size_vec, gammaj = nuisance_param_vec[j],
-      offset = offset, l2pen = l2pen
+    grad1 <- grad_YZj_r(
+      XC = xc_mat, YZj = yz_mat[j, ], k = k, YZind = yzind,
+      loader = loader, col_ind = j - 1, family = family,
+      s = library_size_vec, gammaj = nuisance_param_vec[j],
+      l2peny = l2pen, l2penz = l2pen
+    )
+    grad2 <- numDeriv::grad(
+      function(x, ...) { yzj <- yz_mat[j, ]; yzj[yzind + 1] <- x; objfn_YZj_r(YZj = yzj, ...) },
+      yz_mat[j, yzind + 1], side = NULL, method.args = list(r = 6),
+      XC = xc_mat, , k = k, YZind = yzind,
+      loader = loader, col_ind = j - 1, family = family,
+      s = library_size_vec, gammaj = nuisance_param_vec[j],
+      l2peny = l2pen, l2penz = l2pen
+    )
+    expect_lt(max(abs(grad1 - grad2)), tol)
+  }
+
+  ############# Test Hessians #############
+  for(i in 1:n)
+  {
+    hess1 <- hessian_Xi_r(
+      XCi = xc_mat[i, ], YZ = yz_mat, k = k, loader = loader, row_ind = i - 1,
+      family = family, si = library_size_vec[i], gamma = nuisance_param_vec,
+      l2penx = l2pen
     )
     hess2 <- numDeriv::hessian(
-      objfn_Yj, y_mat[j, ], X = x_mat, Bj = NULL, Z = NULL, Aj = dat[, j],
-      family = family, s = library_size_vec, gammaj = nuisance_param_vec[j],
-      offset = offset, l2pen = l2pen
+      function(x, ...) objfn_Xi_r(XCi = c(x, c_mat[i, ]), ...),
+      x_mat[i, ],
+      YZ = yz_mat, k = k, loader = loader, row_ind = i - 1,
+      family = family, si = library_size_vec[i], gamma = nuisance_param_vec,
+      l2penx = l2pen
     )
-    expect_lt(max(abs(hess1 - hess2)), 1e-5)
+    expect_lt(max(abs(hess1 - hess2)), tol)
+  }
+
+  for(j in 1:p)
+  {
+    hess1 <- hessian_YZj_r(
+      XC = xc_mat, YZj = yz_mat[j, ], k = k, YZind = yzind,
+      loader = loader, col_ind = j - 1, family = family,
+      s = library_size_vec, gammaj = nuisance_param_vec[j],
+      l2peny = l2pen, l2penz = l2pen
+    )
+    hess2 <- numDeriv::hessian(
+      function(x, ...) { yzj <- yz_mat[j, ]; yzj[yzind + 1] <- x; objfn_YZj_r(YZj = yzj, ...) },
+      yz_mat[j, yzind + 1],
+      XC = xc_mat, , k = k, YZind = yzind,
+      loader = loader, col_ind = j - 1, family = family,
+      s = library_size_vec, gammaj = nuisance_param_vec[j],
+      l2peny = l2pen, l2penz = l2pen
+    )
+    expect_lt(max(abs(hess1 - hess2)), tol)
   }
 }
 
@@ -121,12 +156,12 @@ test_that("Functions for Gaussian distribution", {
   )
 
   # Test
-  run_test(dat, x_mat, y_mat, .esvd.gaussian, nuisance_param_vec = nuisance_param_vec,
+  run_test(dat, x_mat, y_mat, family = "gaussian", nuisance_param_vec = nuisance_param_vec,
            library_size_vec = 1)
 
   # Test missing values
   dat[sample(length(dat), n * p * 0.1)] <- NA
-  run_test(dat, x_mat, y_mat, .esvd.gaussian, nuisance_param_vec = nuisance_param_vec,
+  run_test(dat, x_mat, y_mat, family = "gaussian", nuisance_param_vec = nuisance_param_vec,
            library_size_vec = 1)
 
   # Simulate data with a library size vector
@@ -137,62 +172,62 @@ test_that("Functions for Gaussian distribution", {
   )
 
   # Test
-  run_test(dat, x_mat, y_mat, .esvd.gaussian, nuisance_param_vec = nuisance_param_vec,
+  run_test(dat, x_mat, y_mat, family = "gaussian", nuisance_param_vec = nuisance_param_vec,
            library_size_vec = library_size_vec)
 
   # Test missing values
   dat[sample(length(dat), n * p * 0.1)] <- NA
-  run_test(dat, x_mat, y_mat, .esvd.gaussian, nuisance_param_vec = nuisance_param_vec,
+  run_test(dat, x_mat, y_mat, family = "gaussian", nuisance_param_vec = nuisance_param_vec,
            library_size_vec = library_size_vec)
 })
 
 # ######################## Curved Gaussian ########################
 
-# test_that("Functions for curved-Gaussian distribution", {
-#   # Simulate natural parameter matrix
-#   set.seed(123)
-#   n <- 10
-#   p <- 15
-#   k <- 2
-#   nuisance_param_vec <- runif(p, 0, 5)
-#   x_mat <- matrix(abs(rnorm(n * k)), nrow = n, ncol = k)
-#   y_mat <- matrix(abs(rnorm(p * k)), nrow = p, ncol = k)
-#   nat_mat <- tcrossprod(x_mat, y_mat)
-#
-#   # Simulate data with default library size (all one)
-#   dat <- eSVD2::generate_data(
-#     nat_mat, family = "curved_gaussian", nuisance_param_vec = nuisance_param_vec,
-#     library_size_vec = 1, tol = 1e-3
-#   )
-#
-#   # Force a positive offset
-#   offset = runif(n)
-#
-#   # Test
-#   run_test(dat, x_mat, y_mat, .esvd.curved_gaussian, nuisance_param_vec = nuisance_param_vec,
-#            library_size_vec = 1, offset = offset)
-#
-#   # Test missing values
-#   dat[sample(length(dat), n * p * 0.1)] <- NA
-#   run_test(dat, x_mat, y_mat, .esvd.curved_gaussian, nuisance_param_vec = nuisance_param_vec,
-#            library_size_vec = 1, offset = offset)
-#
-#   # Simulate data with a library size vector
-#   library_size_vec <- sample(10:20, n, replace = TRUE)
-#   dat <- eSVD2::generate_data(
-#     nat_mat, family = "curved_gaussian", nuisance_param_vec = nuisance_param_vec,
-#     library_size_vec = library_size_vec, tol = 1e-3
-#   )
-#
-#   # Test
-#   run_test(dat, x_mat, y_mat, .esvd.curved_gaussian, nuisance_param_vec = nuisance_param_vec,
-#            library_size_vec = library_size_vec, offset = offset)
-#
-#   # Test missing values
-#   dat[sample(length(dat), n * p * 0.1)] <- NA
-#   run_test(dat, x_mat, y_mat, .esvd.curved_gaussian, nuisance_param_vec = nuisance_param_vec,
-#            library_size_vec = library_size_vec, offset = offset)
-# })
+test_that("Functions for curved-Gaussian distribution", {
+  # Simulate natural parameter matrix
+  set.seed(123)
+  n <- 10
+  p <- 15
+  k <- 2
+  nuisance_param_vec <- runif(p, 0, 5)
+  x_mat <- matrix(abs(rnorm(n * k)), nrow = n, ncol = k)
+  y_mat <- matrix(abs(rnorm(p * k)), nrow = p, ncol = k)
+  nat_mat <- tcrossprod(x_mat, y_mat)
+
+  # Simulate data with default library size (all one)
+  dat <- eSVD2::generate_data(
+    nat_mat, family = "curved_gaussian", nuisance_param_vec = nuisance_param_vec,
+    library_size_vec = 1, tol = 1e-3
+  )
+
+  # Force a positive offset
+  offset = runif(n)
+
+  # Test
+  run_test(dat, x_mat, y_mat, family = "curved_gaussian", nuisance_param_vec = nuisance_param_vec,
+           library_size_vec = 1, offset = offset, tol = 1e-5)
+
+  # Test missing values
+  dat[sample(length(dat), n * p * 0.1)] <- NA
+  run_test(dat, x_mat, y_mat, family = "curved_gaussian", nuisance_param_vec = nuisance_param_vec,
+           library_size_vec = 1, offset = offset, tol = 1e-5)
+
+  # Simulate data with a library size vector
+  library_size_vec <- sample(1:10, n, replace = TRUE)
+  dat <- eSVD2::generate_data(
+    nat_mat, family = "curved_gaussian", nuisance_param_vec = nuisance_param_vec,
+    library_size_vec = library_size_vec, tol = 1e-3
+  )
+
+  # Test
+  run_test(dat, x_mat, y_mat, family = "curved_gaussian", nuisance_param_vec = nuisance_param_vec,
+           library_size_vec = library_size_vec, offset = offset, tol = 1e-4)
+
+  # Test missing values
+  dat[sample(length(dat), n * p * 0.1)] <- NA
+  run_test(dat, x_mat, y_mat, family = "curved_gaussian", nuisance_param_vec = nuisance_param_vec,
+           library_size_vec = library_size_vec, offset = offset, tol = 1e-4)
+})
 
 # ######################## Exponential ########################
 
@@ -216,12 +251,12 @@ test_that("Functions for exponential distribution", {
   offset = -runif(n)
 
   # Test
-  run_test(dat, x_mat, y_mat, .esvd.exponential, nuisance_param_vec = NA,
+  run_test(dat, x_mat, y_mat, family = "exponential", nuisance_param_vec = NA,
            library_size_vec = 1, offset = offset)
 
   # Test missing values
   dat[sample(length(dat), n * p * 0.1)] <- NA
-  run_test(dat, x_mat, y_mat, .esvd.exponential, nuisance_param_vec = NA,
+  run_test(dat, x_mat, y_mat, family = "exponential", nuisance_param_vec = NA,
            library_size_vec = 1, offset = offset)
 
   # Simulate data with a library size vector
@@ -232,12 +267,12 @@ test_that("Functions for exponential distribution", {
   )
 
   # Test
-  run_test(dat, x_mat, y_mat, .esvd.exponential, nuisance_param_vec = NA,
+  run_test(dat, x_mat, y_mat, family = "exponential", nuisance_param_vec = NA,
            library_size_vec = library_size_vec, offset = offset)
 
   # Test missing values
   dat[sample(length(dat), n * p * 0.1)] <- NA
-  run_test(dat, x_mat, y_mat, .esvd.exponential, nuisance_param_vec = NA,
+  run_test(dat, x_mat, y_mat, family = "exponential", nuisance_param_vec = NA,
            library_size_vec = library_size_vec, offset = offset)
 })
 
@@ -260,12 +295,12 @@ test_that("Functions for Poisson distribution", {
   )
 
   # Test
-  run_test(dat, x_mat, y_mat, .esvd.poisson, nuisance_param_vec = NA,
+  run_test(dat, x_mat, y_mat, family = "poisson", nuisance_param_vec = NA,
            library_size_vec = 1)
 
   # Test missing values
   dat[sample(length(dat), n * p * 0.1)] <- NA
-  run_test(dat, x_mat, y_mat, .esvd.poisson, nuisance_param_vec = NA,
+  run_test(dat, x_mat, y_mat, family = "poisson", nuisance_param_vec = NA,
            library_size_vec = 1)
 
   # Simulate data with a library size vector
@@ -276,12 +311,12 @@ test_that("Functions for Poisson distribution", {
   )
 
   # Test
-  run_test(dat, x_mat, y_mat, .esvd.poisson, nuisance_param_vec = NA,
+  run_test(dat, x_mat, y_mat, family = "poisson", nuisance_param_vec = NA,
            library_size_vec = library_size_vec)
 
   # Test missing values
   dat[sample(length(dat), n * p * 0.1)] <- NA
-  run_test(dat, x_mat, y_mat, .esvd.poisson, nuisance_param_vec = NA,
+  run_test(dat, x_mat, y_mat, family = "poisson", nuisance_param_vec = NA,
            library_size_vec = library_size_vec)
 })
 
@@ -307,12 +342,12 @@ test_that("Functions for negative binomial distribution", {
   offset = -runif(n)
 
   # Test
-  run_test(dat, x_mat, y_mat, .esvd.neg_binom, nuisance_param_vec = nuisance_param_vec,
+  run_test(dat, x_mat, y_mat, family = "neg_binom", nuisance_param_vec = nuisance_param_vec,
            library_size_vec = 1, offset = offset)
 
   # Test missing values
   dat[sample(length(dat), n * p * 0.1)] <- NA
-  run_test(dat, x_mat, y_mat, .esvd.neg_binom, nuisance_param_vec = nuisance_param_vec,
+  run_test(dat, x_mat, y_mat, family = "neg_binom", nuisance_param_vec = nuisance_param_vec,
            library_size_vec = 1, offset = offset)
 
   # Simulate data with a library size vector
@@ -323,13 +358,13 @@ test_that("Functions for negative binomial distribution", {
   )
 
   # Test
-  run_test(dat, x_mat, y_mat, .esvd.neg_binom, nuisance_param_vec = nuisance_param_vec,
-           library_size_vec = library_size_vec, offset = offset)
+  run_test(dat, x_mat, y_mat, family = "neg_binom", nuisance_param_vec = nuisance_param_vec,
+           library_size_vec = library_size_vec, offset = offset, tol = 1e-5)
 
   # Test missing values
   dat[sample(length(dat), n * p * 0.1)] <- NA
-  run_test(dat, x_mat, y_mat, .esvd.neg_binom, nuisance_param_vec = nuisance_param_vec,
-           library_size_vec = library_size_vec, offset = offset)
+  run_test(dat, x_mat, y_mat, family = "neg_binom", nuisance_param_vec = nuisance_param_vec,
+           library_size_vec = library_size_vec, offset = offset, tol = 1e-5)
 })
 
 ######################## Negative binomial 2 ########################
@@ -351,12 +386,12 @@ test_that("Functions for negative binomial 2 distribution", {
   )
 
   # Test
-  run_test(dat, x_mat, y_mat, .esvd.neg_binom2, nuisance_param_vec = nuisance_param_vec,
+  run_test(dat, x_mat, y_mat, family = "neg_binom2", nuisance_param_vec = nuisance_param_vec,
            library_size_vec = 1)
 
   # Test missing values
   dat[sample(length(dat), n * p * 0.1)] <- NA
-  run_test(dat, x_mat, y_mat, .esvd.neg_binom2, nuisance_param_vec = nuisance_param_vec,
+  run_test(dat, x_mat, y_mat, family = "neg_binom2", nuisance_param_vec = nuisance_param_vec,
            library_size_vec = 1)
 })
 
@@ -377,11 +412,11 @@ test_that("Functions for Bernoulli distribution", {
   )
 
   # Test
-  run_test(dat, x_mat, y_mat, .esvd.bernoulli, nuisance_param_vec = NA,
+  run_test(dat, x_mat, y_mat, family = "bernoulli", nuisance_param_vec = NA,
            library_size_vec = 1)
 
   # Test missing values
   dat[sample(length(dat), n * p * 0.1)] <- NA
-  run_test(dat, x_mat, y_mat, .esvd.bernoulli, nuisance_param_vec = NA,
+  run_test(dat, x_mat, y_mat, family = "bernoulli", nuisance_param_vec = NA,
            library_size_vec = 1)
 })
