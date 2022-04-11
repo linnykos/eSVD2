@@ -241,6 +241,7 @@ public:
 // Implemented distributions
 Distribution* get_gaussian();
 Distribution* get_curved_gaussian();
+Distribution* get_exponential();
 Distribution* get_poisson();
 Distribution* get_neg_binom();
 Distribution* get_neg_binom2();

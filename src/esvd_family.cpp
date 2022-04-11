@@ -13,6 +13,8 @@ List esvd_family(std::string family)
         distr = get_gaussian();
     else if(family == "curved_gaussian")
         distr = get_curved_gaussian();
+    else if(family == "exponential")
+        distr = get_exponential();
     else if(family == "poisson")
         distr = get_poisson();
     else if(family == "neg_binom")
