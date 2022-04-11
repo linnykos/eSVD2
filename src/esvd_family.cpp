@@ -11,6 +11,8 @@ List esvd_family(std::string family)
     // Look up family string
     if(family == "gaussian")
         distr = get_gaussian();
+    else if(family == "curved_gaussian")
+        distr = get_curved_gaussian();
     else if(family == "poisson")
         distr = get_poisson();
     else if(family == "neg_binom")
