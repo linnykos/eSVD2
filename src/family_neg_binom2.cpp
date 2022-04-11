@@ -74,20 +74,9 @@ public:
         if(compute_d1) *res1 = common;
         if(compute_d2) *res2 = common * gammaj / (gammaj + std::exp(thetaij));
     }
-
-    // Feasibility of the natural parameter
-    inline bool feas_always() const override { return true; }
-    inline bool feasibility(int n, const double* theta) const override { return true; }
 };
 
 Distribution* get_neg_binom2()
 {
     return new NegBinom2();
-}
-
-// [[Rcpp::export]]
-SEXP distribution_neg_binom2()
-{
-    NegBinom2* distr = new NegBinom2();
-    return Rcpp::XPtr<Distribution>(distr, true);
 }

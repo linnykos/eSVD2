@@ -71,10 +71,3 @@ Distribution* get_neg_binom()
 {
     return new NegBinom();
 }
-
-// [[Rcpp::export]]
-SEXP distribution_neg_binom()
-{
-    NegBinom* distr = new NegBinom();
-    return Rcpp::XPtr<Distribution>(distr, true);
-}

@@ -228,8 +228,8 @@ public:
     }
 
     // Feasibility of the natural parameter
-    virtual bool feas_always() const = 0;
-    virtual bool feasibility(int n, const double* theta) const = 0;
+    virtual bool feas_always() const { return true; }
+    virtual bool feasibility(int n, const double* theta) const { return true; }
     virtual Rcpp::NumericVector domain() const
     {
         return Rcpp::NumericVector::create(R_NegInf, R_PosInf);
@@ -239,6 +239,7 @@ public:
 
 
 // Implemented distributions
+Distribution* get_gaussian();
 Distribution* get_poisson();
 Distribution* get_neg_binom();
 Distribution* get_neg_binom2();

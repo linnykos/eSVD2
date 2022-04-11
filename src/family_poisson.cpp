@@ -56,20 +56,9 @@ public:
         if(compute_d1) *res1 = d2;
         if(compute_d2) *res2 = d2;
     }
-
-    // Feasibility of the natural parameter
-    inline bool feas_always() const override { return true; }
-    inline bool feasibility(int n, const double* theta) const override { return true; }
 };
 
 Distribution* get_poisson()
 {
     return new Poisson();
-}
-
-// [[Rcpp::export]]
-SEXP distribution_poisson()
-{
-    Poisson* distr = new Poisson();
-    return Rcpp::XPtr<Distribution>(distr, true);
 }
