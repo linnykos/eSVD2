@@ -9,7 +9,9 @@ List esvd_family(std::string family)
     Distribution* distr;
 
     // Look up family string
-    if(family == "poisson")
+    if(family == "gaussian")
+        distr = get_gaussian();
+    else if(family == "poisson")
         distr = get_poisson();
     else if(family == "neg_binom")
         distr = get_neg_binom();
