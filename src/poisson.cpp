@@ -61,6 +61,11 @@ public:
     inline bool feasibility(int n, const double* theta) const override { return true; }
 };
 
+Distribution* get_poisson()
+{
+    return new Poisson();
+}
+
 // [[Rcpp::export]]
 SEXP distribution_poisson()
 {

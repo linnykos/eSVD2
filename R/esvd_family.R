@@ -272,3 +272,13 @@ feas_Yj <- function(Yj, X, Bj, Z, family, offset, ...)
   thetaj <- drop(cbind(X, Z) %*% c(Yj, Bj)) + offset
   family$feasibility(thetaj)
 }
+
+
+
+esvd_family <- function(family)
+{
+  family <- as.character(family)
+  distr <- .esvd_family(family)
+
+  structure(distr, class = "esvd_family")
+}

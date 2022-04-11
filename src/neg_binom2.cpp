@@ -79,6 +79,11 @@ public:
     inline bool feasibility(int n, const double* theta) const override { return true; }
 };
 
+Distribution* get_neg_binom2()
+{
+    return new NegBinom2();
+}
+
 // [[Rcpp::export]]
 SEXP distribution_neg_binom2()
 {

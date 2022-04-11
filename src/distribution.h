@@ -239,4 +239,10 @@ public:
 };
 
 
+
+// Implemented distributions
+Distribution* get_poisson();
+Distribution* get_neg_binom();
+Distribution* get_neg_binom2();
+
 #endif  // ESVD2_DISTRIBUTION_H

@@ -62,6 +62,11 @@ public:
     }
 };
 
+Distribution* get_neg_binom()
+{
+    return new NegBinom();
+}
+
 // [[Rcpp::export]]
 SEXP distribution_neg_binom()
 {
