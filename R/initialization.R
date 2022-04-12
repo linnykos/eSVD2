@@ -77,7 +77,7 @@ initialize_esvd <- function(dat,
   covariates_nooffset <- covariates[,which(!colnames(covariates) %in% offset_variables)]
   offset_vec <- Matrix::rowSums(covariates[,offset_variables,drop = F])
 
-  pval_vec <- rep(NA, p)
+  log_pval_vec <- rep(NA, p)
   b_mat <- matrix(NA, nrow = p, ncol = ncol(covariates_nooffset)+1)
   rownames(b_mat) <- colnames(dat)
   colnames(b_mat) <- c("Intercept", colnames(covariates_nooffset))
@@ -160,8 +160,8 @@ initialize_esvd <- function(dat,
 
   residual_deviance <- max(deviance2 - deviance1, 0)
   log_p_val <- stats::pchisq(residual_deviance, df = 1,
-                         lower.tail = FALSE,
-                         log.p = T)
+                             lower.tail = FALSE,
+                             log.p = T)
 
   if(log_p_val <= log(p_val_thres)){
     names(coef_vec1) <- c("Intercept", colnames(covariates))
