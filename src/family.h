@@ -15,58 +15,58 @@ using MapMat = Eigen::Map<MatrixXd>;
 using MapVec = Eigen::Map<VectorXd>;
 
 double objfn_Xi(
-    MapVec XCi, MapMat YZ, int k,
+    const MapVec& XCi, const MapMat& YZ, int k,
     DataLoader* loader, int row_ind, const Distribution* distr,
-    double si, MapVec gamma, double l2penx
+    double si, const MapVec& gamma, double l2penx
 );
 
 NumericVector grad_Xi(
-    MapVec XCi, MapMat YZ, int k,
+    const MapVec& XCi, const MapMat& YZ, int k,
     DataLoader* loader, int row_ind, const Distribution* distr,
-    double si, MapVec gamma, double l2penx
+    double si, const MapVec& gamma, double l2penx
 );
 
 NumericMatrix hessian_Xi(
-    MapVec XCi, MapMat YZ, int k,
+    const MapVec& XCi, const MapMat& YZ, int k,
     DataLoader* loader, int row_ind, const Distribution* distr,
-    double si, MapVec gamma, double l2penx
+    double si, const MapVec& gamma, double l2penx
 );
 
 List direction_Xi(
-    MapVec XCi, MapMat YZ, int k,
+    const MapVec& XCi, const MapMat& YZ, int k,
     DataLoader* loader, int row_ind, const Distribution* distr,
-    double si, MapVec gamma, double l2penx
+    double si, const MapVec& gamma, double l2penx
 );
 
-bool feas_Xi(MapVec XCi, MapMat YZ, const Distribution* distr);
+bool feas_Xi(const MapVec& XCi, const MapMat& YZ, const Distribution* distr);
 
 
 
 double objfn_YZj(
-    MapMat XC, MapVec YZj, int k, IntegerVector YZind,
+    const MapMat& XC, const MapVec& YZj, int k, IntegerVector YZind,
     DataLoader* loader, int col_ind, const Distribution* distr,
-    MapVec s, double gammaj, double l2peny, double l2penz
+    const MapVec& s, double gammaj, double l2peny, double l2penz
 );
 
 NumericVector grad_YZj(
-    MapMat XC, MapVec YZj, int k, IntegerVector YZind,
+    const MapMat& XC, const MapVec& YZj, int k, IntegerVector YZind,
     DataLoader* loader, int col_ind, const Distribution* distr,
-    MapVec s, double gammaj, double l2peny, double l2penz
+    const MapVec& s, double gammaj, double l2peny, double l2penz
 );
 
 NumericMatrix hessian_YZj(
-    MapMat XC, MapVec YZj, int k, IntegerVector YZind,
+    const MapMat& XC, const MapVec& YZj, int k, IntegerVector YZind,
     DataLoader* loader, int col_ind, const Distribution* distr,
-    MapVec s, double gammaj, double l2peny, double l2penz
+    const MapVec& s, double gammaj, double l2peny, double l2penz
 );
 
 List direction_YZj(
-    MapMat XC, MapVec YZj, int k, IntegerVector YZind,
+    const MapMat& XC, const MapVec& YZj, int k, IntegerVector YZind,
     DataLoader* loader, int col_ind, const Distribution* distr,
-    MapVec s, double gammaj, double l2peny, double l2penz
+    const MapVec& s, double gammaj, double l2peny, double l2penz
 );
 
-bool feas_YZj(MapMat XC, MapVec YZj, const Distribution* distr);
+bool feas_YZj(const MapMat& XC, const MapVec& YZj, const Distribution* distr);
 
 
 #endif  // ESVD2_FAMILY_H

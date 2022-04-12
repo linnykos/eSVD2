@@ -20,9 +20,9 @@ inline double l2_penalty(const MapVec& XCi, int k, double l2penx)
 
 // Xi [k], Ci [r], Y [p x k], Z [p x r]
 double objfn_Xi(
-    MapVec XCi, MapMat YZ, int k,
+    const MapVec& XCi, const MapMat& YZ, int k,
     DataLoader* loader, int row_ind, const Distribution* distr,
-    double si, MapVec gamma, double l2penx
+    double si, const MapVec& gamma, double l2penx
 )
 {
     const int p = YZ.rows();
@@ -36,9 +36,9 @@ double objfn_Xi(
 }
 
 NumericVector grad_Xi(
-    MapVec XCi, MapMat YZ, int k,
+    const MapVec& XCi, const MapMat& YZ, int k,
     DataLoader* loader, int row_ind, const Distribution* distr,
-    double si, MapVec gamma, double l2penx
+    double si, const MapVec& gamma, double l2penx
 )
 {
     const int p = YZ.rows();
@@ -59,9 +59,9 @@ NumericVector grad_Xi(
 }
 
 NumericMatrix hessian_Xi(
-    MapVec XCi, MapMat YZ, int k,
+    const MapVec& XCi, const MapMat& YZ, int k,
     DataLoader* loader, int row_ind, const Distribution* distr,
-    double si, MapVec gamma, double l2penx
+    double si, const MapVec& gamma, double l2penx
 )
 {
     const int p = YZ.rows();
@@ -82,9 +82,9 @@ NumericMatrix hessian_Xi(
 }
 
 List direction_Xi(
-    MapVec XCi, MapMat YZ, int k,
+    const MapVec& XCi, const MapMat& YZ, int k,
     DataLoader* loader, int row_ind, const Distribution* distr,
-    double si, MapVec gamma, double l2penx
+    double si, const MapVec& gamma, double l2penx
 )
 {
     const int p = YZ.rows();
@@ -120,7 +120,7 @@ List direction_Xi(
     );
 }
 
-bool feas_Xi(MapVec XCi, MapMat YZ, const Distribution* distr)
+bool feas_Xi(const MapVec& XCi, const MapMat& YZ, const Distribution* distr)
 {
     if(distr->feas_always())
         return true;
@@ -196,9 +196,9 @@ inline NumericMatrix subset_matrix(const MatrixXd& mat, IntegerVector ind)
 // X [n x k], C [n x r], Yj [k], Zj [r]
 // YZind is the index vector indicating which variables in YZj to update, 0-based
 double objfn_YZj(
-    MapMat XC, MapVec YZj, int k, IntegerVector YZind,
+    const MapMat& XC, const MapVec& YZj, int k, IntegerVector YZind,
     DataLoader* loader, int col_ind, const Distribution* distr,
-    MapVec s, double gammaj, double l2peny, double l2penz
+    const MapVec& s, double gammaj, double l2peny, double l2penz
 )
 {
     const int n = XC.rows();
@@ -212,9 +212,9 @@ double objfn_YZj(
 }
 
 NumericVector grad_YZj(
-    MapMat XC, MapVec YZj, int k, IntegerVector YZind,
+    const MapMat& XC, const MapVec& YZj, int k, IntegerVector YZind,
     DataLoader* loader, int col_ind, const Distribution* distr,
-    MapVec s, double gammaj, double l2peny, double l2penz
+    const MapVec& s, double gammaj, double l2peny, double l2penz
 )
 {
     const int n = XC.rows();
@@ -232,9 +232,9 @@ NumericVector grad_YZj(
 }
 
 NumericMatrix hessian_YZj(
-    MapMat XC, MapVec YZj, int k, IntegerVector YZind,
+    const MapMat& XC, const MapVec& YZj, int k, IntegerVector YZind,
     DataLoader* loader, int col_ind, const Distribution* distr,
-    MapVec s, double gammaj, double l2peny, double l2penz
+    const MapVec& s, double gammaj, double l2peny, double l2penz
 )
 {
     const int n = XC.rows();
@@ -252,9 +252,9 @@ NumericMatrix hessian_YZj(
 }
 
 List direction_YZj(
-    MapMat XC, MapVec YZj, int k, IntegerVector YZind,
+    const MapMat& XC, const MapVec& YZj, int k, IntegerVector YZind,
     DataLoader* loader, int col_ind, const Distribution* distr,
-    MapVec s, double gammaj, double l2peny, double l2penz
+    const MapVec& s, double gammaj, double l2peny, double l2penz
 )
 {
     const int n = XC.rows();
@@ -289,7 +289,7 @@ List direction_YZj(
     );
 }
 
-bool feas_YZj(MapMat XC, MapVec YZj, const Distribution* distr)
+bool feas_YZj(const MapMat& XC, const MapVec& YZj, const Distribution* distr)
 {
     if(distr->feas_always())
         return true;
