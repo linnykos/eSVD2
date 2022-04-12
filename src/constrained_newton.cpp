@@ -2,12 +2,13 @@
 #include "objective.h"
 
 using Rcpp::NumericVector;
+using Rcpp::NumericMatrix;
 using Rcpp::List;
 
 using Eigen::MatrixXd;
 using Eigen::VectorXd;
-typedef Eigen::Map<MatrixXd> MapMat;
-typedef Eigen::Map<VectorXd> MapVec;
+using MapMat = Eigen::Map<MatrixXd>;
+using MapVec = Eigen::Map<VectorXd>;
 
 // C++ translation of line_search() in constrained_newton_lbfgs.R
 List line_search(
@@ -143,111 +144,4 @@ List constr_newton(
         Rcpp::Named("fn") = fx,
         Rcpp::Named("grad") = grad
     );
-}
-
-// C++ translation of opt_x() in optimization.R
-// [[Rcpp::export]]
-NumericMatrix opt_x_cpp(
-    MapMat X0, MapMat Y, SEXP B, SEXP Z,
-    MapMat A, Environment family,
-    MapVec s, MapVec gamma, MapVec offset, double l2pen,
-    int verbose = 0
-)
-{
-    // Get dimensions
-    const int n = A.rows();
-    const int p = A.cols();
-    const int k = X0.cols();
-    NumericMatrix X = NumericMatrix(Rcpp::no_init_matrix(n, k));
-    VectorXd Xi(k), Ai_(p);
-    MapVec Ai(Ai_.data(), p);
-
-    // Determine size of Z
-    int r = 0;
-    if(Z != R_NilValue)
-    {
-        NumericMatrix Z_data(Z);
-        r = Z_data.ncol();
-    }
-    NumericVector Zi_data = NumericVector(Rcpp::no_init_vector(r));
-
-    // Optimize each row of X
-    for(int i = 0; i < n; i++)
-    {
-        if(verbose >= 2)
-            Rcpp::Rcout << "===== Optimizing Row " << i + 1 << " of X =====" << std::endl;
-
-        // Determine Zi
-        SEXP Zi = R_NilValue;
-        if(r > 0)
-        {
-            NumericMatrix Z_data(Z);
-            for(int j = 0; j < r; j++)
-                Zi_data[j] = Z_data(i, j);
-            Zi = Zi_data;
-        }
-        // Prepare Xi
-        Xi.noalias() = X0.row(i).transpose();
-        // Prepare Ai
-        Ai.noalias() = A.row(i).transpose();
-        // Objective function, gradient, Hessian, and feasibility
-        ObjectiveX obj(Y, B, Zi, Ai, family, s[i], gamma, offset[i], l2pen);
-
-        // Run optimizer
-        List opt = constr_newton(Xi, obj, 100, 30, 0.001, (verbose >= 3));
-
-        // Extract result
-        NumericVector optx = opt["x"];
-        for(int j = 0; j < k; j++)
-            X(i, j) = optx[j];
-
-        if(verbose >= 3)
-            Rcpp::Rcout << "==========" << std::endl << std::endl;
-    }
-
-    return X;
-}
-
-// C++ translation of opt_yb() in optimization.R
-// [[Rcpp::export]]
-NumericMatrix opt_yb_cpp(
-    MapMat YB0, MapMat XZ,
-    MapMat A, Environment family,
-    MapVec s, MapVec gamma, MapVec offset, double l2pen,
-    int verbose = 0
-)
-{
-    // Get dimensions
-    const int n = A.rows();
-    const int p = A.cols();
-    const int k = YB0.cols();
-    NumericMatrix YB = NumericMatrix(Rcpp::no_init_matrix(p, k));
-    VectorXd YBj(k);
-
-    // Optimize each row of Y
-    for(int j = 0; j < p; j++)
-    {
-        if(verbose >= 2)
-            Rcpp::Rcout << "===== Optimizing Row " << j + 1 << " of Y =====" << std::endl;
-
-        // Prepare YBj
-        YBj.noalias() = YB0.row(j).transpose();
-        // Prepare Aj
-        MapVec Aj(&A(0, j), n);
-        // Objective function, gradient, Hessian, and feasibility
-        ObjectiveY obj(XZ, Aj, family, s, gamma[j], offset, l2pen);
-
-        // Run optimizer
-        List opt = constr_newton(YBj, obj, 100, 30, 0.001, (verbose >= 3));
-
-        // Extract result
-        NumericVector optx = opt["x"];
-        for(int i = 0; i < k; i++)
-            YB(j, i) = optx[i];
-
-        if(verbose >= 3)
-            Rcpp::Rcout << "==========" << std::endl << std::endl;
-    }
-
-    return YB;
 }
