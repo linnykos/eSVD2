@@ -37,7 +37,7 @@ initialize_esvd <- function(dat,
                                  verbose = verbose,
                                  tmp_path = tmp_path)
   b_mat <- tmp$b_mat
-  pval_vec <- tmp$pval_vec
+  log_pval_vec <- tmp$log_pval_vec
   if(!is.null(tmp_path)) save(b_mat, file = tmp_path)
 
   # do some cleanup
@@ -57,7 +57,7 @@ initialize_esvd <- function(dat,
                  b_mat = b_mat,
                  covariates = covariates,
                  nuisance_param_vec = rep(0, ncol(dat)),
-                 pval_vec = pval_vec,
+                 log_pval_vec = log_pval_vec,
                  param = param),
             class = "eSVD")
 }
@@ -99,7 +99,7 @@ initialize_esvd <- function(dat,
                             verbose_additional_msg = verbose_additional_msg,
                             verbose_gene_name = colnames(dat)[j])
     b_mat[j,] <- tmp$vec
-    pval_vec[j] <- tmp$pval
+    log_pval_vec[j] <- tmp$log_pval
 
     if(!is.null(tmp_path) && p >= 10 && floor(p/10) == 0){
       save(b_mat, file = tmp_path)
@@ -110,7 +110,7 @@ initialize_esvd <- function(dat,
                           covariates = covariates)
 
   list(b_mat = b_mat,
-       pval_vec = pval_vec)
+       log_pval_vec = log_pval_vec)
 }
 
 # [[note to self: hard coded for Poisson at the moment]]
@@ -159,14 +159,16 @@ initialize_esvd <- function(dat,
   deviance2 <- 2*sum(vec*log_vec - (vec - mean_vec2))
 
   residual_deviance <- max(deviance2 - deviance1, 0)
-  p_val <- 1-stats::pchisq(residual_deviance, df = 1)
+  log_p_val <- stats::pchisq(residual_deviance, df = 1,
+                         lower.tail = FALSE,
+                         log.p = T)
 
-  if(p_val <= p_val_thres){
+  if(log_p_val <= log(p_val_thres)){
     names(coef_vec1) <- c("Intercept", colnames(covariates))
     if(verbose >= 2) print(paste0(verbose_gene_name, verbose_additional_msg,
                                   ": Significant (deviance=", round(residual_deviance,1), "), coefficent: ",
                                   round(coef_vec1[case_control_variable], 2)))
-    return(list(vec = coef_vec1, pval = p_val))
+    return(list(vec = coef_vec1, log_pval = log_p_val))
   } else {
     names(coef_vec2) <- c("Intercept", colnames(covariates2))
     vec2 <- sapply(c("Intercept", colnames(covariates)), function(var){
@@ -175,7 +177,7 @@ initialize_esvd <- function(dat,
     names(vec2) <- c("Intercept", colnames(covariates))
     if(verbose >= 2) print(paste0(verbose_gene_name, verbose_additional_msg,
                                   ": Insignificant (deviance=", round(residual_deviance,1), ")"))
-    return(list(vec = vec2, pval = p_val))
+    return(list(vec = vec2, log_pval = log_p_val))
   }
 }
 

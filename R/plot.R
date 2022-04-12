@@ -4,7 +4,9 @@ plot_scatterplot_mean <- function(mat,
                                   case_control_variable,
                                   alpha_max = 50,
                                   asp = T,
+                                  bool_logscale = F,
                                   cex = 1,
+                                  col_points = rgb(0.5, 0.5, 0.5, 0.1),
                                   max_num = 1e5,
                                   mean_type = "predicted",
                                   nuisance_lower_quantile = 0.01,
@@ -27,6 +29,13 @@ plot_scatterplot_mean <- function(mat,
                              alpha_max = alpha_max,
                              nuisance_lower_quantile = nuisance_lower_quantile)
     mean_mat <- res$posterior_mean_mat
+
+    offset_var <- setdiff(colnames(esvd_res_full$covariates), case_control_variable)
+    library_mat <- exp(tcrossprod(
+      esvd_res$covariates[,offset_var],
+      esvd_res$b_mat[,offset_var]
+    ))
+    mat <- mat/library_mat
   }
 
   if(only_nonzero) {
@@ -38,11 +47,14 @@ plot_scatterplot_mean <- function(mat,
     idx <- sample(idx, size = max_num)
   }
 
-  x_vec <- mean_mat[idx]
-  y_vec <- mat[idx]
+  tmp_mat <- cbind(mat[idx], mean_mat[idx])
+  if(bool_logscale){
+    tmp_mat <- log1p(tmp_mat)
+  }
+  x_vec <- tmp_mat[,2]
+  y_vec <- tmp_mat[,1]
   if(all(is.na(xlim))) xlim <- range(c(0, x_vec, y_vec))
 
-  tmp_mat <- cbind(mat[idx], mean_mat[idx])
   bool_vec <- apply(tmp_mat, 1, function(x){all(x >= xlim[1]) & all(x <= xlim[2])})
   tmp_mat <- tmp_mat[which(bool_vec),]
   angle_val <- .compute_principal_angle(tmp_mat)
@@ -56,6 +68,11 @@ plot_scatterplot_mean <- function(mat,
 
   # plot diagonal
   seq_vec <- c(0, 2*max(abs(xlim)))
+  graphics::points(x = x_vec,
+                   y = y_vec,
+                   pch = 16,
+                   cex = cex,
+                   col = col_points)
   graphics::lines(x = seq_vec,
                   y = seq_vec,
                   col = "black",
@@ -66,96 +83,117 @@ plot_scatterplot_mean <- function(mat,
                   col = "green",
                   lwd = 2,
                   lty = 2)
-  graphics::points(x = x_vec,
-                   y = y_vec,
-                   pch = 16,
-                   cex = cex,
-                   col = col_vec)
   invisible()
 }
 
-plot_gene_librarysize <- function(mat,
-                                  col_individual = 1,
-                                  col_mean1 = 2,
-                                  col_mean2 = "white",
-                                  library_size_vec = NULL,
-                                  lwd_individual = 1,
-                                  lwd_mean1 = 3,
-                                  lwd_mean2 = 5,
-                                  ngroups = 6,
-                                  return_obj = F,
-                                  verbose = T,
-                                  ...){
+compute_gene_librarysize <- function(mat,
+                                     avg_expression = NULL,
+                                     library_size_vec = NULL,
+                                     deg = 2,
+                                     ngroups = 6,
+                                     num_boot = 100,
+                                     verbose = 1){
   if(all(is.null(library_size_vec))) library_size_vec <- colSums(mat)
-  avg_expression <- Matrix::colMeans(mat)
+  if(all(is.null(avg_expression))) avg_expression <- Matrix::colMeans(mat)
   res <- stats::kmeans(avg_expression, centers = ngroups)
+  if(verbose > 0) print(cbind(res$size, res$centers))
   kmean_clust <- res$cluster
-  clust_reorder <- sort(res$centers, decreasing = F)
+  clust_reorder <- order(res$centers, decreasing = F)
   tmp <- kmean_clust
   for(i in 1:ngroups){
     tmp[kmean_clust == clust_reorder[i]] <- i
   }
   kmean_clust <- tmp
+  if(verbose > 0) print(table(kmean_clust))
 
   p <- ncol(mat)
   pred_mat <- sapply(1:p, function(j){
-    if(verbose && p > 10 && j %% floor(p/10) == 0) cat('*')
-    bw_res <- np::npregbw(xdat = library_size_vec,
-                          ydat = mat[,j])
-    stats::predict(np::npreg(bw_res))
+    if(verbose == 1 && p > 10 && j %% floor(p/10) == 0) cat('*')
+    if(verbose == 2) print(j)
+    dat <- data.frame(y = mat[,j], x = library_size_vec)
+    np_fit <- npregfast::frfast(y ~ x,
+                                data = dat,
+                                p = deg,
+                                nboot = num_boot)
+
+    np_fit$p[,1,1]
   })
+
+  dat <- data.frame(y = mat[,1], x = library_size_vec)
+  np_fit <- npregfast::frfast(y ~ x,
+                              data = dat,
+                              p = deg,
+                              nboot = num_boot)
+  fitted_library_vec <- np_fit$x
 
   lis_obj <- lapply(1:ngroups, function(k){
     idx <- which(kmean_clust == k)
     pred_mat[,idx,drop = F]
   })
   names(lis_obj) <- paste0("cluster", 1:ngroups)
-  lis_obj$library_size <- library_size_vec
+  lis_obj$library_size <- fitted_library_vec
   lis_obj$range <- range(pred_mat)
+  lis_obj
+}
 
-  ord_vec <- order(lis_obj$library_size)
-  for(k in 1:ngroups){
-    plot(NA, xlim = range(lis_obj$library_size), ylim = lis_obj$range,
+plot_gene_librarysize <- function(lis_obj,
+                                  bool_fix_ylim = F,
+                                  col_rgb_r = 0.5,
+                                  col_rgb_g = 0.5,
+                                  col_rgb_b = 0.5,
+                                  col_mean1 = 2,
+                                  col_mean2 = "white",
+                                  lwd_individual = 1,
+                                  lwd_mean1 = 3,
+                                  lwd_mean2 = 5,
+                                  ...){
+  stopifnot(is.list(lis_obj), c("library_size", "range") %in% names(lis_obj))
+
+  for(k in 1:length(grep("cluster", names(lis_obj)))){
+    col_var <- rgb(col_rgb_r, col_rgb_g, col_rgb_b, pmax(pmin(1/sqrt(ncol(lis_obj[[k]])), 0.5), 0.1))
+
+    if(bool_fix_ylim) ylim_tmp <- lis_obj$range else ylim_tmp <- pmax(quantile(lis_obj[[k]], probs = c(0, 0.95)), 0)
+    plot(NA, xlim = range(lis_obj$library_size), ylim = ylim_tmp,
+         main = paste0("Cluster ", k, "\n(", ncol(lis_obj[[k]]), " genes)"),
          ...)
-    for(j in ncol(lis_obj[[k]])){
-      lines(x = lis_obj$library_size[ord_vec],
-            y = lis_obj[[k]][ord_vec,j],
-            col = col_individual,
+    for(j in 1:ncol(lis_obj[[k]])){
+      lines(x = lis_obj$library_size,
+            y = lis_obj[[k]][,j],
+            col = col_var,
             lwd = lwd_individual)
     }
-    lines(x = lis_obj$library_size[ord_vec],
-          y = Matrix::colMeans(lis_obj[[k]])[ord_vec],
+    lines(x = lis_obj$library_size,
+          y = Matrix::rowMeans(lis_obj[[k]]),
           col = col_mean2,
           lwd = lwd_mean2)
-    lines(x = lis_obj$library_size[ord_vec],
-          y = Matrix::colMeans(lis_obj[[k]])[ord_vec],
+    lines(x = lis_obj$library_size,
+          y = Matrix::rowMeans(lis_obj[[k]]),
           col = col_mean1,
           lwd = lwd_mean1)
   }
 
-  if(return_obj) return(lis_obj) else invisible()
+  invisible()
 }
 
 # https://r-graph-gallery.com/48-grouped-barplot-with-ggplot2.html
 plot_gene_variability <- function(mat,
                                   library_size_vec = NULL,
                                   ngroups_cells = 5,
-                                  ngroups_genes = 6,
-                                  verbose = T){
+                                  ngroups_genes = 6){
   if(all(is.null(library_size_vec))) library_size_vec <- colSums(mat)
   avg_expression <- Matrix::colMeans(mat)
-  res <- stats::kmeans(avg_expression, centers = ngroups_genes)$cluster
+  res <- stats::kmeans(avg_expression, centers = ngroups_genes)
   gene_clust <- res$cluster
-  clust_reorder <- sort(res$centers, decreasing = F)
+  clust_reorder <- order(res$centers, decreasing = F)
   tmp <- gene_clust
   for(i in 1:ngroups_genes){
     tmp[gene_clust == clust_reorder[i]] <- i
   }
   gene_clust <- tmp
 
-  res <- stats::kmeans(library_size_vec, centers = ngroups_cells)$cluster
+  res <- stats::kmeans(library_size_vec, centers = ngroups_cells)
   cell_clust <- res$cluster
-  clust_reorder <- sort(res$centers, decreasing = F)
+  clust_reorder <- order(res$centers, decreasing = F)
   tmp <- cell_clust
   for(i in 1:ngroups_cells){
     tmp[cell_clust == clust_reorder[i]] <- i
@@ -172,6 +210,8 @@ plot_gene_variability <- function(mat,
     }))
   })
   df$variance <- vec
+  df$gene_cluster <- as.factor(df$gene_cluster)
+  df$cell_cluster <- as.factor(df$cell_cluster)
 
   df
 }
