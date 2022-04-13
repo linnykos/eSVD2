@@ -1,94 +1,45 @@
-
-# Optimize X given Y and B
-opt_x <- function(X0, Y, B, Z, A,
-                  family, gamma, l2pen, offset_mat, offset_vec, s,
-                  opt_fun,
-                  run_cpp = TRUE,
-                  verbose = 0, ...)
+#' Optimize X given C, Y and Z
+#'
+#' @param XC_init Initial value for the `[X C]` matrix, X [n x k], C [n x r]
+#' @param YZ      The `[Y Z]` matrix, Y [p x k], Z [p x r]
+#' @param k       Number of columns in X and Y
+#' @param loader  The data loader, typically returned by data_loader()
+#' @param family  A family object, typically returned by esvd_family()
+#' @param s       The library size vector, [n x 1]
+#' @param gamma   The nuisance parameter vector, [p x 1]
+#' @param l2penx  The l2 penalty parameter for each row of X, [n x 1]
+#' @param verbose Verbosity parameter
+#' @param inplace Whether the input XC_init will be modified and returned
+#'
+opt_x <- function(XC_init, YZ, k, loader, family, s, gamma, l2penx,
+                  verbose = 0, inplace = FALSE, ...)
 {
-  # Use C++ version if loaded
-  if(run_cpp && (!is.null(family$cpp_functions)) && identical(opt_fun, constr_newton))
-  {
-    return(opt_x_cpp(X0, Y, B, Z, A, family, s, gamma, offset_vec, l2pen, verbose))
-  }
-
-  n <- nrow(A)
-  X <- X0
-  # Optimize each row of X
-  for(i in 1:n)
-  {
-    if(verbose >= 2)
-      cat("===== Optimizing Row ", i, " of X =====\n", sep = "")
-    Zi <- if(is.null(Z)) NULL else Z[i, ]
-
-    opt <- opt_fun(
-      x0 = X0[i, ],
-      f = objfn_Xi,
-      gr = grad_Xi,
-      hn = hessian_Xi,
-      direc = direction_Xi,
-      feas = feas_Xi,
-      eps_rel = 1e-3,
-      verbose = (verbose >= 3),
-      Y = Y, B = B, Zi = Zi,
-      Ai = A[i, ],
-      family = family, si = s[i], gamma = gamma,
-      offseti = offset_vec[i], offset = offset_mat[i,],
-      l2pen = l2pen, ...
-    )
-
-    X[i, ] <- opt$x
-    if(verbose >= 4) {
-      print(paste0("Iteration ", i))
-      print(X[i, ])
-    }
-    if(verbose >= 3) cat("==========\n\n")
-  }
-  X
+  storage.mode(YZ) <- "double"
+  .opt_x(XC_init, YZ, k, loader, family, s, gamma, l2penx, verbose, inplace)
 }
 
-# Optimize Y and B given X
-opt_yb <- function(YB0, XZ, A,
-                   family, gamma, l2pen, offset_mat, offset_vec, s,
-                   opt_fun,
-                   run_cpp = TRUE,
-                   verbose = 0, ...)
+#' Optimize Y and Z given X and C
+#'
+#' @param YZ_init    Initial value for the `[Y Z]` matrix, Y [p x k], Z [p x r]
+#' @param XC         The `[X C]` matrix, X [n x k], C [n x r]
+#' @param k          Number of columns in X and Y
+#' @param fixed_cols Which columns in YZ need to be fixed
+#' @param loader     The data loader, typically returned by data_loader()
+#' @param family     A family object, typically returned by esvd_family()
+#' @param s          The library size vector, [n x 1]
+#' @param gamma      The nuisance parameter vector, [p x 1]
+#' @param l2peny     The l2 penalty parameter for each row of Y, [p x 1]
+#' @param l2penz     The l2 penalty parameter for each row of Z, [p x 1]
+#' @param verbose    Verbosity parameter
+#' @param inplace    Whether the input XC_init will be modified and returned
+#'
+opt_yz <- function(YZ_init, XC, k, fixed_cols, loader, family, s, gamma,
+                   l2peny, l2penz, verbose = 0, inplace = FALSE, ...)
 {
-  if(run_cpp && (!is.null(family$cpp_functions)) && identical(opt_fun, constr_newton))
-  {
-    return(opt_yb_cpp(YB0, XZ, A, family, s, gamma, offset_vec, l2pen, verbose))
-  }
-
-  p <- ncol(A)
-  YB <- YB0
-  # Optimize each row of Y and B
-  for(j in 1:p)
-  {
-    if(verbose >= 2)
-      cat("===== Optimizing Row ", j, " of Y =====\n", sep = "")
-
-    opt <- opt_fun(
-      x0 = YB0[j, ],
-      f = objfn_Yj,
-      gr = grad_Yj,
-      hn = hessian_Yj,
-      direc = direction_Yj,
-      feas = feas_Yj,
-      eps_rel = 1e-3,
-      verbose = (verbose >= 3),
-      X = XZ, Bj = NULL, Z = NULL, Aj = A[, j],
-      family = family, s = s, gammaj = gamma[j],
-      offset = offset_mat[,j], l2pen = l2pen, ...
-    )
-
-    YB[j, ] <- opt$x
-    if(verbose >= 4) {
-      print(paste0("Iteration ", j))
-      print(YB[j, ])
-    }
-    if(verbose >= 3)  cat("==========\n\n")
-  }
-  YB
+  # YZind will be passed to C++, should be zero-based
+  YZind <- setdiff(1:ncol(YZ_init), fixed_cols) - 1
+  .opt_yz(YZ_init, XC, k, YZind, loader, family, s, gamma, l2peny, l2penz,
+          verbose, inplace)
 }
 
 #############################
