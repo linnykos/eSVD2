@@ -1,5 +1,63 @@
 context("Test optimization helper functions")
 
+test_that("opt_x and opt_yz works", {
+  set.seed(123)
+  n <- 100
+  p <- 150
+  k <- 5
+  x_mat <- matrix(abs(rnorm(n * k)), nrow = n, ncol = k)
+  y_mat <- matrix(abs(rnorm(p * k)), nrow = p, ncol = k)
+  nat_mat <- log(tcrossprod(x_mat, y_mat))
+
+  # Simulate data
+  dat <- generate_data(nat_mat, family = "poisson", nuisance_param_vec = NA,
+                       library_size_vec = 1)
+
+  loader <- data_loader(dat)
+  family <- esvd_family("poisson")
+  library_size_vec <- rep(1, n)
+  nuisance_param_vec <- rep(NA, p)
+  l2pen <- 0.001
+
+  # Compute initial loss
+  loss0 <- objfn_all_r(
+    XC = x_mat, YZ = y_mat, k = k, loader = loader, family = family,
+    s = library_size_vec, gamma = nuisance_param_vec,
+    l2penx = rep(l2pen, n), l2peny = rep(l2pen, p), l2penz = rep(l2pen, p)
+  )
+
+  # Optimize X
+  cat("\n")
+  newx <- opt_x(x_mat, y_mat, k, loader = loader, family = family,
+                s = library_size_vec, gamma = nuisance_param_vec,
+                l2penx = rep(l2pen, n), verbose = 3)
+
+  # Compute new loss
+  loss1 <- objfn_all_r(
+    XC = newx, YZ = y_mat, k = k, loader = loader, family = family,
+    s = library_size_vec, gamma = nuisance_param_vec,
+    l2penx = rep(l2pen, n), l2peny = rep(l2pen, p), l2penz = rep(l2pen, p)
+  )
+
+  # Optimize Y
+  newy <- opt_yz(y_mat, newx, k, fixed_cols = c(),
+                 loader = loader, family = family,
+                 s = library_size_vec, gamma = nuisance_param_vec,
+                 l2peny = rep(l2pen, p), l2penz = rep(l2pen, p),
+                 verbose = 3)
+
+  # Compute new loss
+  loss2 <- objfn_all_r(
+    XC = newx, YZ = newy, k = k, loader = loader, family = family,
+    s = library_size_vec, gamma = nuisance_param_vec,
+    l2penx = rep(l2pen, n), l2peny = rep(l2pen, p), l2penz = rep(l2pen, p)
+  )
+
+  cat("loss0 = ", loss0, ", loss1 = ", loss1, ", loss2 = ", loss2, "\n", sep = "")
+  expect_lt(loss1, loss0)
+  expect_lt(loss2, loss1)
+})
+
 ## .opt_nuisance is correct
 
 test_that(".opt_nuisance works", {
@@ -80,5 +138,3 @@ test_that(".opt_nuisance works for a more challenging setting", {
   expect_true(sum(abs(res[4:6] - 1)) <= min(abs(res[-c(4:6)] - 1)))
   expect_true(sum(abs(res[7:10] - 500)) <= sum(abs(res[7:10] - 1)))
 })
-
-
