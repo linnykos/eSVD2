@@ -233,9 +233,9 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// opt_x_cpp
-NumericMatrix opt_x_cpp(NumericMatrix XC0, MapMat YZ, int k, SEXP loader, List family, NumericVector s, NumericVector gamma, NumericVector l2penx, int verbose, bool inplace);
-RcppExport SEXP _eSVD2_opt_x_cpp(SEXP XC0SEXP, SEXP YZSEXP, SEXP kSEXP, SEXP loaderSEXP, SEXP familySEXP, SEXP sSEXP, SEXP gammaSEXP, SEXP l2penxSEXP, SEXP verboseSEXP, SEXP inplaceSEXP) {
+// opt_x
+NumericMatrix opt_x(NumericMatrix XC0, MapMat YZ, int k, SEXP loader, List family, NumericVector s, NumericVector gamma, NumericVector l2penx, int verbose, bool inplace);
+RcppExport SEXP _eSVD2_opt_x(SEXP XC0SEXP, SEXP YZSEXP, SEXP kSEXP, SEXP loaderSEXP, SEXP familySEXP, SEXP sSEXP, SEXP gammaSEXP, SEXP l2penxSEXP, SEXP verboseSEXP, SEXP inplaceSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -249,13 +249,13 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< NumericVector >::type l2penx(l2penxSEXP);
     Rcpp::traits::input_parameter< int >::type verbose(verboseSEXP);
     Rcpp::traits::input_parameter< bool >::type inplace(inplaceSEXP);
-    rcpp_result_gen = Rcpp::wrap(opt_x_cpp(XC0, YZ, k, loader, family, s, gamma, l2penx, verbose, inplace));
+    rcpp_result_gen = Rcpp::wrap(opt_x(XC0, YZ, k, loader, family, s, gamma, l2penx, verbose, inplace));
     return rcpp_result_gen;
 END_RCPP
 }
-// opt_yz_cpp
-NumericMatrix opt_yz_cpp(NumericMatrix YZ0, MapMat XC, int k, IntegerVector YZind, SEXP loader, List family, NumericVector s, NumericVector gamma, NumericVector l2peny, NumericVector l2penz, int verbose, bool inplace);
-RcppExport SEXP _eSVD2_opt_yz_cpp(SEXP YZ0SEXP, SEXP XCSEXP, SEXP kSEXP, SEXP YZindSEXP, SEXP loaderSEXP, SEXP familySEXP, SEXP sSEXP, SEXP gammaSEXP, SEXP l2penySEXP, SEXP l2penzSEXP, SEXP verboseSEXP, SEXP inplaceSEXP) {
+// opt_yz
+NumericMatrix opt_yz(NumericMatrix YZ0, MapMat XC, int k, IntegerVector YZind, SEXP loader, List family, NumericVector s, NumericVector gamma, NumericVector l2peny, NumericVector l2penz, int verbose, bool inplace);
+RcppExport SEXP _eSVD2_opt_yz(SEXP YZ0SEXP, SEXP XCSEXP, SEXP kSEXP, SEXP YZindSEXP, SEXP loaderSEXP, SEXP familySEXP, SEXP sSEXP, SEXP gammaSEXP, SEXP l2penySEXP, SEXP l2penzSEXP, SEXP verboseSEXP, SEXP inplaceSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -271,7 +271,7 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< NumericVector >::type l2penz(l2penzSEXP);
     Rcpp::traits::input_parameter< int >::type verbose(verboseSEXP);
     Rcpp::traits::input_parameter< bool >::type inplace(inplaceSEXP);
-    rcpp_result_gen = Rcpp::wrap(opt_yz_cpp(YZ0, XC, k, YZind, loader, family, s, gamma, l2peny, l2penz, verbose, inplace));
+    rcpp_result_gen = Rcpp::wrap(opt_yz(YZ0, XC, k, YZind, loader, family, s, gamma, l2peny, l2penz, verbose, inplace));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -291,8 +291,8 @@ static const R_CallMethodDef CallEntries[] = {
     {"_eSVD2_hessian_YZj_r", (DL_FUNC) &_eSVD2_hessian_YZj_r, 11},
     {"_eSVD2_feas_YZj_r", (DL_FUNC) &_eSVD2_feas_YZj_r, 3},
     {"_eSVD2_gamma_rate", (DL_FUNC) &_eSVD2_gamma_rate, 3},
-    {"_eSVD2_opt_x_cpp", (DL_FUNC) &_eSVD2_opt_x_cpp, 10},
-    {"_eSVD2_opt_yz_cpp", (DL_FUNC) &_eSVD2_opt_yz_cpp, 12},
+    {"_eSVD2_opt_x", (DL_FUNC) &_eSVD2_opt_x, 10},
+    {"_eSVD2_opt_yz", (DL_FUNC) &_eSVD2_opt_yz, 12},
     {NULL, NULL, 0}
 };
 

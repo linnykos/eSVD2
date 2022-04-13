@@ -173,8 +173,8 @@ public:
     }
 };
 
-// [[Rcpp::export(.opt_x_cpp)]]
-NumericMatrix opt_x_cpp(
+// [[Rcpp::export(.opt_x)]]
+NumericMatrix opt_x(
     NumericMatrix XC0, MapMat YZ, int k, SEXP loader, List family,
     NumericVector s, NumericVector gamma,
     NumericVector l2penx, int verbose = 0, bool inplace = true
@@ -229,8 +229,8 @@ NumericMatrix opt_x_cpp(
     return res;
 }
 
-// [[Rcpp::export(.opt_yz_cpp)]]
-NumericMatrix opt_yz_cpp(
+// [[Rcpp::export(.opt_yz)]]
+NumericMatrix opt_yz(
     NumericMatrix YZ0, MapMat XC, int k, IntegerVector YZind,
     SEXP loader, List family, NumericVector s, NumericVector gamma,
     NumericVector l2peny, NumericVector l2penz,

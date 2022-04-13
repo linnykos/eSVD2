@@ -57,11 +57,11 @@ gamma_rate <- function(x, mu, s) {
     .Call(`_eSVD2_gamma_rate`, x, mu, s)
 }
 
-.opt_x_cpp <- function(XC0, YZ, k, loader, family, s, gamma, l2penx, verbose = 0L, inplace = TRUE) {
-    .Call(`_eSVD2_opt_x_cpp`, XC0, YZ, k, loader, family, s, gamma, l2penx, verbose, inplace)
+.opt_x <- function(XC0, YZ, k, loader, family, s, gamma, l2penx, verbose = 0L, inplace = TRUE) {
+    .Call(`_eSVD2_opt_x`, XC0, YZ, k, loader, family, s, gamma, l2penx, verbose, inplace)
 }
 
-.opt_yz_cpp <- function(YZ0, XC, k, YZind, loader, family, s, gamma, l2peny, l2penz, verbose = 0L, inplace = TRUE) {
-    .Call(`_eSVD2_opt_yz_cpp`, YZ0, XC, k, YZind, loader, family, s, gamma, l2peny, l2penz, verbose, inplace)
+.opt_yz <- function(YZ0, XC, k, YZind, loader, family, s, gamma, l2peny, l2penz, verbose = 0L, inplace = TRUE) {
+    .Call(`_eSVD2_opt_yz`, YZ0, XC, k, YZind, loader, family, s, gamma, l2peny, l2penz, verbose, inplace)
 }
 
