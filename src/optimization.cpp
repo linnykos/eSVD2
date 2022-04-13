@@ -173,7 +173,7 @@ public:
     }
 };
 
-// [[Rcpp::export]]
+// [[Rcpp::export(.opt_x_cpp)]]
 NumericMatrix opt_x_cpp(
     NumericMatrix XC0, MapMat YZ, int k, SEXP loader, List family,
     NumericVector s, NumericVector gamma,
@@ -229,8 +229,8 @@ NumericMatrix opt_x_cpp(
     return res;
 }
 
-// [[Rcpp::export]]
-NumericMatrix opt_yb_cpp(
+// [[Rcpp::export(.opt_yz_cpp)]]
+NumericMatrix opt_yz_cpp(
     NumericMatrix YZ0, MapMat XC, int k, IntegerVector YZind,
     SEXP loader, List family, NumericVector s, NumericVector gamma,
     NumericVector l2peny, NumericVector l2penz,
