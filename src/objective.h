@@ -5,18 +5,13 @@
 
 class Objective
 {
-private:
-    using NumericVector = Rcpp::NumericVector;
-    using NumericMatrix = Rcpp::NumericMatrix;
-    using List = Rcpp::List;
-
 public:
     virtual ~Objective() {}
-    virtual double        objfn(NumericVector x) = 0;
-    virtual NumericVector grad(NumericVector x) = 0;
-    virtual NumericMatrix hessian(NumericVector x) = 0;
-    virtual List          direction(NumericVector x) = 0;
-    virtual bool          feas(NumericVector x) = 0;
+    virtual double              objfn(Rcpp::NumericVector x) = 0;
+    virtual Rcpp::NumericVector grad(Rcpp::NumericVector x) = 0;
+    virtual Rcpp::NumericMatrix hessian(Rcpp::NumericVector x) = 0;
+    virtual Rcpp::List          direction(Rcpp::NumericVector x) = 0;
+    virtual bool                feas(Rcpp::NumericVector x) = 0;
 };
 
 
