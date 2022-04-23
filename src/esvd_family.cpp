@@ -41,14 +41,11 @@ List esvd_family(std::string family)
 double objfn_all_r(
     MapMat XC, MapMat YZ, int k, SEXP loader, List family,
     NumericVector s, NumericVector gamma,
-    NumericVector l2penx, NumericVector l2peny, NumericVector l2penz
+    double l2penx, double l2peny, double l2penz
 )
 {
     Rcpp::XPtr<DataLoader> data_loader(loader);
     Rcpp::XPtr<Distribution> distr = family["internal"];
-    MapVec l2penxv = Rcpp::as<MapVec>(l2penx);
-    MapVec l2penyv = Rcpp::as<MapVec>(l2peny);
-    MapVec l2penzv = Rcpp::as<MapVec>(l2penz);
 
     const int n = XC.rows();
     const int p = YZ.rows();
@@ -70,11 +67,11 @@ double objfn_all_r(
     }
 
     // Penalty part
-    double penx = XC.leftCols(k).rowwise().squaredNorm().cwiseProduct(l2penxv).sum();
-    double peny = YZ.leftCols(k).rowwise().squaredNorm().cwiseProduct(l2penyv).sum();
+    double penx = l2penx * XC.leftCols(k).squaredNorm();
+    double peny = l2peny * YZ.leftCols(k).squaredNorm();
     double penz = 0.0;
     if(r > 0)
-        penz += YZ.rightCols(r).rowwise().squaredNorm().cwiseProduct(l2penzv).sum();
+        penz += l2penz * YZ.rightCols(r).squaredNorm();
 
     return (-loglik + penx + peny + penz) / double(total_non_na);
 }

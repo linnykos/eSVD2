@@ -55,7 +55,7 @@ BEGIN_RCPP
 END_RCPP
 }
 // objfn_all_r
-double objfn_all_r(MapMat XC, MapMat YZ, int k, SEXP loader, List family, NumericVector s, NumericVector gamma, NumericVector l2penx, NumericVector l2peny, NumericVector l2penz);
+double objfn_all_r(MapMat XC, MapMat YZ, int k, SEXP loader, List family, NumericVector s, NumericVector gamma, double l2penx, double l2peny, double l2penz);
 RcppExport SEXP _eSVD2_objfn_all_r(SEXP XCSEXP, SEXP YZSEXP, SEXP kSEXP, SEXP loaderSEXP, SEXP familySEXP, SEXP sSEXP, SEXP gammaSEXP, SEXP l2penxSEXP, SEXP l2penySEXP, SEXP l2penzSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
@@ -67,9 +67,9 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< List >::type family(familySEXP);
     Rcpp::traits::input_parameter< NumericVector >::type s(sSEXP);
     Rcpp::traits::input_parameter< NumericVector >::type gamma(gammaSEXP);
-    Rcpp::traits::input_parameter< NumericVector >::type l2penx(l2penxSEXP);
-    Rcpp::traits::input_parameter< NumericVector >::type l2peny(l2penySEXP);
-    Rcpp::traits::input_parameter< NumericVector >::type l2penz(l2penzSEXP);
+    Rcpp::traits::input_parameter< double >::type l2penx(l2penxSEXP);
+    Rcpp::traits::input_parameter< double >::type l2peny(l2penySEXP);
+    Rcpp::traits::input_parameter< double >::type l2penz(l2penzSEXP);
     rcpp_result_gen = Rcpp::wrap(objfn_all_r(XC, YZ, k, loader, family, s, gamma, l2penx, l2peny, l2penz));
     return rcpp_result_gen;
 END_RCPP
