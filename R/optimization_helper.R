@@ -38,6 +38,7 @@ opt_yz <- function(YZ_init, XC, k, fixed_cols, loader, family, s, gamma,
 {
   # YZind will be passed to C++, should be zero-based
   YZind <- setdiff(1:ncol(YZ_init), fixed_cols) - 1
+  storage.mode(XC) <- "double"
   .opt_yz(YZ_init, XC, k, YZind, loader, family, s, gamma, l2peny, l2penz,
           verbose, inplace)
 }
