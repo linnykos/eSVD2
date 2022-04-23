@@ -234,7 +234,7 @@ BEGIN_RCPP
 END_RCPP
 }
 // opt_x
-NumericMatrix opt_x(NumericMatrix XC0, MapMat YZ, int k, SEXP loader, List family, NumericVector s, NumericVector gamma, NumericVector l2penx, int verbose, bool inplace);
+NumericMatrix opt_x(NumericMatrix XC0, MapMat YZ, int k, SEXP loader, List family, NumericVector s, NumericVector gamma, double l2penx, int verbose, bool inplace);
 RcppExport SEXP _eSVD2_opt_x(SEXP XC0SEXP, SEXP YZSEXP, SEXP kSEXP, SEXP loaderSEXP, SEXP familySEXP, SEXP sSEXP, SEXP gammaSEXP, SEXP l2penxSEXP, SEXP verboseSEXP, SEXP inplaceSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
@@ -246,7 +246,7 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< List >::type family(familySEXP);
     Rcpp::traits::input_parameter< NumericVector >::type s(sSEXP);
     Rcpp::traits::input_parameter< NumericVector >::type gamma(gammaSEXP);
-    Rcpp::traits::input_parameter< NumericVector >::type l2penx(l2penxSEXP);
+    Rcpp::traits::input_parameter< double >::type l2penx(l2penxSEXP);
     Rcpp::traits::input_parameter< int >::type verbose(verboseSEXP);
     Rcpp::traits::input_parameter< bool >::type inplace(inplaceSEXP);
     rcpp_result_gen = Rcpp::wrap(opt_x(XC0, YZ, k, loader, family, s, gamma, l2penx, verbose, inplace));
@@ -254,7 +254,7 @@ BEGIN_RCPP
 END_RCPP
 }
 // opt_yz
-NumericMatrix opt_yz(NumericMatrix YZ0, MapMat XC, int k, IntegerVector YZind, SEXP loader, List family, NumericVector s, NumericVector gamma, NumericVector l2peny, NumericVector l2penz, int verbose, bool inplace);
+NumericMatrix opt_yz(NumericMatrix YZ0, MapMat XC, int k, IntegerVector YZind, SEXP loader, List family, NumericVector s, NumericVector gamma, double l2peny, double l2penz, int verbose, bool inplace);
 RcppExport SEXP _eSVD2_opt_yz(SEXP YZ0SEXP, SEXP XCSEXP, SEXP kSEXP, SEXP YZindSEXP, SEXP loaderSEXP, SEXP familySEXP, SEXP sSEXP, SEXP gammaSEXP, SEXP l2penySEXP, SEXP l2penzSEXP, SEXP verboseSEXP, SEXP inplaceSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
@@ -267,8 +267,8 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< List >::type family(familySEXP);
     Rcpp::traits::input_parameter< NumericVector >::type s(sSEXP);
     Rcpp::traits::input_parameter< NumericVector >::type gamma(gammaSEXP);
-    Rcpp::traits::input_parameter< NumericVector >::type l2peny(l2penySEXP);
-    Rcpp::traits::input_parameter< NumericVector >::type l2penz(l2penzSEXP);
+    Rcpp::traits::input_parameter< double >::type l2peny(l2penySEXP);
+    Rcpp::traits::input_parameter< double >::type l2penz(l2penzSEXP);
     Rcpp::traits::input_parameter< int >::type verbose(verboseSEXP);
     Rcpp::traits::input_parameter< bool >::type inplace(inplaceSEXP);
     rcpp_result_gen = Rcpp::wrap(opt_yz(YZ0, XC, k, YZind, loader, family, s, gamma, l2peny, l2penz, verbose, inplace));

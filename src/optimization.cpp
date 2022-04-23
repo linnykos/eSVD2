@@ -177,7 +177,7 @@ public:
 NumericMatrix opt_x(
     NumericMatrix XC0, MapMat YZ, int k, SEXP loader, List family,
     NumericVector s, NumericVector gamma,
-    NumericVector l2penx, int verbose = 0, bool inplace = true
+    double l2penx, int verbose = 0, bool inplace = true
 )
 {
     MapMat init = Rcpp::as<MapMat>(XC0);
@@ -202,7 +202,7 @@ NumericMatrix opt_x(
         MapVec XCi(&XC.coeffRef(0, i), kr);
 
         // Objective function, gradient, Hessian, and feasibility
-        ObjectiveX obj(XCi, YZ, k, data_loader, i, distr, s[i], gammav, l2penx[i]);
+        ObjectiveX obj(XCi, YZ, k, data_loader, i, distr, s[i], gammav, l2penx);
 
         // Run optimizer
         VectorXd Xi_init = XCi.head(k);
@@ -233,7 +233,7 @@ NumericMatrix opt_x(
 NumericMatrix opt_yz(
     NumericMatrix YZ0, MapMat XC, int k, IntegerVector YZind,
     SEXP loader, List family, NumericVector s, NumericVector gamma,
-    NumericVector l2peny, NumericVector l2penz,
+    double l2peny, double l2penz,
     int verbose = 0, bool inplace = true
 )
 {
@@ -260,7 +260,7 @@ NumericMatrix opt_yz(
 
         // Objective function, gradient, Hessian, and feasibility
         ObjectiveYZ obj(XC, YZj, k, YZind, data_loader, j, distr,
-                        sv, gamma[j], l2peny[j], l2penz[j]);
+                        sv, gamma[j], l2peny, l2penz);
 
         // Run optimizer
         VectorXd YZj_init = subset_vector(YZj, YZind);

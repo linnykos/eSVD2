@@ -7,7 +7,7 @@
 #' @param family  A family object, typically returned by esvd_family()
 #' @param s       The library size vector, [n x 1]
 #' @param gamma   The nuisance parameter vector, [p x 1]
-#' @param l2penx  The l2 penalty parameter for each row of X, [n x 1]
+#' @param l2penx  The l2 penalty parameter for X, a scalar
 #' @param verbose Verbosity parameter
 #' @param inplace Whether the input XC_init will be modified and returned
 #'
@@ -28,8 +28,8 @@ opt_x <- function(XC_init, YZ, k, loader, family, s, gamma, l2penx,
 #' @param family     A family object, typically returned by esvd_family()
 #' @param s          The library size vector, [n x 1]
 #' @param gamma      The nuisance parameter vector, [p x 1]
-#' @param l2peny     The l2 penalty parameter for each row of Y, [p x 1]
-#' @param l2penz     The l2 penalty parameter for each row of Z, [p x 1]
+#' @param l2peny     The l2 penalty parameter for Y, a scalar
+#' @param l2penz     The l2 penalty parameter for Z, a scalar
 #' @param verbose    Verbosity parameter
 #' @param inplace    Whether the input XC_init will be modified and returned
 #'
