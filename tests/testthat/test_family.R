@@ -3,23 +3,35 @@ context("Test distribution family functions")
 run_test <- function(
   dat, x_mat, y_mat, family, offset = rnorm(nrow(x_mat)),
   nuisance_param_vec = rep(1, nrow(y_mat)), library_size_vec = rep(1, nrow(x_mat)),
-  l2pen = list(x = 0.001, y = 0.002, z = 0.003), tol = 1e-6
+  l2pen = list(x = 0.001, y = 0.01, z = 0.1), tol = 1e-6
 )
 {
   n <- nrow(dat)
   p <- ncol(dat)
   k <- ncol(x_mat)
 
-  c_mat <- matrix(offset, ncol = 1)
-  z_mat <- matrix(1, nrow = p, ncol = 1)
+  # Simulate a covariate whose coefficients are fixed, i.e., an offset
+  covariate1 <- offset
+  coef1 <- rep(1, p)
+  # Simulate another covariate whose coefficients are to be estimated
+  covariate2 <- runif(n) * offset
+  coef2 <- rep(0.1, p)
+  # Combine X and covariates
+  c_mat <- cbind(covariate1, covariate2)
   xc_mat <- cbind(x_mat, c_mat)
+  # Combine Y and Z
+  z_mat <- cbind(coef1, coef2)
   yz_mat <- cbind(y_mat, z_mat)
+  # yzind stands for the columns in YZ that not fixed, 0-based
+  # All Y columns, and the second column of Z
+  yzind <- c(1:k, k + 2) - 1
+
   loader <- data_loader(dat)
   family <- esvd_family(family)
+
   library_size_vec <- .parse_library_size(dat, library_size_vec)
   if(length(nuisance_param_vec) == 1)
     nuisance_param_vec <- rep(nuisance_param_vec, p)
-  yzind <- (1:k) - 1
 
   ############# Test objective functions #############
   loss1 <- objfn_all_r(
@@ -126,7 +138,7 @@ run_test <- function(
     hess2 <- numDeriv::hessian(
       function(x, ...) { yzj <- yz_mat[j, ]; yzj[yzind + 1] <- x; objfn_YZj_r(YZj = yzj, ...) },
       yz_mat[j, yzind + 1],
-      XC = xc_mat, , k = k, YZind = yzind,
+      XC = xc_mat, k = k, YZind = yzind,
       loader = loader, col_ind = j - 1, family = family,
       s = library_size_vec, gammaj = nuisance_param_vec[j],
       l2peny = l2pen$y, l2penz = l2pen$z
