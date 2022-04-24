@@ -2,71 +2,71 @@
 #define ESVD2_FAMILY_H
 
 #include <RcppEigen.h>
+#include "data_loader.h"
 #include "distribution.h"
 
 using Rcpp::NumericMatrix;
 using Rcpp::NumericVector;
+using Rcpp::IntegerVector;
 using Rcpp::List;
-using Rcpp::Environment;
 using Eigen::MatrixXd;
 using Eigen::VectorXd;
-typedef Eigen::Map<MatrixXd> MapMat;
-typedef Eigen::Map<VectorXd> MapVec;
+using MapMat = Eigen::Map<MatrixXd>;
+using MapVec = Eigen::Map<VectorXd>;
 
-double objfn_Xi_impl(
-    MapVec Xi, MapMat Y, SEXP B, SEXP Zi,
-    MapVec Ai, Environment family,
-    double si, MapVec gamma, double offseti, double l2pen
+double objfn_Xi(
+    const MapVec& XCi, const MapMat& YZ, int k,
+    DataLoader* loader, int row_ind, const Distribution* distr,
+    double si, const MapVec& gamma, double l2penx
 );
 
-double objfn_Yj_impl(
-    MapVec Yj, MapMat X, SEXP Bj, SEXP Z,
-    MapVec Aj, Environment family,
-    MapVec s, double gammaj, MapVec offset, double l2pen
+NumericVector grad_Xi(
+    const MapVec& XCi, const MapMat& YZ, int k,
+    DataLoader* loader, int row_ind, const Distribution* distr,
+    double si, const MapVec& gamma, double l2penx
 );
 
-NumericVector grad_Xi_impl(
-    MapVec Xi, MapMat Y, SEXP B, SEXP Zi,
-    MapVec Ai, Environment family,
-    double si, MapVec gamma, double offseti, double l2pen
+NumericMatrix hessian_Xi(
+    const MapVec& XCi, const MapMat& YZ, int k,
+    DataLoader* loader, int row_ind, const Distribution* distr,
+    double si, const MapVec& gamma, double l2penx
 );
 
-NumericVector grad_Yj_impl(
-    MapVec Yj, MapMat X, SEXP Bj, SEXP Z,
-    MapVec Aj, Environment family,
-    MapVec s, double gammaj, MapVec offset, double l2pen
+List direction_Xi(
+    const MapVec& XCi, const MapMat& YZ, int k,
+    DataLoader* loader, int row_ind, const Distribution* distr,
+    double si, const MapVec& gamma, double l2penx
 );
 
-NumericMatrix hessian_Xi_impl(
-    MapVec Xi, MapMat Y, SEXP B, SEXP Zi,
-    MapVec Ai, Environment family,
-    double si, MapVec gamma, double offseti, double l2pen
+bool feas_Xi(const MapVec& XCi, const MapMat& YZ, const Distribution* distr);
+
+
+
+double objfn_YZj(
+    const MapMat& XC, const MapVec& YZj, int k, IntegerVector YZind,
+    DataLoader* loader, int col_ind, const Distribution* distr,
+    const MapVec& s, double gammaj, double l2peny, double l2penz
 );
 
-NumericMatrix hessian_Yj_impl(
-    MapVec Yj, MapMat X, SEXP Bj, SEXP Z,
-    MapVec Aj, Environment family,
-    MapVec s, double gammaj, MapVec offset, double l2pen
+NumericVector grad_YZj(
+    const MapMat& XC, const MapVec& YZj, int k, IntegerVector YZind,
+    DataLoader* loader, int col_ind, const Distribution* distr,
+    const MapVec& s, double gammaj, double l2peny, double l2penz
 );
 
-List direction_Xi_impl(
-    MapVec Xi, MapMat Y, SEXP B, SEXP Zi,
-    MapVec Ai, Environment family,
-    double si, MapVec gamma, double offseti, double l2pen
+NumericMatrix hessian_YZj(
+    const MapMat& XC, const MapVec& YZj, int k, IntegerVector YZind,
+    DataLoader* loader, int col_ind, const Distribution* distr,
+    const MapVec& s, double gammaj, double l2peny, double l2penz
 );
 
-List direction_Yj_impl(
-    MapVec Yj, MapMat X, SEXP Bj, SEXP Z,
-    MapVec Aj, Environment family,
-    MapVec s, double gammaj, MapVec offset, double l2pen
+List direction_YZj(
+    const MapMat& XC, const MapVec& YZj, int k, IntegerVector YZind,
+    DataLoader* loader, int col_ind, const Distribution* distr,
+    const MapVec& s, double gammaj, double l2peny, double l2penz
 );
 
-bool feas_Xi_impl(
-    MapVec Xi, MapMat Y, SEXP B, SEXP Zi, Environment family, double offseti
-);
+bool feas_YZj(const MapMat& XC, const MapVec& YZj, const Distribution* distr);
 
-bool feas_Yj_impl(
-    MapVec Yj, MapMat X, SEXP Bj, SEXP Z, Environment family, MapVec offset
-);
 
 #endif  // ESVD2_FAMILY_H

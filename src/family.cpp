@@ -1,207 +1,108 @@
-#include <RcppEigen.h>
-#include "distribution.h"
 #include "family.h"
 
 using Rcpp::NumericMatrix;
 using Rcpp::NumericVector;
+using Rcpp::IntegerVector;
 using Rcpp::List;
-using Rcpp::Environment;
-using Rcpp::Function;
 using Eigen::MatrixXd;
 using Eigen::VectorXd;
-typedef Eigen::Map<MatrixXd> MapMat;
-typedef Eigen::Map<VectorXd> MapVec;
+using MapMat = Eigen::Map<MatrixXd>;
+using MapVec = Eigen::Map<VectorXd>;
 
-// theta = U * Vi + P * Qi
-// U and P are matrices
-// Vi and Qi are vectors
-// P and Qi may be NULL
-inline VectorXd compute_theta(MapMat U, MapVec Vi, SEXP P_, SEXP Qi_)
+// Penalty for X
+inline double l2_penalty(const MapVec& XCi, int k, double l2penx)
 {
-    VectorXd theta = U * Vi;
-    if(P_ == R_NilValue || Qi_ == R_NilValue)
-        return theta;
+    if(l2penx == double(0))
+        return 0.0;
 
-    MapMat P = Rcpp::as<MapMat>(P_);
-    MapVec Qi = Rcpp::as<MapVec>(Qi_);
-    if(P.cols() < 1 || Qi.size() < 1)
-        return theta;
-
-    theta.noalias() += P * Qi;
-    return theta;
+    return l2penx * XCi.head(k).squaredNorm();
 }
 
-// offset is a scalar
-template <typename T>
-inline VectorXd compute_theta_with_offset(MapMat U, MapVec Vi, SEXP P, SEXP Qi, T offset)
-{
-  VectorXd theta = compute_theta(U, Vi, P, Qi);
-  theta.array() += offset;
-  return theta;
-}
-
-// offset is a vector
-template <>
-inline VectorXd compute_theta_with_offset(MapMat U, MapVec Vi, SEXP P, SEXP Qi, MapVec offset)
-{
-  VectorXd theta = compute_theta(U, Vi, P, Qi);
-  theta.noalias() += offset;
-  return theta;
-}
-
-
-
-// [[Rcpp::export]]
-double objfn_Xi_impl(
-    MapVec Xi, MapMat Y, SEXP B, SEXP Zi,
-    MapVec Ai, Environment family,
-    double si, MapVec gamma, double offseti, double l2pen
+// Xi [k], Ci [r], Y [p x k], Z [p x r]
+double objfn_Xi(
+    const MapVec& XCi, const MapMat& YZ, int k,
+    DataLoader* loader, int row_ind, const Distribution* distr,
+    double si, const MapVec& gamma, double l2penx
 )
 {
-    const int p = Y.rows();
-    VectorXd thetai = compute_theta_with_offset(Y, Xi, B, Zi, offseti);
+    const int p = YZ.rows();
+    VectorXd thetai = YZ * XCi;  // [p x 1]
 
-    Rcpp::XPtr<Distribution> distr = family["cpp_functions"];
     VectorXd log_prob(p);
-    int non_na = distr->log_prob_row(p, Ai.data(), thetai.data(), si, gamma.data(), log_prob.data());
+    int non_na = distr->log_prob_row(loader, row_ind, thetai.data(), si, gamma.data(), log_prob.data());
     if(non_na < 1)
         Rcpp::stop("all elements in Ai are NA");
-    return (-log_prob.sum() + l2pen * Xi.squaredNorm()) / double(non_na);
+    return (-log_prob.sum() + l2_penalty(XCi, k, l2penx)) / double(non_na);
 }
 
-// [[Rcpp::export]]
-double objfn_Yj_impl(
-    MapVec Yj, MapMat X, SEXP Bj, SEXP Z,
-    MapVec Aj, Environment family,
-    MapVec s, double gammaj, MapVec offset, double l2pen
+NumericVector grad_Xi(
+    const MapVec& XCi, const MapMat& YZ, int k,
+    DataLoader* loader, int row_ind, const Distribution* distr,
+    double si, const MapVec& gamma, double l2penx
 )
 {
-    const int n = X.rows();
-    VectorXd thetaj = compute_theta_with_offset(X, Yj, Z, Bj, offset);
-
-    Rcpp::XPtr<Distribution> distr = family["cpp_functions"];
-    VectorXd log_prob(n);
-    int non_na = distr->log_prob_col(n, Aj.data(), thetaj.data(), s.data(), gammaj, log_prob.data());
-    if(non_na < 1)
-        Rcpp::stop("all elements in Aj are NA");
-    return (-log_prob.sum() + l2pen * Yj.squaredNorm()) / double(non_na);
-}
-
-// [[Rcpp::export]]
-NumericVector grad_Xi_impl(
-    MapVec Xi, MapMat Y, SEXP B, SEXP Zi,
-    MapVec Ai, Environment family,
-    double si, MapVec gamma, double offseti, double l2pen
-)
-{
-    const int k = Xi.size();
-    const int p = Y.rows();
+    const int p = YZ.rows();
     NumericVector res_ = NumericVector(Rcpp::no_init_vector(k));
     MapVec res = Rcpp::as<MapVec>(res_);
-    VectorXd thetai = compute_theta_with_offset(Y, Xi, B, Zi, offseti);
+    VectorXd thetai = YZ * XCi;  // [p x 1]
 
-    Rcpp::XPtr<Distribution> distr = family["cpp_functions"];
     VectorXd dlog_prob(p);
-    int non_na = distr->d12log_prob_row(p, Ai.data(), thetai.data(), si, gamma.data(), dlog_prob.data(), NULL);
+    int non_na = distr->d12log_prob_row(loader, row_ind, thetai.data(), si, gamma.data(), dlog_prob.data(), nullptr);
     if(non_na < 1)
         Rcpp::stop("all elements in Ai are NA");
-    res.noalias() = -Y.transpose() * dlog_prob + 2.0 * l2pen * Xi;
+
+    res.noalias() = -YZ.leftCols(k).transpose() * dlog_prob;
+    if(l2penx != double(0))
+        res.noalias() += 2.0 * l2penx * XCi.head(k);
     res /= double(non_na);
     return res_;
 }
 
-// [[Rcpp::export]]
-NumericVector grad_Yj_impl(
-    MapVec Yj, MapMat X, SEXP Bj, SEXP Z,
-    MapVec Aj, Environment family,
-    MapVec s, double gammaj, MapVec offset, double l2pen
+NumericMatrix hessian_Xi(
+    const MapVec& XCi, const MapMat& YZ, int k,
+    DataLoader* loader, int row_ind, const Distribution* distr,
+    double si, const MapVec& gamma, double l2penx
 )
 {
-    const int k = Yj.size();
-    const int n = X.rows();
-    NumericVector res_ = NumericVector(Rcpp::no_init_vector(k));
-    MapVec res = Rcpp::as<MapVec>(res_);
-    VectorXd thetaj = compute_theta_with_offset(X, Yj, Z, Bj, offset);
-
-    Rcpp::XPtr<Distribution> distr = family["cpp_functions"];
-    VectorXd dlog_prob(n);
-    int non_na = distr->d12log_prob_col(n, Aj.data(), thetaj.data(), s.data(), gammaj, dlog_prob.data(), NULL);
-    if(non_na < 1)
-        Rcpp::stop("all elements in Aj are NA");
-    res.noalias() = -X.transpose() * dlog_prob + 2.0 * l2pen * Yj;
-    res /= double(non_na);
-    return res_;
-}
-
-// [[Rcpp::export]]
-NumericMatrix hessian_Xi_impl(
-    MapVec Xi, MapMat Y, SEXP B, SEXP Zi,
-    MapVec Ai, Environment family,
-    double si, MapVec gamma, double offseti, double l2pen
-)
-{
-    const int k = Xi.size();
-    const int p = Y.rows();
+    const int p = YZ.rows();
     NumericMatrix res_ = NumericMatrix(Rcpp::no_init_matrix(k, k));
     MapMat res = Rcpp::as<MapMat>(res_);
-    VectorXd thetai = compute_theta_with_offset(Y, Xi, B, Zi, offseti);
+    VectorXd thetai = YZ * XCi;  // [p x 1]
 
-    Rcpp::XPtr<Distribution> distr = family["cpp_functions"];
     VectorXd d2log_prob(p);
-    int non_na = distr->d12log_prob_row(p, Ai.data(), thetai.data(), si, gamma.data(), NULL, d2log_prob.data());
+    int non_na = distr->d12log_prob_row(loader, row_ind, thetai.data(), si, gamma.data(), nullptr, d2log_prob.data());
     if(non_na < 1)
         Rcpp::stop("all elements in Ai are NA");
-    res.noalias() = -Y.transpose() * d2log_prob.asDiagonal() * Y;
-    res.diagonal().array() += 2.0 * l2pen;
+
+    res.noalias() = -YZ.leftCols(k).transpose() * d2log_prob.asDiagonal() * YZ.leftCols(k);
+    if(l2penx != double(0))
+        res.diagonal().array() += 2.0 * l2penx;
     res /= double(non_na);
     return res_;
 }
 
-// [[Rcpp::export]]
-NumericMatrix hessian_Yj_impl(
-    MapVec Yj, MapMat X, SEXP Bj, SEXP Z,
-    MapVec Aj, Environment family,
-    MapVec s, double gammaj, MapVec offset, double l2pen
+List direction_Xi(
+    const MapVec& XCi, const MapMat& YZ, int k,
+    DataLoader* loader, int row_ind, const Distribution* distr,
+    double si, const MapVec& gamma, double l2penx
 )
 {
-    const int k = Yj.size();
-    const int n = X.rows();
-    NumericMatrix res_ = NumericMatrix(Rcpp::no_init_matrix(k, k));
-    MapMat res = Rcpp::as<MapMat>(res_);
-    VectorXd thetaj = compute_theta_with_offset(X, Yj, Z, Bj, offset);
+    const int p = YZ.rows();
+    VectorXd thetai = YZ * XCi;  // [p x 1]
 
-    Rcpp::XPtr<Distribution> distr = family["cpp_functions"];
-    VectorXd d2log_prob(n);
-    int non_na = distr->d12log_prob_col(n, Aj.data(), thetaj.data(), s.data(), gammaj, NULL, d2log_prob.data());
-    if(non_na < 1)
-        Rcpp::stop("all elements in Aj are NA");
-    res.noalias() = -X.transpose() * d2log_prob.asDiagonal() * X;
-    res.diagonal().array() += 2.0 * l2pen;
-    res /= double(non_na);
-    return res_;
-}
-
-// [[Rcpp::export]]
-List direction_Xi_impl(
-    MapVec Xi, MapMat Y, SEXP B, SEXP Zi,
-    MapVec Ai, Environment family,
-    double si, MapVec gamma, double offseti, double l2pen
-)
-{
-    const int k = Xi.size();
-    const int p = Y.rows();
-    VectorXd thetai = compute_theta_with_offset(Y, Xi, B, Zi, offseti);
-
-    Rcpp::XPtr<Distribution> distr = family["cpp_functions"];
     VectorXd dlog_prob(p), d2log_prob(p);
-    int non_na = distr->d12log_prob_row(p, Ai.data(), thetai.data(), si, gamma.data(),
+    int non_na = distr->d12log_prob_row(loader, row_ind, thetai.data(), si, gamma.data(),
                                         dlog_prob.data(), d2log_prob.data());
     if(non_na < 1)
         Rcpp::stop("all elements in Ai are NA");
 
-    VectorXd g = Y.transpose() * (-dlog_prob) + 2.0 * l2pen * Xi;
-    MatrixXd H = Y.transpose() * (-d2log_prob).asDiagonal() * Y;
-    H.diagonal().array() += 2.0 * l2pen;
+    VectorXd g = YZ.leftCols(k).transpose() * (-dlog_prob);
+    MatrixXd H = YZ.leftCols(k).transpose() * (-d2log_prob).asDiagonal() * YZ.leftCols(k);
+    if(l2penx != double(0))
+    {
+        g.noalias() += 2.0 * l2penx * XCi.head(k);
+        H.diagonal().array() += 2.0 * l2penx;
+    }
 
     VectorXd direc(k);
     Eigen::LLT<MatrixXd> solver(H);
@@ -219,64 +120,180 @@ List direction_Xi_impl(
     );
 }
 
-// [[Rcpp::export]]
-List direction_Yj_impl(
-    MapVec Yj, MapMat X, SEXP Bj, SEXP Z,
-    MapVec Aj, Environment family,
-    MapVec s, double gammaj, MapVec offset, double l2pen
-)
+bool feas_Xi(const MapVec& XCi, const MapMat& YZ, const Distribution* distr)
 {
-    const int k = Yj.size();
-    const int n = X.rows();
-    VectorXd thetaj = compute_theta_with_offset(X, Yj, Z, Bj, offset);
-
-    Rcpp::XPtr<Distribution> distr = family["cpp_functions"];
-    VectorXd dlog_prob(n), d2log_prob(n);
-    int non_na = distr->d12log_prob_col(n, Aj.data(), thetaj.data(), s.data(), gammaj,
-                                        dlog_prob.data(), d2log_prob.data());
-    if(non_na < 1)
-        Rcpp::stop("all elements in Aj are NA");
-
-    VectorXd g = X.transpose() * (-dlog_prob) + 2.0 * l2pen * Yj;
-    MatrixXd H = X.transpose() * (-d2log_prob).asDiagonal() * X;
-    H.diagonal().array() += 2.0 * l2pen;
-
-    VectorXd direc(k);
-    Eigen::LLT<MatrixXd> solver(H);
-    if(solver.info() != Eigen::Success)
-    {
-        // Fall back to gradient direction if Hessian is singular
-        direc.noalias() = -g / double(non_na);
-    } else {
-        direc.noalias() = -solver.solve(g);
-    }
-    g /= double(non_na);
-    return List::create(
-        Rcpp::Named("grad") = g,
-        Rcpp::Named("direction") = direc
-    );
-}
-
-bool feas_Xi_impl(
-    MapVec Xi, MapMat Y, SEXP B, SEXP Zi, Environment family, double offseti
-)
-{
-    Rcpp::XPtr<Distribution> distr = family["cpp_functions"];
     if(distr->feas_always())
         return true;
 
-    VectorXd thetai = compute_theta_with_offset(Y, Xi, B, Zi, offseti);
+    VectorXd thetai = YZ * XCi;  // [p x 1]
     return distr->feasibility(thetai.size(), thetai.data());
 }
 
-bool feas_Yj_impl(
-    MapVec Yj, MapMat X, SEXP Bj, SEXP Z, Environment family, MapVec offset
+
+
+// Penalty for Y and Z
+inline double l2_penalty(const MapVec& YZj, int k, double l2peny, double l2penz)
+{
+    const int r = YZj.size() - k;
+    double res = 0.0;
+    if(l2peny != double(0))
+        res += l2peny * YZj.head(k).squaredNorm();
+    if((l2penz != double(0)) && (r > 0))
+        res += l2penz * YZj.tail(r).squaredNorm();
+    return res;
+}
+
+// Penalty term in the gradient, for Y and Z
+inline void add_l2_penalty_grad(const MapVec& YZj, int k, double l2peny, double l2penz, VectorXd& res)
+{
+    const int r = YZj.size() - k;
+    if(l2peny != double(0))
+        res.head(k).noalias() += 2.0 * l2peny * YZj.head(k);
+    if((l2penz != double(0)) && (r > 0))
+        res.tail(r).noalias() += 2.0 * l2penz * YZj.tail(r);
+}
+
+// Penalty term in the Hessian matrix, for Y and Z
+inline void add_l2_penalty_hessian(const MapVec& YZj, int k, double l2peny, double l2penz, MatrixXd& res)
+{
+    const int r = YZj.size() - k;
+    if(l2peny != double(0))
+        res.diagonal().array().head(k) += 2.0 * l2peny;
+    if((l2penz != double(0)) && (r > 0))
+        res.diagonal().array().tail(r) += 2.0 * l2penz;
+}
+
+// vec[ind], ind is 0-based
+inline NumericVector subset_vector(const VectorXd& vec, IntegerVector ind)
+{
+    const int m = ind.length();
+    NumericVector res(m);
+    const double* src = vec.data();
+    double* dest = res.begin();
+    for(int i = 0; i < m; i++)
+        dest[i] = src[ind[i]];
+    return res;
+}
+
+// mat[ind, ind], ind is 0-based
+inline NumericMatrix subset_matrix(const MatrixXd& mat, IntegerVector ind)
+{
+    const int n = mat.rows();
+    const int m = ind.length();
+    NumericMatrix res(m, m);
+    for(int j = 0; j < m; j++)
+    {
+        const double* src_head = mat.data() + ind[j] * n;
+        double* dest_head = res.begin() + j * m;
+        for(int i = 0; i < m; i++)
+        {
+            dest_head[i] = src_head[ind[i]];
+        }
+    }
+    return res;
+}
+
+// X [n x k], C [n x r], Yj [k], Zj [r]
+// YZind is the index vector indicating which variables in YZj to update, 0-based
+double objfn_YZj(
+    const MapMat& XC, const MapVec& YZj, int k, IntegerVector YZind,
+    DataLoader* loader, int col_ind, const Distribution* distr,
+    const MapVec& s, double gammaj, double l2peny, double l2penz
 )
 {
-    Rcpp::XPtr<Distribution> distr = family["cpp_functions"];
+    const int n = XC.rows();
+    VectorXd thetaj = XC * YZj;  // [n x 1]
+
+    VectorXd log_prob(n);
+    int non_na = distr->log_prob_col(loader, col_ind, thetaj.data(), s.data(), gammaj, log_prob.data());
+    if(non_na < 1)
+        Rcpp::stop("all elements in Aj are NA");
+    return (-log_prob.sum() + l2_penalty(YZj, k, l2peny, l2penz)) / double(non_na);
+}
+
+NumericVector grad_YZj(
+    const MapMat& XC, const MapVec& YZj, int k, IntegerVector YZind,
+    DataLoader* loader, int col_ind, const Distribution* distr,
+    const MapVec& s, double gammaj, double l2peny, double l2penz
+)
+{
+    const int n = XC.rows();
+    VectorXd thetaj = XC * YZj;  // [n x 1]
+
+    VectorXd dlog_prob(n);
+    int non_na = distr->d12log_prob_col(loader, col_ind, thetaj.data(), s.data(), gammaj, dlog_prob.data(), nullptr);
+    if(non_na < 1)
+        Rcpp::stop("all elements in Aj are NA");
+
+    VectorXd res = -XC.transpose() * dlog_prob;
+    add_l2_penalty_grad(YZj, k, l2peny, l2penz, res);
+    res /= double(non_na);
+    return subset_vector(res, YZind);
+}
+
+NumericMatrix hessian_YZj(
+    const MapMat& XC, const MapVec& YZj, int k, IntegerVector YZind,
+    DataLoader* loader, int col_ind, const Distribution* distr,
+    const MapVec& s, double gammaj, double l2peny, double l2penz
+)
+{
+    const int n = XC.rows();
+    VectorXd thetaj = XC * YZj;  // [n x 1]
+
+    VectorXd d2log_prob(n);
+    int non_na = distr->d12log_prob_col(loader, col_ind, thetaj.data(), s.data(), gammaj, nullptr, d2log_prob.data());
+    if(non_na < 1)
+        Rcpp::stop("all elements in Aj are NA");
+
+    MatrixXd res = -XC.transpose() * d2log_prob.asDiagonal() * XC;
+    add_l2_penalty_hessian(YZj, k, l2peny, l2penz, res);
+    res /= double(non_na);
+    return subset_matrix(res, YZind);
+}
+
+List direction_YZj(
+    const MapMat& XC, const MapVec& YZj, int k, IntegerVector YZind,
+    DataLoader* loader, int col_ind, const Distribution* distr,
+    const MapVec& s, double gammaj, double l2peny, double l2penz
+)
+{
+    const int n = XC.rows();
+    VectorXd thetaj = XC * YZj;  // [n x 1]
+
+    VectorXd dlog_prob(n), d2log_prob(n);
+    int non_na = distr->d12log_prob_col(loader, col_ind, thetaj.data(), s.data(), gammaj,
+                                        dlog_prob.data(), d2log_prob.data());
+    if(non_na < 1)
+        Rcpp::stop("all elements in Aj are NA");
+
+    VectorXd g = XC.transpose() * (-dlog_prob);
+    add_l2_penalty_grad(YZj, k, l2peny, l2penz, g);
+    MatrixXd H = XC.transpose() * (-d2log_prob).asDiagonal() * XC;
+    add_l2_penalty_hessian(YZj, k, l2peny, l2penz, H);
+
+    NumericVector gsub = subset_vector(g, YZind);
+    NumericMatrix Hsub = subset_matrix(H, YZind);
+
+    VectorXd direc(YZind.length());
+    Eigen::LLT<MatrixXd> solver(Rcpp::as<MapMat>(Hsub));
+    if(solver.info() != Eigen::Success)
+    {
+        // Fall back to gradient direction if Hessian is singular
+        direc.noalias() = -Rcpp::as<MapVec>(gsub) / double(non_na);
+    } else {
+        direc.noalias() = -solver.solve(Rcpp::as<MapVec>(gsub));
+    }
+    return List::create(
+        Rcpp::Named("grad") = gsub / double(non_na),
+        Rcpp::Named("direction") = direc
+    );
+}
+
+bool feas_YZj(const MapMat& XC, const MapVec& YZj, const Distribution* distr)
+{
     if(distr->feas_always())
         return true;
 
-    VectorXd thetaj = compute_theta_with_offset(X, Yj, Z, Bj, offset);
+    VectorXd thetaj = XC * YZj;  // [n x 1]
     return distr->feasibility(thetaj.size(), thetaj.data());
 }

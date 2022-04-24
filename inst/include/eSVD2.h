@@ -5,7 +5,7 @@
 
 using Eigen::MatrixXd;
 using Eigen::VectorXd;
-typedef Eigen::Map<MatrixXd> MapMat;
-typedef Eigen::Map<VectorXd> MapVec;
+using MapMat = Eigen::Map<MatrixXd>;
+using MapVec = Eigen::Map<VectorXd>;
 
 #endif  // ESVD2_PKG_H
