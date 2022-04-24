@@ -12,6 +12,7 @@ plot_scatterplot_mean <- function(mat,
                                   nuisance_lower_quantile = 0.01,
                                   only_nonzero = T,
                                   xlim = NA,
+                                  ylim = NA,
                                   verbose = T,
                                   ...){
   stopifnot(mean_type %in% c("predicted", "posterior"))
@@ -23,14 +24,14 @@ plot_scatterplot_mean <- function(mat,
     mean_mat <- exp(nat_mat1 + nat_mat2)
   } else {
     res <- compute_posterior(mat = mat,
-                             esvd_res = esvd_res,
-                             nuisance_vec = nuisance_vec,
-                             case_control_variable = case_control_variable,
-                             alpha_max = alpha_max,
-                             nuisance_lower_quantile = nuisance_lower_quantile)
+                                     esvd_res = esvd_res,
+                                     nuisance_vec = nuisance_vec,
+                                     case_control_variable = case_control_variable,
+                                     alpha_max = alpha_max,
+                                     nuisance_lower_quantile = nuisance_lower_quantile)
     mean_mat <- res$posterior_mean_mat
 
-    offset_var <- setdiff(colnames(esvd_res_full$covariates), case_control_variable)
+    offset_var <- setdiff(colnames(esvd_res$covariates), case_control_variable)
     library_mat <- exp(tcrossprod(
       esvd_res$covariates[,offset_var],
       esvd_res$b_mat[,offset_var]
@@ -53,7 +54,13 @@ plot_scatterplot_mean <- function(mat,
   }
   x_vec <- tmp_mat[,2]
   y_vec <- tmp_mat[,1]
-  if(all(is.na(xlim))) xlim <- range(c(0, x_vec, y_vec))
+  if(asp){
+    if(all(is.na(xlim))) xlim <- range(c(0, x_vec, y_vec))
+    if(all(is.na(ylim))) ylim <- range(c(0, x_vec, y_vec))
+  } else {
+    if(all(is.na(xlim))) xlim <- range(c(0, x_vec))
+    if(all(is.na(ylim))) ylim <- range(c(0, y_vec))
+  }
 
   bool_vec <- apply(tmp_mat, 1, function(x){all(x >= xlim[1]) & all(x <= xlim[2])})
   tmp_mat <- tmp_mat[which(bool_vec),]
@@ -62,7 +69,7 @@ plot_scatterplot_mean <- function(mat,
 
   graphics::plot(NA,
                  xlim = xlim,
-                 ylim = xlim,
+                 ylim = ylim,
                  asp = asp,
                  ...)
 
