@@ -85,8 +85,13 @@
 .factorize_matrix <- function(mat, k, equal_covariance){
   stopifnot(k <= min(dim(mat)))
 
-  svd_res <- .svd_truncated(mat, K = k, symmetric = F, rescale  = F,
-                            mean_vec = NULL, sd_vec = NULL, K_full_rank = F)
+  svd_res <- .svd_safe(mat = mat,
+                       check_stability = T,
+                       K = k,
+                       mean_vec = NULL,
+                       rescale = F,
+                       scale_max = NULL,
+                       sd_vec = NULL)
   x_mat <- .mult_mat_vec(svd_res$u, sqrt(svd_res$d))
   y_mat <- .mult_mat_vec(svd_res$v, sqrt(svd_res$d))
 
@@ -95,53 +100,33 @@
 
 #########
 
-.svd_truncated <- function(mat, K, symmetric, rescale,
-                           mean_vec, sd_vec,
-                           K_full_rank){
+.svd_safe <- function(mat,
+                      check_stability, # boolean
+                      K, # positive integer
+                      mean_vec, # boolean, NULL or vector
+                      rescale, # boolean
+                      scale_max, # NULL or positive integer
+                      sd_vec){ # boolean, NULL or vector
   if(is.na(K)) K <- min(dim(mat))
   stopifnot(min(dim(mat)) >= K)
-  if(K == min(dim(mat))) K_full_rank <- T
 
-  ## [[note to self: probably factor this out and add sd_vec]]
-  if(length(mean_vec) == 1 && !is.null(mean_vec)){
-    if(mean_vec){
-      if(inherits(x = mat, what = c('dgCMatrix', 'dgTMatrix'))){
-        mean_vec <- Matrix::colMeans(mat)
-      } else {
-        mean_vec <- matrixStats::colMeans2(mat)
-      }
-    } else{
-      mean_vec <- NULL
-    }
-  }
+  mean_vec <- .compute_matrix_mean(mat, mean_vec)
+  sd_vec <- .compute_matrix_sd(mat, sd_vec)
 
-  if(min(dim(mat)) > 2*(K+2)){
-    res <- tryCatch({
-      # ask for more singular values than needed to ensure stability
-      if(symmetric){
-        tmp <- irlba::partial_eigen(mat, n = ifelse(K_full_rank, K, K+2),
-                                    center = mean_vec, scale = sd_vec)
-        list(u = tmp$vectors, d = tmp$values, v = tmp$vectors)
-      } else {
-        irlba::irlba(mat, nv = ifelse(K_full_rank, K, K+2),
-                     center = mean_vec, scale = sd_vec)
-      }
-    }, warning = function(e){
-      if(!all(is.null(mean_vec)) | !all(is.null(sd_vec))) print("mean_vec or sd_vec not used")
-      RSpectra::svds(mat, k = ifelse(K_full_rank, K, K+2))
-    }, error = function(e){
-      if(!all(is.null(mean_vec)) | !all(is.null(sd_vec))) print("mean_vec or sd_vec not used")
-      RSpectra::svds(mat, k = ifelse(K_full_rank, K, K+2))
-    })
-  } else {
-    res <- svd(mat)
-  }
-
-  res$u <- res$u[,1:K, drop = F]; res$v <- res$v[,1:K, drop = F]; res$d <- res$d[1:K]
+  res <- .svd_in_sequence(check_stability = check_stability,
+                          K = K,
+                          mat = mat,
+                          mean_vec = mean_vec,
+                          scale_max = scale_max,
+                          sd_vec = sd_vec)
+  res <- list(d = res$d, u = res$u, v = res$v, method = res$method)
+  class(res) <- "svd"
 
   # pass row-names and column-names
-  if(length(rownames(mat)) != 0) rownames(res$u) <- rownames(mat)
-  if(length(colnames(mat)) != 0) rownames(res$v) <- colnames(mat)
+  res <- .append_rowcolnames(bool_colnames = T,
+                             bool_rownames = T,
+                             source_obj = mat,
+                             target_obj = res)
 
   # useful only if your application requires only the singular vectors
   # if the number of rows or columns is too large, the singular vectors themselves
@@ -156,5 +141,153 @@
   res
 }
 
+.svd_in_sequence <- function(check_stability,
+                             K,
+                             mat,
+                             mean_vec,
+                             scale_max,
+                             sd_vec){
+  res <- tryCatch({
+    .irlba_custom(check_stability = check_stability,
+                  K = K,
+                  mat = mat,
+                  mean_vec = mean_vec,
+                  scale_max = scale_max,
+                  sd_vec = sd_vec)
+  },
+  warning = function(e){NULL},
+  error = function(e){NULL})
+  if(!all(is.null(res))) {res$method <- "irlba"; return(res)}
+
+  ##
+
+  res <- tryCatch({
+    .rpsectra_custom(check_stability = check_stability,
+                     K = K,
+                     mat = mat,
+                     mean_vec = mean_vec,
+                     scale_max = scale_max,
+                     sd_vec = sd_vec)
+  },
+  warning = function(e){NULL},
+  error = function(e){NULL})
+  if(!all(is.null(res))) {res$method <- "RSpectra"; return(res)}
+
+  ##
+
+  if(!all(is.null(mean_vec))) mat <- sweep(mat, MARGIN = 2, STATS = mean_vec, FUN = "-")
+  if(!all(is.null(sd_vec))) mat <- sweep(mat, MARGIN = 2, STATS = sd_vec, FUN = "/")
+  if(!is.null(scale_max)){
+    mat[mat > abs(scale_max)] <- abs(scale_max)
+    mat[mat < -abs(scale_max)] <- -abs(scale_max)
+  }
+  res <- svd(mat)
+  res$method <- "base"
+  res
+}
+
+.irlba_custom <- function(check_stability,
+                          K,
+                          mat,
+                          mean_vec,
+                          scale_max,
+                          sd_vec){
+  if(inherits(mat, "dgCMatrix")){
+    if(!all(is.null(scale_max))) warning("scale_max does not work with sparse matrices when using irlba")
+    tmp <- irlba::irlba(A = mat,
+                        nv = K,
+                        work = min(c(K + 10, dim(mat))),
+                        scale = sd_vec,
+                        center = mean_vec)
+
+    if(check_stability & K > 5) {
+      tmp2 <- irlba::irlba(A = mat,
+                           nv = 5,
+                           scale = sd_vec,
+                           center = mean_vec)
+      ratio_vec <- tmp2$d/tmp$d[1:5]
+      if(any(ratio_vec > 2) | any(ratio_vec < 1/2)) warning("irlba is potentially unstable")
+    }
+
+    return(tmp)
+
+  } else {
+    if(!all(is.null(mean_vec))) mat <- sweep(mat, MARGIN = 2, STATS = mean_vec, FUN = "-")
+    if(!all(is.null(sd_vec))) mat <- sweep(mat, MARGIN = 2, STATS = sd_vec, FUN = "/")
+    if(!is.null(scale_max)){
+      mat[mat > abs(scale_max)] <- abs(scale_max)
+      mat[mat < -abs(scale_max)] <- -abs(scale_max)
+    }
+
+    tmp <- irlba::irlba(A = mat, nv = K)
+
+    if(check_stability & K > 5) {
+      tmp2 <- irlba::irlba(A = mat, nv = 5)
+      ratio_vec <- tmp2$d/tmp$d[1:5]
+      if(any(ratio_vec > 2) | any(ratio_vec < 1/2)) warning("irlba is potentially unstable")
+    }
+
+    return(tmp)
+  }
+}
+
+.rpsectra_custom <- function(check_stability,
+                             K,
+                             mat,
+                             mean_vec,
+                             scale_max,
+                             sd_vec){
+
+  if(inherits(mat, "dgCMatrix")){
+    if(!all(is.null(mean_vec))) warning("mean_vec does not work with sparse matrices when using RSpectra")
+    if(!all(is.null(sd_vec))) warning("sd_vec does not work with sparse matrices when using RSpectra")
+    if(!all(is.null(scale_max))) warning("scale_max does not work with sparse matrices when using RSpectra")
+  } else {
+    if(!all(is.null(mean_vec))) mat <- sweep(mat, MARGIN = 2, STATS = mean_vec, FUN = "-")
+    if(!all(is.null(sd_vec))) mat <- sweep(mat, MARGIN = 2, STATS = sd_vec, FUN = "/")
+    if(!is.null(scale_max)){
+      mat[mat > abs(scale_max)] <- abs(scale_max)
+      mat[mat < -abs(scale_max)] <- -abs(scale_max)
+    }
+  }
+
+  tmp <- RSpectra::svds(A = mat, k = K)
+
+  if(check_stability & K > 5) {
+    tmp2 <- RSpectra::svds(A = mat, k = 5)
+    ratio_vec <- tmp2$d/tmp$d[1:5]
+    if(any(ratio_vec > 2) | any(ratio_vec < 1/2)) warning("RSpectra is potentially unstable")
+  }
+
+  tmp
+}
+
+.compute_matrix_mean <- function(mat, mean_vec){
+  if(length(mean_vec) == 1 && !is.null(mean_vec)){
+    if(mean_vec){
+      mean_vec <- Matrix::colMeans(mat)
+    } else{
+      mean_vec <- NULL
+    }
+  }
+
+  mean_vec
+}
+
+.compute_matrix_sd <- function(mat, sd_vec){
+  if(length(sd_vec) == 1 && !is.null(sd_vec)){
+    if(sd_vec){
+      if(inherits(x = mat, what = c('dgCMatrix', 'dgTMatrix'))){
+        sd_vec <- sparseMatrixStats::colSds(mat)
+      } else {
+        sd_vec <- matrixStats::colSds(mat)
+      }
+    } else{
+      sd_vec <- NULL
+    }
+  }
+
+  sd_vec
+}
 
 
