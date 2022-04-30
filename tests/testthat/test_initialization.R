@@ -3,63 +3,35 @@ context("Test initialization")
 ## initialize_esvd is correct
 
 test_that("initialize_esvd works", {
- set.seed(10)
- dat <- matrix(1:40, nrow = 10, ncol = 4)
-
- res <- initialize_esvd(dat, k = 2)
-
- expect_true(is.list(res))
- expect_true(class(res) == "eSVD")
- expect_true(all(sort(names(res)) == sort(c("x_mat", "y_mat", "covariates",
-                                            "offset_vec",
-                                            "nuisance_param_vec", "b_mat", "pval_vec"))))
- expect_true(all(dim(res$x_mat) == c(nrow(dat), 2)))
- expect_true(all(dim(res$y_mat) == c(ncol(dat), 2)))
-})
-
-test_that("initialize_esvd works for poisson with covariates", {
-  set.seed(5)
-  canon_vec <- 1:50
-  nat_mat <- sapply(log(canon_vec)+1, function(x){rep(x, 100)})
-  dat <- generate_data(nat_mat, family = "poisson")
-
-  covariates <- cbind(1, log(matrixStats::rowMeans2(dat)))
-  colnames(covariates) <- c("Intercept", "Log_UMI")
-
-  res <- initialize_esvd(dat, k = 2, family = "poisson",
-                         covariates = covariates)
-
-  expect_true(class(res) == "eSVD")
-  expect_true(all(dim(res$x_mat) == c(nrow(dat), 2)))
-  expect_true(all(dim(res$y_mat) == c(ncol(dat), 2)))
-  expect_true(all(dim(res$b_mat) == c(ncol(dat), 2)))
-})
-
-test_that("initialize_esvd works for negative binomial", {
-  set.seed(5)
-  nat_mat <- matrix(1/c(1:30), 5, 6)
-  dat <- generate_data(nat_mat, family = "neg_binom2", nuisance_param_vec = 10)
-
-  res <- initialize_esvd(dat, k = 2, family = "neg_binom2")
-
-  expect_true(class(res) == "eSVD")
-  expect_true(all(dim(res$x_mat) == c(nrow(dat), 2)))
-  expect_true(all(dim(res$y_mat) == c(ncol(dat), 2)))
-})
-
-test_that("initialize_esvd works for missing values", {
   set.seed(123)
-  n <- 10; p <- 15; k <- 2
-  nuisance_param_vec <- runif(p, 0, 5)
-  u_mat <- matrix(rnorm(n * k), nrow = n, ncol = k)
-  v_mat <- matrix(rnorm(p * k), nrow = p, ncol = k)
-  nat_mat <- tcrossprod(u_mat, v_mat)
-  dat <- eSVD2::generate_data(
-    nat_mat, family = "poisson"
-  )
-  dat[sample(1:prod(dim(dat)), 5)] <- NA
+  n <- 100
+  p <- 150
+  k <- 5
+  x_mat <- matrix(abs(rnorm(n * k)), nrow = n, ncol = k)
+  y_mat <- matrix(abs(rnorm(p * k)), nrow = p, ncol = k)
+  covariates <- matrix(rnorm(n * 3, mean = -1), nrow = n, ncol = 3)
+  colnames(covariates) <- paste0("covariate_", 1:3)
+  z_mat <- cbind(rep(1,p), rep(0.1,p), rep(.5,p))
+  colnames(z_mat) <- paste0("covariate_", 1:3)
+  nat_mat <- tcrossprod(x_mat, y_mat) + tcrossprod(covariates, z_mat)
+  nat_mat <- pmin(nat_mat, 2)
 
-  res <- initialize_esvd(dat, k = k, family = "poisson")
+  # Simulate data
+  dat <- generate_data(exp(nat_mat),
+                       family = "poisson",
+                       nuisance_param_vec = NA,
+                       library_size_vec = 1)
+
+  res <- initialize_esvd(dat,
+                         covariates = covariates,
+                         case_control_variable = "covariate_1",
+                         k = 2,
+                         lambda = 0.1,
+                         mixed_effect_variables = c("covariate_2", "covariate_3"))
+
 
   expect_true(is.list(res))
+  expect_true(all(sort(names(res)) == sort(c("x_mat", "y_mat",
+                                             "covariates", "z_mat",
+                                             "log_pval_vec","param"))))
 })

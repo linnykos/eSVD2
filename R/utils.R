@@ -58,3 +58,39 @@
     mat@i[(val1+1):val2]+1
   }
 }
+
+
+## [[note to self: allow target_obj to be a Seurat obj]]
+.append_rowcolnames <- function(bool_colnames,
+                                bool_rownames,
+                                source_obj,
+                                target_obj){
+  stopifnot(bool_colnames | bool_rownames)
+
+  if(bool_rownames){
+    if(inherits(source_obj, c("matrix", "dgCMatrix"))){
+      rowname_vec <- rownames(source_obj)
+    } else {
+      stop("Not valid class for source_obj")
+    }
+
+    if(inherits(target_obj, c("matrix", "dgCMatrix")) & length(rowname_vec) > 0){
+      rownames(target_obj) <- rowname_vec
+    }
+  }
+
+  if(bool_colnames){
+    if(inherits(source_obj, c("matrix", "dgCMatrix"))){
+      colname_vec <- colnames(source_obj)
+    } else {
+      stop("Cannot identify class for target_obj")
+    }
+
+    if(inherits(target_obj, c("matrix", "dgCMatrix")) & length(colname_vec) > 0){
+      colnames(target_obj) <- colname_vec
+    }
+  }
+
+  target_obj
+}
+

@@ -47,7 +47,7 @@ opt_esvd <- function(x_init,
                      l2pen = 0.1,
                      max_iter = 100,
                      method = c("newton", "lbfgs"),
-                     offset_cols = NULL,
+                     offset_variables = NULL,
                      tol = 1e-6,
                      verbose = 0,
                      ...)
@@ -60,9 +60,9 @@ opt_esvd <- function(x_init,
     is.character(family), sum(!is.na(dat)) > 0,
     method %in% c("newton", "lbfgs")
   )
-  if(!all(is.null(offset_cols))){
-    stopifnot(is.character(offset_cols),
-              all(offset_cols %in% colnames(covariates)))
+  if(!all(is.null(offset_variables))){
+    stopifnot(is.character(offset_variables),
+              all(offset_variables %in% colnames(covariates)))
   }
 
   # Convert family string to internal family object, e.g. `.esvd.poisson` and `.esvd.neg_binom2`
@@ -72,7 +72,7 @@ opt_esvd <- function(x_init,
                                   l2pen = l2pen,
                                   max_iter = max_iter,
                                   method = method,
-                                  offset_cols = offset_cols,
+                                  offset_variables = offset_variables,
                                   tol = tol,
                                   verbose = verbose)
 
@@ -87,8 +87,8 @@ opt_esvd <- function(x_init,
                                  z_init = z_init)
 
   xc_mat <- cbind(x_init, covariates)
-  yz_mat <- cbind(y_mat, z_mat)
-  fixed_cols <- which(colnames(yz_mat) %in% offset_cols)
+  yz_mat <- cbind(y_init, z_mat)
+  fixed_cols <- which(colnames(yz_mat) %in% offset_variables)
 
   losses <- c()
   for(i in seq_len(max_iter))

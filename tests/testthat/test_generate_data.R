@@ -14,7 +14,7 @@ test_that("generate_data works", {
 ############
 
 test_that("generate_data works for poisson", {
-  trials <- 10000
+  trials <- 100
   set.seed(123)
   n <- 8
   p <- 8
@@ -64,7 +64,7 @@ test_that("generate_data works for poisson", {
 })
 
 test_that("generate_data works for negative binomial", {
-  trials <- 10000
+  trials <- 100
   set.seed(123)
   n <- 8
   p <- 8

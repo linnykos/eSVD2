@@ -1,10 +1,10 @@
 initialize_esvd <- function(dat,
-                            covariates,
-                            case_control_variable,
-                            offset_variables,
+                            covariates = NULL,
+                            case_control_variable = NULL,
                             k = 30,
                             lambda = 0.1,
                             mixed_effect_variables = NULL,
+                            offset_variables = NULL,
                             p_val_thres = 0.05,
                             tol = 1e-3,
                             verbose = 0,
@@ -15,6 +15,19 @@ initialize_esvd <- function(dat,
             case_control_variable %in% colnames(covariates),
             k <= ncol(dat), k > 0, k %% 1 == 0,
             lambda <= 1e4)
+  if(!all(is.null(offset_variables))){
+    stopifnot(is.character(offset_variables),
+              all(offset_variables %in% colnames(covariates)))
+  }
+  if(!all(is.null(case_control_variable))){
+    stopifnot(is.character(case_control_variable),
+              all(case_control_variable %in% colnames(covariates)))
+  }
+  if(!all(is.null(mixed_effect_variables))){
+    stopifnot(is.character(mixed_effect_variables),
+              all(mixed_effect_variables %in% colnames(covariates)))
+  }
+
   n <- nrow(dat); p <- ncol(dat)
   dat[is.na(dat)] <- 0
   param <- .initalize_format_param(case_control_variable = case_control_variable,
@@ -36,27 +49,26 @@ initialize_esvd <- function(dat,
                                  p_val_thres = p_val_thres,
                                  verbose = verbose,
                                  tmp_path = tmp_path)
-  b_mat <- tmp$b_mat
+  z_mat <- tmp$z_mat
   log_pval_vec <- tmp$log_pval_vec
-  if(!is.null(tmp_path)) save(b_mat, file = tmp_path)
+  if(!is.null(tmp_path)) save(z_mat, file = tmp_path)
 
   # do some cleanup
   if(verbose >= 1) print("Step 1b: Cleaning up coefficients")
   covariates <- cbind(rep(1, n), covariates)
   colnames(covariates)[1] <- "Intercept"
-  col_idx <- sapply(colnames(covariates), function(i){which(colnames(b_mat) == i)})
-  b_mat <- b_mat[,as.numeric(col_idx)]
+  col_idx <- sapply(colnames(covariates), function(i){which(colnames(z_mat) == i)})
+  z_mat <- z_mat[,as.numeric(col_idx)]
 
   if(verbose >= 1) print("Step 2: Computing residuals")
-  tmp <- .initialize_residuals(b_mat = b_mat,
+  tmp <- .initialize_residuals(z_mat = z_mat,
                                covariates = covariates,
                                dat = dat,
                                k = k)
 
   structure(list(x_mat = tmp$x_mat, y_mat = tmp$y_mat,
-                 b_mat = b_mat,
+                 z_mat = z_mat,
                  covariates = covariates,
-                 nuisance_param_vec = rep(0, ncol(dat)),
                  log_pval_vec = log_pval_vec,
                  param = param),
             class = "eSVD")
@@ -78,9 +90,9 @@ initialize_esvd <- function(dat,
   offset_vec <- Matrix::rowSums(covariates[,offset_variables,drop = F])
 
   log_pval_vec <- rep(NA, p)
-  b_mat <- matrix(NA, nrow = p, ncol = ncol(covariates_nooffset)+1)
-  rownames(b_mat) <- colnames(dat)
-  colnames(b_mat) <- c("Intercept", colnames(covariates_nooffset))
+  z_mat <- matrix(NA, nrow = p, ncol = ncol(covariates_nooffset)+1)
+  rownames(z_mat) <- colnames(dat)
+  colnames(z_mat) <- c("Intercept", colnames(covariates_nooffset))
   for(j in 1:p){
     if(verbose == 1 && p >= 10 && j %% floor(p/10) == 0) cat('*')
     if(verbose >= 2){
@@ -94,22 +106,22 @@ initialize_esvd <- function(dat,
                             mixed_effect_variables = mixed_effect_variables,
                             offset_vec = offset_vec,
                             p_val_thres = p_val_thres,
-                            vec = dat[,j],
+                            vec = as.numeric(dat[,j]),
                             verbose = verbose,
                             verbose_additional_msg = verbose_additional_msg,
                             verbose_gene_name = colnames(dat)[j])
-    b_mat[j,] <- tmp$vec
+    z_mat[j,] <- tmp$vec
     log_pval_vec[j] <- tmp$log_pval
 
     if(!is.null(tmp_path) && p >= 10 && floor(p/10) == 0){
-      save(b_mat, file = tmp_path)
+      save(z_mat, file = tmp_path)
     }
   }
 
-  b_mat <- .append_offset(b_mat = b_mat,
+  z_mat <- .append_offset(z_mat = z_mat,
                           covariates = covariates)
 
-  list(b_mat = b_mat,
+  list(z_mat = z_mat,
        log_pval_vec = log_pval_vec)
 }
 
@@ -181,39 +193,39 @@ initialize_esvd <- function(dat,
   }
 }
 
-.append_offset <- function(b_mat,
+.append_offset <- function(z_mat,
                            covariates){
-  b_mat2 <- matrix(1, nrow = nrow(b_mat), ncol = ncol(covariates)+1)
-  rownames(b_mat2) <- rownames(b_mat)
-  colnames(b_mat2) <- c("Intercept", colnames(covariates))
+  z_mat2 <- matrix(1, nrow = nrow(z_mat), ncol = ncol(covariates)+1)
+  rownames(z_mat2) <- rownames(z_mat)
+  colnames(z_mat2) <- c("Intercept", colnames(covariates))
 
-  for(j in 1:ncol(b_mat2)){
-    if(colnames(b_mat2)[j] %in% colnames(b_mat)){
-      idx <- which(colnames(b_mat) == colnames(b_mat2)[j])
-      b_mat2[,j] <- b_mat[,idx]
-    } else if(colnames(b_mat2)[j] == "Intercept"){
-      b_mat2[,j] <- b_mat[,"Intercept"]
+  for(j in 1:ncol(z_mat2)){
+    if(colnames(z_mat2)[j] %in% colnames(z_mat)){
+      idx <- which(colnames(z_mat) == colnames(z_mat2)[j])
+      z_mat2[,j] <- z_mat[,idx]
+    } else if(colnames(z_mat2)[j] == "Intercept"){
+      z_mat2[,j] <- z_mat[,"Intercept"]
     }
   }
 
-  b_mat2
+  z_mat2
 }
 
-.initialize_residuals <- function(b_mat,
+.initialize_residuals <- function(z_mat,
                                   covariates,
                                   dat,
                                   k){
   dat_transform <- log1p(dat)
-  nat_mat <- tcrossprod(covariates, b_mat)
+  nat_mat <- tcrossprod(covariates, z_mat)
   residual_mat <- dat_transform - nat_mat
 
-  svd_res <- .svd_truncated(residual_mat,
-                            K = k,
-                            symmetric = F,
-                            rescale = F,
-                            mean_vec = NULL,
-                            sd_vec = NULL,
-                            K_full_rank = F)
+  svd_res <- .svd_safe(mat = residual_mat,
+                       check_stability = T,
+                       K = k,
+                       mean_vec = NULL,
+                       rescale = F,
+                       scale_max = NULL,
+                       sd_vec = NULL)
   x_mat <- .mult_mat_vec(svd_res$u, sqrt(svd_res$d))
   y_mat <- .mult_mat_vec(svd_res$v, sqrt(svd_res$d))
 
@@ -222,21 +234,6 @@ initialize_esvd <- function(dat,
 
   list(x_mat = x_mat, y_mat = y_mat)
 }
-
-# .initialize_nuisance <- function(){
-#   init_theta <- tcrossprod(x_init, y_init) + nat_offset_mat
-#   init_theta <- sweep(init_theta, 1, offset_vec, "+")
-#
-#   if(family$name %in% c("neg_binom", "neg_binom2")){
-#     glmgampoi_init <- glmGamPoi::overdispersion_mle(y = Matrix::t(dat),
-#                                                     mean = family$nat_to_canon(t(init_theta)),
-#                                                     global_estimate = T)
-#     nuisance_init <- rep(glmgampoi_init$estimate, p)
-#   } else {
-#     nuisance_init <- NULL
-#   }
-# }
-
 
 .initalize_format_param <- function(case_control_variable,
                                     offset_variables,
