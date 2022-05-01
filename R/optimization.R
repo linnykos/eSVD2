@@ -38,26 +38,76 @@
 #' @return A list with elements \code{x_mat} and \code{y_mat} (and others), representing the two
 #'         latent matrices.
 #' @export
-opt_esvd <- function(x_init,
-                     y_init,
-                     dat,
-                     z_init = NULL,
-                     covariates = NULL,
-                     family = "poisson",
-                     l2pen = 0.1,
-                     max_iter = 100,
-                     method = c("newton", "lbfgs"),
-                     offset_variables = NULL,
-                     tol = 1e-6,
-                     verbose = 0,
-                     ...)
+opt_esvd <- function(input_obj, ...) UseMethod("opt_esvd")
+
+opt_esvd.eSVD <- function(input_obj,
+                          l2pen = 0.1,
+                          max_iter = 100,
+                          method = c("newton", "lbfgs"),
+                          offset_variables = NULL,
+                          tol = 1e-6,
+                          verbose = 0,
+                          fit_name = "fit_First",
+                          fit_previous = "fit_Init",
+                          ...){
+  dat <- .get_object(esvd_obj = input_obj, what_obj = "data", which_fit = NULL)
+  covariates <- .get_object(esvd_obj = input_obj, what_obj = "covariates", which_fit = NULL)
+  x_mat <- .get_object(esvd_obj = input_obj, what_obj = "x_mat", which_fit = fit_previous)
+  y_mat <- .get_object(esvd_obj = input_obj, what_obj = "y_mat", which_fit = fit_previous)
+  z_mat <- .get_object(esvd_obj = input_obj, what_obj = "z_mat", which_fit = fit_previous)
+
+  param <- .opt_esvd_format_param(family = "poisson",
+                                  l2pen = l2pen,
+                                  max_iter = max_iter,
+                                  method = method,
+                                  offset_variables = offset_variables,
+                                  tol = tol,
+                                  prefix = paste0(fit_name, "_"))
+  input_obj$param <- .combine_two_named_lists(input_obj$param, param)
+
+  res <- opt_esvd.default(input_obj = dat,
+                          x_init = x_mat,
+                          y_init = y_mat,
+                          z_init = z_mat,
+                          covariates = covariates,
+                          family = "poisson",
+                          l2pen = l2pen,
+                          max_iter = max_iter,
+                          method = method[1],
+                          offset_variables = offset_variables,
+                          tol = tol,
+                          verbose = verbose, ...)
+
+  input_obj[[fit_name]] <- .form_esvd_fit(
+    x_mat = res$x_mat,
+    y_mat = res$y_mat,
+    z_mat = res$z_mat,
+    loss = res$loss
+  )
+  input_obj[["latest_Fit"]] <- fit_name
+  input_obj
+}
+
+opt_esvd.default <- function(input_obj,
+                             x_init,
+                             y_init,
+                             z_init = NULL,
+                             covariates = NULL,
+                             family = "poisson",
+                             l2pen = 0.1,
+                             max_iter = 100,
+                             method = c("newton", "lbfgs"),
+                             offset_variables = NULL,
+                             tol = 1e-6,
+                             verbose = 0,
+                             ...)
 {
-  n <- nrow(dat)
-  p <- ncol(dat)
+  n <- nrow(input_obj)
+  p <- ncol(input_obj)
   k <- ncol(x_init)
   stopifnot(
     nrow(x_init) == n, nrow(y_init) == p, ncol(y_init) == k,
-    is.character(family), sum(!is.na(dat)) > 0,
+    is.character(family), sum(!is.na(input_obj)) > 0,
     method %in% c("newton", "lbfgs")
   )
   if(!all(is.null(offset_variables))){
@@ -73,17 +123,16 @@ opt_esvd <- function(x_init,
                                   max_iter = max_iter,
                                   method = method,
                                   offset_variables = offset_variables,
-                                  tol = tol,
-                                  verbose = verbose)
+                                  tol = tol)
 
   # Parse optimization method
   method <- match.arg(method, choice = c("newton", "lbfgs"))
   opt_fun <- if(method == "newton") constr_newton else constr_lbfgs
-  loader <- data_loader(dat)
+  loader <- data_loader(input_obj)
 
   # Initialize embedding matrices
   z_mat <- .opt_esvd_setup_z_mat(covariates = covariates,
-                                 p = ncol(dat),
+                                 p = ncol(input_obj),
                                  z_init = z_init)
 
   xc_mat <- cbind(x_init, covariates)
@@ -157,7 +206,7 @@ opt_esvd <- function(x_init,
   y_mat <- tmp$y_mat
 
   tmp <- .opt_esvd_format_matrices(covariates = covariates,
-                                   dat = dat,
+                                   dat = input_obj,
                                    x_mat = x_mat,
                                    y_mat = y_mat,
                                    z_mat = z_mat)

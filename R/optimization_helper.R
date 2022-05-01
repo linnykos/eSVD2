@@ -51,14 +51,15 @@ opt_yz <- function(YZ_init, XC, k, fixed_cols, loader, family, s, gamma,
                                    method,
                                    offset_variables,
                                    tol,
-                                   verbose) {
-  list(family = family,
-       l2pen = l2pen,
-       max_iter = max_iter,
-       method = method,
-       offset_variables = offset_variables,
-       tol = tol,
-       verbose = verbose)
+                                   prefix = "") {
+  res <- list(family = family,
+              l2pen = l2pen,
+              max_iter = max_iter,
+              method = method,
+              offset_variables = offset_variables,
+              tol = tol)
+  names(res) <- paste0(prefix, names(res))
+  res
 }
 
 # Initialize the Z matrix according to covariates
