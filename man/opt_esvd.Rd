@@ -4,33 +4,11 @@
 \alias{opt_esvd}
 \title{Main optimization function for eSVD}
 \usage{
-opt_esvd(
-  x_init,
-  y_init,
-  dat,
-  family = "gaussian",
-  b_init = NULL,
-  covariates = NULL,
-  library_size_vec = NA,
-  nuisance_param_vec = NA,
-  offset_vec = rep(0, nrow(x_init)),
-  gene_group_factor = factor(rep("1", ncol(dat))),
-  l2pen = 0,
-  max_cell_subsample = 10 * nrow(dat),
-  max_iter = 100,
-  method = c("newton", "lbfgs"),
-  nuisance_value_lower = NA,
-  nuisance_value_upper = NA,
-  reparameterize = FALSE,
-  reestimate_nuisance = FALSE,
-  reestimate_nuisance_per_iteration = 1,
-  tol = 1e-06,
-  run_cpp = TRUE,
-  verbose = 0,
-  ...
-)
+opt_esvd(input_obj, ...)
 }
 \arguments{
+\item{...}{additional parameters, currently not used}
+
 \item{x_init}{initial estimate of a \eqn{n \times k}{n × k} matrix for the \eqn{k}-dimensional
 embedding for the \eqn{n} cells}
 
@@ -43,46 +21,44 @@ embedding for the \eqn{p} genes}
 \code{"poisson"}, \code{"neg_binom"}, \code{"curved_gaussian"},
 and \code{"bernoulli"}}
 
+\item{method}{a character string indicating the optimization method,
+either \code{"newton"} or \code{"lbfgs"}}
+
 \item{b_init}{initial estimate of a \eqn{n \times d}{n × d} matrix for the \eqn{d}-dimensional
 embedding for the \eqn{n} cells}
 
 \item{covariates}{an \eqn{n \times d}{n × d} matrix representing the additional \eqn{d} covariates,
 or \code{NULL} if no covariate is given}
 
-\item{library_size_vec}{either \code{NA} or a single numeric (default is \code{1}) or
-a length-\eqn{n} vector of numerics. If \code{NA}, the library size will be estimated}
-
 \item{nuisance_param_vec}{either \code{NA} or a single numeric or a length-\eqn{p}
 vector of numerics representing nuisance parameters (for \code{family = "neg_binom"}
 or \code{family = "curved_gausian"})}
+
+\item{library_size_vec}{either \code{NA} or a single numeric (default is \code{1}) or
+a length-\eqn{n} vector of numerics. If \code{NA}, the library size will be estimated}
 
 \item{offset_vec}{a vector of length-\eqn{n} that represents a constant amount added to each row of the
 natural parameter matrix}
 
 \item{l2pen}{the ridge penalty parameter for (X, Y, B)}
 
-\item{max_iter}{a positive integer giving the maximum number of iterations}
-
-\item{method}{a character string indicating the optimization method,
-either \code{"newton"} or \code{"lbfgs"}}
-
 \item{reparameterize}{reparameterize \code{x_mat} and \code{y_mat} after every iteration}
 
 \item{reestimate_nuisance}{a boolean for whether the nuisance parameter is reestimate after every iteration}
-
-\item{tol}{a small positive number for the tolerance of optimization error}
-
-\item{run_cpp}{whether to use C++ code}
-
-\item{verbose}{a non-negative integer to indicate the verbosity of messages}
-
-\item{...}{additional parameters, currently not used}
 
 \item{global_estimate}{a boolean for whether or not the same nuisance parameter is used for all genes}
 
 \item{min_nuisance}{a small positive number for the minimum nuisance parameter value}
 
 \item{max_nuisance}{a large positive number for the maximum nuisance parameter value}
+
+\item{max_iter}{a positive integer giving the maximum number of iterations}
+
+\item{tol}{a small positive number for the tolerance of optimization error}
+
+\item{run_cpp}{whether to use C++ code}
+
+\item{verbose}{a non-negative integer to indicate the verbosity of messages}
 }
 \value{
 A list with elements \code{x_mat} and \code{y_mat} (and others), representing the two

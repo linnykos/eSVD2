@@ -1,40 +1,40 @@
-.get_object <- function(esvd_obj,
+.get_object <- function(eSVD_obj,
                         what_obj,
                         which_fit){
-  if(what_obj == "data"){
-    esvd_obj$data
+  if(what_obj == "dat"){
+    eSVD_obj$dat
 
   } else if(what_obj == "covariates"){
-    esvd_obj$covariates
+    eSVD_obj$covariates
 
   } else if(what_obj == "z_mat1"){
     stopifnot(which_fit == "initial_Reg")
-    esvd_obj$initial_Reg$z_mat1
+    eSVD_obj$initial_Reg$z_mat1
 
   } else if(what_obj == "z_mat2"){
     stopifnot(which_fit == "initial_Reg")
-    esvd_obj$initial_Reg$z_mat2
+    eSVD_obj$initial_Reg$z_mat2
 
   } else if(what_obj == "log_pval"){
     stopifnot(which_fit == "initial_Reg")
-    esvd_obj$initial_Reg$log_pval
+    eSVD_obj$initial_Reg$log_pval
 
   } else if(what_obj == "x_mat"){
-    stopifnot(which_fit %in% names(esvd_obj))
-    esvd_obj[[which_fit]]$x_mat
+    stopifnot(which_fit %in% names(eSVD_obj))
+    eSVD_obj[[which_fit]]$x_mat
 
   } else if(what_obj == "y_mat"){
-    stopifnot(which_fit %in% names(esvd_obj))
-    esvd_obj[[which_fit]]$y_mat
+    stopifnot(which_fit %in% names(eSVD_obj))
+    eSVD_obj[[which_fit]]$y_mat
 
   } else if(what_obj == "z_mat"){
-    stopifnot(which_fit %in% names(esvd_obj))
-    esvd_obj[[which_fit]]$z_mat
+    stopifnot(which_fit %in% names(eSVD_obj))
+    eSVD_obj[[which_fit]]$z_mat
 
   } else if(which_fit == "param"){
-    param <- esvd_obj$param
+    param <- eSVD_obj$param
     stopifnot(what_obj %in% names(param))
-    param$what_obj
+    param[[what_obj]]
 
   } else {
     stopifnot("what_obj is not found")

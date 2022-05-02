@@ -1,4 +1,5 @@
 initialize_esvd <- function(dat,
+                            bool_intercept = T,
                             covariates = NULL,
                             case_control_variable = NULL,
                             k = 30,
@@ -7,28 +8,31 @@ initialize_esvd <- function(dat,
                             offset_variables = NULL,
                             verbose = 0){
   stopifnot(inherits(dat, c("dgCMatrix", "matrix")),
-            is.matrix(covariates),
-            all(offset_variables %in% colnames(covariates)),
-            length(case_control_variable) == 1,
-            case_control_variable %in% colnames(covariates),
             k <= ncol(dat), k > 0, k %% 1 == 0,
             lambda <= 1e4, lambda >= 1e-4)
-  if(!all(is.null(offset_variables))){
-    stopifnot(is.character(offset_variables),
-              all(offset_variables %in% colnames(covariates)))
-  }
-  if(!all(is.null(case_control_variable))){
-    stopifnot(is.character(case_control_variable),
-              all(case_control_variable %in% colnames(covariates)))
-  }
-  if(!all(is.null(mixed_effect_variables))){
-    stopifnot(is.character(mixed_effect_variables),
-              all(mixed_effect_variables %in% colnames(covariates)))
+  stopifnot(!all(is.null(covariates))) #[[note to self: remove this necessity]]
+
+  if(!all(is.null(covariates))){
+    stopifnot(is.matrix(covariates))
+
+    if(!all(is.null(offset_variables))){
+      stopifnot(is.character(offset_variables),
+                all(offset_variables %in% colnames(covariates)))
+    }
+    if(!all(is.null(case_control_variable))){
+      stopifnot(is.character(case_control_variable),
+                all(case_control_variable %in% colnames(covariates)))
+    }
+    if(!all(is.null(mixed_effect_variables))){
+      stopifnot(is.character(mixed_effect_variables),
+                all(mixed_effect_variables %in% colnames(covariates)))
+    }
   }
 
   n <- nrow(dat); p <- ncol(dat)
   dat[is.na(dat)] <- 0
-  param <- .format_param_initialize(case_control_variable = case_control_variable,
+  param <- .format_param_initialize(bool_intercept = bool_intercept,
+                                    case_control_variable = case_control_variable,
                                     offset_variables = offset_variables,
                                     k = k,
                                     lambda = lambda,
@@ -37,17 +41,19 @@ initialize_esvd <- function(dat,
   # [[note to self: make mixed_effect_variables easier to use]]
 
   if(verbose >= 1) print("Performing GLMs")
-  initial_Reg <- .initialize_coefficient(case_control_variable = case_control_variable,
+  initial_Reg <- .initialize_coefficient(bool_intercept = bool_intercept,
+                                         case_control_variable = case_control_variable,
                                          covariates = covariates,
                                          dat = dat,
                                          lambda = lambda,
                                          mixed_effect_variables = mixed_effect_variables,
                                          offset_variables = offset_variables,
-                                         p_val_thres = p_val_thres,
                                          verbose = verbose)
 
-  covariates <- cbind(rep(1, n), covariates)
-  colnames(covariates)[1] <- "Intercept"
+  if(bool_intercept){
+    covariates <- cbind(rep(1, n), covariates)
+    colnames(covariates)[1] <- "Intercept"
+  }
 
   eSVD_obj <- list(dat = dat,
                    covariates = covariates,
@@ -65,25 +71,25 @@ apply_initial_threshold <- function(eSVD_obj,
             pval_thres >= 0, pval_thres <= 1)
 
   if(verbose >= 1) print("Assembling coefficents")
-  z_mat1 <- .get_object(esvd_obj = esvd_obj,
+  z_mat1 <- .get_object(eSVD_obj = eSVD_obj,
                         what_obj = "z_mat1",
                         which_fit = "initial_Reg")
-  z_mat2 <- .get_object(esvd_obj = esvd_obj,
+  z_mat2 <- .get_object(eSVD_obj = eSVD_obj,
                         what_obj = "z_mat2",
                         which_fit = "initial_Reg")
-  log_pval <- .get_object(esvd_obj = esvd_obj,
+  log_pval <- .get_object(eSVD_obj = eSVD_obj,
                           what_obj = "log_pval",
                           which_fit = "initial_Reg")
   stopifnot(all(dim(z_mat1) == dim(z_mat2)), length(log_pval) == nrow(z_mat1))
   p <- nrow(z_mat1)
   z_mat <- matrix(NA, nrow = nrow(z_mat1), ncol = ncol(z_mat2))
   for(j in 1:p){
-    if(log_pval[j] <= pval_thres) z_mat[,j] <- z_mat1[,j] else z_mat[,j] <- z_mat2[,j]
+    if(log_pval[j] <= log(pval_thres)) z_mat[j,] <- z_mat1[j,] else z_mat[j,] <- z_mat2[j,]
   }
 
-  dat <- .get_object(esvd_obj = esvd_obj, what_obj = "data", which_fit = NULL)
-  covariates <- .get_object(esvd_obj = esvd_obj, what_obj = "covariates", which_fit = NULL)
-  k <- .get_object(esvd_obj = esvd_obj, what_obj = "init_k", which_fit = "param")
+  dat <- .get_object(eSVD_obj = eSVD_obj, what_obj = "dat", which_fit = NULL)
+  covariates <- .get_object(eSVD_obj = eSVD_obj, what_obj = "covariates", which_fit = NULL)
+  k <- .get_object(eSVD_obj = eSVD_obj, what_obj = "init_k", which_fit = "param")
 
   if(verbose >= 1) print("Computing residuals")
   eSVD_obj[["fit_Init"]] <- .initialize_residuals(
@@ -98,18 +104,20 @@ apply_initial_threshold <- function(eSVD_obj,
 
 #####################
 
-.initialize_coefficient <- function(case_control_variable,
+.initialize_coefficient <- function(bool_intercept,
+                                    case_control_variable,
                                     covariates,
                                     dat,
                                     lambda,
                                     mixed_effect_variables,
                                     offset_variables,
                                     verbose = 0){
+  stopifnot(bool_intercept == T) # [[note to self: change this]]
   n <- nrow(dat); p <- ncol(dat)
   covariates_nooffset <- covariates[,which(!colnames(covariates) %in% offset_variables)]
   offset_vec <- Matrix::rowSums(covariates[,offset_variables,drop = F])
 
-  log_pval_vec <- rep(NA, p)
+  log_pval <- rep(NA, p)
   z_mat1 <- matrix(NA, nrow = p, ncol = ncol(covariates_nooffset)+1)
   z_mat2 <- matrix(NA, nrow = p, ncol = ncol(covariates_nooffset)+1)
 
@@ -120,11 +128,7 @@ apply_initial_threshold <- function(eSVD_obj,
 
   for(j in 1:p){
     if(verbose == 1 && p >= 10 && j %% floor(p/10) == 0) cat('*')
-    if(verbose >= 2){
-      verbose_additional_msg <- paste0(" (", j , " of ", p, ")")
-    } else {
-      verbose_additional_msg <- ""
-    }
+    if(verbose >= 2) print(paste0("Finished variable ", j , " of ", p, ")"))
     tmp <- .lrt_coefficient(case_control_variable = case_control_variable,
                             covariates = covariates_nooffset,
                             lambda = lambda,
@@ -137,9 +141,11 @@ apply_initial_threshold <- function(eSVD_obj,
     log_pval[j] <- tmp$log_pval
   }
 
-  z_mat1 <- .append_offset(covariates = covariates,
+  z_mat1 <- .append_offset(bool_intercept = bool_intercept,
+                           covariates = covariates,
                            z_mat = z_mat1)
-  z_mat2 <- .append_offset(covariates = covariates,
+  z_mat2 <- .append_offset(bool_intercept = bool_intercept,
+                           covariates = covariates,
                            z_mat = z_mat2)
 
   # Do some final formatting
@@ -213,11 +219,17 @@ apply_initial_threshold <- function(eSVD_obj,
        log_pval = log_pval)
 }
 
-.append_offset <- function(covariates,
+.append_offset <- function(bool_intercept,
+                           covariates,
                            z_mat){
-  z_mat2 <- matrix(1, nrow = nrow(z_mat), ncol = ncol(covariates)+1)
+  if(bool_intercept) p <- ncol(covariates)+1 else p <- ncol(covariates)
+  z_mat2 <- matrix(1, nrow = nrow(z_mat), ncol = p)
   rownames(z_mat2) <- rownames(z_mat)
-  colnames(z_mat2) <- c("Intercept", colnames(covariates))
+  if(bool_intercept){
+    colnames(z_mat2) <- c("Intercept", colnames(covariates))
+  } else {
+    colnames(z_mat2) <- colnames(covariates)
+  }
 
   for(j in 1:ncol(z_mat2)){
     if(colnames(z_mat2)[j] %in% colnames(z_mat)){
@@ -235,7 +247,7 @@ apply_initial_threshold <- function(eSVD_obj,
                                   dat,
                                   k,
                                   z_mat){
-  dat_transform <- log1p(dat)
+  dat_transform <- log1p(as.matrix(dat))
   nat_mat <- tcrossprod(covariates, z_mat)
   residual_mat <- dat_transform - nat_mat
 
@@ -255,12 +267,14 @@ apply_initial_threshold <- function(eSVD_obj,
   .form_esvd_fit(x_mat = x_mat, y_mat = y_mat, z_mat = z_mat)
 }
 
-.format_param_initialize <- function(case_control_variable,
+.format_param_initialize <- function(bool_intercept,
+                                     case_control_variable,
                                      offset_variables,
                                      k,
                                      lambda,
                                      mixed_effect_variables) {
-  list(init_case_control_variable = case_control_variable,
+  list(init_bool_intercept = bool_intercept,
+       init_case_control_variable = case_control_variable,
        init_offset_variables = offset_variables,
        init_k = k,
        init_lambda = lambda,

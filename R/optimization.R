@@ -40,6 +40,7 @@
 #' @export
 opt_esvd <- function(input_obj, ...) UseMethod("opt_esvd")
 
+#' @export
 opt_esvd.eSVD <- function(input_obj,
                           l2pen = 0.1,
                           max_iter = 100,
@@ -50,11 +51,11 @@ opt_esvd.eSVD <- function(input_obj,
                           fit_name = "fit_First",
                           fit_previous = "fit_Init",
                           ...){
-  dat <- .get_object(esvd_obj = input_obj, what_obj = "data", which_fit = NULL)
-  covariates <- .get_object(esvd_obj = input_obj, what_obj = "covariates", which_fit = NULL)
-  x_mat <- .get_object(esvd_obj = input_obj, what_obj = "x_mat", which_fit = fit_previous)
-  y_mat <- .get_object(esvd_obj = input_obj, what_obj = "y_mat", which_fit = fit_previous)
-  z_mat <- .get_object(esvd_obj = input_obj, what_obj = "z_mat", which_fit = fit_previous)
+  dat <- .get_object(eSVD_obj = input_obj, what_obj = "dat", which_fit = NULL)
+  covariates <- .get_object(eSVD_obj = input_obj, what_obj = "covariates", which_fit = NULL)
+  x_mat <- .get_object(eSVD_obj = input_obj, what_obj = "x_mat", which_fit = fit_previous)
+  y_mat <- .get_object(eSVD_obj = input_obj, what_obj = "y_mat", which_fit = fit_previous)
+  z_mat <- .get_object(eSVD_obj = input_obj, what_obj = "z_mat", which_fit = fit_previous)
 
   param <- .opt_esvd_format_param(family = "poisson",
                                   l2pen = l2pen,
@@ -88,6 +89,7 @@ opt_esvd.eSVD <- function(input_obj,
   input_obj
 }
 
+#' @export
 opt_esvd.default <- function(input_obj,
                              x_init,
                              y_init,
@@ -211,11 +213,10 @@ opt_esvd.default <- function(input_obj,
                                    y_mat = y_mat,
                                    z_mat = z_mat)
 
-  structure(list(x_mat = x_mat,
-                 y_mat = y_mat,
-                 covariates = covariates,
-                 z_mat = z_mat,
-                 loss = losses,
-                 param = param),
-            class = "eSVD")
+  list(x_mat = x_mat,
+       y_mat = y_mat,
+       covariates = covariates,
+       z_mat = z_mat,
+       loss = losses,
+       param = param)
 }
