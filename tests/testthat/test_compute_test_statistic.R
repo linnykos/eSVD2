@@ -1,6 +1,8 @@
-context("Test nuisance")
+context("Test compute_test_statistic")
 
-test_that("estimate_nuisance works", {
+## compute_test_statistic is correct
+
+test_that("compute_test_statistic works", {
   set.seed(123)
   n <- 100
   p <- 150
@@ -32,6 +34,8 @@ test_that("estimate_nuisance works", {
   dat <- Matrix::Matrix(dat, sparse = T)
   rownames(dat) <- paste0("c", 1:n)
   colnames(dat) <- paste0("g", 1:p)
+  metadata <- data.frame(individual = factor(rep(1:4, each = n/4)))
+  rownames(metadata) <- rownames(dat)
 
   # fit eSVD
   eSVD_obj <- initialize_esvd(dat = dat,
@@ -44,11 +48,16 @@ test_that("estimate_nuisance works", {
   eSVD_obj <- apply_initial_threshold(eSVD_obj = eSVD_obj,
                                       pval_thres = 0.1)
   eSVD_obj <- opt_esvd(input_obj = eSVD_obj,
-                       max_iter = 10)
-  res <- estimate_nuisance(input_obj = eSVD_obj,
+                       max_iter = 5)
+  eSVD_obj <- estimate_nuisance(input_obj = eSVD_obj,
                            verbose = 0)
-  # plot(res$fit_First$nuisance_vec)
+  eSVD_obj <- compute_posterior(input_obj = eSVD_obj)
 
-  expect_true("nuisance_vec" %in% names(res$fit_First))
-  expect_true(all(res$fit_First$nuisance_vec > 0))
+  res <- compute_test_statistic(input_obj = eSVD_obj,
+                                covariate_individual = "individual",
+                                metadata = metadata)
+  # plot(res[["teststat_vec"]])
+
+  expect_true(is.numeric(res[["teststat_vec"]]))
+  expect_true(length(res[["teststat_vec"]]) == ncol(dat))
 })

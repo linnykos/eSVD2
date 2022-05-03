@@ -8,7 +8,7 @@ compute_test_statistic.eSVD <- function(input_obj,
                                         verbose = 0){
   stopifnot(inherits(input_obj, "eSVD"), "latest_Fit" %in% names(input_obj),
             input_obj[["latest_Fit"]] %in% names(input_obj),
-            inherits(input_obj[["latest_Fit"]], "eSVD_Fit"),
+            inherits(input_obj[[input_obj[["latest_Fit"]]]], "eSVD_Fit"),
             all(rownames(metadata) == rownames(input_obj$dat)),
             covariate_individual %in% colnames(metadata),
             is.factor(metadata[,covariate_individual]))
@@ -30,8 +30,9 @@ compute_test_statistic.eSVD <- function(input_obj,
                                         control_individuals = control_individuals)
   input_obj$param <- .combine_two_named_lists(input_obj$param, param)
 
-  posterior_mean_mat <- .get_object(eSVD_obj = input_obj, what_obj = "posterior_mean_mat", which_fit = NULL)
-  posterior_var_mat <- .get_object(eSVD_obj = input_obj, what_obj = "posterior_var_mat", which_fit = NULL)
+  latest_Fit <- .get_object(eSVD_obj = input_obj, what_obj = "latest_Fit", which_fit = NULL)
+  posterior_mean_mat <- .get_object(eSVD_obj = input_obj, what_obj = "posterior_mean_mat", which_fit = latest_Fit)
+  posterior_var_mat <- .get_object(eSVD_obj = input_obj, what_obj = "posterior_var_mat", which_fit = latest_Fit)
 
   teststat_vec <- compute_test_statistic.default(
     input_obj = posterior_mean_mat,
@@ -67,7 +68,7 @@ compute_test_statistic.default <- function(input_obj,
     # next find the cells, then compute one gaussian per individual
     case_gaussians <- sapply(case_individuals, function(indiv){
       cell_names <- rownames(metadata)[which(metadata[,covariate_individual] == indiv)]
-      cell_idx <- which(rownames(mat) %in% cell_names)
+      cell_idx <- which(rownames(posterior_mean_mat) %in% cell_names)
 
       mean_val <- mean(posterior_mean_mat[cell_idx,j])
       var_val <- mean(posterior_var_mat[cell_idx,j])
@@ -76,7 +77,7 @@ compute_test_statistic.default <- function(input_obj,
 
     control_gaussians <- sapply(control_individuals, function(indiv){
       cell_names <- rownames(metadata)[which(metadata[,covariate_individual] == indiv)]
-      cell_idx <- which(rownames(mat) %in% cell_names)
+      cell_idx <- which(rownames(posterior_mean_mat) %in% cell_names)
 
       mean_val <- mean(posterior_mean_mat[cell_idx,j])
       var_val <- mean(posterior_var_mat[cell_idx,j])

@@ -1,6 +1,8 @@
-context("Test nuisance")
+context("Test posterior")
 
-test_that("estimate_nuisance works", {
+## compute_posterior is correct
+
+test_that("compute_posterior works", {
   set.seed(123)
   n <- 100
   p <- 150
@@ -44,11 +46,12 @@ test_that("estimate_nuisance works", {
   eSVD_obj <- apply_initial_threshold(eSVD_obj = eSVD_obj,
                                       pval_thres = 0.1)
   eSVD_obj <- opt_esvd(input_obj = eSVD_obj,
-                       max_iter = 10)
-  res <- estimate_nuisance(input_obj = eSVD_obj,
-                           verbose = 0)
-  # plot(res$fit_First$nuisance_vec)
+                       max_iter = 5)
+  eSVD_obj <- estimate_nuisance(input_obj = eSVD_obj,
+                                verbose = 0)
+  res <- compute_posterior(input_obj = eSVD_obj)
 
-  expect_true("nuisance_vec" %in% names(res$fit_First))
-  expect_true(all(res$fit_First$nuisance_vec > 0))
+  expect_true(all(c("posterior_mean_mat", "posterior_var_mat") %in% names(res$fit_First)))
+  expect_true(all(dim(res$fit_First$posterior_mean_mat) == dim(dat)))
+  expect_true(all(dim(res$fit_First$posterior_var_mat) == dim(dat)))
 })

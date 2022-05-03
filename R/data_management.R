@@ -12,12 +12,6 @@
     } else if(what_obj == "covariates"){
       return(eSVD_obj$covariates)
 
-    } else if(what_obj == "posterior_mean_mat"){
-      return(eSVD_obj[["posterior_Fit"]]$posterior_mean_mat)
-
-    } else if(what_obj == "posterior_var_mat"){
-      return(eSVD_obj[["posterior_Fit"]]$posterior_var_mat)
-
     } else if(what_obj == "z_mat1"){
       stopifnot(which_fit == "initial_Reg")
       return(eSVD_obj$initial_Reg$z_mat1)
@@ -41,6 +35,12 @@
     } else if(what_obj == "z_mat"){
       stopifnot(which_fit %in% names(eSVD_obj))
       return(eSVD_obj[[which_fit]]$z_mat)
+
+    } else if(what_obj == "posterior_mean_mat"){
+      return(eSVD_obj[[which_fit]]$posterior_mean_mat)
+
+    } else if(what_obj == "posterior_var_mat"){
+      return(eSVD_obj[[which_fit]]$posterior_var_mat)
 
     } else if(what_obj == "nuisance"){
       stopifnot(which_fit %in% names(eSVD_obj))
