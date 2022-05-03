@@ -21,9 +21,6 @@ embedding for the \eqn{p} genes}
 \code{"poisson"}, \code{"neg_binom"}, \code{"curved_gaussian"},
 and \code{"bernoulli"}}
 
-\item{method}{a character string indicating the optimization method,
-either \code{"newton"} or \code{"lbfgs"}}
-
 \item{b_init}{initial estimate of a \eqn{n \times d}{n × d} matrix for the \eqn{d}-dimensional
 embedding for the \eqn{n} cells}
 

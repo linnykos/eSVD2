@@ -48,14 +48,12 @@ opt_yz <- function(YZ_init, XC, k, fixed_cols, loader, family, s, gamma,
 .opt_esvd_format_param <- function(family,
                                    l2pen,
                                    max_iter,
-                                   method,
                                    offset_variables,
                                    tol,
                                    prefix = "") {
   res <- list(family = family,
               l2pen = l2pen,
               max_iter = max_iter,
-              method = method,
               offset_variables = offset_variables,
               tol = tol)
   names(res) <- paste0(prefix, names(res))
@@ -79,12 +77,20 @@ opt_yz <- function(YZ_init, XC, k, fixed_cols, loader, family, s, gamma,
 
 # Set row and column names of output matrices
 .opt_esvd_format_matrices <- function(covariates, dat, x_mat, y_mat, z_mat) {
-  rownames(x_mat) <- rownames(dat)
-  rownames(y_mat) <- colnames(dat)
-  colnames(x_mat) <- paste0("latent_", 1:ncol(x_mat))
-  colnames(y_mat) <- paste0("latent_", 1:ncol(y_mat))
-  rownames(z_mat) <- colnames(dat)
-  colnames(z_mat) <- colnames(covariates)
+  stopifnot(nrow(dat) == nrow(x_mat),
+            ncol(dat) == nrow(y_mat),
+            ncol(x_mat) == ncol(y_mat))
+  if(length(rownames(dat)) > 0) rownames(x_mat) <- rownames(dat)
+  if(length(colnames(dat)) > 0) rownames(y_mat) <- colnames(dat)
 
-  list(z_mat = z_mat, x_mat = x_mat, y_mat = y_mat)
+  if(!all(is.null(covariates))){
+    stopifnot(nrow(covariates) == nrow(dat),
+              nrow(z_mat) == ncol(dat),
+              ncol(covariates) == ncol(z_mat))
+
+    if(length(colnames(covariates)) > 0) colnames(z_mat) <- colnames(covariates)
+    if(length(colnames(dat)) > 0) rownames(z_mat) <- colnames(dat)
+  }
+
+  list(x_mat = x_mat, y_mat = y_mat, z_mat = z_mat)
 }

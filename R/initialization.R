@@ -21,7 +21,8 @@ initialize_esvd <- function(dat,
     }
     if(!all(is.null(case_control_variable))){
       stopifnot(is.character(case_control_variable),
-                all(case_control_variable %in% colnames(covariates)))
+                all(case_control_variable %in% colnames(covariates)),
+                length(unique(covariates[,case_control_variable])) == 2)
     }
     if(!all(is.null(mixed_effect_variables))){
       stopifnot(is.character(mixed_effect_variables),

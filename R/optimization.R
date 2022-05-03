@@ -10,8 +10,6 @@
 #' @param family             a character string, one of \code{"gaussian"}, \code{"exponential"},
 #'                           \code{"poisson"}, \code{"neg_binom"}, \code{"curved_gaussian"},
 #'                           and \code{"bernoulli"}
-#' @param method             a character string indicating the optimization method,
-#'                           either \code{"newton"} or \code{"lbfgs"}
 #' @param b_init             initial estimate of a \eqn{n \times d}{n × d} matrix for the \eqn{d}-dimensional
 #'                           embedding for the \eqn{n} cells
 #' @param covariates         an \eqn{n \times d}{n × d} matrix representing the additional \eqn{d} covariates,
@@ -44,7 +42,6 @@ opt_esvd <- function(input_obj, ...) UseMethod("opt_esvd")
 opt_esvd.eSVD <- function(input_obj,
                           l2pen = 0.1,
                           max_iter = 100,
-                          method = c("newton", "lbfgs"),
                           offset_variables = NULL,
                           tol = 1e-6,
                           verbose = 0,
@@ -60,7 +57,6 @@ opt_esvd.eSVD <- function(input_obj,
   param <- .opt_esvd_format_param(family = "poisson",
                                   l2pen = l2pen,
                                   max_iter = max_iter,
-                                  method = method,
                                   offset_variables = offset_variables,
                                   tol = tol,
                                   prefix = paste0(fit_name, "_"))
@@ -74,7 +70,6 @@ opt_esvd.eSVD <- function(input_obj,
                           family = "poisson",
                           l2pen = l2pen,
                           max_iter = max_iter,
-                          method = method[1],
                           offset_variables = offset_variables,
                           tol = tol,
                           verbose = verbose, ...)
@@ -98,7 +93,6 @@ opt_esvd.default <- function(input_obj,
                              family = "poisson",
                              l2pen = 0.1,
                              max_iter = 100,
-                             method = c("newton", "lbfgs"),
                              offset_variables = NULL,
                              tol = 1e-6,
                              verbose = 0,
@@ -108,9 +102,9 @@ opt_esvd.default <- function(input_obj,
   p <- ncol(input_obj)
   k <- ncol(x_init)
   stopifnot(
+    inherits(input_obj, c("matrix", "dgCMatrix")),
     nrow(x_init) == n, nrow(y_init) == p, ncol(y_init) == k,
-    is.character(family), sum(!is.na(input_obj)) > 0,
-    method %in% c("newton", "lbfgs")
+    is.character(family), sum(!is.na(input_obj)) > 0
   )
   if(!all(is.null(offset_variables))){
     stopifnot(is.character(offset_variables),
@@ -123,13 +117,10 @@ opt_esvd.default <- function(input_obj,
   param <- .opt_esvd_format_param(family = family_str,
                                   l2pen = l2pen,
                                   max_iter = max_iter,
-                                  method = method,
                                   offset_variables = offset_variables,
                                   tol = tol)
 
-  # Parse optimization method
-  method <- match.arg(method, choice = c("newton", "lbfgs"))
-  opt_fun <- if(method == "newton") constr_newton else constr_lbfgs
+  # Load the data
   loader <- data_loader(input_obj)
 
   # Initialize embedding matrices
@@ -213,10 +204,10 @@ opt_esvd.default <- function(input_obj,
                                    y_mat = y_mat,
                                    z_mat = z_mat)
 
-  list(x_mat = x_mat,
-       y_mat = y_mat,
+  list(x_mat = tmp$x_mat,
+       y_mat = tmp$y_mat,
        covariates = covariates,
-       z_mat = z_mat,
+       z_mat = tmp$z_mat,
        loss = losses,
        param = param)
 }

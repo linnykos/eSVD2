@@ -123,10 +123,8 @@
   class(res) <- "svd"
 
   # pass row-names and column-names
-  res <- .append_rowcolnames(bool_colnames = T,
-                             bool_rownames = T,
-                             source_obj = mat,
-                             target_obj = res)
+  if(length(rownames(mat)) > 0) rownames(res$u) <- rownames(mat)
+  if(length(colnames(mat)) > 0) rownames(res$v) <- colnames(mat)
 
   # useful only if your application requires only the singular vectors
   # if the number of rows or columns is too large, the singular vectors themselves

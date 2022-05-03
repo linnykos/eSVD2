@@ -9,7 +9,8 @@ test_that("initialize_esvd works", {
   k <- 5
   x_mat <- matrix(abs(rnorm(n * k))/10, nrow = n, ncol = k)
   y_mat <- matrix(abs(rnorm(p * k))/10, nrow = p, ncol = k)
-  covariates <- matrix(rnorm(n * 4, mean = 1, sd = 0.1), nrow = n, ncol = 4)
+  covariates <- cbind(sample(c(0,1), size = n, replace = T),
+                      matrix(rnorm(n * 3, mean = 1, sd = 0.1), nrow = n, ncol = 3))
   colnames(covariates) <- paste0("covariate_", 1:4)
   z_mat <- cbind(c(rep(0, p/2), rep(1, p/2)), rep(1,p), rep(1,p), rep(0.2,p))
   colnames(z_mat) <- paste0("covariate_", 1:4)
@@ -51,7 +52,8 @@ test_that("apply_initial_threshold works", {
   k <- 5
   x_mat <- matrix(abs(rnorm(n * k))/10, nrow = n, ncol = k)
   y_mat <- matrix(abs(rnorm(p * k))/10, nrow = p, ncol = k)
-  covariates <- matrix(rnorm(n * 3, mean = 1, sd = 0.1), nrow = n, ncol = 3)
+  covariates <- cbind(sample(c(0,1), size = n, replace = T),
+                      matrix(rnorm(n * 3, mean = 1, sd = 0.1), nrow = n, ncol = 3))
   colnames(covariates) <- paste0("covariate_", 1:3)
   z_mat <- cbind(c(rep(0, p/2), rep(1, p/2)), rep(1,p), rep(1,p))
   colnames(z_mat) <- paste0("covariate_", 1:3)
@@ -97,7 +99,8 @@ test_that(".initialize_coefficient works for sparse matrices", {
   k <- 5
   x_mat <- matrix(abs(rnorm(n * k))/10, nrow = n, ncol = k)
   y_mat <- matrix(abs(rnorm(p * k))/10, nrow = p, ncol = k)
-  covariates <- matrix(rnorm(n * 3, mean = 1, sd = 0.1), nrow = n, ncol = 3)
+  covariates <- cbind(sample(c(0,1), size = n, replace = T),
+                      matrix(rnorm(n * 3, mean = 1, sd = 0.1), nrow = n, ncol = 3))
   colnames(covariates) <- paste0("covariate_", 1:3)
   z_mat <- cbind(c(rep(0, p/2), rep(100, p/2)), rep(10,p), rep(10,p))
   colnames(z_mat) <- paste0("covariate_", 1:3)
