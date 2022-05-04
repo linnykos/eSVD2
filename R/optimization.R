@@ -111,8 +111,8 @@ opt_esvd.default <- function(input_obj,
               all(offset_variables %in% colnames(covariates)))
   }
 
-  # Convert family string to internal family object, e.g. `.esvd.poisson` and `.esvd.neg_binom2`
-  family_str <- family
+  # Convert family string to internal family object
+  family_str <- as.character(family)
   family <- esvd_family(family_str)
   param <- .opt_esvd_format_param(family = family_str,
                                   l2pen = l2pen,
@@ -136,8 +136,7 @@ opt_esvd.default <- function(input_obj,
   for(i in seq_len(max_iter))
   {
     if(verbose >= 1) cat("========== eSVD Iter ", i, " ==========\n\n", sep = "")
-    # Optimize X given Y and B
-    # [[note to self: When all the coding is done, fix the notation -- Z should be the coefficients (currently B), while C should be the covariates (currently)]]
+    # Optimize X given C, Y, and Z
     xc_mat <- opt_x(
       XC_init = xc_mat,
       YZ = yz_mat,
@@ -149,7 +148,7 @@ opt_esvd.default <- function(input_obj,
       l2penx = l2pen,
       verbose = verbose)
 
-    # Optimize Y and B given X
+    # Optimize Y and Z given X
     yz_mat <- opt_yz(
       YZ_init = yz_mat,
       XC = xc_mat,
