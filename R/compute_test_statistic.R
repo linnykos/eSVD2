@@ -62,8 +62,10 @@ compute_test_statistic.default <- function(input_obj,
             all(rownames(metadata) == rownames(posterior_mean_mat)))
 
   p <- ncol(posterior_mean_mat)
+  if(verbose >= 1) print("Computing individual-level statistics")
   individual_stats <- lapply(1:p, function(j){
-    if(verbose > 0 && p > 10 && j %% floor(p/10) == 0) cat('*')
+    if(verbose == 1 && p > 10 && j %% floor(p/10) == 0) cat('*')
+    if(verbose >= 2) print(j)
 
     # next find the cells, then compute one gaussian per individual
     case_gaussians <- sapply(case_individuals, function(indiv){
@@ -89,7 +91,9 @@ compute_test_statistic.default <- function(input_obj,
   })
 
   # see https://stats.stackexchange.com/questions/16608/what-is-the-variance-of-the-weighted-mixture-of-two-gaussians
+  if(verbose >= 1) print("Computing group-level statistics")
   group_stats <- lapply(1:p, function(j){
+    if(verbose >= 1 && p > 10 && j %% floor(p/10) == 0) cat('*')
     case_gaussians <- individual_stats[[j]]$case_gaussians
     control_gaussians <- individual_stats[[j]]$control_gaussians
 
@@ -104,7 +108,9 @@ compute_test_statistic.default <- function(input_obj,
          control_gaussian = control_gaussian)
   })
 
+  if(verbose >= 1) print("Computing test statistics")
   teststat_vec <- sapply(1:p, function(j){
+    if(verbose >= 1 && p > 10 && j %% floor(p/10) == 0) cat('*')
     case_gaussian <- group_stats[[j]]$case_gaussian
     control_gaussian <- group_stats[[j]]$control_gaussian
 

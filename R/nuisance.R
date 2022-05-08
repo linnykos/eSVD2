@@ -50,7 +50,8 @@ estimate_nuisance.default <- function(input_obj,
 
   p <- ncol(input_obj)
   nuisance_vec <- sapply(1:p, function(j){
-    if(verbose > 0 && p > 10 && j %% floor(p/10) == 0) cat('*')
+    if(verbose ==1 && p > 10 && j %% floor(p/10) == 0) cat('*')
+    if(verbose >= 2) print(j)
 
     val <- tryCatch(
       gamma_rate(x = as.numeric(input_obj[,j]),

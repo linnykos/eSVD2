@@ -122,6 +122,7 @@ apply_initial_threshold <- function(eSVD_obj,
   z_mat1 <- matrix(NA, nrow = p, ncol = ncol(covariates_nooffset)+1)
   z_mat2 <- matrix(NA, nrow = p, ncol = ncol(covariates_nooffset)+1)
 
+  names(log_pval) <- colnames(dat)
   rownames(z_mat1) <- colnames(dat)
   colnames(z_mat1) <- c("Intercept", colnames(covariates_nooffset))
   rownames(z_mat2) <- colnames(dat)
@@ -129,7 +130,7 @@ apply_initial_threshold <- function(eSVD_obj,
 
   for(j in 1:p){
     if(verbose == 1 && p >= 10 && j %% floor(p/10) == 0) cat('*')
-    if(verbose >= 2) print(paste0("Finished variable ", j , " of ", p, ")"))
+    if(verbose >= 2) print(paste0("Finished variable ", j , " of ", p))
     tmp <- .lrt_coefficient(case_control_variable = case_control_variable,
                             covariates = covariates_nooffset,
                             lambda = lambda,
@@ -264,6 +265,8 @@ apply_initial_threshold <- function(eSVD_obj,
 
   rownames(x_mat) <- rownames(dat)
   rownames(y_mat) <- colnames(dat)
+  rownames(z_mat) <- colnames(dat)
+  colnames(z_mat) <- colnames(covariates)
 
   .form_esvd_fit(x_mat = x_mat, y_mat = y_mat, z_mat = z_mat)
 }
