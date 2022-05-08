@@ -8,7 +8,7 @@
 class Distribution
 {
 public:
-    virtual ~Distribution() { Rcpp::Rcout << "** destructor **" << std::endl; }
+    virtual ~Distribution() { /* Rcpp::Rcout << "** destructor **" << std::endl; */ }
 
     // Log-density for a single data point Aij
     // fn_si is a function of si that can be shared by A[i, ]
