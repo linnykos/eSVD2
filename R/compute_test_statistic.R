@@ -78,8 +78,8 @@ compute_test_statistic.default <- function(input_obj,
   if(verbose >= 1) print("Computing group-level statistics")
   case_row_idx <- 1:length(case_individuals)
   control_row_idx <- (length(case_individuals)+1):nrow(avg_posterior_mean_mat)
-  case_gaussian_mean <- Matrix::rowMeans(avg_posterior_mean_mat[case_row_idx,,drop = F])
-  control_gaussian_mean <- Matrix::rowMeans(avg_posterior_mean_mat[control_row_idx,,drop = F])
+  case_gaussian_mean <- Matrix::colMeans(avg_posterior_mean_mat[case_row_idx,,drop = F])
+  control_gaussian_mean <- Matrix::colMeans(avg_posterior_mean_mat[control_row_idx,,drop = F])
   case_gaussian_var <- .compute_mixture_gaussian_variance(
     avg_posterior_mean_mat = avg_posterior_mean_mat[case_row_idx,,drop = F],
     avg_posterior_var_mat = avg_posterior_var_mat[case_row_idx,,drop = F]

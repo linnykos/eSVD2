@@ -2,7 +2,7 @@ context("Test compute_test_statistic")
 
 ## compute_test_statistic is correct
 
-test_that("compute_test_statistic works", {
+test_that("compute_test_statistic works when using the true mean and variance", {
   set.seed(123)
   n <- 100
   p <- 150
@@ -42,13 +42,50 @@ test_that("compute_test_statistic works", {
   posterior_var_mat <- sweep(gamma_mat, MARGIN = 2, STATS = nuisance_vec, FUN = "/")
   res <- compute_test_statistic(input_obj = posterior_mean_mat,
                                 posterior_var_mat = posterior_var_mat,
-                                case_individuals = c("1", "2"),
-                                control_individuals = c("3", "4"),
+                                case_individuals = c("3", "4"),
+                                control_individuals = c("1", "2"),
                                 covariate_individual = "individual",
                                 metadata = metadata)
+
+  expect_true(2*mean(abs(res[1:p/2])) < mean(abs(res[(p/2+1):p])))
 })
 
 test_that("compute_test_statistic works", {
+  set.seed(123)
+  n <- 100
+  p <- 150
+  k <- 5
+  x_mat <- matrix(abs(rnorm(n * k))*.5, nrow = n, ncol = k)
+  y_mat <- matrix(abs(rnorm(p * k))*.5, nrow = p, ncol = k)
+  covariates <- cbind(c(rep(0, n/2), rep(1, n/2)),
+                      matrix(abs(rnorm(n * 3, mean = 1, sd = 0.1)), nrow = n, ncol = 3))
+  colnames(covariates) <- paste0("covariate_", 1:4)
+  z_mat <- cbind(c(rep(0, p/2), rep(2, p/2)), rep(1,p), rep(1,p), rep(1,p))
+  colnames(z_mat) <-  colnames(covariates)
+  case_control_variable <- "covariate_1"
+  case_control_idx <- which(colnames(z_mat) == case_control_variable)
+  nat_mat_nolib <- tcrossprod(x_mat, y_mat) + tcrossprod(covariates[,case_control_idx], z_mat[,case_control_idx])
+  library_mat <- exp(tcrossprod(covariates[,-case_control_idx], z_mat[,-case_control_idx]))
+  nuisance_vec <- rep(c(5, 1, 1/5), times = 50)
+
+  # Simulate data
+  gamma_mat <- matrix(NA, nrow = n, ncol = p)
+  dat <- matrix(NA, nrow = n, ncol = p)
+  for(i in 1:n){
+    for(j in 1:p){
+      gamma_mat[i,j] <- stats::rgamma(n = 1,
+                                      shape = nuisance_vec[j]*exp(nat_mat_nolib[i,j]),
+                                      rate = nuisance_vec[j])
+      dat[i,j] <- stats::rpois(n = 1, lambda = library_mat[i,j] * gamma_mat[i,j])
+    }
+  }
+  dat <- pmin(dat, 200)
+  dat <- Matrix::Matrix(dat, sparse = T)
+  rownames(dat) <- paste0("c", 1:n)
+  colnames(dat) <- paste0("g", 1:p)
+  metadata <- data.frame(individual = factor(rep(1:4, each = n/4)))
+  rownames(metadata) <- rownames(dat)
+
   # fit eSVD
   eSVD_obj <- initialize_esvd(dat = dat,
                               covariates = covariates,
@@ -72,6 +109,7 @@ test_that("compute_test_statistic works", {
 
   expect_true(is.numeric(res[["teststat_vec"]]))
   expect_true(length(res[["teststat_vec"]]) == ncol(dat))
+  expect_true(2*mean(abs(res[["teststat_vec"]][1:p/2])) < mean(abs(res[["teststat_vec"]][(p/2+1):p])))
 })
 
 ######################
