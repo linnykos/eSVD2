@@ -56,6 +56,7 @@ compute_posterior.default <- function(input_obj,
             nrow(esvd_res$y_mat) == nrow(esvd_res$z_mat),
             ncol(esvd_res$x_mat) == ncol(esvd_res$y_mat))
 
+  if(inherits(input_obj, "dgCMatrix")) input_obj <- as.matrix(input_obj)
   offset_var <- setdiff(colnames(covariates), case_control_variable)
 
   nat_mat1 <- tcrossprod(esvd_res$x_mat, esvd_res$y_mat)

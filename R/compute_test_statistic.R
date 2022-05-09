@@ -62,68 +62,76 @@ compute_test_statistic.default <- function(input_obj,
             all(rownames(metadata) == rownames(posterior_mean_mat)))
 
   p <- ncol(posterior_mean_mat)
+
   if(verbose >= 1) print("Computing individual-level statistics")
-  individual_stats <- lapply(1:p, function(j){
-    if(verbose == 1 && p > 10 && j %% floor(p/10) == 0) cat('*')
-    if(verbose >= 2) print(j)
-
-    # next find the cells, then compute one gaussian per individual
-    case_gaussians <- sapply(case_individuals, function(indiv){
-      cell_names <- rownames(metadata)[which(metadata[,covariate_individual] == indiv)]
-      cell_idx <- which(rownames(posterior_mean_mat) %in% cell_names)
-
-      mean_val <- mean(posterior_mean_mat[cell_idx,j])
-      var_val <- mean(posterior_var_mat[cell_idx,j])
-      c(mean_val = mean_val, var_val = var_val)
-    })
-
-    control_gaussians <- sapply(control_individuals, function(indiv){
-      cell_names <- rownames(metadata)[which(metadata[,covariate_individual] == indiv)]
-      cell_idx <- which(rownames(posterior_mean_mat) %in% cell_names)
-
-      mean_val <- mean(posterior_mean_mat[cell_idx,j])
-      var_val <- mean(posterior_var_mat[cell_idx,j])
-      c(mean_val = mean_val, var_val = var_val)
-    })
-
-    list(case_gaussians = case_gaussians,
-         control_gaussians = control_gaussians)
-  })
+  tmp <- .determine_individual_indices(case_individuals = case_individuals,
+                                       control_individuals = control_individuals,
+                                       covariate_individual = covariate_individual,
+                                       metadata = metadata)
+  all_indiv_idx <- c(tmp$case_indiv_idx, tmp$control_indiv_idx)
+  avg_mat <- .construct_averaging_matrix(idx_list = all_indiv_idx,
+                                         n = nrow(posterior_mean_mat))
+  avg_posterior_mean_mat <- as.matrix(avg_mat %*% posterior_mean_mat)
+  avg_posterior_var_mat <- as.matrix(avg_mat %*% posterior_var_mat)
 
   # see https://stats.stackexchange.com/questions/16608/what-is-the-variance-of-the-weighted-mixture-of-two-gaussians
   if(verbose >= 1) print("Computing group-level statistics")
-  group_stats <- lapply(1:p, function(j){
-    if(verbose >= 1 && p > 10 && j %% floor(p/10) == 0) cat('*')
-    case_gaussians <- individual_stats[[j]]$case_gaussians
-    control_gaussians <- individual_stats[[j]]$control_gaussians
-
-    case_gaussian <- list(mean_val = mean(case_gaussians[1,]),
-                          var_val = mean(case_gaussians[2,]) + mean(case_gaussians[1,]^2) - (mean(case_gaussians[1,]))^2,
-                          n = ncol(case_gaussians))
-    control_gaussian <- list(mean_val = mean(control_gaussians[1,]),
-                             var_val = mean(control_gaussians[2,]) + mean(control_gaussians[1,]^2) - (mean(control_gaussians[1,]))^2,
-                             n = ncol(control_gaussians))
-
-    list(case_gaussian = case_gaussian,
-         control_gaussian = control_gaussian)
-  })
+  case_row_idx <- 1:length(case_individuals)
+  control_row_idx <- (length(case_individuals)+1):nrow(avg_posterior_mean_mat)
+  case_gaussian_mean <- Matrix::rowMeans(avg_posterior_mean_mat[case_row_idx,,drop = F])
+  control_gaussian_mean <- Matrix::rowMeans(avg_posterior_mean_mat[control_row_idx,,drop = F])
+  case_gaussian_var <- .compute_mixture_gaussian_variance(
+    avg_posterior_mean_mat = avg_posterior_mean_mat[case_row_idx,,drop = F],
+    avg_posterior_var_mat = avg_posterior_var_mat[case_row_idx,,drop = F]
+  )
+  control_gaussian_var <- .compute_mixture_gaussian_variance(
+    avg_posterior_mean_mat = avg_posterior_mean_mat[control_row_idx,,drop = F],
+    avg_posterior_var_mat = avg_posterior_var_mat[control_row_idx,,drop = F]
+  )
 
   if(verbose >= 1) print("Computing test statistics")
-  teststat_vec <- sapply(1:p, function(j){
-    if(verbose >= 1 && p > 10 && j %% floor(p/10) == 0) cat('*')
-    case_gaussian <- group_stats[[j]]$case_gaussian
-    control_gaussian <- group_stats[[j]]$control_gaussian
-
-    n1 <- control_gaussian$n; n2 <- case_gaussian$n
-    mean1 <- control_gaussian$mean_val; mean2 <- case_gaussian$mean_val
-    cov1 <- control_gaussian$var_val; cov2 <- control_gaussian$var_val
-
-    combined_cov <- cov1/n1 + cov2/n2
-    (mean2 - mean1)/sqrt(combined_cov)
-  })
+  n1 <- length(case_individuals)
+  n2 <- length(control_individuals)
+  teststat_vec <- (case_gaussian_mean - control_gaussian_mean) /
+    (sqrt(case_gaussian_var/n1 + control_gaussian_var/n2))
   names(teststat_vec) <- colnames(posterior_mean_mat)
 
   teststat_vec
+}
+
+.determine_individual_indices <- function(case_individuals,
+                                          control_individuals,
+                                          covariate_individual,
+                                          metadata){
+  case_indiv_idx <- lapply(case_individuals, function(indiv){
+    which(metadata[,covariate_individual] == indiv)
+  })
+  control_indiv_idx <- lapply(control_individuals, function(indiv){
+    which(metadata[,covariate_individual] == indiv)
+  })
+
+  list(case_indiv_idx = case_indiv_idx,
+       control_indiv_idx = control_indiv_idx)
+}
+
+.construct_averaging_matrix <- function(idx_list,
+                                        n){
+  tmp <- unlist(idx_list)
+  stopifnot(max(table(tmp)) == 1, max(tmp) <= n, min(tmp) >= 1, all(tmp %% 1 == 0))
+
+  averaging_indices <- do.call(rbind, lapply(1:length(idx_list), function(i){
+    cbind(rep(i, length(idx_list[[i]])), idx_list[[i]])
+  }))
+  Matrix::sparseMatrix(i = averaging_indices[,1],
+                       j = averaging_indices[,2],
+                       x = rep(1, nrow(averaging_indices)),
+                       dims = c(length(idx_list), n))
+}
+
+.compute_mixture_gaussian_variance <- function(avg_posterior_mean_mat,
+                                               avg_posterior_var_mat){
+  Matrix::colMeans(avg_posterior_var_mat) + Matrix::colMeans(avg_posterior_mean_mat^2) -
+    Matrix::colMeans(avg_posterior_mean_mat)^2
 }
 
 .format_param_test_statistic <- function(case_individuals,
