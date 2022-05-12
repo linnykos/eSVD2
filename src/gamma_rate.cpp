@@ -273,8 +273,129 @@ We have
   [l(ρ)]' = ri * [digamma(ri) - digamma(ri + xi)]
             + xi * [1 - sigmoid(ρ + log(si))]
             - mui * si * [1 - sigmoid(ρ + log(si)) - R(ρ + log(si))]
-  [l(ρ)]'' = -ri^2 * [trigamma(ri) - trigamma(ri + xi)]
+  [l(ρ)]'' = -ri * [digamma(ri) - digamma(ri + xi)]
+             -ri^2 * [trigamma(ri) - trigamma(ri + xi)]
              - xi * sig * (1 - sig)
              - mui * si * [sig^2 - 1 + R(ρ + log(si))]
 
 *************************************************************************/
+
+// log(1 + exp(x))
+inline double softplus(const double& x) { return R::log1pexp(x); }
+// 1 / (1 + exp(-x))
+inline double sigmoid(const double& x) { return R::plogis(x, 0.0, 1.0, 1, 0); }
+// log(1 + exp(x)) / exp(x)
+inline double log1pox(const double& x)
+{
+    const double y = std::exp(x);
+    if(x >= -5)  return softplus(x) / y;
+
+    const double y2 = y * y, y3 = y2 * y, y4 = y3 * y;
+    return 1.0 - 0.5 * y + y2 / 3.0 - 0.25 * y3 + 0.2 * y4;
+}
+
+class LogLikDerivRho
+{
+private:
+    const int     m_n;
+    const double* m_x;
+    const double* m_mus;
+    const double* m_logmu;
+    const double* m_logs;
+
+public:
+    LogLikDerivRho(NumericVector x, NumericVector mus, NumericVector logmu, NumericVector logs) :
+        m_n(x.length()), m_x(x.begin()), m_mus(mus.begin()), m_logmu(logmu.begin()), m_logs(logs.begin())
+    {}
+
+    // Returns [l(ρ)]' and [l(ρ)]''
+    std::pair<double, double> operator()(const double& rho)
+    {
+        double dl = 0.0, d2l = 0.0;
+        for(int i = 0; i < m_n; i++)
+        {
+            const double xi = m_x[i], musi = m_mus[i], logmui = m_logmu[i], logsi = m_logs[i];
+            const double ri = std::exp(logmui - rho), rs = rho + logsi;
+            const double sig = sigmoid(rs), x1s = xi * (1.0 - sig), R = log1pox(rs);
+            const double rd = ri * (R::digamma(ri) - R::digamma(ri + xi));
+            const double dli = rd + x1s - musi * (1.0 - sig - R);
+            const double d2li = -rd - ri * ri * (R::trigamma(ri) - R::trigamma(ri + xi)) -
+                                x1s * sig - musi * (sig * sig - 1.0 + R);
+            dl += dli;
+            d2l += d2li;
+        }
+        // Rcpp::Rcout << "b = " << b << ", dl = " << dl << ", d2l = " << d2l << std::endl;
+        return std::make_pair(dl / m_n, d2l / m_n);
+    }
+};
+
+// [[Rcpp::export]]
+double log_gamma_rate(NumericVector x, NumericVector mu, NumericVector s,
+                      double lower = -10.0, double upper = 10.0)
+{
+    NumericVector logmu = Rcpp::log(mu);
+    NumericVector logs = Rcpp::log(s);
+    NumericVector mus = mu * s;
+
+    // Function object
+    LogLikDerivRho deriv(x, mus, logmu, logs);
+
+    // Bounds on rho = -log(beta)
+    const double lb = -upper, ub = -lower;
+
+    // Test [l(ρ)]' on lower bound
+    // If [l(lb)]' <= 0, l(ρ) is very likely to be monotonically decreasing
+    // So we set ρ=lb, and log(β)=-ρ
+    std::pair<double, double> dvals = deriv(lb);
+    if(dvals.first <= 0.0)
+        return -lb;
+
+    // Now we have [l(lb)]' > 0
+    // Test [l(ρ)]' on upper bound
+    // If [l(ub)]' >= 0, then the optimal rho will be larger than ub
+    // So we set ρ=ub, and log(β)=-ρ
+    dvals = deriv(ub);
+    if(dvals.first >= 0.0)
+        return -ub;
+
+    // Now we have bracketed the solution of [l(rho)]' = 0
+    // [l(lb)]' > 0, [l(ub)]' < 0, lb < rho < ub
+    // rho should satisfy [l(rho)]' = 0 and [l(rho)]'' < 0
+    //
+    // It is guaranteed that [l(ub)]'' < 0, and we want to find
+    // some u such that [l(u)]' > 0 and [l(u)]'' < 0
+    // We do a bisection search
+    const int max_try = 10;
+    double ulb = lb, uub = ub, u = 0.5 * (ulb + uub);
+    for(int i = 0; i < max_try; i++)
+    {
+        std::pair<double, double> dvals = deriv(u);
+        // If [l(u)]' < 0, u must be in the left interval
+        if(dvals.first < 0.0)
+        {
+            uub = u;
+            u = 0.5 * (ulb + uub);
+        } else if(dvals.second < 0.0) {
+            // If [l(u)]' >= 0 and [l(u)]'' < 0, interval found
+            break;
+        } else {
+            // If [l(u)]' >= 0 and [l(u)]'' >= 0,
+            // u must be in the right interval
+            ulb = u;
+            u = 0.5 * (ulb + uub);
+        }
+    }
+
+    // Initial guess
+    double guess = 0.5 * (u + ub);
+    // Precision parameter
+    const int digits = std::numeric_limits<double>::digits;
+    int get_digits = static_cast<int>(digits * 0.5);
+    // Maximum number of iterations for Newton's method
+    const std::uintmax_t max_iter = 10;
+
+    std::uintmax_t iter = max_iter;
+    double res = newton_raphson_iterate(deriv, guess, u, ub, get_digits, iter);
+
+    return -res;
+}

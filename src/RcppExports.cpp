@@ -233,6 +233,21 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// log_gamma_rate
+double log_gamma_rate(NumericVector x, NumericVector mu, NumericVector s, double lower, double upper);
+RcppExport SEXP _eSVD2_log_gamma_rate(SEXP xSEXP, SEXP muSEXP, SEXP sSEXP, SEXP lowerSEXP, SEXP upperSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< NumericVector >::type x(xSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type mu(muSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type s(sSEXP);
+    Rcpp::traits::input_parameter< double >::type lower(lowerSEXP);
+    Rcpp::traits::input_parameter< double >::type upper(upperSEXP);
+    rcpp_result_gen = Rcpp::wrap(log_gamma_rate(x, mu, s, lower, upper));
+    return rcpp_result_gen;
+END_RCPP
+}
 // opt_x
 NumericMatrix opt_x(NumericMatrix XC0, MapMat YZ, int k, SEXP loader, List family, NumericVector s, NumericVector gamma, double l2penx, int verbose, bool inplace);
 RcppExport SEXP _eSVD2_opt_x(SEXP XC0SEXP, SEXP YZSEXP, SEXP kSEXP, SEXP loaderSEXP, SEXP familySEXP, SEXP sSEXP, SEXP gammaSEXP, SEXP l2penxSEXP, SEXP verboseSEXP, SEXP inplaceSEXP) {
@@ -291,6 +306,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_eSVD2_hessian_YZj_r", (DL_FUNC) &_eSVD2_hessian_YZj_r, 11},
     {"_eSVD2_feas_YZj_r", (DL_FUNC) &_eSVD2_feas_YZj_r, 3},
     {"_eSVD2_gamma_rate", (DL_FUNC) &_eSVD2_gamma_rate, 3},
+    {"_eSVD2_log_gamma_rate", (DL_FUNC) &_eSVD2_log_gamma_rate, 5},
     {"_eSVD2_opt_x", (DL_FUNC) &_eSVD2_opt_x, 10},
     {"_eSVD2_opt_yz", (DL_FUNC) &_eSVD2_opt_yz, 12},
     {NULL, NULL, 0}
