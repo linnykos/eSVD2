@@ -4,7 +4,52 @@
 using Rcpp::NumericVector;
 using boost::math::tools::newton_raphson_iterate;
 
-// Also see gamma_rate.R
+/*
+
+Gamma distribution with rate parameter beta
+
+  Y ~ Gamma(alpha, beta)
+
+p(y) = b^a / Gamma(a) * y^(a-1) * exp(-b * y)
+log[p(y)] = a * log(b) - logGamma(a) + (a-1) * log(y) - b * y
+mean = a / b
+
+We assume Xi|lambdai ~ Pois(si * lambdai) and
+  lambdai ~ Gamma with mean=mui and rate=beta, i.e.,
+  lambdai ~ Gamma(mui * beta, beta)
+Then
+  log[p(xi|lambdai)] = xi * log(si * lambdai) - log(xi!) - si * lambdai * xi
+  log[p(lambdai)] = mui * b * log(b) - logGamma(mui * b)
+                    + (mui * b - 1) * log(lambdai) - b * lambdai
+
+Marginally, Xi ~ NB(ri, p), where
+  ri = mui * b, p = 1 / (1 + b / si) = si / (si + b)
+  log[p(xi)] = logGamma(ri + xi) - log(xi!) - logGamma(ri)
+               + xi * log(p) + ri * log(1 - p)
+             = logGamma(mui * b + xi) - log(xi!)
+               - logGamma(mui * b)
+               + xi * log(si / (si + b))
+               + mui * b * log(b / (si + b))
+             = xi * log(si) - log(xi!)
+               + mui * b * log(b) - logGamma(mui * b)
+               + logGamma(mui * b + xi)
+               - (mui * b + xi) * log(si + b)
+So our target is to find the MLE of b given X and s
+
+Let l(b) = log[p(xi; b)], and note that
+  [b * log(b)]' = log(b) + 1
+  [logGamma(x)]' = digamma(x)
+  [digamma(x)]' = trigamma(x)
+So
+  [l(b)]' = mui * (log(b) + 1) - mui * digamma(mui * b)
+            + mui * digamma(mui * b + xi)
+            - mui * log(si + b) - (mui * b + xi) / (si + b)
+  [l(b)]'' = mui / b - mui^2 * trigamma(mui * b)
+             + mui^2 * trigamma(mui * b + xi)
+             - mui / (si + b) - (mui * si - xi) / (si + b)^2
+
+ */
+
 //
 // l(b) = xi * log(si) - log(xi!) + mui * b * log(b) - lgamma(mui * b)
 //        + lgamma(mui * b + xi) - (mui * b + xi) * log(si + b)
