@@ -222,3 +222,59 @@ double gamma_rate(NumericVector x, NumericVector mu, NumericVector s)
 
     return res;
 }
+
+
+
+/*************************************************************************
+
+Now we do the reparametrization, θ = 1 / β
+
+  Xi|lambdai ~ Pois(si * lambdai)
+  lambdai ~ Gamma(mui / θ, 1 / θ)
+
+In the limit case θ = 0, we have lambdai = mui, a.s.
+
+Marginally, Xi ~ NB(ri, p), where
+  ri = mui / θ, p = si / (si + 1 / θ) = (si * θ) / (si * θ + 1)
+  log[p(xi)] = logGamma(ri + xi) - log(xi!) - logGamma(ri)
+               + xi * log(p) + ri * log(1 - p)
+
+Further let ρ = log(θ) = -log(β), and note that
+  log(p) = log(si) + log(θ) - log(si * θ + 1)
+         = log(si) + ρ - log(1 + exp(ρ + log(si)))
+         = log(si) + ρ - softplus(ρ + log(si))
+  log(1 - p) = -log(si * θ + 1)
+  ri * log(1 - p) = -mui * log(si * θ + 1) / θ = -mui * si * R(ρ + log(si))
+where R(x) = softplus(x) / exp(x)
+
+softplus(x) and R(x) are both numerically stable functions
+  softplus(x) = log(1 + exp(x)) = max(0, x) + log(1 + exp(-|x|))
+  If x > 0, direct compute R(x)
+  If x < 0, compute y = exp(x), and then
+  R(x) = log(1 + y) / y ~ 1 - y/2 + y^2/3 - y^3/4 + y^4/5
+  Use the cutoff x < -5
+
+Define the objective function as
+  l(ρ) = logGamma(ri + xi) - log(xi!) - logGamma(ri)
+         + xi * [log(si) + ρ - softplus(ρ + log(si))]
+         - mui * si * R(ρ + log(si))
+and our target is to find ρ that maximizes l(ρ)
+
+Note that
+  ri = mui / θ = mui * exp(-ρ), ri' = -ri
+  [logGamma(x)]' = digamma(x)
+  [digamma(x)]' = trigamma(x)
+  [softplus(x)]' = sigmoid(x)
+  [softplus(x)]'' = sigmoid(x) * [1 - sigmoid(x)]
+  [R(x)]' = 1/(1+exp(x)) - R(x) = sigmoid(-x) - R(x) = 1 - sigmoid(x) - R(x)
+  [R(x)]'' = -sigmoid(x) * [1 - sigmoid(x)] - 1 + sigmoid(x) + R(x)
+           = [sigmoid(x)]^2 - 1 + R(x)
+We have
+  [l(ρ)]' = ri * [digamma(ri) - digamma(ri + xi)]
+            + xi * [1 - sigmoid(ρ + log(si))]
+            - mui * si * [1 - sigmoid(ρ + log(si)) - R(ρ + log(si))]
+  [l(ρ)]'' = -ri^2 * [trigamma(ri) - trigamma(ri + xi)]
+             - xi * sig * (1 - sig)
+             - mui * si * [sig^2 - 1 + R(ρ + log(si))]
+
+*************************************************************************/
