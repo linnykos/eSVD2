@@ -4,7 +4,7 @@
 using Rcpp::NumericVector;
 using boost::math::tools::newton_raphson_iterate;
 
-/*
+/*************************************************************************
 
 Gamma distribution with rate parameter beta
 
@@ -48,7 +48,56 @@ So
              + mui^2 * trigamma(mui * b + xi)
              - mui / (si + b) - (mui * si - xi) / (si + b)^2
 
- */
+*************************************************************************/
+
+/*************************************************************************
+
+Testing R code
+
+# Examples
+objfn <- function(b, xi, mui, si) {
+  loglik <- xi * log(si) - lgamma(xi + 1) +
+    mui * b * log(b) - lgamma(mui * b) + lgamma(mui * b + xi) -
+    (mui * b + xi) * log(si + b)
+  mean(loglik)
+}
+gradfn <- function(b, xi, mui, si) {
+  grad <- mui * (log(b) + 1) - mui * digamma(mui * b) +
+    mui * digamma(mui * b + xi) -
+    mui * log(si + b) - (mui * b + xi) / (si + b)
+  mean(grad)
+}
+hessfn <- function(b, xi, mui, si) {
+  hess <- mui / b - mui^2 * trigamma(mui * b) +
+    mui^2 * trigamma(mui * b + xi) -
+    mui / (si + b) - (mui * si - xi) / (si + b)^2
+  mean(hess)
+}
+
+library(MASS)
+mod <- glm.nb(Days ~ .^2, data = quine)
+xi <- quine$Days
+mui <- fitted(mod)
+si <- rep(1, length(xi))
+
+curve(sapply(x, objfn, xi = xi, mui = mui, si = si), 0.01, 10)
+curve(sapply(x, objfn, xi = xi, mui = mui, si = si), 0.01, 1)
+curve(sapply(x, gradfn, xi = xi, mui = mui, si = si), 0.01, 1)
+abline(h = 0, col = "red")
+curve(sapply(x, hessfn, xi = xi, mui = mui, si = si), 0.2, 5)
+# Log-scale
+curve(sapply(exp(x), objfn, xi = xi, mui = mui, si = si), -5, 5)
+curve(exp(x) * sapply(exp(x), gradfn, xi = xi, mui = mui, si = si), -5, 5)
+abline(h = 0, col = "red")
+
+yeast <- data.frame(cbind(numbers = 0:5, fr = c(213, 128, 37, 18, 3, 1)))
+fit <- glm.nb(numbers ~ 1, weights = fr, data = yeast)
+summary(fit)
+mui <- fitted(fit)
+xi <- yeast$numbers
+si <- yeast$fr
+
+*************************************************************************/
 
 //
 // l(b) = xi * log(si) - log(xi!) + mui * b * log(b) - lgamma(mui * b)
