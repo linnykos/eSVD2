@@ -54,9 +54,9 @@ estimate_nuisance.default <- function(input_obj,
     if(verbose >= 2) print(j)
 
     val <- tryCatch(
-      gamma_rate(x = as.numeric(input_obj[,j]),
-                 mu = mean_mat[,j],
-                 s = library_mat[,j]),
+      exp(log_gamma_rate(x = as.numeric(input_obj[,j]),
+                     mu = mean_mat[,j],
+                     s = library_mat[,j])),
       error = function(c) {
         if(verbose > 0) print(paste0("Nuisance estimation failed at variable ", j))
         0
