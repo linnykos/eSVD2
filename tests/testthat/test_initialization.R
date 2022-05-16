@@ -83,6 +83,8 @@ test_that("apply_initial_threshold works", {
 
   expect_true(inherits(res, "eSVD"))
   expect_true(is.list(res))
+  expect_true("init_pval_thres" %in% names(res$param))
+  expect_true(res$param$init_pval_thres == 0.1)
   expect_true(all(sort(names(res)) == sort(c("dat", "covariates",
                                              "initial_Reg", "param", "fit_Init",
                                              "latest_Fit"))))

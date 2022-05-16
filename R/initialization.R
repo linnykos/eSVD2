@@ -70,6 +70,8 @@ apply_initial_threshold <- function(eSVD_obj,
   stopifnot(inherits(eSVD_obj, "eSVD"),
             c("initial_Reg" %in% names(eSVD_obj)),
             pval_thres >= 0, pval_thres <= 1)
+  eSVD_obj$param <- .combine_two_named_lists(eSVD_obj$param,
+                                             list(init_pval_thres = pval_thres))
 
   if(verbose >= 1) print("Assembling coefficents")
   z_mat1 <- .get_object(eSVD_obj = eSVD_obj,
