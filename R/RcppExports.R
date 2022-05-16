@@ -57,6 +57,10 @@ gamma_rate <- function(x, mu, s) {
     .Call(`_eSVD2_gamma_rate`, x, mu, s)
 }
 
+log_gamma_rate <- function(x, mu, s, lower = -10.0, upper = 10.0) {
+    .Call(`_eSVD2_log_gamma_rate`, x, mu, s, lower, upper)
+}
+
 .opt_x <- function(XC0, YZ, k, loader, family, s, gamma, l2penx, verbose = 0L, inplace = TRUE) {
     .Call(`_eSVD2_opt_x`, XC0, YZ, k, loader, family, s, gamma, l2penx, verbose, inplace)
 }
