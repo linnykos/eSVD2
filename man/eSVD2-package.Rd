@@ -4,9 +4,12 @@
 \name{eSVD2-package}
 \alias{eSVD2-package}
 \title{eSVD2 package, C++ settings}
-\author{
-Me \email{kevinl1@wharton.upenn.edu}
+\description{
+Temporary description
 
 Maintainer: None
+}
+\author{
+Me \email{kevinl1@wharton.upenn.edu}
 }
 \keyword{package}

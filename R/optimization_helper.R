@@ -10,6 +10,7 @@
 #' @param l2penx  The l2 penalty parameter for X, a scalar
 #' @param verbose Verbosity parameter
 #' @param inplace Whether the input XC_init will be modified and returned
+#' @param ...     Additional parameters
 #'
 opt_x <- function(XC_init, YZ, k, loader, family, s, gamma, l2penx,
                   verbose = 0, inplace = FALSE, ...)
@@ -32,6 +33,7 @@ opt_x <- function(XC_init, YZ, k, loader, family, s, gamma, l2penx,
 #' @param l2penz     The l2 penalty parameter for Z, a scalar
 #' @param verbose    Verbosity parameter
 #' @param inplace    Whether the input XC_init will be modified and returned
+#' @param ...     Additional parameters
 #'
 opt_yz <- function(YZ_init, XC, k, fixed_cols, loader, family, s, gamma,
                    l2peny, l2penz, verbose = 0, inplace = FALSE, ...)

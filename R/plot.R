@@ -6,7 +6,7 @@ plot_scatterplot_mean <- function(mat,
                                   asp = T,
                                   bool_logscale = F,
                                   cex = 1,
-                                  col_points = rgb(0.5, 0.5, 0.5, 0.1),
+                                  col_points = grDevices::rgb(0.5, 0.5, 0.5, 0.1),
                                   max_num = 1e5,
                                   mean_type = "predicted",
                                   nuisance_lower_quantile = 0.01,
@@ -24,11 +24,11 @@ plot_scatterplot_mean <- function(mat,
     mean_mat <- exp(nat_mat1 + nat_mat2)
   } else {
     res <- compute_posterior(mat = mat,
-                                     esvd_res = esvd_res,
-                                     nuisance_vec = nuisance_vec,
-                                     case_control_variable = case_control_variable,
-                                     alpha_max = alpha_max,
-                                     nuisance_lower_quantile = nuisance_lower_quantile)
+                             esvd_res = esvd_res,
+                             nuisance_vec = nuisance_vec,
+                             case_control_variable = case_control_variable,
+                             alpha_max = alpha_max,
+                             nuisance_lower_quantile = nuisance_lower_quantile)
     mean_mat <- res$posterior_mean_mat
 
     offset_var <- setdiff(colnames(esvd_res$covariates), case_control_variable)
@@ -157,26 +157,26 @@ plot_gene_librarysize <- function(lis_obj,
   stopifnot(is.list(lis_obj), c("library_size", "range") %in% names(lis_obj))
 
   for(k in 1:length(grep("cluster", names(lis_obj)))){
-    col_var <- rgb(col_rgb_r, col_rgb_g, col_rgb_b, pmax(pmin(1/sqrt(ncol(lis_obj[[k]])), 0.5), 0.1))
+    col_var <- grDevices::rgb(col_rgb_r, col_rgb_g, col_rgb_b, pmax(pmin(1/sqrt(ncol(lis_obj[[k]])), 0.5), 0.1))
 
-    if(bool_fix_ylim) ylim_tmp <- lis_obj$range else ylim_tmp <- pmax(quantile(lis_obj[[k]], probs = c(0, 0.95)), 0)
+    if(bool_fix_ylim) ylim_tmp <- lis_obj$range else ylim_tmp <- pmax(stats::quantile(lis_obj[[k]], probs = c(0, 0.95)), 0)
     plot(NA, xlim = range(lis_obj$library_size), ylim = ylim_tmp,
          main = paste0("Cluster ", k, "\n(", ncol(lis_obj[[k]]), " genes)"),
          ...)
     for(j in 1:ncol(lis_obj[[k]])){
-      lines(x = lis_obj$library_size,
-            y = lis_obj[[k]][,j],
-            col = col_var,
-            lwd = lwd_individual)
+      graphics::lines(x = lis_obj$library_size,
+                      y = lis_obj[[k]][,j],
+                      col = col_var,
+                      lwd = lwd_individual)
     }
-    lines(x = lis_obj$library_size,
-          y = Matrix::rowMeans(lis_obj[[k]]),
-          col = col_mean2,
-          lwd = lwd_mean2)
-    lines(x = lis_obj$library_size,
-          y = Matrix::rowMeans(lis_obj[[k]]),
-          col = col_mean1,
-          lwd = lwd_mean1)
+    graphics::lines(x = lis_obj$library_size,
+                    y = Matrix::rowMeans(lis_obj[[k]]),
+                    col = col_mean2,
+                    lwd = lwd_mean2)
+    graphics::lines(x = lis_obj$library_size,
+                    y = Matrix::rowMeans(lis_obj[[k]]),
+                    col = col_mean1,
+                    lwd = lwd_mean1)
   }
 
   invisible()

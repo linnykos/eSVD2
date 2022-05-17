@@ -1,6 +1,27 @@
+#' Estimate nuisance values
+#'
+#' Generic function interface
+#'
+#' @param input_obj Main object
+#' @param ...       Additional parameters
+#'
+#' @return Output dependent on class of \code{input_obj}
 #' @export
-estimate_nuisance <- function(input_obj, ...) UseMethod("estimate_nuisance")
+estimate_nuisance <- function(input_obj, ...) {UseMethod("estimate_nuisance")}
 
+#' Estimate nuisance values for eSVD objects
+#'
+#' Assumes a Gamma-Poisson model where the mean and variance are proportionally
+#' related.
+#'
+#' @param input_obj \code{eSVD} object outputed from \code{opt_esvd.eSVD}.
+#'                  Specifically, the nuisance parameters will be estimated
+#'                  based on the fit in \code{input_obj[[input_obj[["latest_Fit"]]]]}.
+#' @param verbose   Integer.
+#' @param ...       Additional parameters.
+#'
+#' @return \code{eSVD} object with \code{nuisance_vec} appended to the list in
+#' \code{input_obj[[input_obj[["latest_Fit"]]]]}.
 #' @export
 estimate_nuisance.eSVD <- function(input_obj,
                                    verbose = 0, ...){
@@ -38,6 +59,19 @@ estimate_nuisance.eSVD <- function(input_obj,
   input_obj
 }
 
+#' Estimate nuisance values for matrix or sparse matrices.
+#'
+#' @param input_obj    Dataset (either \code{matrix} or \code{dgCMatrix}) where the \eqn{n} rows represent cells
+#'                     and \eqn{p} columns represent genes.
+#'                     The rows and columns of the matrix should be named.
+#' @param mean_mat     A \code{matrix} of \eqn{n} rows and \eqn{p} columns that represents the
+#'                     expected value of each entry.
+#' @param library_mat  A \code{matrix} of \eqn{n} rows and \eqn{p} columns that represents the
+#'                     library size of each entry.
+#' @param verbose      Integer.
+#' @param ...          Additional parameters.
+#'
+#' @return Vector of length \eqn{p}
 #' @export
 estimate_nuisance.default <- function(input_obj,
                                       mean_mat,

@@ -5,6 +5,7 @@
 #' @aliases eSVD2-package
 #' @docType package
 #' @author Me \email{kevinl1@wharton.upenn.edu}
+#' @description Temporary description
 #'
 #' Maintainer: None
 #' @keywords package

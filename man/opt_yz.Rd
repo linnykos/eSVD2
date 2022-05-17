@@ -44,6 +44,8 @@ opt_yz(
 \item{verbose}{Verbosity parameter}
 
 \item{inplace}{Whether the input XC_init will be modified and returned}
+
+\item{...}{Additional parameters}
 }
 \description{
 Optimize Y and Z given X and C

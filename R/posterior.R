@@ -1,6 +1,27 @@
+#' Compute posterior according to Gamma-Poisson model
+#'
+#' Generic function interface
+#'
+#' @param input_obj Main object
+#' @param ...       Additional parameters
+#'
+#' @return Output dependent on class of \code{input_obj}
 #' @export
-compute_posterior <- function(input_obj, ...) UseMethod("compute_posterior")
+compute_posterior <- function(input_obj, ...) {UseMethod("compute_posterior")}
 
+#' Compute posterior according to Gamma-Poisson model for eSVD object
+#'
+#' The posterior is computed based on whatever \code{input_obj$latest_Fit} is set to.
+#'
+#' @param input_obj                 \code{eSVD} object outputed from \code{opt_esvd.eSVD}.
+#' @param alpha_max                 Maximum value of numerator when computing posterior.
+#' @param nuisance_lower_quantile   All the nuisance values that are smaller than this quantile
+#'                                  are set to this quantile.
+#' @param ...                       Additional parameters.
+#'
+#' @return \code{eSVD} object with \code{posterior_mean_mat}
+#' and \code{posterior_var_mat} appended to the list in
+#' \code{input_obj[[input_obj[["latest_Fit"]]]]}.
 #' @export
 compute_posterior.eSVD <- function(input_obj,
                                    alpha_max = 50,
@@ -38,6 +59,29 @@ compute_posterior.eSVD <- function(input_obj,
   input_obj
 }
 
+#' Compute posterior according to Gamma-Poisson model for matrices and sparse matrices.
+#'
+#' @param input_obj                Dataset (either \code{matrix} or \code{dgCMatrix}) where the \eqn{n} rows represent cells
+#'                                 and \eqn{p} columns represent genes.
+#'                                 The rows and columns of the matrix should be named.
+#' @param case_control_variable    A string of the column name of \code{covariates} which depicts the case-control
+#'                                 status of each cell. Notably, this should be a binary variable where a \code{1}
+#'                                 is hard-coded to describe case, and a \code{0} to describe control.
+#' @param covariates               \code{matrix} object with \eqn{n} rows with the same rownames as \code{dat} where the columns
+#'                                 represent the different covariates.
+#'                                 Notably, this should contain only numerical columns (i.e., all categorical
+#'                                 variables should have already been split into numerous indicator variables).
+#' @param esvd_res                 Output of \code{opt_esvd.default}, notably with elements
+#'                                 \code{x_mat}, \code{y_mat} and \code{z_mat}
+#' @param nuisance_vec             Vector of non-negative numerics of length \code{ncol(input_obj)}, such as
+#'                                 the output of \code{estimate_nuisance.default}.
+#' @param alpha_max                Maximum value of numerator when computing posterior.
+#' @param nuisance_lower_quantile  All the nuisance values that are smaller than this quantile
+#'                                 are set to this quantile.
+#' @param ...                      Additional parameters.
+#'
+#' @return A \code{list} of elements \code{posterior_mean_mat}
+#' and \code{posterior_var_mat}
 #' @export
 compute_posterior.default <- function(input_obj,
                                       case_control_variable,

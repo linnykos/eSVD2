@@ -86,7 +86,8 @@ test_that("opt_esvd works for sparse matrices", {
 
   expect_true(is.list(res))
   expect_true(all(sort(names(res)) == sort(c("x_mat", "y_mat", "loss",
-                                             "z_mat", "param", "covariates"))))
+                                             "z_mat", "param", "covariates",
+                                             "nuisance_vec", "library_multipler"))))
   expect_true(length(rownames(res$x_mat)) > 0)
   expect_true(all(rownames(res$x_mat) == rownames(dat)))
   expect_true(length(rownames(res$y_mat)) > 0)

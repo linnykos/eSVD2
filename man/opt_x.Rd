@@ -38,6 +38,8 @@ opt_x(
 \item{verbose}{Verbosity parameter}
 
 \item{inplace}{Whether the input XC_init will be modified and returned}
+
+\item{...}{Additional parameters}
 }
 \description{
 Optimize X given C, Y and Z

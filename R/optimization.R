@@ -1,52 +1,42 @@
-# Optimization for eSVD
-
-#' Main optimization function for eSVD
+#' Optimize eSVD
 #'
-#' @param x_init             initial estimate of a \eqn{n \times k}{n × k} matrix for the \eqn{k}-dimensional
-#'                           embedding for the \eqn{n} cells
-#' @param y_init             initial estimate of a \eqn{p \times k}{p × k} matrix for the \eqn{k}-dimensional
-#'                           embedding for the \eqn{p} genes
-#' @param dat                dataset where the \eqn{n} rows represent cells and \eqn{p} columns represent genes
-#' @param family             a character string, one of \code{"gaussian"}, \code{"exponential"},
-#'                           \code{"poisson"}, \code{"neg_binom"}, \code{"curved_gaussian"},
-#'                           and \code{"bernoulli"}
-#' @param b_init             initial estimate of a \eqn{n \times d}{n × d} matrix for the \eqn{d}-dimensional
-#'                           embedding for the \eqn{n} cells
-#' @param covariates         an \eqn{n \times d}{n × d} matrix representing the additional \eqn{d} covariates,
-#'                           or \code{NULL} if no covariate is given
-#' @param nuisance_param_vec either \code{NA} or a single numeric or a length-\eqn{p}
-#'                           vector of numerics representing nuisance parameters (for \code{family = "neg_binom"}
-#'                           or \code{family = "curved_gausian"})
-#' @param library_size_vec   either \code{NA} or a single numeric (default is \code{1}) or
-#'                           a length-\eqn{n} vector of numerics. If \code{NA}, the library size will be estimated
-#' @param offset_vec         a vector of length-\eqn{n} that represents a constant amount added to each row of the
-#'                           natural parameter matrix
-#' @param l2pen              the ridge penalty parameter for (X, Y, B)
-#' @param reparameterize     reparameterize \code{x_mat} and \code{y_mat} after every iteration
-#' @param reestimate_nuisance a boolean for whether the nuisance parameter is reestimate after every iteration
-#' @param global_estimate    a boolean for whether or not the same nuisance parameter is used for all genes
-#' @param min_nuisance       a small positive number for the minimum nuisance parameter value
-#' @param max_nuisance       a large positive number for the maximum nuisance parameter value
-#' @param max_iter           a positive integer giving the maximum number of iterations
-#' @param tol                a small positive number for the tolerance of optimization error
-#' @param run_cpp            whether to use C++ code
-#' @param verbose            a non-negative integer to indicate the verbosity of messages
-#' @param ...                additional parameters, currently not used
+#' Generic function interface
 #'
-#' @return A list with elements \code{x_mat} and \code{y_mat} (and others), representing the two
-#'         latent matrices.
+#' @param input_obj Main object
+#' @param ...       Additional parameters
+#'
+#' @return Output dependent on class of \code{input_obj}
 #' @export
-opt_esvd <- function(input_obj, ...) UseMethod("opt_esvd")
+opt_esvd <- function(input_obj, ...) {UseMethod("opt_esvd")}
 
+#' Optimize eSVD for eSVD objects
+#'
+#' @param input_obj         \code{eSVD} object outputed from \code{apply_initial_threshold}.
+#' @param fit_name          String for the name of that will become the current fit when
+#'                          storing the results in \code{input_obj}.
+#' @param fit_previous      String for the name of the previous fit that this function will
+#'                          grab the initialization values from.
+#' @param l2pen             Small positive number for the amount of penalization for both the cells'
+#'                          and the genes' latent vectors as well as the coefficients.
+#' @param max_iter          Positive integer for number of iterations.
+#' @param offset_variables  A vector of strings depicting which column names in \code{input_obj$covariate}
+#'                          be treated as an offset during the optimization (i.e., their coefficients will not change
+#'                          throughout the optimization).
+#' @param tol               Small positive number to differentiate between zero and non-zero.
+#' @param verbose           Integer.
+#' @param ...               Additional parameters.
+#'
+#' @return \code{eSVD} object with added elements with name to whatever
+#' \code{fit_name} was set to.
 #' @export
 opt_esvd.eSVD <- function(input_obj,
+                          fit_name = "fit_First",
+                          fit_previous = "fit_Init",
                           l2pen = 0.1,
                           max_iter = 100,
                           offset_variables = NULL,
                           tol = 1e-6,
                           verbose = 0,
-                          fit_name = "fit_First",
-                          fit_previous = "fit_Init",
                           ...){
   dat <- .get_object(eSVD_obj = input_obj, what_obj = "dat", which_fit = NULL)
   covariates <- .get_object(eSVD_obj = input_obj, what_obj = "covariates", which_fit = NULL)
@@ -84,6 +74,56 @@ opt_esvd.eSVD <- function(input_obj,
   input_obj
 }
 
+
+#' Optimize eSVD for matrices or sparse matrices.
+#'
+#' @param input_obj          Dataset (either \code{matrix} or \code{dgCMatrix}) where the \eqn{n} rows represent cells
+#'                           and \eqn{p} columns represent genes.
+#'                           The rows and columns of the matrix should be named.
+#' @param x_init             Initial matrix of the cells' latent vectors that is \eqn{n} rows and \eqn{k}
+#'                           columns. The row names should be the same as \code{input_obj}.
+#' @param y_init             Initial matrix of the genes' latent vectors that is \eqn{p} rows and \eqn{k}
+#'                           columns. The row names should be the same as the column names of \code{input_obj}.
+#' @param z_init             Initial matrix of the genes' coefficient vectors that is \eqn{p} rows and \code{ncol(covariates)}
+#'                           columns. The row names should be the same as the column names of \code{input_obj},
+#'                           and the column names should be the same as \code{covariates}.
+#' @param covariates         \code{matrix} object with \eqn{n} rows with the same rownames as \code{input_obj} where the columns
+#'                           represent the different covariates.
+#'                           Notably, this should contain only numerical columns (i.e., all categorical
+#'                           variables should have already been split into numerous indicator variables).
+#' @param family             String among \code{"gaussian"}, \code{"curved_gaussian"},
+#'                           \code{"exponential"}, \code{"poisson"}, \code{"neg_binom"},
+#'                           \code{"neg_binom2"}, or \code{"bernoulli"}. Notably, with exception of
+#'                           \code{"neg_binom2"}, all the other families are parameterized such that
+#'                           eSVD is fitting the dot product to be the canonical parameter of these
+#'                           expoential-family distributions. For \code{"neg_binom2"}, the dot
+#'                           product is the log-mean of the distribution (i.e., similar to the canonical
+#'                           parameterization of the Poisson family).
+#' @param l2pen              Small positive number for the amount of penalization for both the cells'
+#'                           and the genes' latent vectors as well as the coefficients.
+#' @param library_multipler  Vector of positive numerics of length \eqn{n}. It is the multiplier
+#'                           such that the variance of cell \code{i}'s entries is the mean of
+#'                           cell \code{i}'s entries times the square-root of cell \code{i}'s
+#'                           value in \code{library_multipler} (entry-wise). This is used as
+#'                           an alternative interpretation of how library-size affects a cell's
+#'                           gene expression (instead of using the library size as a covariate to be
+#'                           regressed out).
+#' @param max_iter           Positive integer for number of iterations.
+#' @param nuisance_vec       Vector of non-negative numerics (or \code{NA}'s) of length \eqn{p},
+#'                           representing each gene's nuisance parameter when using an exponential-family
+#'                           distribution that requires one.
+#'                           It is used only when \code{family} is  \code{"curved_gaussian"} or
+#'                           \code{"neg_binom"} or \code{"neg_binom2"}.
+#' @param offset_variables   A vector of strings depicting which column names in \code{input_obj$covariate}
+#'                           be treated as an offset during the optimization (i.e., their coefficients will not change
+#'                           throughout the optimization).
+#' @param tol                Small positive number to differentiate between zero and non-zero.
+#' @param verbose            Integer.
+#' @param ...                Additional parameters.
+#'
+#' @return a \code{list} with elements \code{x_mat}, \code{y_mat},
+#' \code{z_mat}, \code{library_multiplier}, \code{loss}, \code{nuisance_vec}
+#' and \code{param}.
 #' @export
 opt_esvd.default <- function(input_obj,
                              x_init,
@@ -92,7 +132,9 @@ opt_esvd.default <- function(input_obj,
                              covariates = NULL,
                              family = "poisson",
                              l2pen = 0.1,
+                             library_multipler = rep(1, nrow(input_obj)),
                              max_iter = 100,
+                             nuisance_vec = rep(NA, ncol(input_obj)),
                              offset_variables = NULL,
                              tol = 1e-6,
                              verbose = 0,
@@ -143,8 +185,8 @@ opt_esvd.default <- function(input_obj,
       k = k,
       loader = loader,
       family = family,
-      s = rep(1, n),
-      gamma = rep(NA, p),
+      s = library_multipler,
+      gamma = nuisance_vec,
       l2penx = l2pen,
       verbose = verbose)
 
@@ -156,8 +198,8 @@ opt_esvd.default <- function(input_obj,
       fixed_cols = fixed_cols,
       loader = loader,
       family = family,
-      s = rep(1, n),
-      gamma = rep(NA, p),
+      s = library_multipler,
+      gamma = nuisance_vec,
       l2peny = l2pen,
       l2penz = l2pen,
       verbose = verbose)
@@ -169,8 +211,8 @@ opt_esvd.default <- function(input_obj,
       k = k,
       loader = loader,
       family = family,
-      s = rep(1, n),
-      gamma = rep(NA, p),
+      s = library_multipler,
+      gamma = nuisance_vec,
       l2penx = l2pen,
       l2peny = l2pen,
       l2penz = l2pen
@@ -207,6 +249,8 @@ opt_esvd.default <- function(input_obj,
        y_mat = tmp$y_mat,
        covariates = covariates,
        z_mat = tmp$z_mat,
+       library_multipler = library_multipler,
        loss = losses,
+       nuisance_vec = nuisance_vec,
        param = param)
 }

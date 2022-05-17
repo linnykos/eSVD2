@@ -1,11 +1,32 @@
+#' Compute test statistics
+#'
+#' Generic function interface
+#'
+#' @param input_obj Main object
+#' @param ...       Additional parameters
+#'
+#' @return Output dependent on class of \code{input_obj}
 #' @export
-compute_test_statistic <- function(input_obj, ...) UseMethod("compute_test_statistic")
+compute_test_statistic <- function(input_obj, ...) {UseMethod("compute_test_statistic")}
 
+#' Compute test statistics for eSVD object
+#'
+#' @param input_obj             \code{eSVD} object outputed from \code{compute_posterior.eSVD}.
+#' @param covariate_individual  A string of the column name of \code{metadata} which depicts the individual
+#'                              each cell originates from. Notably, this column in \code{metadata} should be a factor vector.
+#' @param metadata              \code{data frame} object with \eqn{n} rows with the same row names as \code{input_obj$dat}
+#'                              where the columns represent the different covariates.
+#'                              Notably, this should can contain categorical variables.
+#' @param verbose               Integer.
+#' @param ...                   Additional parameters.
+#'
+#' @return \code{eSVD} object with added element \code{"teststat_vec"}
 #' @export
 compute_test_statistic.eSVD <- function(input_obj,
                                         covariate_individual,
                                         metadata,
-                                        verbose = 0){
+                                        verbose = 0,
+                                        ...){
   stopifnot(inherits(input_obj, "eSVD"), "latest_Fit" %in% names(input_obj),
             input_obj[["latest_Fit"]] %in% names(input_obj),
             inherits(input_obj[[input_obj[["latest_Fit"]]]], "eSVD_Fit"),
@@ -48,6 +69,27 @@ compute_test_statistic.eSVD <- function(input_obj,
   input_obj
 }
 
+#' Compute test statistics for matrices
+#'
+#' @param input_obj            Posterior mean matrix (a \code{matrix}) where the \eqn{n} rows represent cells
+#'                             and \eqn{p} columns represent genes.
+#'                             The rows and columns of the matrix should be named.
+#' @param posterior_var_mat    Posterior variance matrix (a \code{matrix}) where the \eqn{n} rows represent cells
+#'                             and \eqn{p} columns represent genes.
+#'                             The rows and columns of the matrix should be the same as those in \code{input_obj}.
+#' @param case_individuals     Vector of strings representing the individuals in \code{metadata[,covariate_individual]}
+#'                             that are the case individuals.
+#' @param control_individuals  Vector of strings representing the individuals in \code{metadata[,covariate_individual]}
+#'                             that are the control individuals.
+#' @param covariate_individual A string of the column name of \code{metadata} which depicts the individual
+#'                             each cell originates from. Notably, this column in \code{metadata} should be a factor vector.
+#' @param metadata             \code{data frame} object with \eqn{n} rows with the same row names as \code{input_obj$dat}
+#'                             where the columns represent the different covariates.
+#'                             Notably, this should can contain categorical variables.
+#' @param verbose              Integer.
+#' @param ...                  Additional parameters.
+#'
+#' @return A vector of test statistics of length \code{ncol(input_obj)}
 #' @export
 compute_test_statistic.default <- function(input_obj,
                                            posterior_var_mat,
@@ -55,7 +97,10 @@ compute_test_statistic.default <- function(input_obj,
                                            control_individuals,
                                            covariate_individual,
                                            metadata,
-                                           verbose = 0) {
+                                           verbose = 0,
+                                           ...) {
+  stopifnot(inherits(input_obj, "matrix"))
+
   posterior_mean_mat <- input_obj
   stopifnot(all(dim(posterior_mean_mat) == dim(posterior_var_mat)),
             covariate_individual %in% colnames(metadata),

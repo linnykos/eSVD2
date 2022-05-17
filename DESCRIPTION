@@ -1,21 +1,23 @@
 Package: eSVD2
 Title: eSVD2
-Version: 0.0.0.0038
+Version: 0.0.0.0039
 Authors@R: person("First", "Last", email = "first.last@example.com", role = c("aut", "cre"))
 Description: Assuming each row and column of a matrix is associated with a low-dimensional vector, eSVD estimates an embedding for each cell with respect to a hierarchical model where the inner product between the row's and column's latent vectors is the natural parameter of a one-parameter exponential family random variable.
 Depends:
-    R (>= 3.3.0)
+    R (>= 3.5.0)
 License: MIT +file LICENSE
 Encoding: UTF-8
 LazyData: true
 Imports:
+    irlba,
+    glmnet,
     MASS,
     Matrix,
-    RSpectra,
-    irlba,
     matrixStats,
-    glmnet,
-    Rcpp
+    npregfast,
+    Rcpp,
+    RSpectra,
+    sparseMatrixStats
 Suggests:
     testthat, numDeriv
 LinkingTo:
