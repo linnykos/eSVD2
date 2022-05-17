@@ -231,7 +231,7 @@ opt_esvd.default <- function(input_obj,
 
   x_mat <- xc_mat[,1:k, drop = F]
   y_mat <- yz_mat[,1:k, drop = F]
-  if(k <= ncol(yz_mat)){
+  if(k < ncol(yz_mat)){
     z_mat <- yz_mat[,(k+1):ncol(yz_mat), drop = F]
   }
   tmp <- tryCatch(.reparameterize(x_mat, y_mat, equal_covariance = T),
