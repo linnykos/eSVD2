@@ -24,6 +24,7 @@ compute_posterior <- function(input_obj, ...) {UseMethod("compute_posterior")}
 #' \code{input_obj[[input_obj[["latest_Fit"]]]]}.
 #' @export
 compute_posterior.eSVD <- function(input_obj,
+                                   library_size_variable,
                                    alpha_max = 50,
                                    nuisance_lower_quantile = 0.01,
                                    ...){
@@ -48,6 +49,7 @@ compute_posterior.eSVD <- function(input_obj,
     case_control_variable = case_control_variable,
     covariates = covariates,
     esvd_res = esvd_res,
+    library_size_variable = library_size_variable,
     nuisance_vec = nuisance_vec,
     alpha_max = alpha_max,
     nuisance_lower_quantile = nuisance_lower_quantile
@@ -87,6 +89,7 @@ compute_posterior.default <- function(input_obj,
                                       case_control_variable,
                                       covariates,
                                       esvd_res,
+                                      library_size_variable,
                                       nuisance_vec,
                                       alpha_max = 50,
                                       nuisance_lower_quantile = 0.01,
@@ -95,30 +98,38 @@ compute_posterior.default <- function(input_obj,
             is.list(esvd_res),
             all(c("x_mat", "y_mat", "z_mat") %in% names(esvd_res)),
             case_control_variable %in% colnames(covariates),
+            library_size_variable %in% colnames(covariates),
             all(colnames(covariates) == colnames(esvd_res$z_mat)),
             nrow(esvd_res$x_mat) == nrow(covariates),
             nrow(esvd_res$y_mat) == nrow(esvd_res$z_mat),
             ncol(esvd_res$x_mat) == ncol(esvd_res$y_mat))
 
   if(inherits(input_obj, "dgCMatrix")) input_obj <- as.matrix(input_obj)
-  offset_var <- setdiff(colnames(covariates), case_control_variable)
+  case_control_idx <- which(colnames(covariates) == case_control_variable)
+  library_idx <- which(colnames(covariates) == library_size_variable)
+  idx_vec <- c(case_control_idx, library_idx)
 
   nat_mat1 <- tcrossprod(esvd_res$x_mat, esvd_res$y_mat)
-  nat_mat2 <- tcrossprod(covariates[,case_control_variable,drop = F],
-                         esvd_res$z_mat[,case_control_variable,drop = F])
+  nat_mat2 <- tcrossprod(covariates[,-library_idx,drop = F],
+                         esvd_res$z_mat[,-library_idx,drop = F])
   nat_mat_nolib <- nat_mat1 + nat_mat2
   mean_mat_nolib <- exp(nat_mat_nolib)
   library_mat <- exp(tcrossprod(
-    covariates[,offset_var],
-    esvd_res$z_mat[,offset_var]
+    covariates[,library_idx], esvd_res$z_mat[,library_idx]
   ))
 
   nuisance_vec <- pmax(nuisance_vec,
                        stats::quantile(nuisance_vec, probs = nuisance_lower_quantile))
   Alpha <- sweep(mean_mat_nolib, MARGIN = 2,
                  STATS = nuisance_vec, FUN = "*")
-  Alpha <- pmin(Alpha, alpha_max)
   AplusAlpha <- input_obj + Alpha
+  # adjust the Alpha's based on the confounding covariates
+  tmp <- log(AplusAlpha)
+  nat_mat_confounder <- tcrossprod(covariates[,-idx_vec,drop = F],
+                                   esvd_res$z_mat[,-idx_vec,drop = F])
+  AplusAlpha <- exp(tmp - nat_mat_confounder)
+  AplusAlpha <- pmin(AplusAlpha, alpha_max)
+
   SplusBeta <- sweep(library_mat, MARGIN = 2,
                      STATS = nuisance_vec, FUN = "+")
   posterior_mean_mat <- AplusAlpha/SplusBeta
