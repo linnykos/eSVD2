@@ -2,6 +2,9 @@ cell_plot <- function(input_obj,
                       variable,
                       what_1,
                       what_2 = NULL,
+                      bool_include_diagonal = T,
+                      bool_jitter_x = F,
+                      bool_jitter_y = F,
                       col_case = 2,
                       col_control = 3,
                       indiv_cases = NULL,
@@ -10,7 +13,8 @@ cell_plot <- function(input_obj,
                       xlab = NULL,
                       ylab = NULL,
                       ...){
-  what_vec <- c("dat", "fit", "relative_expression",
+  what_vec <- c("dat", "relative_expression",
+                "fit", "fit_nolibrary",
                 "posterior_mean_nonadjusted", "posterior_mean",
                 "posterior_variance")
   stopifnot(class(input_obj) == "eSVD",
@@ -25,7 +29,9 @@ cell_plot <- function(input_obj,
   vec_2 <- .compute_what_cell_vector(input_obj = input_obj,
                                      variable = variable,
                                      what = what_2)
+  if(bool_jitter_x) vec_1 <- jitter(vec_1)
   if(all(!is.null(vec_2))) {
+    if(bool_jitter_y) vec_2 <- jitter(vec_2)
     vec_all <- cbind(vec_1, vec_2)
   } else {
     vec_all <- matrix(vec_1, nrow = length(vec_1), ncol = 1)
@@ -66,7 +72,7 @@ cell_plot <- function(input_obj,
 
     shuff_idx <- sample(1:nrow(means_all))
     means_all <- means_all[shuff_idx,,drop = F]
-    col_vec <- sapply(means_all[,ncol(means_all)], function(x){
+    color_vec <- sapply(means_all[,ncol(means_all)], function(x){
       ifelse(x == 1, col_case, col_control)
     })
   } else {
@@ -85,11 +91,25 @@ cell_plot <- function(input_obj,
                    xlab = xlab, ylab = ylab,
                    ...)
 
+    if(bool_include_diagonal){
+      graphics::lines(x = c(min(c(vec_1, vec_2)), max(c(vec_1, vec_2))),
+                      y = c(min(c(vec_1, vec_2)), max(c(vec_1, vec_2))),
+                      lwd = 2, lty = 2,
+                      col = 2)
+    }
+
     if(all(!is.null(means_all))){
       graphics::points(x = means_all[,1], y = means_all[,2],
                        col = "white", pch = 16, cex = 3)
       graphics::points(x = means_all[,1], y = means_all[,2],
-                       col = col_vec, pch = 16, cex = 2.5)
+                       col = color_vec, pch = 16, cex = 2.5)
+
+      for(idx in shuff_idx){
+        graphics::rug(means_all[idx,1], col = color_vec[idx], side = 3,
+                      lwd = 2)
+        graphics::rug(means_all[idx,2], col = color_vec[idx], side = 4,
+                      lwd = 2)
+      }
     }
 
   } else {
@@ -99,8 +119,10 @@ cell_plot <- function(input_obj,
                    ...)
 
     if(all(!is.null(means_all))){
-      graphics::rug(means_all[,1], col = col_vec,
-                    lwd = 2)
+      for(idx in shuff_idx){
+        graphics::rug(means_all[idx,1], col = color_vec[idx], side = 1,
+                      lwd = 2)
+      }
     }
   }
 
@@ -147,7 +169,18 @@ cell_plot <- function(input_obj,
       nat_mat2 <- tcrossprod(covariates, z_mat)
       return(exp(nat_mat1[,variable] + nat_mat2[,variable]))
 
+    } else if (what == "fit_nolibrary"){
+      library_size_variable <- input_obj$param$init_library_size_variable
+      library_idx <- which(colnames(covariates) == library_size_variable)
+
+      nat_mat2 <- tcrossprod(covariates[,-library_idx,drop = F],
+                             z_mat[,-library_idx,drop = F])
+      nat_mat_nolib <- nat_mat1 + nat_mat2
+      mean_mat_nolib <- exp(nat_mat_nolib)
+      return(mean_mat_nolib[,variable])
+
     } else if(what == "posterior_mean_nonadjusted"){
+      library_size_variable <- input_obj$param$init_library_size_variable
       library_idx <- which(colnames(covariates) == library_size_variable)
       nat_mat2 <- tcrossprod(covariates[,-library_idx,drop = F],
                              z_mat[,-library_idx,drop = F])
@@ -156,6 +189,8 @@ cell_plot <- function(input_obj,
       library_mat <- exp(tcrossprod(
         covariates[,library_idx], z_mat[,library_idx]
       ))
+      colnames(library_mat) <- rownames(z_mat)
+
       nuisance_vec <-.get_object(eSVD_obj = input_obj,
                                  what_obj = "nuisance",
                                  which_fit = latest_Fit)

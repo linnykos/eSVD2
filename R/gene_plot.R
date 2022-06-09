@@ -68,9 +68,10 @@ gene_plot <- function(input_obj,
                    ...)
 
     if(!all(is.null(gene_list))){
-      graphics::rug(vec_1[shuff_idx],
-                    col = color_vec[shuff_idx],
-                    lwd = 2)
+      for(idx in shuff_idx){
+        graphics::rug(vec_1[idx], col = color_vec[idx],
+                      side = 1, lwd = 2)
+      }
     }
   }
 
