@@ -36,6 +36,7 @@ initialize_esvd <- function(dat,
                             covariates = NULL,
                             k = 30,
                             lambda = 0.1,
+                            library_size_variable = "Log_UMI",
                             mixed_effect_variables = NULL,
                             offset_variables = NULL,
                             verbose = 0){
@@ -69,6 +70,7 @@ initialize_esvd <- function(dat,
                                     offset_variables = offset_variables,
                                     k = k,
                                     lambda = lambda,
+                                    library_size_variable = library_size_variable,
                                     mixed_effect_variables = mixed_effect_variables)
 
   # [[note to self: make mixed_effect_variables easier to use]]
@@ -320,6 +322,7 @@ apply_initial_threshold <- function(eSVD_obj,
 
 .format_param_initialize <- function(bool_intercept,
                                      case_control_variable,
+                                     library_size_variable,
                                      offset_variables,
                                      k,
                                      lambda,
@@ -329,5 +332,6 @@ apply_initial_threshold <- function(eSVD_obj,
        init_offset_variables = offset_variables,
        init_k = k,
        init_lambda = lambda,
+       init_library_size_variable = library_size_variable,
        init_mixed_effect_variables = mixed_effect_variables)
 }
