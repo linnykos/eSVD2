@@ -1,6 +1,5 @@
 format_covariates <- function(dat,
                               covariate_df,
-                              bool_include_intercept = T,
                               mixed_effect_variables = c()){
   stopifnot(nrow(dat) == nrow(covariate_df),
             is.data.frame(covariate_df),
@@ -17,11 +16,9 @@ format_covariates <- function(dat,
     scale(covariate_df[,var], center = T, scale = T)
   })
 
-  if(bool_include_intercept){
-    logumi_vec <- log(Matrix::rowSums(dat))
-    covariate_df2 <- cbind(logumi_vec, covariate_df2[,numeric_vec])
-    colnames(covariate_df2)[1] <- "Log_UMI"
-  }
+  logumi_vec <- log(Matrix::rowSums(dat))
+  covariate_df2 <- cbind(logumi_vec, covariate_df2[,numeric_vec])
+  colnames(covariate_df2)[1] <- "Log_UMI"
 
   for(var in factor_vec){
     vec <- covariate_df[,var]

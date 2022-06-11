@@ -162,25 +162,31 @@ apply_initial_threshold <- function(eSVD_obj,
                                     mixed_effect_variables,
                                     offset_variables,
                                     verbose = 0){
-  stopifnot(bool_intercept == T) # [[note to self: change this]]
   n <- nrow(dat); p <- ncol(dat)
   covariates_nooffset <- covariates[,which(!colnames(covariates) %in% offset_variables)]
   offset_vec <- Matrix::rowSums(covariates[,offset_variables,drop = F])
 
   log_pval <- rep(NA, p)
-  z_mat1 <- matrix(NA, nrow = p, ncol = ncol(covariates_nooffset)+1)
-  z_mat2 <- matrix(NA, nrow = p, ncol = ncol(covariates_nooffset)+1)
-
   names(log_pval) <- colnames(dat)
-  rownames(z_mat1) <- colnames(dat)
-  colnames(z_mat1) <- c("Intercept", colnames(covariates_nooffset))
+
+  if(bool_intercept){
+    colnames_vec <- c("Intercept", colnames(covariates_nooffset))
+  } else {
+    colnames_vec <- colnames(covariates_nooffset)
+  }
+
+  z_mat1 <- matrix(NA, nrow = p, ncol = length(colnames_vec))
+  z_mat2 <- matrix(NA, nrow = p, ncol = length(colnames_vec))
+  colnames(z_mat1) <- colnames_vec
+  colnames(z_mat2) <- colnames_vec
   rownames(z_mat2) <- colnames(dat)
-  colnames(z_mat2) <- c("Intercept", colnames(covariates_nooffset))
+  rownames(z_mat1) <- colnames(dat)
 
   for(j in 1:p){
     if(verbose == 1 && p >= 10 && j %% floor(p/10) == 0) cat('*')
     if(verbose >= 2) print(paste0("Finished variable ", j , " of ", p))
-    tmp <- .lrt_coefficient(case_control_variable = case_control_variable,
+    tmp <- .lrt_coefficient(bool_intercept = bool_intercept,
+                            case_control_variable = case_control_variable,
                             covariates = covariates_nooffset,
                             lambda = lambda,
                             mixed_effect_variables = mixed_effect_variables,
@@ -200,9 +206,11 @@ apply_initial_threshold <- function(eSVD_obj,
                            z_mat = z_mat2)
 
   # Do some final formatting
-  col_idx <- sapply(c("Intercept", colnames(covariates)), function(i){which(colnames(z_mat1) == i)})
-  z_mat1 <- z_mat1[,as.numeric(col_idx)]
-  z_mat2 <- z_mat2[,as.numeric(col_idx)]
+  if(bool_intercept){
+    col_idx <- sapply(c("Intercept", colnames(covariates)), function(i){which(colnames(z_mat1) == i)})
+    z_mat1 <- z_mat1[,as.numeric(col_idx)]
+    z_mat2 <- z_mat2[,as.numeric(col_idx)]
+  }
 
   structure(list(log_pval = log_pval,
                  z_mat1 = z_mat1,
@@ -211,7 +219,8 @@ apply_initial_threshold <- function(eSVD_obj,
 }
 
 # [[note to self: hard coded for Poisson at the moment]]
-.lrt_coefficient <- function(case_control_variable,
+.lrt_coefficient <- function(bool_intercept,
+                             case_control_variable,
                              covariates,
                              lambda,
                              mixed_effect_variables,
@@ -225,13 +234,19 @@ apply_initial_threshold <- function(eSVD_obj,
                              y = vec,
                              alpha = 0,
                              family = "poisson",
-                             intercept = T,
+                             intercept = bool_intercept,
                              lambda = exp(seq(log(1e4), log(lambda), length.out = 100)),
                              offset = offset_vec,
                              penalty.factor = penalty_factor1,
                              standardize = F)
-  coef_vec1 <- c(glm_fit1$a0[length(glm_fit1$a0)], glm_fit1$beta[,ncol(glm_fit1$beta)])
-  mean_vec1 <- exp(covariates %*% coef_vec1[-1] + offset_vec + coef_vec1[1])
+
+  if(bool_intercept){
+    coef_vec1 <- c(glm_fit1$a0[length(glm_fit1$a0)], glm_fit1$beta[,ncol(glm_fit1$beta)])
+    mean_vec1 <- exp(covariates %*% coef_vec1[-1] + offset_vec + coef_vec1[1])
+  } else {
+    coef_vec1 <- glm_fit1$beta[,ncol(glm_fit1$beta)]
+    mean_vec1 <- exp(covariates %*% coef_vec1 + offset_vec)
+  }
   log_vec <- vec/mean_vec1; log_vec[vec != 0] <- log(log_vec[vec != 0])
   deviance1 <- 2*sum(vec*log_vec - (vec - mean_vec1))
 
@@ -242,13 +257,18 @@ apply_initial_threshold <- function(eSVD_obj,
                              y = vec,
                              alpha = 0,
                              family = "poisson",
-                             intercept = T,
+                             intercept = bool_intercept,
                              lambda = exp(seq(log(1e4), log(lambda), length.out = 100)),
                              offset = offset_vec,
                              penalty.factor = penalty_factor2,
                              standardize = F)
-  coef_vec2 <- c(glm_fit2$a0[length(glm_fit2$a0)], glm_fit2$beta[,ncol(glm_fit2$beta)])
-  mean_vec2 <- exp(covariates2 %*% coef_vec2[-1] + offset_vec + coef_vec2[1])
+  if(bool_intercept){
+    coef_vec2 <- c(glm_fit2$a0[length(glm_fit2$a0)], glm_fit2$beta[,ncol(glm_fit2$beta)])
+    mean_vec2 <- exp(covariates2 %*% coef_vec2[-1] + offset_vec + coef_vec2[1])
+  } else {
+    coef_vec2 <- glm_fit2$beta[,ncol(glm_fit2$beta)]
+    mean_vec2 <- exp(covariates2 %*% coef_vec2 + offset_vec)
+  }
   log_vec <- vec/mean_vec2; log_vec[vec != 0] <- log(log_vec[vec != 0])
   deviance2 <- 2*sum(vec*log_vec - (vec - mean_vec2))
 
@@ -258,12 +278,21 @@ apply_initial_threshold <- function(eSVD_obj,
                             log.p = T)
 
   # Tailor results and return
-  names(coef_vec1) <- c("Intercept", colnames(covariates))
-  names(coef_vec2) <- c("Intercept", colnames(covariates2))
-  coef_vec2b <- sapply(c("Intercept", colnames(covariates)), function(var){
-    if(var %in% names(coef_vec2)) coef_vec2[var] else 0
-  })
-  names(coef_vec2b) <- c("Intercept", colnames(covariates))
+  if(bool_intercept){
+    names(coef_vec1) <- c("Intercept", colnames(covariates))
+    names(coef_vec2) <- c("Intercept", colnames(covariates2))
+    coef_vec2b <- sapply(c("Intercept", colnames(covariates)), function(var){
+      if(var %in% names(coef_vec2)) coef_vec2[var] else 0
+    })
+    names(coef_vec2b) <- c("Intercept", colnames(covariates))
+  } else {
+    names(coef_vec1) <- colnames(covariates)
+    names(coef_vec2) <- colnames(covariates2)
+    coef_vec2b <- sapply(colnames(covariates), function(var){
+      if(var %in% names(coef_vec2)) coef_vec2[var] else 0
+    })
+    names(coef_vec2b) <- colnames(covariates)
+  }
 
   list(coef_vec1 = coef_vec1,
        coef_vec2 = coef_vec2b,

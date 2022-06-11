@@ -43,6 +43,21 @@ test_that("initialize_esvd works", {
   expect_true(length(names(res$initial_Reg$log_pval)) > 0)
   expect_true(all(names(res$initial_Reg$log_pval) == colnames(dat)))
   expect_true(mean(res$initial_Reg$log_pval[1:p/2]) >= mean(res$initial_Reg$log_pval[(p/2+1):p]))
+
+
+  res <- initialize_esvd(dat = dat,
+                         bool_intercept = F,
+                         covariates = covariates,
+                         case_control_variable = "covariate_1",
+                         k = 2,
+                         lambda = 0.1,
+                         mixed_effect_variables = c("covariate_2", "covariate_3"),
+                         offset_variables = "covariate_3")
+
+  expect_true(inherits(res, "eSVD"))
+  expect_true(is.list(res))
+  expect_true(all(sort(names(res)) == sort(c("dat", "covariates",
+                                             "initial_Reg", "param"))))
 })
 
 ###########################

@@ -24,7 +24,6 @@ compute_posterior <- function(input_obj, ...) {UseMethod("compute_posterior")}
 #' \code{input_obj[[input_obj[["latest_Fit"]]]]}.
 #' @export
 compute_posterior.eSVD <- function(input_obj,
-                                   library_size_variable,
                                    alpha_max = 50,
                                    nuisance_lower_quantile = 0.01,
                                    ...){
@@ -42,6 +41,7 @@ compute_posterior.eSVD <- function(input_obj,
 
   param <- .format_param_posterior(alpha_max = alpha_max,
                                    nuisance_lower_quantile = nuisance_lower_quantile)
+  library_size_variable <- param$init_library_size_variable
   input_obj$param <- .combine_two_named_lists(input_obj$param, param)
 
   res <- compute_posterior.default(
