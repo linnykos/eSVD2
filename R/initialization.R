@@ -42,7 +42,11 @@ initialize_esvd <- function(dat,
                             verbose = 0){
   stopifnot(inherits(dat, c("dgCMatrix", "matrix")),
             k <= ncol(dat), k > 0, k %% 1 == 0,
-            lambda <= 1e4, lambda >= 1e-4)
+            lambda <= 1e4, lambda >= 1e-4,
+            library_size_variable %in% colnames(covariates),
+            is.null(case_control_variable) || case_control_variable %in% colnames(covariates),
+            all(is.null(offset_variables)) || all(offset_variables %in% colnames(covariates)),
+            all(is.null(mixed_effect_variables)) || all(mixed_effect_variables %in% colnames(covariates)))
   stopifnot(!all(is.null(covariates))) #[[note to self: remove this necessity]]
 
   if(!all(is.null(covariates))){
@@ -228,8 +232,13 @@ apply_initial_threshold <- function(eSVD_obj,
                              vec,
                              verbose = 0){
   # see https://statisticaloddsandends.wordpress.com/2018/11/13/a-deep-dive-into-glmnet-penalty-factor/
-  penalty_factor1 <- rep(0, ncol(covariates))
-  penalty_factor1[colnames(covariates) %in% mixed_effect_variables] <- 1
+  if(all(is.null(mixed_effect_variables))){
+    penalty_factor1 <- rep(1, ncol(covariates))
+  } else {
+    penalty_factor1 <- rep(0, ncol(covariates))
+    penalty_factor1[colnames(covariates) %in% mixed_effect_variables] <- 1
+  }
+
   glm_fit1 <- glmnet::glmnet(x = covariates,
                              y = vec,
                              alpha = 0,
@@ -251,8 +260,12 @@ apply_initial_threshold <- function(eSVD_obj,
   deviance1 <- 2*sum(vec*log_vec - (vec - mean_vec1))
 
   covariates2 <- covariates[,which(colnames(covariates) != case_control_variable), drop = F]
-  penalty_factor2 <- rep(0, ncol(covariates2))
-  penalty_factor2[colnames(covariates2) %in% mixed_effect_variables] <- 1
+  if(all(is.null(mixed_effect_variables))){
+    penalty_factor2 <- rep(1, ncol(covariates2))
+  } else {
+    penalty_factor2 <- rep(0, ncol(covariates2))
+    penalty_factor2[colnames(covariates2) %in% mixed_effect_variables] <- 1
+  }
   glm_fit2 <- glmnet::glmnet(x = covariates2,
                              y = vec,
                              alpha = 0,

@@ -57,15 +57,22 @@ test_that("compute_test_statistic works", {
   k <- 5
   x_mat <- matrix(abs(rnorm(n * k))*.5, nrow = n, ncol = k)
   y_mat <- matrix(abs(rnorm(p * k))*.5, nrow = p, ncol = k)
-  covariates <- cbind(c(rep(0, n/2), rep(1, n/2)),
+  covariates <- cbind(c(rep(0, n/2), rep(2, n/2)),
                       matrix(abs(rnorm(n * 3, mean = 1, sd = 0.1)), nrow = n, ncol = 3))
   colnames(covariates) <- paste0("covariate_", 1:4)
   z_mat <- cbind(c(rep(0, p/2), rep(2, p/2)), rep(1,p), rep(1,p), rep(1,p))
   colnames(z_mat) <-  colnames(covariates)
   case_control_variable <- "covariate_1"
-  case_control_idx <- which(colnames(z_mat) == case_control_variable)
-  nat_mat_nolib <- tcrossprod(x_mat, y_mat) + tcrossprod(covariates[,case_control_idx], z_mat[,case_control_idx])
-  library_mat <- exp(tcrossprod(covariates[,-case_control_idx], z_mat[,-case_control_idx]))
+  nat_mat <- tcrossprod(x_mat, y_mat) + tcrossprod(covariates, z_mat)
+  expected_lib <- rowSums(nat_mat)
+  nat_mat <- .mult_vec_mat(100/expected_lib, nat_mat)
+  library_mat <- matrix(25, nrow = n, ncol = p)
+
+  # mean_mat <- exp(nat_mat)
+  # expected_lib <- rowSums(mean_mat)
+  # tmp <- median(expected_lib)/expected_lib
+  # library_mat <- matrix(10*tmp, nrow = n, ncol = p)
+
   nuisance_vec <- rep(c(5, 1, 1/5), times = 50)
 
   # Simulate data
@@ -74,7 +81,7 @@ test_that("compute_test_statistic works", {
   for(i in 1:n){
     for(j in 1:p){
       gamma_mat[i,j] <- stats::rgamma(n = 1,
-                                      shape = nuisance_vec[j]*exp(nat_mat_nolib[i,j]),
+                                      shape = nuisance_vec[j]*exp(nat_mat[i,j]),
                                       rate = nuisance_vec[j])
       dat[i,j] <- stats::rpois(n = 1, lambda = library_mat[i,j] * gamma_mat[i,j])
     }
@@ -83,19 +90,23 @@ test_that("compute_test_statistic works", {
   dat <- Matrix::Matrix(dat, sparse = T)
   rownames(dat) <- paste0("c", 1:n)
   colnames(dat) <- paste0("g", 1:p)
+  covariates <- cbind(covariates, log(Matrix::rowSums(dat)))
+  colnames(covariates)[ncol(covariates)] <- "Log_UMI"
   metadata <- data.frame(individual = factor(rep(1:4, each = n/4)))
   rownames(metadata) <- rownames(dat)
 
   # fit eSVD
   eSVD_obj <- initialize_esvd(dat = dat,
+                              bool_intercept = T,
                               covariates = covariates,
                               case_control_variable = case_control_variable,
                               k = 5,
-                              lambda = 0.1,
-                              mixed_effect_variables = c("covariate_2", "covariate_3", "covariate_4"),
+                              lambda = 0.01,
+                              mixed_effect_variables = NULL,
                               offset_variables = NULL)
+  logp_quant <- quantile(eSVD_obj$initial_Reg$log_pval, probs = 0.25)
   eSVD_obj <- apply_initial_threshold(eSVD_obj = eSVD_obj,
-                                      pval_thres = 0.1)
+                                      pval_thres = exp(logp_quant))
   eSVD_obj <- opt_esvd(input_obj = eSVD_obj,
                        max_iter = 10)
   eSVD_obj <- estimate_nuisance(input_obj = eSVD_obj,

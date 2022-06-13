@@ -24,6 +24,7 @@ estimate_nuisance <- function(input_obj, ...) {UseMethod("estimate_nuisance")}
 #' \code{input_obj[[input_obj[["latest_Fit"]]]]}.
 #' @export
 estimate_nuisance.eSVD <- function(input_obj,
+                                   bool_library_includes_interept = T,
                                    verbose = 0, ...){
   stopifnot(inherits(input_obj, "eSVD"), "latest_Fit" %in% names(input_obj),
             input_obj[["latest_Fit"]] %in% names(input_obj),
@@ -46,7 +47,11 @@ estimate_nuisance.eSVD <- function(input_obj,
   library_size_variable <- .get_object(input_obj,
                                        which_fit = "param",
                                        what_obj = "init_library_size_variable")
-  library_idx <- which(colnames(covariates) == library_size_variable)
+  if(bool_library_includes_interept){
+    library_idx <- which(colnames(covariates) %in% c("Intercept", library_size_variable))
+  } else {
+    library_idx <- which(colnames(covariates) == library_size_variable)
+  }
   library_mat <- exp(tcrossprod(
     covariates[,library_idx], z_mat[,library_idx]
   ))
@@ -59,6 +64,8 @@ estimate_nuisance.eSVD <- function(input_obj,
   )
 
   input_obj[[latest_Fit]]$nuisance_vec <- nuisance_vec
+  input_obj$param$nuisance_bool_library_includes_interept <- bool_library_includes_interept
+
   input_obj
 }
 
@@ -88,7 +95,7 @@ estimate_nuisance.default <- function(input_obj,
   p <- ncol(input_obj)
   nuisance_vec <- sapply(1:p, function(j){
     if(verbose ==1 && p > 10 && j %% floor(p/10) == 0) cat('*')
-    if(verbose >= 2) print(j)
+    if(verbose >= 2) print(paste0(j, " of ", p))
 
     val <- tryCatch(
       gamma_rate(x = as.numeric(input_obj[,j]),
