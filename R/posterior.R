@@ -41,7 +41,9 @@ compute_posterior.eSVD <- function(input_obj,
 
   param <- .format_param_posterior(alpha_max = alpha_max,
                                    nuisance_lower_quantile = nuisance_lower_quantile)
-  library_size_variable <- param$init_library_size_variable
+  library_size_variable <- .get_object(input_obj,
+                                       which_fit = "param",
+                                       what_obj = "init_library_size_variable")
   input_obj$param <- .combine_two_named_lists(input_obj$param, param)
 
   res <- compute_posterior.default(

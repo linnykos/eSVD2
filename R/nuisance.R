@@ -43,9 +43,12 @@ estimate_nuisance.eSVD <- function(input_obj,
   nat_mat_nolib <- nat_mat1 + nat_mat2
   mean_mat_nolib <- exp(nat_mat_nolib)
 
-  offset_variable <- setdiff(colnames(covariates), case_control_variable)
+  library_size_variable <- .get_object(input_obj,
+                                       which_fit = "param",
+                                       what_obj = "init_library_size_variable")
+  library_idx <- which(colnames(covariates) == library_size_variable)
   library_mat <- exp(tcrossprod(
-    covariates[,offset_variable], z_mat[,offset_variable]
+    covariates[,library_idx], z_mat[,library_idx]
   ))
 
   nuisance_vec <- estimate_nuisance.default(
