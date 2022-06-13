@@ -123,9 +123,7 @@ compute_posterior.default <- function(input_obj,
   idx_vec <- c(case_control_idx, library_idx)
 
   nat_mat1 <- tcrossprod(esvd_res$x_mat, esvd_res$y_mat)
-  # [[ABOUT TO CHANGE A LOT]]
-  nat_mat2 <- tcrossprod(covariates[,-library_idx],
-                         esvd_res$z_mat[,-library_idx])
+  nat_mat2 <- tcrossprod(covariates, esvd_res$z_mat)
   nat_mat_nolib <- nat_mat1 + nat_mat2
   mean_mat_nolib <- exp(nat_mat_nolib)
   library_mat <- exp(tcrossprod(
@@ -146,10 +144,14 @@ compute_posterior.default <- function(input_obj,
     AplusAlpha <- exp(tmp - nat_mat_confounder)
   }
 
+  image(AplusAlpha, main = "Alpha")
   AplusAlpha <- pmin(AplusAlpha, alpha_max)
 
+  print(quantile(library_mat))
   SplusBeta <- sweep(library_mat, MARGIN = 2,
                      STATS = nuisance_vec, FUN = "+")
+  image(SplusBeta, main = "Beta")
+  #print(quantile(SplusBeta))
   posterior_mean_mat <- AplusAlpha/SplusBeta
   posterior_var_mat <- AplusAlpha/SplusBeta^2
 

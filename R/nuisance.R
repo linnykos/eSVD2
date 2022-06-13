@@ -24,7 +24,7 @@ estimate_nuisance <- function(input_obj, ...) {UseMethod("estimate_nuisance")}
 #' \code{input_obj[[input_obj[["latest_Fit"]]]]}.
 #' @export
 estimate_nuisance.eSVD <- function(input_obj,
-                                   bool_library_includes_interept = T,
+                                   bool_library_includes_interept = F,
                                    verbose = 0, ...){
   stopifnot(inherits(input_obj, "eSVD"), "latest_Fit" %in% names(input_obj),
             input_obj[["latest_Fit"]] %in% names(input_obj),
@@ -38,12 +38,6 @@ estimate_nuisance.eSVD <- function(input_obj,
   y_mat <-.get_object(eSVD_obj = input_obj, what_obj = "y_mat", which_fit = latest_Fit)
   z_mat <-.get_object(eSVD_obj = input_obj, what_obj = "z_mat", which_fit = latest_Fit)
 
-  nat_mat1 <- tcrossprod(x_mat, y_mat)
-  nat_mat2 <- tcrossprod(covariates[,case_control_variable,drop = F],
-                         z_mat[,case_control_variable,drop = F])
-  nat_mat_nolib <- nat_mat1 + nat_mat2
-  mean_mat_nolib <- exp(nat_mat_nolib)
-
   library_size_variable <- .get_object(input_obj,
                                        which_fit = "param",
                                        what_obj = "init_library_size_variable")
@@ -52,6 +46,12 @@ estimate_nuisance.eSVD <- function(input_obj,
   } else {
     library_idx <- which(colnames(covariates) == library_size_variable)
   }
+
+  nat_mat1 <- tcrossprod(x_mat, y_mat)
+  nat_mat2 <- tcrossprod(covariates[,-library_idx], z_mat[,-library_idx])
+  nat_mat_nolib <- nat_mat1 + nat_mat2
+  mean_mat_nolib <- exp(nat_mat_nolib)
+
   library_mat <- exp(tcrossprod(
     covariates[,library_idx], z_mat[,library_idx]
   ))

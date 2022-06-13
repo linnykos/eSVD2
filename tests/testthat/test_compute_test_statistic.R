@@ -65,12 +65,6 @@ test_that("compute_test_statistic works", {
   case_control_variable <- "covariate_1"
   nat_mat <- tcrossprod(x_mat, y_mat) + tcrossprod(covariates, z_mat)
   library_mat <- matrix(25, nrow = n, ncol = p)
-
-  # mean_mat <- exp(nat_mat)
-  # expected_lib <- rowSums(mean_mat)
-  # tmp <- median(expected_lib)/expected_lib
-  # library_mat <- matrix(10*tmp, nrow = n, ncol = p)
-
   nuisance_vec <- rep(c(5, 1, 1/5), times = 50)
 
   # Simulate data
@@ -99,17 +93,22 @@ test_that("compute_test_statistic works", {
                               covariates = covariates,
                               case_control_variable = case_control_variable,
                               k = 5,
-                              lambda = 0.01,
+                              lambda = 0.1,
                               mixed_effect_variables = NULL,
-                              offset_variables = NULL)
+                              offset_variables = "Log_UMI")
   logp_quant <- quantile(eSVD_obj$initial_Reg$log_pval, probs = 0.25)
   eSVD_obj <- apply_initial_threshold(eSVD_obj = eSVD_obj,
                                       pval_thres = exp(logp_quant))
   eSVD_obj <- opt_esvd(input_obj = eSVD_obj,
-                       max_iter = 10)
+                       offset_variables = "Log_UMI",
+                       max_iter = 50)
+  # plot(eSVD_obj$fit_First$z_mat[,"covariate_1"])
   eSVD_obj <- estimate_nuisance(input_obj = eSVD_obj,
+                                bool_library_includes_interept = T,
                                 verbose = 0)
-  eSVD_obj <- compute_posterior(input_obj = eSVD_obj)
+  # plot(eSVD_obj$fit_First$nuisance_vec, jitter(nuisance_vec))
+  eSVD_obj <- compute_posterior(input_obj = eSVD_obj,
+                                bool_adjust_covariates = F)
 
   res <- compute_test_statistic(input_obj = eSVD_obj,
                                 covariate_individual = "individual",
