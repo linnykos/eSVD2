@@ -55,17 +55,15 @@ test_that("compute_test_statistic works", {
   n <- 100
   p <- 150
   k <- 5
-  x_mat <- matrix(abs(rnorm(n * k))*.5, nrow = n, ncol = k)
-  y_mat <- matrix(abs(rnorm(p * k))*.5, nrow = p, ncol = k)
-  covariates <- cbind(c(rep(0, n/2), rep(2, n/2)),
-                      matrix(abs(rnorm(n * 3, mean = 1, sd = 0.1)), nrow = n, ncol = 3))
+  x_mat <- matrix(rnorm(n * k, sd = 0.1), nrow = n, ncol = k)
+  y_mat <- matrix(rnorm(p * k, sd = 0.1), nrow = p, ncol = k)
+  covariates <- cbind(c(rep(0, n/2), rep(1, n/2)),
+                      matrix(abs(rnorm(n * 3, mean = 0, sd = 0.1)), nrow = n, ncol = 3))
   colnames(covariates) <- paste0("covariate_", 1:4)
   z_mat <- cbind(c(rep(0, p/2), rep(2, p/2)), rep(1,p), rep(1,p), rep(1,p))
   colnames(z_mat) <-  colnames(covariates)
   case_control_variable <- "covariate_1"
   nat_mat <- tcrossprod(x_mat, y_mat) + tcrossprod(covariates, z_mat)
-  expected_lib <- rowSums(nat_mat)
-  nat_mat <- .mult_vec_mat(100/expected_lib, nat_mat)
   library_mat <- matrix(25, nrow = n, ncol = p)
 
   # mean_mat <- exp(nat_mat)

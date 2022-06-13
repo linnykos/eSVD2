@@ -123,6 +123,7 @@ compute_posterior.default <- function(input_obj,
   idx_vec <- c(case_control_idx, library_idx)
 
   nat_mat1 <- tcrossprod(esvd_res$x_mat, esvd_res$y_mat)
+  # [[ABOUT TO CHANGE A LOT]]
   nat_mat2 <- tcrossprod(covariates[,-library_idx],
                          esvd_res$z_mat[,-library_idx])
   nat_mat_nolib <- nat_mat1 + nat_mat2
