@@ -58,6 +58,7 @@ compute_posterior.eSVD <- function(input_obj,
     nuisance_vec = nuisance_vec,
     alpha_max = alpha_max,
     bool_adjust_covariates = bool_adjust_covariates,
+    bool_covariates_as_library = bool_covariates_as_library,
     bool_library_includes_interept = bool_library_includes_interept,
     nuisance_lower_quantile = nuisance_lower_quantile
   )
