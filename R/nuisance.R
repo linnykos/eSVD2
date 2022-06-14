@@ -24,7 +24,7 @@ estimate_nuisance <- function(input_obj, ...) {UseMethod("estimate_nuisance")}
 #' \code{input_obj[[input_obj[["latest_Fit"]]]]}.
 #' @export
 estimate_nuisance.eSVD <- function(input_obj,
-                                   bool_library_includes_interept = F,
+                                   bool_library_includes_interept = T,
                                    verbose = 0, ...){
   stopifnot(inherits(input_obj, "eSVD"), "latest_Fit" %in% names(input_obj),
             input_obj[["latest_Fit"]] %in% names(input_obj),

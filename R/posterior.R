@@ -25,7 +25,8 @@ compute_posterior <- function(input_obj, ...) {UseMethod("compute_posterior")}
 #' @export
 compute_posterior.eSVD <- function(input_obj,
                                    alpha_max = 50,
-                                   bool_adjust_covariates = T,
+                                   bool_adjust_covariates = F,
+                                   bool_covariates_as_library = T,
                                    nuisance_lower_quantile = 0.01,
                                    ...){
   stopifnot(inherits(input_obj, "eSVD"), "latest_Fit" %in% names(input_obj),
@@ -36,18 +37,17 @@ compute_posterior.eSVD <- function(input_obj,
   covariates <- .get_object(eSVD_obj = input_obj, what_obj = "covariates", which_fit = NULL)
   latest_Fit <- .get_object(eSVD_obj = input_obj, what_obj = "latest_Fit", which_fit = NULL)
   esvd_res <- .get_object(eSVD_obj = input_obj, what_obj = NULL, which_fit = latest_Fit)
-  case_control_variable <- .get_object(eSVD_obj = input_obj, what_obj = "init_case_control_variable", which_fit = "param")
-  nuisance_vec <-.get_object(eSVD_obj = input_obj, what_obj = "nuisance", which_fit = latest_Fit)
+  nuisance_vec <- .get_object(eSVD_obj = input_obj, what_obj = "nuisance", which_fit = latest_Fit)
   stopifnot(all(nuisance_vec >= 0))
 
   param <- .format_param_posterior(alpha_max = alpha_max,
                                    bool_adjust_covariates = bool_adjust_covariates,
+                                   bool_covariates_as_library = bool_covariates_as_library,
                                    nuisance_lower_quantile = nuisance_lower_quantile)
-  library_size_variable <- .get_object(input_obj,
-                                       which_fit = "param",
-                                       what_obj = "init_library_size_variable")
   input_obj$param <- .combine_two_named_lists(input_obj$param, param)
-  bool_library_includes_interept <- input_obj$param$nuisance_bool_library_includes_interept
+  case_control_variable <- .get_object(eSVD_obj = input_obj, which_fit = "param", what_obj = "init_case_control_variable")
+  library_size_variable <- .get_object(eSVD_obj = input_obj, which_fit = "param", what_obj = "init_library_size_variable")
+  bool_library_includes_interept <- .get_object(eSVD_obj = input_obj, which_fit = "param", what_obj = "nuisance_bool_library_includes_interept")
 
   res <- compute_posterior.default(
     input_obj = dat,
@@ -99,7 +99,8 @@ compute_posterior.default <- function(input_obj,
                                       library_size_variable,
                                       nuisance_vec,
                                       alpha_max = 50,
-                                      bool_adjust_covariates = T,
+                                      bool_adjust_covariates = F,
+                                      bool_covariates_as_library = T,
                                       bool_library_includes_interept = T,
                                       nuisance_lower_quantile = 0.01,
                                       ...){
@@ -111,15 +112,17 @@ compute_posterior.default <- function(input_obj,
             all(colnames(covariates) == colnames(esvd_res$z_mat)),
             nrow(esvd_res$x_mat) == nrow(covariates),
             nrow(esvd_res$y_mat) == nrow(esvd_res$z_mat),
-            ncol(esvd_res$x_mat) == ncol(esvd_res$y_mat))
+            ncol(esvd_res$x_mat) == ncol(esvd_res$y_mat),
+            !bool_adjust_covariates | !bool_covariates_as_library)
 
   if(inherits(input_obj, "dgCMatrix")) input_obj <- as.matrix(input_obj)
   case_control_idx <- which(colnames(covariates) == case_control_variable)
-  if(bool_library_includes_interept){
-    library_idx <- which(colnames(covariates) %in% c("Intercept", library_size_variable))
-  } else {
-    library_idx <- which(colnames(covariates) == library_size_variable)
-  }
+
+  library_size_variables <- library_size_variable
+  if(bool_covariates_as_library) library_size_variables <- c(library_size_variables, setdiff(colnames(covariates), c("Intercept", case_control_variable)))
+  if(bool_library_includes_interept) library_size_variables <- c("Intercept", library_size_variables)
+
+  library_idx <- which(colnames(covariates) %in% library_size_variables)
   idx_vec <- c(case_control_idx, library_idx)
 
   nat_mat1 <- tcrossprod(esvd_res$x_mat, esvd_res$y_mat)
@@ -129,7 +132,6 @@ compute_posterior.default <- function(input_obj,
   library_mat <- exp(tcrossprod(
     covariates[,library_idx], esvd_res$z_mat[,library_idx]
   ))
-  # library_mat <- pmin(library_mat, 500)
 
   nuisance_vec <- pmax(nuisance_vec,
                        stats::quantile(nuisance_vec, probs = nuisance_lower_quantile))
@@ -146,7 +148,6 @@ compute_posterior.default <- function(input_obj,
 
   AplusAlpha <- pmin(AplusAlpha, alpha_max)
 
-  print(quantile(library_mat))
   SplusBeta <- sweep(library_mat, MARGIN = 2,
                      STATS = nuisance_vec, FUN = "+")
   posterior_mean_mat <- AplusAlpha/SplusBeta
@@ -164,9 +165,11 @@ compute_posterior.default <- function(input_obj,
 
 .format_param_posterior <- function(alpha_max,
                                     bool_adjust_covariates,
+                                    bool_covariates_as_library,
                                     nuisance_lower_quantile) {
   list(posterior_alpha_max = alpha_max,
        posterior_bool_adjust_covariates = bool_adjust_covariates,
+       posterior_bool_covariates_as_library = bool_covariates_as_library,
        posterior_nuisance_lower_quantile = nuisance_lower_quantile)
 }
 
