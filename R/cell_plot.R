@@ -7,6 +7,7 @@ cell_plot <- function(input_obj,
                       bool_jitter_y = F,
                       col_case = 2,
                       col_control = 3,
+                      col_points = grDevices::rgb(0.5, 0.5, 0.5, 0.1),
                       fit_included_covariates_1 = NULL,
                       fit_included_covariates_2 = NULL,
                       indiv_cases = NULL,
@@ -91,7 +92,7 @@ cell_plot <- function(input_obj,
     graphics::plot(x = vec_1, y = vec_2,
                    cex = 1,
                    pch = 16,
-                   col = rgb(0.5, 0.5, 0.5, 0.2),
+                   col = col_points,
                    xlab = xlab, ylab = ylab,
                    ...)
 
@@ -178,7 +179,7 @@ cell_plot <- function(input_obj,
     nat_mat1 <- tcrossprod(x_mat, y_mat)
 
     if(what == "fit"){
-      if(all(is.null(fit_included_covariates))){
+      if(!all(is.null(fit_included_covariates))){
         stopifnot(all(fit_included_covariates %in% colnames(covariates)))
 
         idx <- which(colnames(covariates) %in% fit_included_covariates)
