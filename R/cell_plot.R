@@ -204,6 +204,12 @@ cell_plot <- function(input_obj,
   covariates <- .get_object(eSVD_obj = input_obj, what_obj = "covariates", which_fit = NULL)
   z_mat <-.get_object(eSVD_obj = input_obj, what_obj = "z_mat", which_fit = latest_Fit)
 
+  if(bool_library_includes_interept){
+    library_idx <- which(colnames(covariates) %in% c("Intercept", library_size_variable))
+  } else {
+    library_idx <- which(colnames(covariates) == library_size_variable)
+  }
+
   library_mat <- exp(tcrossprod(
     covariates[,library_idx], z_mat[,library_idx]
   ))
