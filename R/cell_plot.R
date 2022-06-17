@@ -6,7 +6,8 @@ cell_plot <- function(input_obj,
                       bool_jitter_y = F,
                       col_case = 2,
                       col_control = 3,
-                      fit_included_covariates = NULL,
+                      fit_included_covariates_1 = NULL,
+                      fit_included_covariates_2 = NULL,
                       indiv_cases = NULL,
                       indiv_controls = NULL,
                       indiv_vec = NULL,
@@ -23,11 +24,11 @@ cell_plot <- function(input_obj,
             variable %in% colnames(input_obj$dat))
 
   # first compute the relevant vectors
-  vec_1 <- .compute_what_cell_vector(fit_included_covariates = fit_included_covariates,
+  vec_1 <- .compute_what_cell_vector(fit_included_covariates = fit_included_covariates_1,
                                      input_obj = input_obj,
                                      variable = variable,
                                      what = what_1)
-  vec_2 <- .compute_what_cell_vector(fit_included_covariates = fit_included_covariates,
+  vec_2 <- .compute_what_cell_vector(fit_included_covariates = fit_included_covariates_2,
                                      input_obj = input_obj,
                                      variable = variable,
                                      what = what_2)
