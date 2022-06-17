@@ -187,8 +187,10 @@ cell_plot <- function(input_obj,
       } else {
         nat_mat2 <- tcrossprod(covariates, z_mat)
       }
+      nat_mat <- nat_mat1 + nat_mat2
+      colnames(nat_mat) <- rownames(y_mat)
 
-      return(exp(nat_mat1[,variable] + nat_mat2[,variable]))
+      return(exp(nat_mat[,variable]))
 
     } else if(what == "posterior_mean_nonadjusted"){
       library_size_variable <- input_obj$param$init_library_size_variable
