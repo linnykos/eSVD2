@@ -68,7 +68,7 @@ initialize_esvd <- function(dat,
   }
 
   n <- nrow(dat); p <- ncol(dat)
-  dat[is.na(dat)] <- 0
+  if(is.matrix(dat)) dat[is.na(dat)] <- 0
   param <- .format_param_initialize(bool_intercept = bool_intercept,
                                     case_control_variable = case_control_variable,
                                     offset_variables = offset_variables,

@@ -105,9 +105,16 @@ gene_plot <- function(input_obj,
   } else if (what == "sparsity"){
     dat <- input_obj$dat
     n <- nrow(dat); p <- ncol(dat)
-    vec <- sapply(1:p, function(j){
-      (p - length(.nonzero_col(dat, col_idx = j, bool_value = F)))/p
-    })
+    if(is.matrix(dat)){
+      vec <- sapply(1:p, function(j){
+        length(which(dat[,j]==0))/n
+      })
+    } else {
+      vec <- sapply(1:p, function(j){
+        (n - length(.nonzero_col(dat, col_idx = j, bool_value = F)))/n
+      })
+    }
+
     return(vec)
 
   } else if (what %in% colnames(input_obj$covariates)){
