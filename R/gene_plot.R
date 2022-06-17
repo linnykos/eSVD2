@@ -114,6 +114,7 @@ gene_plot <- function(input_obj,
         (n - length(.nonzero_col(dat, col_idx = j, bool_value = F)))/n
       })
     }
+    names(vec) <- colnames(dat)
 
     return(vec)
 
