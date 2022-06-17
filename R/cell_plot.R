@@ -2,11 +2,11 @@ cell_plot <- function(input_obj,
                       variable,
                       what_1,
                       what_2 = NULL,
-                      bool_include_diagonal = T,
                       bool_jitter_x = F,
                       bool_jitter_y = F,
                       col_case = 2,
                       col_control = 3,
+                      fit_included_covariates = NULL,
                       indiv_cases = NULL,
                       indiv_controls = NULL,
                       indiv_vec = NULL,
@@ -14,8 +14,8 @@ cell_plot <- function(input_obj,
                       ylab = NULL,
                       ...){
   what_vec <- c("dat", "relative_expression", "adjusted_relative_expression",
-                "fit", "fit_nolibrary",
-                "posterior_mean",
+                "fit",
+                "posterior_mean", "posterior_mean_nonadjusted",
                 "posterior_variance", "posterior_sd")
   stopifnot(class(input_obj) == "eSVD",
             what_1 %in% what_vec,
@@ -23,10 +23,12 @@ cell_plot <- function(input_obj,
             variable %in% colnames(input_obj$dat))
 
   # first compute the relevant vectors
-  vec_1 <- .compute_what_cell_vector(input_obj = input_obj,
+  vec_1 <- .compute_what_cell_vector(fit_included_covariates = fit_included_covariates,
+                                     input_obj = input_obj,
                                      variable = variable,
                                      what = what_1)
-  vec_2 <- .compute_what_cell_vector(input_obj = input_obj,
+  vec_2 <- .compute_what_cell_vector(fit_included_covariates = fit_included_covariates,
+                                     input_obj = input_obj,
                                      variable = variable,
                                      what = what_2)
   if(bool_jitter_x) vec_1 <- jitter(vec_1)
@@ -129,7 +131,8 @@ cell_plot <- function(input_obj,
   invisible()
 }
 
-.compute_what_cell_vector <- function(input_obj,
+.compute_what_cell_vector <- function(fit_included_covariates,
+                                      input_obj,
                                       variable,
                                       what){
   if(is.null(what)) return(NULL)
@@ -171,25 +174,40 @@ cell_plot <- function(input_obj,
                          what_obj = "z_mat",
                          which_fit = latest_Fit)
     nat_mat1 <- tcrossprod(x_mat, y_mat)
-    library_size_variable <- input_obj$param$init_library_size_variable
-    bool_library_includes_interept <- .get_object(eSVD_obj = input_obj, which_fit = "param", what_obj = "nuisance_bool_library_includes_interept")
-    if(bool_library_includes_interept){
-      library_idx <- which(colnames(covariates) %in% c("Intercept", library_size_variable))
-    } else {
-      library_idx <- which(colnames(covariates) == library_size_variable)
-    }
 
     if(what == "fit"){
-      nat_mat2 <- tcrossprod(covariates, z_mat)
+      if(all(is.null(fit_included_covariates))){
+        stopifnot(all(fit_included_covariates) %in% colnames(covariates))
+
+        idx <- which(colnames(covariates) %in% fit_included_covariates)
+        nat_mat2 <- tcrossprod(covariates[,idx], z_mat[,idx])
+      } else {
+        nat_mat2 <- tcrossprod(covariates, z_mat)
+      }
+
       return(exp(nat_mat1[,variable] + nat_mat2[,variable]))
 
-    } else if (what == "fit_nolibrary"){
-      nat_mat2 <- tcrossprod(covariates[,-library_idx,drop = F],
-                             z_mat[,-library_idx,drop = F])
-      nat_mat_nolib <- nat_mat1 + nat_mat2
-      mean_mat_nolib <- exp(nat_mat_nolib)
-      return(mean_mat_nolib[,variable])
+    } else if(what == "posterior_mean_nonadjusted"){
+      library_size_variable <- input_obj$param$init_library_size_variable
+      bool_library_includes_interept <- .get_object(eSVD_obj = input_obj, which_fit = "param", what_obj = "nuisance_bool_library_includes_interept")
+      if(bool_library_includes_interept){
+        library_idx <- which(colnames(covariates) %in% c("Intercept", library_size_variable))
+      } else {
+        library_idx <- which(colnames(covariates) == library_size_variable)
+      }
 
+      nat_mat2 <- tcrossprod(covariates[,-library_idx], z_mat[,-library_idx])
+      mean_vec <- exp(nat_mat1[,variable] + nat_mat2[,variable])
+      library_mat <- .compute_library_size(input_obj)
+      library_vec <- library_mat[,variable]
+
+      nuisance_vec <-.get_object(eSVD_obj = input_obj,
+                                 what_obj = "nuisance",
+                                 which_fit = latest_Fit)
+
+      alpha <- as.numeric(input_obj$dat[,variable]) + mean_vec*nuisance_vec[variable]
+      beta <- library_vec + nuisance_vec[variable]
+      return(alpha/beta)
     } else {
       stop("what not found")
     }

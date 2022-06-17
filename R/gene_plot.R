@@ -3,6 +3,8 @@ gene_plot <- function(input_obj,
                       what_2 = NULL,
                       gene_list = NULL,
                       color_palette = NULL,
+                      rug_x_side = 3,
+                      rug_y_side = 4,
                       which_fit = "latest_Fit",
                       xlab = NULL,
                       ylab = NULL,
@@ -63,6 +65,13 @@ gene_plot <- function(input_obj,
                        y = vec_2[shuff_idx],
                        col = color_vec[shuff_idx],
                        pch = 16, cex = 2.5)
+
+      for(idx in shuff_idx){
+        graphics::rug(means_all[idx,1], col = color_vec[idx], side = rug_x_side,
+                      lwd = 2)
+        graphics::rug(means_all[idx,2], col = color_vec[idx], side = rug_y_side,
+                      lwd = 2)
+      }
     }
 
   } else {
