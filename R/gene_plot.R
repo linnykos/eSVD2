@@ -67,9 +67,9 @@ gene_plot <- function(input_obj,
                        pch = 16, cex = 2.5)
 
       for(idx in shuff_idx){
-        graphics::rug(means_all[idx,1], col = color_vec[idx], side = rug_x_side,
+        graphics::rug(vec_1[idx,1], col = color_vec[idx], side = rug_x_side,
                       lwd = 2)
-        graphics::rug(means_all[idx,2], col = color_vec[idx], side = rug_y_side,
+        graphics::rug(vec_2[idx,2], col = color_vec[idx], side = rug_y_side,
                       lwd = 2)
       }
     }

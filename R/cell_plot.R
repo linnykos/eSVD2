@@ -2,6 +2,7 @@ cell_plot <- function(input_obj,
                       variable,
                       what_1,
                       what_2 = NULL,
+                      bool_include_diagonal = T,
                       bool_jitter_x = F,
                       bool_jitter_y = F,
                       col_case = 2,
@@ -178,7 +179,7 @@ cell_plot <- function(input_obj,
 
     if(what == "fit"){
       if(all(is.null(fit_included_covariates))){
-        stopifnot(all(fit_included_covariates) %in% colnames(covariates))
+        stopifnot(all(fit_included_covariates %in% colnames(covariates)))
 
         idx <- which(colnames(covariates) %in% fit_included_covariates)
         nat_mat2 <- tcrossprod(covariates[,idx], z_mat[,idx])
