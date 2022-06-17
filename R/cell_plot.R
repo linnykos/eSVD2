@@ -13,10 +13,10 @@ cell_plot <- function(input_obj,
                       xlab = NULL,
                       ylab = NULL,
                       ...){
-  what_vec <- c("dat", "relative_expression",
+  what_vec <- c("dat", "relative_expression", "adjusted_relative_expression",
                 "fit", "fit_nolibrary",
-                "posterior_mean_nonadjusted", "posterior_mean",
-                "posterior_variance")
+                "posterior_mean",
+                "posterior_variance", "posterior_sd")
   stopifnot(class(input_obj) == "eSVD",
             what_1 %in% what_vec,
             is.null(what_2) || what_2 %in% what_vec,
@@ -144,11 +144,18 @@ cell_plot <- function(input_obj,
     library_size <- Matrix::rowSums(input_obj$dat)
     return(as.numeric(input_obj$dat[,variable])/library_size)
 
+  } else if (what == "adjusted_relative_expression"){
+    library_mat <- .compute_library_size(input_obj)
+    return(as.numeric(input_obj$dat[,variable])/library_mat[,variable])
+
   } else if (what == "posterior_mean"){
     return(input_obj[[latest_Fit]]$posterior_mean_mat[,variable])
 
   } else if (what == "posterior_variance"){
     return(input_obj[[latest_Fit]]$posterior_var_mat[,variable])
+
+  } else if (what == "posterior_sd"){
+    return(sqrt(input_obj[[latest_Fit]]$posterior_var_mat[,variable]))
 
   } else {
     covariates <- .get_object(eSVD_obj = input_obj,
@@ -164,43 +171,44 @@ cell_plot <- function(input_obj,
                          what_obj = "z_mat",
                          which_fit = latest_Fit)
     nat_mat1 <- tcrossprod(x_mat, y_mat)
+    library_size_variable <- input_obj$param$init_library_size_variable
+    bool_library_includes_interept <- .get_object(eSVD_obj = input_obj, which_fit = "param", what_obj = "nuisance_bool_library_includes_interept")
+    if(bool_library_includes_interept){
+      library_idx <- which(colnames(covariates) %in% c("Intercept", library_size_variable))
+    } else {
+      library_idx <- which(colnames(covariates) == library_size_variable)
+    }
 
     if(what == "fit"){
       nat_mat2 <- tcrossprod(covariates, z_mat)
       return(exp(nat_mat1[,variable] + nat_mat2[,variable]))
 
     } else if (what == "fit_nolibrary"){
-      library_size_variable <- input_obj$param$init_library_size_variable
-      library_idx <- which(colnames(covariates) == library_size_variable)
-
       nat_mat2 <- tcrossprod(covariates[,-library_idx,drop = F],
                              z_mat[,-library_idx,drop = F])
       nat_mat_nolib <- nat_mat1 + nat_mat2
       mean_mat_nolib <- exp(nat_mat_nolib)
       return(mean_mat_nolib[,variable])
 
-    } else if(what == "posterior_mean_nonadjusted"){
-      library_size_variable <- input_obj$param$init_library_size_variable
-      library_idx <- which(colnames(covariates) == library_size_variable)
-      nat_mat2 <- tcrossprod(covariates[,-library_idx,drop = F],
-                             z_mat[,-library_idx,drop = F])
-      nat_mat_nolib <- nat_mat1 + nat_mat2
-      mean_mat_nolib <- exp(nat_mat_nolib)
-      library_mat <- exp(tcrossprod(
-        covariates[,library_idx], z_mat[,library_idx]
-      ))
-      colnames(library_mat) <- rownames(z_mat)
-
-      nuisance_vec <-.get_object(eSVD_obj = input_obj,
-                                 what_obj = "nuisance",
-                                 which_fit = latest_Fit)
-
-      alpha <- as.numeric(input_obj$dat[,variable]) + mean_mat_nolib[,variable]*nuisance_vec[variable]
-      beta <- library_mat[,variable]+nuisance_vec[variable]
-      return(alpha/beta)
     } else {
       stop("what not found")
     }
   }
+}
 
+.compute_library_size <- function(input_obj){
+  latest_Fit <- .get_object(eSVD_obj = input_obj, what_obj = "latest_Fit", which_fit = NULL)
+  library_size_variable <- .get_object(eSVD_obj = input_obj, which_fit = "param", what_obj = "init_library_size_variable")
+  bool_library_includes_interept <- .get_object(eSVD_obj = input_obj, which_fit = "param", what_obj = "nuisance_bool_library_includes_interept")
+
+  covariates <- .get_object(eSVD_obj = input_obj, what_obj = "covariates", which_fit = NULL)
+  z_mat <-.get_object(eSVD_obj = input_obj, what_obj = "z_mat", which_fit = latest_Fit)
+
+  library_mat <- exp(tcrossprod(
+    covariates[,library_idx], z_mat[,library_idx]
+  ))
+  rownames(library_mat) <- rownames(covariates)
+  colnames(library_mat) <- rownames(z_mat)
+
+  library_mat
 }

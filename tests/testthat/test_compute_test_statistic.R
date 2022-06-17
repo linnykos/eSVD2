@@ -53,8 +53,13 @@ test_that(".determine_individual_indices works", {
 ## .construct_averaging_matrix is correct
 
 test_that(".construct_averaging_matrix works", {
-  n <- 100
-  metadata <- data.frame(individual = factor(rep(1:4, each = n/4)))
+  set.seed(10)
+  vec <- numeric(0)
+  for(i in 1:4){
+    vec <- c(vec, rep(i, round(50*runif(1))))
+  }
+  metadata <- data.frame(individual = factor(vec))
+  n <- length(vec)
   rownames(metadata) <- paste0("c", 1:n)
   tmp <- .determine_individual_indices(case_individuals = c("1", "2"),
                                        control_individuals = c("3", "4"),
@@ -69,9 +74,16 @@ test_that(".construct_averaging_matrix works", {
   res2 <- as.matrix(res)
   for(i in 1:4){
     idx <- which(metadata[,"individual"] == as.character(i))
-    expect_true(all(res2[i,idx] == 1))
     expect_true(all(res2[i,-idx] == 0))
   }
+
+  response_vec <- runif(n)
+  avg1 <- as.numeric(res %*% response_vec)
+  avg2 <- sapply(1:4, function(i){
+    idx <- which(metadata[,"individual"] == as.character(i))
+    mean(response_vec[idx])
+  })
+  expect_true(sum(abs(avg1 - avg2)) <= 1e-5)
 })
 
 ###############################

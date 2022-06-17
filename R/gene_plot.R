@@ -3,10 +3,12 @@ gene_plot <- function(input_obj,
                       what_2 = NULL,
                       gene_list = NULL,
                       color_palette = NULL,
+                      which_fit = "latest_Fit",
                       xlab = NULL,
                       ylab = NULL,
                       ...){
-  what_vec <- c("nuisance", "teststat", colnames(input_obj$covariates))
+  what_vec <- c("nuisance", "teststat", colnames(input_obj$covariates),
+                "sparsity")
   stopifnot(what_1 %in% what_vec,
             is.null(what_2) || what_2 %in% what_vec)
   if(!all(is.null(gene_list)) | !all(is.null(color_palette))){
@@ -17,9 +19,11 @@ gene_plot <- function(input_obj,
 
   # first compute the relevant vectors
   vec_1 <- .compute_what_gene_vector(input_obj = input_obj,
-                                     what = what_1)
+                                     what = what_1,
+                                     which_fit = which_fit)
   vec_2 <- .compute_what_gene_vector(input_obj = input_obj,
-                                     what = what_2)
+                                     what = what_2,
+                                     which_fit = which_fit)
   stopifnot(length(names(vec_1)) > 0)
   if(!all(is.null(vec_2))){
     stopifnot(length(vec_1) == length(vec_2), all(names(vec_1) == names(vec_2)))
@@ -80,17 +84,31 @@ gene_plot <- function(input_obj,
 }
 
 .compute_what_gene_vector <- function(input_obj,
-                                      what){
+                                      what,
+                                      which_fit){
   if(is.null(what)) return(NULL)
-  latest_Fit <- .get_object(eSVD_obj = input_obj,
-                            what_obj = "latest_Fit",
-                            which_fit = NULL)
+  if(which_fit == "latest_Fit"){
+    latest_Fit <- .get_object(eSVD_obj = input_obj,
+                              what_obj = "latest_Fit",
+                              which_fit = NULL)
+  } else {
+    stopifnot(which_fit %in% names(input_obj))
+    latest_Fit <- which_fit
+  }
 
   if(what == "nuisance") {
     return(input_obj[[latest_Fit]]$nuisance_vec)
 
   } else if (what == "teststat"){
     return(input_obj$teststat_vec)
+
+  } else if (what == "sparsity"){
+    dat <- input_obj$dat
+    n <- nrow(dat); p <- ncol(dat)
+    vec <- sapply(1:p, function(j){
+      (p - length(.nonzero_col(dat, col_idx = j, bool_value = F)))/p
+    })
+    return(vec)
 
   } else if (what %in% colnames(input_obj$covariates)){
     return(input_obj[[latest_Fit]]$z_mat[,what])

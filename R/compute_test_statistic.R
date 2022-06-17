@@ -165,11 +165,11 @@ compute_test_statistic.default <- function(input_obj,
   stopifnot(max(table(tmp)) == 1, max(tmp) <= n, min(tmp) >= 1, all(tmp %% 1 == 0))
 
   averaging_indices <- do.call(rbind, lapply(1:length(idx_list), function(i){
-    cbind(rep(i, length(idx_list[[i]])), idx_list[[i]])
+    cbind(rep(i, length(idx_list[[i]])), idx_list[[i]], rep(1/length(idx_list[[i]]), length(idx_list[[i]])))
   }))
   Matrix::sparseMatrix(i = averaging_indices[,1],
                        j = averaging_indices[,2],
-                       x = rep(1, nrow(averaging_indices)),
+                       x = averaging_indices[,3],
                        dims = c(length(idx_list), n))
 }
 
