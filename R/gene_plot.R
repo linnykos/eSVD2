@@ -6,7 +6,8 @@ gene_plot <- function(input_obj,
                       color_palette = NULL,
                       rug_x_side = 3,
                       rug_y_side = 4,
-                      which_fit = "latest_Fit",
+                      which_fit_1 = "latest_Fit",
+                      which_fit_2 = "latest_Fit",
                       xlab = NULL,
                       ylab = NULL,
                       ...){
@@ -23,10 +24,10 @@ gene_plot <- function(input_obj,
   # first compute the relevant vectors
   vec_1 <- .compute_what_gene_vector(input_obj = input_obj,
                                      what = what_1,
-                                     which_fit = which_fit)
+                                     which_fit = which_fit_1)
   vec_2 <- .compute_what_gene_vector(input_obj = input_obj,
                                      what = what_2,
-                                     which_fit = which_fit)
+                                     which_fit = which_fit_2)
   stopifnot(length(names(vec_1)) > 0)
   if(!all(is.null(vec_2))){
     stopifnot(length(vec_1) == length(vec_2), all(names(vec_1) == names(vec_2)))
