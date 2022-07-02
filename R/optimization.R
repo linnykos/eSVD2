@@ -118,8 +118,8 @@ opt_esvd.eSVD <- function(input_obj,
 #'                           be treated as an offset during the optimization (i.e., their coefficients will not change
 #'                           throughout the optimization).
 #' @param tol                Small positive number to differentiate between zero and non-zero.
-#' @param verbose            Integer.
-#' @param ...                Additional parameters.
+#' @param verbose            Integer
+#' @param ...                Additional parameters
 #'
 #' @return a \code{list} with elements \code{x_mat}, \code{y_mat},
 #' \code{z_mat}, \code{library_multiplier}, \code{loss}, \code{nuisance_vec}
