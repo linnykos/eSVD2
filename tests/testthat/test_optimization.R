@@ -14,8 +14,7 @@ test_that("opt_esvd works for eSVD_obj", {
 
   expect_true(is.list(res))
   expect_true(inherits(res, "eSVD"))
-  expect_true(all(sort(names(res)) == sort(c("dat", "covariates",
-                                             "initial_Reg", "param", "fit_Init",
+  expect_true(all(sort(names(res)) == sort(c("dat", "covariates", "param", "fit_Init",
                                              "fit_First", "latest_Fit"))))
   expect_true(inherits(res$fit_First, "eSVD_Fit"))
   expect_true(all(sort(names(res$fit_First)) == sort(c("x_mat", "y_mat",

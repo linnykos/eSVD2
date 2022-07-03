@@ -48,7 +48,6 @@ initialize_esvd <- function(dat,
             library_size_variable %in% colnames(covariates),
             is.null(case_control_variable) || case_control_variable %in% colnames(covariates),
             all(subject_variables %in% colnames(covariates)),
-            all(is.null(initial_library_coef)) || length(initial_library_coef) == nrow(dat),
             "Intercept" %in% colnames(covariates))
   stopifnot(all(is.null(offset_variables)) ||
               (all(offset_variables %in% colnames(covariates)) && !"Intercept" %in% offset_variables))

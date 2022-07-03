@@ -7,7 +7,7 @@ test_that("compute_test_statistic works", {
   load("../assets/synthetic_data.RData")
 
   covariates <- .get_object(eSVD_obj = eSVD_obj, what_obj = "covariates", which_fit = NULL)
-  cc_vec <- covariates[,"case_control"]
+  cc_vec <- covariates[,"case_control_1"]
   cc_levels <- sort(unique(cc_vec), decreasing = F)
   control_idx <- which(cc_vec == cc_levels[1])
   case_idx <- which(cc_vec == cc_levels[2])
@@ -23,7 +23,12 @@ test_that("compute_test_statistic works", {
                                 covariate_individual = "individual",
                                 metadata = metadata)
 
-  expect_true(2*mean(abs(res[true_cc_status == 1])) < mean(abs(res[true_cc_status == 2])))
+  mean_val <- mean(res)
+  sd_val <- sd(res)
+  quantile_vec <- sapply(res, function(x){
+    1-2*abs(stats::pnorm(x, mean = mean_val, sd = sd_val)-.5)
+  })
+  expect_true(mean(abs(quantile_vec[true_cc_status == 1])) > 2*mean(abs(quantile_vec[true_cc_status == 2])))
 })
 
 ######################

@@ -11,36 +11,41 @@ k <- 5
 n <- num_indiv * n_per_indiv
 x_mat <- matrix(abs(rnorm(n * k))*.5, nrow = n, ncol = k)
 y_mat <- matrix(abs(rnorm(p * k))*.5, nrow = p, ncol = k)
-covariates <- cbind(
+covariate_df <- cbind(
   c(rep(0, n/2), rep(1, n/2)),
   c(rep(0, n/4), rep(1, n/4), rep(0, n/4), rep(1, n/4)),
   sapply(1:n, function(i){rnorm(1, mean = i/n*3, sd = 0.5)})
 )
-colnames(covariates) <- c("case_control", "gender", "Log_UMI")
-for(i in 1:num_indiv){
-  tmp <- rep(0, n)
-  tmp[((i-1)*n_per_indiv+1):(i*n_per_indiv)] <- 1
-  covariates <- cbind(covariates, tmp)
-  colnames(covariates)[ncol(covariates)] <- paste0("individual_", i)
-}
-z_mat <- cbind(
-  c(rep(0, .9*p), rep(1, 2/3*(.1*p)), rep(2, 1/3*(.1*p))),
-  rnorm(p),
-  rep(1,p)
+colnames(covariate_df) <- c("case_control", "gender", "Log_UMI")
+covariate_df <- as.data.frame(covariate_df)
+indiv_vec <- rep(paste0("individual_", 1:num_indiv), each = n_per_indiv)
+covariate_df <- cbind(covariate_df, indiv_vec)
+colnames(covariate_df)[ncol(covariate_df)] <- "individual"
+covariate_df[,"case_control"] <- as.factor(covariate_df[,"case_control"])
+covariate_df[,"gender"] <- as.factor(covariate_df[,"gender"])
+covariate_df[,"individual"] <- as.factor(covariate_df[,"individual"])
+covariates <- format_covariates(dat = abs(matrix(rnorm(n*p), nrow = n, ncol = p)),
+                               covariate_df = covariate_df[,which(colnames(covariate_df) != "Log_UMI")],
+                               subject_variable = "individual")
+covariates[,"Log_UMI"] <- covariate_df[,"Log_UMI"]
+
+z_mat <- cbind(0.5,
+               rep(1,p),
+               c(rep(0, .9*p), rep(1, 2/3*(.1*p)), rep(2, 1/3*(.1*p))),
+               rnorm(p)
 )
 for(i in 1:num_indiv){
   tmp <- rnorm(p, mean = 0, sd = .2)
   z_mat <- cbind(z_mat, tmp)
 }
 colnames(z_mat) <-  colnames(covariates)
-true_cc_status <- ifelse(z_mat[,"case_control"] > 1e-6, 2, 1)
-case_control_variable <- colnames(covariates)[1]
+true_cc_status <- ifelse(z_mat[,"case_control_1"] > 1e-6, 2, 1)
+case_control_variable <- "case_control_1"
 case_control_idx <- which(colnames(z_mat) == case_control_variable)
 library_idx <- which(colnames(z_mat) == "Log_UMI")
 
-intercept <- -.5
-nat_mat_nolib <- tcrossprod(x_mat, y_mat) + tcrossprod(covariates[,-library_idx], z_mat[,-library_idx])
-library_mat <- exp(tcrossprod(covariates[,library_idx], z_mat[,library_idx]) + intercept)
+nat_mat_nolib <- tcrossprod(x_mat, y_mat) + tcrossprod(covariates[,case_control_idx], z_mat[,case_control_idx])
+library_mat <- exp(tcrossprod(covariates[,-library_idx], z_mat[,-library_idx]))
 nuisance_vec <- rep(c(5, 1, 1/5), times = p/3)
 
 # Simulate data
@@ -54,8 +59,7 @@ for(i in 1:n){
     dat[i,j] <- stats::rpois(n = 1, lambda = library_mat[i,j] * gamma_mat[i,j])
   }
 }
-dat <- pmin(dat, 200)
-covariates[,"Log_UMI"] <- scale(log(Matrix::rowSums(dat)))
+dat <- pmin(dat, 100)
 # quantile(dat)
 # length(which(dat == 0))/prod(dim(dat))
 # image(dat)
@@ -64,19 +68,15 @@ rownames(dat) <- paste0("c", 1:n)
 colnames(dat) <- paste0("g", 1:p)
 metadata <- data.frame(individual = factor(rep(1:num_indiv, each = n_per_indiv)))
 rownames(metadata) <- rownames(dat)
+covariates[,"Log_UMI"] <- log(Matrix::rowSums(dat))
 
 # fit eSVD
 eSVD_obj <- eSVD2::initialize_esvd(dat = dat,
                                    covariates = covariates,
                                    case_control_variable = case_control_variable,
                                    k = 5,
-                                   lambda = 0.1,
-                                   mixed_effect_variables = colnames(covariates)[grep("individual", colnames(covariates))],
-                                   offset_variables = NULL,
+                                   subject_variables = colnames(covariates)[grep("individual", colnames(covariates))],
                                    verbose = 1)
-logp_quant <- quantile(eSVD_obj$initial_Reg$log_pval, probs = 0.25)
-eSVD_obj <- eSVD2:::apply_initial_threshold(eSVD_obj = eSVD_obj,
-                                            pval_thres = exp(logp_quant))
 eSVD_obj <- eSVD2::opt_esvd(input_obj = eSVD_obj,
                             max_iter = 50,
                             verbose = 1)
