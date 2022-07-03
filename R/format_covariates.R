@@ -1,31 +1,37 @@
 format_covariates <- function(dat,
                               covariate_df,
-                              mixed_effect_variables = c()){
-  stopifnot(nrow(dat) == nrow(covariate_df),
-            is.data.frame(covariate_df),
-            all(mixed_effect_variables %in% colnames(covariate_df)),
-            all(sapply(mixed_effect_variables, function(var){
-              is.factor(covariate_df[,var])
-            })))
-
+                              bool_center = F,
+                              bool_library_size = T,
+                              subject_variable = NULL){
+  stopifnot(nrow(dat) == nrow(covariate_df), is.data.frame(covariate_df),
+            is.null(subject_variable) || subject_variable %in% colnames(covariate_df))
   n <- nrow(covariate_df)
 
   factor_vec <- colnames(covariate_df)[sapply(covariate_df, is.factor)]
   numeric_vec <- setdiff(colnames(covariate_df), factor_vec)
-  covariate_df2 <- sapply(numeric_vec, function(var){
-    scale(covariate_df[,var], center = T, scale = T)
-  })
+  if(length(numeric_vec) > 0){
+    covariate_df2 <- sapply(numeric_vec, function(var){
+      scale(covariate_df[,var], center = bool_center, scale = T)
+    })
+  } else {
+    covariate_df2 <- matrix(0, nrow = n, ncol = 0)
+  }
+  rownames(covariate_df2) <- rownames(covariate_df)
+  colnames(covariate_df2) <- numeric_vec
 
-  logumi_vec <- log(Matrix::rowSums(dat))
-  covariate_df2 <- cbind(logumi_vec, covariate_df2[,numeric_vec])
-  colnames(covariate_df2)[1] <- "Log_UMI"
+  if(bool_library_size){
+    logumi_vec <- log1p(Matrix::rowSums(dat))
+    covariate_df2 <- cbind(logumi_vec, covariate_df2)
+    colnames(covariate_df2)[1] <- "Log_UMI"
+  }
 
   for(var in factor_vec){
     vec <- covariate_df[,var]
-    if(var %in% mixed_effect_variables){
+    if(!is.null(subject_variable) && var == subject_variable){
       uniq_level <- levels(vec)
     } else {
-      uniq_level <- levels(vec)[2]
+      stopifnot(length(levels(vec)) > 1)
+      uniq_level <- levels(vec)[-1]
     }
 
     for(lvl in uniq_level){
@@ -36,6 +42,16 @@ format_covariates <- function(dat,
       covariate_df2 <- cbind(covariate_df2, tmp)
       colnames(covariate_df2)[ncol(covariate_df2)] <- var_name
     }
+  }
+
+  covariate_df2 <- cbind(1, covariate_df2)
+  colnames(covariate_df2)[1] <- "Intercept"
+
+  # move all the subject variables to the back
+  if(!is.null(subject_variable)){
+    col_idx <- grep(subject_variable, colnames(covariate_df2))
+    covariate_df2 <- cbind(covariate_df2[,-col_idx,drop = F],
+                           covariate_df2[,col_idx,drop = F])
   }
 
   as.matrix(covariate_df2)

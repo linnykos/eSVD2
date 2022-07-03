@@ -31,119 +31,52 @@
 #' \code{initial_Reg} and \code{param}
 #' @export
 initialize_esvd <- function(dat,
-                            bool_intercept = T,
+                            covariates,
+                            subject_variables,
+                            bool_intercept = F,
                             case_control_variable = NULL,
-                            covariates = NULL,
                             k = 30,
-                            lambda = 0.1,
+                            lambda = 0.01,
                             library_size_variable = "Log_UMI",
-                            mixed_effect_variables = NULL,
-                            offset_variables = NULL,
+                            offset_variables = "Log_UMI",
                             verbose = 0){
   stopifnot(inherits(dat, c("dgCMatrix", "matrix")),
+            nrow(dat) == nrow(covariates),
+            is.matrix(covariates),
             k <= ncol(dat), k > 0, k %% 1 == 0,
             lambda <= 1e4, lambda >= 1e-4,
             library_size_variable %in% colnames(covariates),
             is.null(case_control_variable) || case_control_variable %in% colnames(covariates),
-            all(is.null(offset_variables)) || all(offset_variables %in% colnames(covariates)),
-            all(is.null(mixed_effect_variables)) || all(mixed_effect_variables %in% colnames(covariates)))
-  stopifnot(!all(is.null(covariates))) #[[note to self: remove this necessity]]
-
-  if(!all(is.null(covariates))){
-    stopifnot(is.matrix(covariates))
-
-    if(!all(is.null(offset_variables))){
-      stopifnot(is.character(offset_variables),
-                all(offset_variables %in% colnames(covariates)))
-    }
-    if(!all(is.null(case_control_variable))){
-      stopifnot(is.character(case_control_variable),
-                all(case_control_variable %in% colnames(covariates)),
-                length(unique(covariates[,case_control_variable])) == 2)
-    }
-    if(!all(is.null(mixed_effect_variables))){
-      stopifnot(is.character(mixed_effect_variables),
-                all(mixed_effect_variables %in% colnames(covariates)))
-    }
-  }
+            all(subject_variables %in% colnames(covariates)),
+            all(is.null(initial_library_coef)) || length(initial_library_coef) == nrow(dat),
+            "Intercept" %in% colnames(covariates))
+  stopifnot(all(is.null(offset_variables)) ||
+              (all(offset_variables %in% colnames(covariates)) && !"Intercept" %in% offset_variables))
 
   n <- nrow(dat); p <- ncol(dat)
   if(is.matrix(dat)) dat[is.na(dat)] <- 0
   param <- .format_param_initialize(bool_intercept = bool_intercept,
                                     case_control_variable = case_control_variable,
-                                    offset_variables = offset_variables,
                                     k = k,
                                     lambda = lambda,
                                     library_size_variable = library_size_variable,
-                                    mixed_effect_variables = mixed_effect_variables)
-
-  # [[note to self: make mixed_effect_variables easier to use]]
+                                    offset_variables = offset_variables,
+                                    subject_variables = subject_variables)
 
   if(verbose >= 1) print("Performing GLMs")
-  initial_Reg <- .initialize_coefficient(bool_intercept = bool_intercept,
-                                         case_control_variable = case_control_variable,
-                                         covariates = covariates,
-                                         dat = dat,
-                                         lambda = lambda,
-                                         mixed_effect_variables = mixed_effect_variables,
-                                         offset_variables = offset_variables,
-                                         verbose = verbose)
-
-  if(bool_intercept){
-    covariates <- cbind(rep(1, n), covariates)
-    colnames(covariates)[1] <- "Intercept"
-  }
+  z_mat <- .initialize_coefficient(bool_intercept = bool_intercept,
+                                   case_control_variable = case_control_variable,
+                                   covariates = covariates,
+                                   dat = dat,
+                                   lambda = lambda,
+                                   offset_variables = offset_variables,
+                                   subject_variables = subject_variables,
+                                   verbose = verbose)
 
   eSVD_obj <- list(dat = dat,
                    covariates = covariates,
-                   initial_Reg = initial_Reg,
                    param = param)
   class(eSVD_obj) <- "eSVD"
-  eSVD_obj
-}
-
-#' Apply threshold
-#'
-#' Based on a p-value threshold, determine which sets of coefficients to
-#' use for each gene. Then, based on the residuals,
-#' initialize the latent embedding according to the SVD.
-#'
-#' @param eSVD_obj    \code{eSVD} object outputed from \code{initialize_esvd}.
-#' @param pval_thres  Numeric between 0 and 1 (inclusive).
-#' @param verbose     Integer
-#'
-#' @return \code{eSVD} object with added elements \code{fit_Init} and
-#' \code{latest_Fit}
-#' @export
-apply_initial_threshold <- function(eSVD_obj,
-                                    pval_thres = 0.01,
-                                    verbose = 0) {
-  stopifnot(inherits(eSVD_obj, "eSVD"),
-            c("initial_Reg" %in% names(eSVD_obj)),
-            pval_thres >= 0, pval_thres <= 1)
-  eSVD_obj$param <- .combine_two_named_lists(eSVD_obj$param,
-                                             list(init_pval_thres = pval_thres))
-
-  if(verbose >= 1) print("Assembling coefficents")
-  z_mat1 <- .get_object(eSVD_obj = eSVD_obj,
-                        what_obj = "z_mat1",
-                        which_fit = "initial_Reg")
-  z_mat2 <- .get_object(eSVD_obj = eSVD_obj,
-                        what_obj = "z_mat2",
-                        which_fit = "initial_Reg")
-  log_pval <- .get_object(eSVD_obj = eSVD_obj,
-                          what_obj = "log_pval",
-                          which_fit = "initial_Reg")
-  stopifnot(all(dim(z_mat1) == dim(z_mat2)), length(log_pval) == nrow(z_mat1))
-  p <- nrow(z_mat1)
-  z_mat <- matrix(NA, nrow = nrow(z_mat1), ncol = ncol(z_mat2))
-  for(j in 1:p){
-    if(log_pval[j] <= log(pval_thres)) z_mat[j,] <- z_mat1[j,] else z_mat[j,] <- z_mat2[j,]
-  }
-
-  dat <- .get_object(eSVD_obj = eSVD_obj, what_obj = "dat", which_fit = NULL)
-  covariates <- .get_object(eSVD_obj = eSVD_obj, what_obj = "covariates", which_fit = NULL)
-  k <- .get_object(eSVD_obj = eSVD_obj, what_obj = "init_k", which_fit = "param")
 
   if(verbose >= 1) print("Computing residuals")
   eSVD_obj[["fit_Init"]] <- .initialize_residuals(
@@ -152,6 +85,7 @@ apply_initial_threshold <- function(eSVD_obj,
     k = k,
     z_mat = z_mat
   )
+
   eSVD_obj[["latest_Fit"]] <- "fit_Init"
   eSVD_obj
 }
@@ -163,177 +97,43 @@ apply_initial_threshold <- function(eSVD_obj,
                                     covariates,
                                     dat,
                                     lambda,
-                                    mixed_effect_variables,
                                     offset_variables,
+                                    subject_variables,
                                     verbose = 0){
   n <- nrow(dat); p <- ncol(dat)
-  covariates_nooffset <- covariates[,which(!colnames(covariates) %in% offset_variables)]
-  offset_vec <- Matrix::rowSums(covariates[,offset_variables,drop = F])
-
-  log_pval <- rep(NA, p)
-  names(log_pval) <- colnames(dat)
-
-  if(bool_intercept){
-    colnames_vec <- c("Intercept", colnames(covariates_nooffset))
+  covariates_tmp <- covariates[,which(colnames(covariates) != "Intercept"), drop = F]
+  if(!is.null(offset_variables)){
+    covariates_tmp <- covariates_tmp[,which(!colnames(covariates_tmp) %in% offset_variables), drop=F]
+    offset_vec <- Matrix::rowSums(covariates[,offset_variables,drop = F])
   } else {
-    colnames_vec <- colnames(covariates_nooffset)
+    offset_vec <- NULL
   }
 
-  z_mat1 <- matrix(NA, nrow = p, ncol = length(colnames_vec))
-  z_mat2 <- matrix(NA, nrow = p, ncol = length(colnames_vec))
-  colnames(z_mat1) <- colnames_vec
-  colnames(z_mat2) <- colnames_vec
-  rownames(z_mat2) <- colnames(dat)
-  rownames(z_mat1) <- colnames(dat)
+  z_mat <- matrix(1, nrow = p, ncol = ncol(covariates))
+  colnames(z_mat) <- colnames(covariates)
+  rownames(z_mat) <- colnames(dat)
 
   for(j in 1:p){
     if(verbose == 1 && p >= 10 && j %% floor(p/10) == 0) cat('*')
-    if(verbose >= 2) print(paste0("Finished variable ", j , " of ", p))
-    tmp <- .lrt_coefficient(bool_intercept = bool_intercept,
-                            case_control_variable = case_control_variable,
-                            covariates = covariates_nooffset,
-                            lambda = lambda,
-                            mixed_effect_variables = mixed_effect_variables,
-                            offset_vec = offset_vec,
-                            vec = as.numeric(dat[,j]),
-                            verbose = verbose)
-    z_mat1[j,] <- tmp$coef_vec1
-    z_mat2[j,] <- tmp$coef_vec2
-    log_pval[j] <- tmp$log_pval
-  }
+    if(verbose >= 2) print(paste0("Working on variable ", j , " of ", p))
 
-  z_mat1 <- .append_offset(bool_intercept = bool_intercept,
-                           covariates = covariates,
-                           z_mat = z_mat1)
-  z_mat2 <- .append_offset(bool_intercept = bool_intercept,
-                           covariates = covariates,
-                           z_mat = z_mat2)
+    glm_fit <- glmnet::glmnet(x = covariates_tmp,
+                              y = as.numeric(dat[,j]),
+                              family = "poisson",
+                              offset = offset_vec,
+                              alpha = 0,
+                              standardize = F,
+                              intercept = bool_intercept,
+                              lambda = exp(seq(log(1e4), log(lambda), length.out = 100)))
 
-  # Do some final formatting
-  if(bool_intercept){
-    col_idx <- sapply(c("Intercept", colnames(covariates)), function(i){which(colnames(z_mat1) == i)})
-    z_mat1 <- z_mat1[,as.numeric(col_idx)]
-    z_mat2 <- z_mat2[,as.numeric(col_idx)]
-  }
-
-  structure(list(log_pval = log_pval,
-                 z_mat1 = z_mat1,
-                 z_mat2 = z_mat2),
-            class = "initial_Reg")
-}
-
-# [[note to self: hard coded for Poisson at the moment]]
-.lrt_coefficient <- function(bool_intercept,
-                             case_control_variable,
-                             covariates,
-                             lambda,
-                             mixed_effect_variables,
-                             offset_vec,
-                             vec,
-                             verbose = 0){
-  # see https://statisticaloddsandends.wordpress.com/2018/11/13/a-deep-dive-into-glmnet-penalty-factor/
-  if(all(is.null(mixed_effect_variables))){
-    penalty_factor1 <- rep(1, ncol(covariates))
-  } else {
-    penalty_factor1 <- rep(0, ncol(covariates))
-    penalty_factor1[colnames(covariates) %in% mixed_effect_variables] <- 1
-  }
-
-  glm_fit1 <- glmnet::glmnet(x = covariates,
-                             y = vec,
-                             alpha = 0,
-                             family = "poisson",
-                             intercept = bool_intercept,
-                             lambda = exp(seq(log(1e4), log(lambda), length.out = 100)),
-                             offset = offset_vec,
-                             penalty.factor = penalty_factor1,
-                             standardize = F)
-
-  if(bool_intercept){
-    coef_vec1 <- c(glm_fit1$a0[length(glm_fit1$a0)], glm_fit1$beta[,ncol(glm_fit1$beta)])
-    mean_vec1 <- exp(covariates %*% coef_vec1[-1] + offset_vec + coef_vec1[1])
-  } else {
-    coef_vec1 <- glm_fit1$beta[,ncol(glm_fit1$beta)]
-    mean_vec1 <- exp(covariates %*% coef_vec1 + offset_vec)
-  }
-  log_vec <- vec/mean_vec1; log_vec[vec != 0] <- log(log_vec[vec != 0])
-  deviance1 <- 2*sum(vec*log_vec - (vec - mean_vec1))
-
-  covariates2 <- covariates[,which(colnames(covariates) != case_control_variable), drop = F]
-  if(all(is.null(mixed_effect_variables))){
-    penalty_factor2 <- rep(1, ncol(covariates2))
-  } else {
-    penalty_factor2 <- rep(0, ncol(covariates2))
-    penalty_factor2[colnames(covariates2) %in% mixed_effect_variables] <- 1
-  }
-  glm_fit2 <- glmnet::glmnet(x = covariates2,
-                             y = vec,
-                             alpha = 0,
-                             family = "poisson",
-                             intercept = bool_intercept,
-                             lambda = exp(seq(log(1e4), log(lambda), length.out = 100)),
-                             offset = offset_vec,
-                             penalty.factor = penalty_factor2,
-                             standardize = F)
-  if(bool_intercept){
-    coef_vec2 <- c(glm_fit2$a0[length(glm_fit2$a0)], glm_fit2$beta[,ncol(glm_fit2$beta)])
-    mean_vec2 <- exp(covariates2 %*% coef_vec2[-1] + offset_vec + coef_vec2[1])
-  } else {
-    coef_vec2 <- glm_fit2$beta[,ncol(glm_fit2$beta)]
-    mean_vec2 <- exp(covariates2 %*% coef_vec2 + offset_vec)
-  }
-  log_vec <- vec/mean_vec2; log_vec[vec != 0] <- log(log_vec[vec != 0])
-  deviance2 <- 2*sum(vec*log_vec - (vec - mean_vec2))
-
-  residual_deviance <- max(deviance2 - deviance1, 0)
-  log_pval <- stats::pchisq(residual_deviance, df = 1,
-                            lower.tail = FALSE,
-                            log.p = T)
-
-  # Tailor results and return
-  if(bool_intercept){
-    names(coef_vec1) <- c("Intercept", colnames(covariates))
-    names(coef_vec2) <- c("Intercept", colnames(covariates2))
-    coef_vec2b <- sapply(c("Intercept", colnames(covariates)), function(var){
-      if(var %in% names(coef_vec2)) coef_vec2[var] else 0
-    })
-    names(coef_vec2b) <- c("Intercept", colnames(covariates))
-  } else {
-    names(coef_vec1) <- colnames(covariates)
-    names(coef_vec2) <- colnames(covariates2)
-    coef_vec2b <- sapply(colnames(covariates), function(var){
-      if(var %in% names(coef_vec2)) coef_vec2[var] else 0
-    })
-    names(coef_vec2b) <- colnames(covariates)
-  }
-
-  list(coef_vec1 = coef_vec1,
-       coef_vec2 = coef_vec2b,
-       log_pval = log_pval)
-}
-
-.append_offset <- function(bool_intercept,
-                           covariates,
-                           z_mat){
-  if(bool_intercept) p <- ncol(covariates)+1 else p <- ncol(covariates)
-  z_mat2 <- matrix(1, nrow = nrow(z_mat), ncol = p)
-  rownames(z_mat2) <- rownames(z_mat)
-  if(bool_intercept){
-    colnames(z_mat2) <- c("Intercept", colnames(covariates))
-  } else {
-    colnames(z_mat2) <- colnames(covariates)
-  }
-
-  for(j in 1:ncol(z_mat2)){
-    if(colnames(z_mat2)[j] %in% colnames(z_mat)){
-      idx <- which(colnames(z_mat) == colnames(z_mat2)[j])
-      z_mat2[,j] <- z_mat[,idx]
-    } else if(colnames(z_mat2)[j] == "Intercept"){
-      z_mat2[,j] <- z_mat[,"Intercept"]
+    if(bool_intercept){
+      z_mat[j, c("Intercept", colnames(covariates_tmp))] <- c(glm_fit$a0[length(glm_fit$a0)], glm_fit$beta[,ncol(glm_fit$beta)])
+    } else {
+      z_mat[j, c("Intercept", colnames(covariates_tmp))] <- c(0, glm_fit$beta[,ncol(glm_fit$beta)])
     }
   }
 
-  z_mat2
+  z_mat
 }
 
 .initialize_residuals <- function(covariates,
@@ -364,16 +164,16 @@ apply_initial_threshold <- function(eSVD_obj,
 
 .format_param_initialize <- function(bool_intercept,
                                      case_control_variable,
-                                     library_size_variable,
-                                     offset_variables,
                                      k,
                                      lambda,
-                                     mixed_effect_variables) {
+                                     library_size_variable,
+                                     offset_variables,
+                                     subject_variables) {
   list(init_bool_intercept = bool_intercept,
        init_case_control_variable = case_control_variable,
-       init_offset_variables = offset_variables,
        init_k = k,
        init_lambda = lambda,
        init_library_size_variable = library_size_variable,
-       init_mixed_effect_variables = mixed_effect_variables)
+       init_offset_variables = offset_variables,
+       init_subject_variables = subject_variables)
 }
