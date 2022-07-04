@@ -7,6 +7,8 @@
 \method{compute_posterior}{eSVD}(
   input_obj,
   alpha_max = 50,
+  bool_adjust_covariates = F,
+  bool_covariates_as_library = T,
   nuisance_lower_quantile = 0.01,
   ...
 )

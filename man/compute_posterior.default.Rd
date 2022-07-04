@@ -9,8 +9,12 @@
   case_control_variable,
   covariates,
   esvd_res,
+  library_size_variable,
   nuisance_vec,
   alpha_max = 50,
+  bool_adjust_covariates = F,
+  bool_covariates_as_library = T,
+  bool_library_includes_interept = T,
   nuisance_lower_quantile = 0.01,
   ...
 )

@@ -75,9 +75,9 @@ throughout the optimization).}
 
 \item{tol}{Small positive number to differentiate between zero and non-zero.}
 
-\item{verbose}{Integer.}
+\item{verbose}{Integer}
 
-\item{...}{Additional parameters.}
+\item{...}{Additional parameters}
 }
 \value{
 a \code{list} with elements \code{x_mat}, \code{y_mat},

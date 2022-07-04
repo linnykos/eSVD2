@@ -4,7 +4,13 @@
 \alias{estimate_nuisance.eSVD}
 \title{Estimate nuisance values for eSVD objects}
 \usage{
-\method{estimate_nuisance}{eSVD}(input_obj, verbose = 0, ...)
+\method{estimate_nuisance}{eSVD}(
+  input_obj,
+  bool_covariates_as_library = F,
+  bool_library_includes_interept = T,
+  verbose = 0,
+  ...
+)
 }
 \arguments{
 \item{input_obj}{\code{eSVD} object outputed from \code{opt_esvd.eSVD}.
