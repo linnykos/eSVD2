@@ -1,10 +1,9 @@
 format_covariates <- function(dat,
                               covariate_df,
                               bool_center = F,
-                              bool_library_size = T,
-                              subject_variable = NULL){
+                              variables_enumerate_all = NULL){
   stopifnot(nrow(dat) == nrow(covariate_df), is.data.frame(covariate_df),
-            is.null(subject_variable) || subject_variable %in% colnames(covariate_df))
+            all(is.null(variables_enumerate_all)) || all(variables_enumerate_all %in% colnames(covariate_df)))
   n <- nrow(covariate_df)
 
   factor_vec <- colnames(covariate_df)[sapply(covariate_df, is.factor)]
@@ -19,15 +18,13 @@ format_covariates <- function(dat,
   rownames(covariate_df2) <- rownames(covariate_df)
   colnames(covariate_df2) <- numeric_vec
 
-  if(bool_library_size){
-    logumi_vec <- log1p(Matrix::rowSums(dat))
-    covariate_df2 <- cbind(logumi_vec, covariate_df2)
-    colnames(covariate_df2)[1] <- "Log_UMI"
-  }
+  logumi_vec <- log1p(Matrix::rowSums(dat))
+  covariate_df2 <- cbind(logumi_vec, covariate_df2)
+  colnames(covariate_df2)[1] <- "Log_UMI"
 
   for(var in factor_vec){
     vec <- covariate_df[,var]
-    if(!is.null(subject_variable) && var == subject_variable){
+    if(!all(is.null(variables_enumerate_all)) && var %in% variables_enumerate_all){
       uniq_level <- levels(vec)
     } else {
       stopifnot(length(levels(vec)) > 1)
@@ -46,13 +43,6 @@ format_covariates <- function(dat,
 
   covariate_df2 <- cbind(1, covariate_df2)
   colnames(covariate_df2)[1] <- "Intercept"
-
-  # move all the subject variables to the back
-  if(!is.null(subject_variable)){
-    col_idx <- grep(subject_variable, colnames(covariate_df2))
-    covariate_df2 <- cbind(covariate_df2[,-col_idx,drop = F],
-                           covariate_df2[,col_idx,drop = F])
-  }
 
   as.matrix(covariate_df2)
 }
