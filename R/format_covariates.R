@@ -18,7 +18,7 @@ format_covariates <- function(dat,
   rownames(covariate_df2) <- rownames(covariate_df)
   colnames(covariate_df2) <- numeric_vec
 
-  logumi_vec <- log1p(Matrix::rowSums(dat))
+  logumi_vec <- log(Matrix::rowSums(dat))
   covariate_df2 <- cbind(logumi_vec, covariate_df2)
   colnames(covariate_df2)[1] <- "Log_UMI"
 
