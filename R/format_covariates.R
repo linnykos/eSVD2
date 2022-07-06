@@ -1,15 +1,17 @@
 format_covariates <- function(dat,
                               covariate_df,
                               bool_center = F,
-                              variables_enumerate_all = NULL){
+                              rescale_numeric_variables = NULL){
   stopifnot(nrow(dat) == nrow(covariate_df), is.data.frame(covariate_df),
-            all(is.null(variables_enumerate_all)) || all(variables_enumerate_all %in% colnames(covariate_df)))
+            all(is.null(rescale_numeric_variables)) || all(rescale_numeric_variables %in% colnames(covariate_df)))
   n <- nrow(covariate_df)
 
   factor_vec <- colnames(covariate_df)[sapply(covariate_df, is.factor)]
   numeric_vec <- setdiff(colnames(covariate_df), factor_vec)
-  if(length(numeric_vec) > 0){
-    covariate_df2 <- sapply(numeric_vec, function(var){
+  if(length(numeric_vec) > 0 && !all(is.null(rescale_numeric_variables))){
+    stopifnot(all(rescale_numeric_variables %in% numeric_vec))
+
+    covariate_df2 <- sapply(rescale_numeric_variables, function(var){
       scale(covariate_df[,var], center = bool_center, scale = T)
     })
   } else {
@@ -24,12 +26,8 @@ format_covariates <- function(dat,
 
   for(var in factor_vec){
     vec <- covariate_df[,var]
-    if(!all(is.null(variables_enumerate_all)) && var %in% variables_enumerate_all){
-      uniq_level <- levels(vec)
-    } else {
-      stopifnot(length(levels(vec)) > 1)
-      uniq_level <- levels(vec)[-1]
-    }
+    stopifnot(length(levels(vec)) > 1)
+    uniq_level <- levels(vec)[-1]
 
     for(lvl in uniq_level){
       tmp <- rep(0, n)
