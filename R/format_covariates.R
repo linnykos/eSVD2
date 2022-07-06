@@ -8,17 +8,21 @@ format_covariates <- function(dat,
 
   factor_vec <- colnames(covariate_df)[sapply(covariate_df, is.factor)]
   numeric_vec <- setdiff(colnames(covariate_df), factor_vec)
-  if(length(numeric_vec) > 0 && !all(is.null(rescale_numeric_variables))){
-    stopifnot(all(rescale_numeric_variables %in% numeric_vec))
+  if(length(numeric_vec) > 0){
+    covariate_df2 <- covariate_df[,numeric_vec,drop = F]
+    colnames(covariate_df2) <- numeric_vec
 
-    covariate_df2 <- sapply(rescale_numeric_variables, function(var){
-      scale(covariate_df[,var], center = bool_center, scale = T)
-    })
+    if(!all(is.null(rescale_numeric_variables))){
+      stopifnot(all(rescale_numeric_variables %in% numeric_vec))
+
+      for(var in rescale_numeric_variables){
+        covariate_df2[,var] <- scale(covariate_df[,var], center = bool_center, scale = T)
+      }
+    }
   } else {
     covariate_df2 <- matrix(0, nrow = n, ncol = 0)
   }
   rownames(covariate_df2) <- rownames(covariate_df)
-  colnames(covariate_df2) <- numeric_vec
 
   logumi_vec <- log(Matrix::rowSums(dat))
   covariate_df2 <- cbind(logumi_vec, covariate_df2)
