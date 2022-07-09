@@ -2,6 +2,7 @@ gene_plot <- function(input_obj,
                       what_1,
                       what_2 = NULL,
                       gene_list = NULL,
+                      breaks = "Sturges",
                       col_points = grDevices::rgb(0.5, 0.5, 0.5, 0.1),
                       color_palette = NULL,
                       rug_x_side = 3,
@@ -80,6 +81,7 @@ gene_plot <- function(input_obj,
     if(is.null(xlab)) xlab <- what_1
     graphics::hist(vec_1,
                    xlab = xlab,
+                   breaks = breaks,
                    ...)
 
     if(!all(is.null(gene_list))){
