@@ -32,7 +32,6 @@
 #' @export
 initialize_esvd <- function(dat,
                             covariates,
-                            subject_variables,
                             bool_intercept = F,
                             case_control_variable = NULL,
                             k = 30,
@@ -47,7 +46,6 @@ initialize_esvd <- function(dat,
             lambda <= 1e4, lambda >= 1e-4,
             library_size_variable %in% colnames(covariates),
             is.null(case_control_variable) || case_control_variable %in% colnames(covariates),
-            all(subject_variables %in% colnames(covariates)),
             "Intercept" %in% colnames(covariates))
   stopifnot(all(is.null(offset_variables)) ||
               (all(offset_variables %in% colnames(covariates)) && !"Intercept" %in% offset_variables))
@@ -59,8 +57,7 @@ initialize_esvd <- function(dat,
                                     k = k,
                                     lambda = lambda,
                                     library_size_variable = library_size_variable,
-                                    offset_variables = offset_variables,
-                                    subject_variables = subject_variables)
+                                    offset_variables = offset_variables)
 
   if(verbose >= 1) print("Performing GLMs")
   z_mat <- .initialize_coefficient(bool_intercept = bool_intercept,
@@ -69,7 +66,6 @@ initialize_esvd <- function(dat,
                                    dat = dat,
                                    lambda = lambda,
                                    offset_variables = offset_variables,
-                                   subject_variables = subject_variables,
                                    verbose = verbose)
 
   eSVD_obj <- list(dat = dat,
@@ -97,7 +93,6 @@ initialize_esvd <- function(dat,
                                     dat,
                                     lambda,
                                     offset_variables,
-                                    subject_variables,
                                     verbose = 0){
   n <- nrow(dat); p <- ncol(dat)
   covariates_tmp <- covariates[,which(colnames(covariates) != "Intercept"), drop = F]
@@ -166,13 +161,11 @@ initialize_esvd <- function(dat,
                                      k,
                                      lambda,
                                      library_size_variable,
-                                     offset_variables,
-                                     subject_variables) {
+                                     offset_variables) {
   list(init_bool_intercept = bool_intercept,
        init_case_control_variable = case_control_variable,
        init_k = k,
        init_lambda = lambda,
        init_library_size_variable = library_size_variable,
-       init_offset_variables = offset_variables,
-       init_subject_variables = subject_variables)
+       init_offset_variables = offset_variables)
 }

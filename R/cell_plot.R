@@ -5,6 +5,7 @@ cell_plot <- function(input_obj,
                       bool_include_diagonal = T,
                       bool_jitter_x = F,
                       bool_jitter_y = F,
+                      breaks = "Sturges",
                       col_case = 2,
                       col_control = 3,
                       col_points = grDevices::rgb(0.5, 0.5, 0.5, 0.1),
@@ -121,6 +122,7 @@ cell_plot <- function(input_obj,
     if(is.null(xlab)) xlab <- what_1
     graphics::hist(vec_1,
                    xlab = xlab,
+                   breaks = breaks,
                    ...)
 
     if(all(!is.null(means_all))){
