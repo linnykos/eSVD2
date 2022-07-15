@@ -26,6 +26,7 @@ estimate_nuisance <- function(input_obj, ...) {UseMethod("estimate_nuisance")}
 estimate_nuisance.eSVD <- function(input_obj,
                                    bool_covariates_as_library = F,
                                    bool_library_includes_interept = T,
+                                   min_val =  1e-4,
                                    verbose = 0, ...){
   stopifnot(inherits(input_obj, "eSVD"), "latest_Fit" %in% names(input_obj),
             input_obj[["latest_Fit"]] %in% names(input_obj),
@@ -61,12 +62,14 @@ estimate_nuisance.eSVD <- function(input_obj,
     input_obj = dat,
     mean_mat = mean_mat_nolib,
     library_mat = library_mat,
+    min_val = min_val,
     verbose = verbose
   )
 
   input_obj[[latest_Fit]]$nuisance_vec <- nuisance_vec
   input_obj$param$nuisance_bool_library_includes_interept <- bool_library_includes_interept
   input_obj$param$nuisance_bool_covariates_as_library <- bool_covariates_as_library
+  input_obj$param$nuisance_min_val <- min_val
 
   input_obj
 }
@@ -88,6 +91,7 @@ estimate_nuisance.eSVD <- function(input_obj,
 estimate_nuisance.default <- function(input_obj,
                                       mean_mat,
                                       library_mat,
+                                      min_val =  1e-4,
                                       verbose = 0, ...){
   stopifnot(inherits(input_obj, c("matrix", "dgCMatrix")),
             is.matrix(mean_mat), is.matrix(library_mat),
@@ -99,22 +103,35 @@ estimate_nuisance.default <- function(input_obj,
     if(verbose ==1 && p > 10 && j %% floor(p/10) == 0) cat('*')
     if(verbose >= 2) print(paste0(j, " of ", p))
 
-    val <- tryCatch(
-      gamma_rate(x = as.numeric(input_obj[,j]),
-                 mu = mean_mat[,j],
-                 s = library_mat[,j]),
-      # exp(log_gamma_rate(x = as.numeric(input_obj[,j]),
-      #                mu = mean_mat[,j],
-      #                s = library_mat[,j])),
-      error = function(c) {
-        if(verbose > 0) print(paste0("Nuisance estimation failed at variable ", j))
-        0
-      })
-
-    val
+    .nuisance_in_sequence(j = j,
+                          mu = mean_mat[,j],
+                          s = library_mat[,j],
+                          x = as.numeric(input_obj[,j]),
+                          verbose = verbose)
   })
   if(length(colnames(input_obj)) > 0) names(nuisance_vec) <- colnames(input_obj)
 
-  nuisance_vec
+  pmax(nuisance_vec, min_val)
+}
+
+.nuisance_in_sequence <- function(j, mu, s, x, verbose){
+  res <- tryCatch(
+    gamma_rate(x = x,
+               mu = mu,
+               s = s),
+    warning = function(e){NULL},
+    error = function(e){NULL})
+  if(!all(is.null(res))) {return(res)}
+
+  res <- tryCatch(
+    exp(log_gamma_rate(x = x,
+                       mu = mu,
+                       s = s)),
+    warning = function(e){NULL},
+    error = function(e){NULL})
+  if(!all(is.null(res))) {return(res)}
+
+  if(verbose > 0) print(paste0("Nuisance estimation failed at variable ", j))
+  return(0)
 }
 
