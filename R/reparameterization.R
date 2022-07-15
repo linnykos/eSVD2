@@ -101,7 +101,7 @@
 .reparameterization_esvd_covariates <- function(eSVD_obj,
                                                 fit_name,
                                                 omitted_variables,
-                                                verbose){
+                                                verbose = 0){
 
   x_mat <- eSVD_obj[[fit_name]]$x_mat
   y_mat <- eSVD_obj[[fit_name]]$y_mat
