@@ -68,6 +68,7 @@ estimate_nuisance.eSVD <- function(input_obj,
     verbose = verbose
   )
 
+  input_obj[[latest_Fit]]$nuisance_vec <- nuisance_vec
   param <- .format_param_nuisance(bool_covariates_as_library = bool_covariates_as_library,
                                   bool_library_includes_interept = bool_library_includes_interept,
                                   bool_use_log = bool_use_log,
