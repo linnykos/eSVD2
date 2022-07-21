@@ -26,6 +26,7 @@ estimate_nuisance <- function(input_obj, ...) {UseMethod("estimate_nuisance")}
 estimate_nuisance.eSVD <- function(input_obj,
                                    bool_covariates_as_library = F,
                                    bool_library_includes_interept = T,
+                                   bool_use_log = F,
                                    min_val =  1e-4,
                                    verbose = 0, ...){
   stopifnot(inherits(input_obj, "eSVD"), "latest_Fit" %in% names(input_obj),
@@ -62,14 +63,16 @@ estimate_nuisance.eSVD <- function(input_obj,
     input_obj = dat,
     mean_mat = mean_mat_nolib,
     library_mat = library_mat,
+    bool_use_log = bool_use_log,
     min_val = min_val,
     verbose = verbose
   )
 
-  input_obj[[latest_Fit]]$nuisance_vec <- nuisance_vec
-  input_obj$param$nuisance_bool_library_includes_interept <- bool_library_includes_interept
-  input_obj$param$nuisance_bool_covariates_as_library <- bool_covariates_as_library
-  input_obj$param$nuisance_min_val <- min_val
+  param <- .format_param_nuisance(bool_covariates_as_library = bool_covariates_as_library,
+                                  bool_library_includes_interept = bool_library_includes_interept,
+                                  bool_use_log = bool_use_log,
+                                  min_val = min_val)
+  input_obj$param <- .combine_two_named_lists(input_obj$param, param)
 
   input_obj
 }
@@ -91,6 +94,7 @@ estimate_nuisance.eSVD <- function(input_obj,
 estimate_nuisance.default <- function(input_obj,
                                       mean_mat,
                                       library_mat,
+                                      bool_use_log = F,
                                       min_val =  1e-4,
                                       verbose = 0, ...){
   stopifnot(inherits(input_obj, c("matrix", "dgCMatrix")),
@@ -107,6 +111,7 @@ estimate_nuisance.default <- function(input_obj,
                           mu = mean_mat[,j],
                           s = library_mat[,j],
                           x = as.numeric(input_obj[,j]),
+                          bool_use_log = bool_use_log,
                           verbose = verbose)
   })
   if(length(colnames(input_obj)) > 0) names(nuisance_vec) <- colnames(input_obj)
@@ -114,14 +119,16 @@ estimate_nuisance.default <- function(input_obj,
   pmax(nuisance_vec, min_val)
 }
 
-.nuisance_in_sequence <- function(j, mu, s, x, verbose){
-  res <- tryCatch(
-    gamma_rate(x = x,
-               mu = mu,
-               s = s),
-    warning = function(e){NULL},
-    error = function(e){NULL})
-  if(!all(is.null(res))) {return(res)}
+.nuisance_in_sequence <- function(j, mu, s, x, bool_use_log, verbose){
+  if(!bool_use_log){
+    res <- tryCatch(
+      gamma_rate(x = x,
+                 mu = mu,
+                 s = s),
+      warning = function(e){NULL},
+      error = function(e){NULL})
+    if(!all(is.null(res))) {return(res)}
+  }
 
   res <- tryCatch(
     exp(log_gamma_rate(x = x,
@@ -131,7 +138,19 @@ estimate_nuisance.default <- function(input_obj,
     error = function(e){NULL})
   if(!all(is.null(res))) {return(res)}
 
-  if(verbose > 0) print(paste0("Nuisance estimation failed at variable ", j))
+  if(verbose > 0) warning(paste0("Nuisance estimation failed at variable ", j))
   return(0)
 }
+
+
+.format_param_nuisance <- function(bool_covariates_as_library,
+                                   bool_library_includes_interept,
+                                   bool_use_log,
+                                   min_val) {
+  list(nuisance_bool_covariates_as_library = bool_covariates_as_library,
+       nuisance_bool_library_includes_interept = bool_library_includes_interept,
+       nuisance_bool_use_log = bool_use_log,
+       nuisance_min_val = min_val)
+}
+
 
