@@ -66,7 +66,8 @@ compute_test_statistic.eSVD <- function(input_obj,
   )
 
   input_obj[["teststat_vec"]] <- res$teststat_vec
-  input_obj[["diffmean_vec"]] <- res$diffmean_vec
+  input_obj[["case_mean"]] <- res$case_mean
+  input_obj[["control_mean"]] <- res$control_mean
   input_obj
 }
 
@@ -141,11 +142,10 @@ compute_test_statistic.default <- function(input_obj,
   teststat_vec <- (case_gaussian_mean - control_gaussian_mean) /
     (sqrt(case_gaussian_var/n1 + control_gaussian_var/n2))
   names(teststat_vec) <- colnames(posterior_mean_mat)
-  diffmean_vec <- case_gaussian_mean - control_gaussian_mean
-  names(diffmean_vec) <- colnames(posterior_mean_mat)
 
   list(teststat_vec = teststat_vec,
-       diffmean_vec = diffmean_vec)
+       case_mean = case_gaussian_mean,
+       control_mean = control_gaussian_mean)
 }
 
 .determine_individual_indices <- function(case_individuals,
