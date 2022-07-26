@@ -55,7 +55,7 @@ compute_test_statistic.eSVD <- function(input_obj,
   posterior_mean_mat <- .get_object(eSVD_obj = input_obj, what_obj = "posterior_mean_mat", which_fit = latest_Fit)
   posterior_var_mat <- .get_object(eSVD_obj = input_obj, what_obj = "posterior_var_mat", which_fit = latest_Fit)
 
-  teststat_vec <- compute_test_statistic.default(
+  res <- compute_test_statistic.default(
     input_obj = posterior_mean_mat,
     posterior_var_mat = posterior_var_mat,
     case_individuals = case_individuals,
@@ -65,7 +65,8 @@ compute_test_statistic.eSVD <- function(input_obj,
     verbose = verbose
   )
 
-  input_obj[["teststat_vec"]] <- teststat_vec
+  input_obj[["teststat_vec"]] <- res$teststat_vec
+  input_obj[["diffmean_vec"]] <- res$diffmean_vec
   input_obj
 }
 
@@ -140,8 +141,11 @@ compute_test_statistic.default <- function(input_obj,
   teststat_vec <- (case_gaussian_mean - control_gaussian_mean) /
     (sqrt(case_gaussian_var/n1 + control_gaussian_var/n2))
   names(teststat_vec) <- colnames(posterior_mean_mat)
+  diffmean_vec <- case_gaussian_mean - control_gaussian_mean
+  names(diffmean_vec) <- colnames(posterior_mean_mat)
 
-  teststat_vec
+  list(teststat_vec = teststat_vec,
+       diffmean_vec = diffmean_vec)
 }
 
 .determine_individual_indices <- function(case_individuals,
