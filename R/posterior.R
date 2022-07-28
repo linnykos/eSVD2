@@ -27,6 +27,7 @@ compute_posterior.eSVD <- function(input_obj,
                                    alpha_max = 50,
                                    bool_adjust_covariates = F,
                                    bool_covariates_as_library = T,
+                                   library_min = NULL,
                                    nuisance_lower_quantile = 0.01,
                                    ...){
   stopifnot(inherits(input_obj, "eSVD"), "latest_Fit" %in% names(input_obj),
@@ -43,6 +44,7 @@ compute_posterior.eSVD <- function(input_obj,
   param <- .format_param_posterior(alpha_max = alpha_max,
                                    bool_adjust_covariates = bool_adjust_covariates,
                                    bool_covariates_as_library = bool_covariates_as_library,
+                                   library_min = library_min,
                                    nuisance_lower_quantile = nuisance_lower_quantile)
   input_obj$param <- .combine_two_named_lists(input_obj$param, param)
   case_control_variable <- .get_object(eSVD_obj = input_obj, which_fit = "param", what_obj = "init_case_control_variable")
@@ -60,6 +62,7 @@ compute_posterior.eSVD <- function(input_obj,
     bool_adjust_covariates = bool_adjust_covariates,
     bool_covariates_as_library = bool_covariates_as_library,
     bool_library_includes_interept = bool_library_includes_interept,
+    library_min = library_min,
     nuisance_lower_quantile = nuisance_lower_quantile
   )
 
@@ -103,6 +106,7 @@ compute_posterior.default <- function(input_obj,
                                       bool_adjust_covariates = F,
                                       bool_covariates_as_library = T,
                                       bool_library_includes_interept = T,
+                                      library_min = NULL,
                                       nuisance_lower_quantile = 0.01,
                                       ...){
   stopifnot(inherits(input_obj, c("matrix", "dgCMatrix")),
@@ -133,6 +137,7 @@ compute_posterior.default <- function(input_obj,
   library_mat <- exp(tcrossprod(
     covariates[,library_idx], esvd_res$z_mat[,library_idx]
   ))
+  if(!is.null(library_min)) library_mat <- pmax(library_min, library_min)
 
   nuisance_vec <- pmax(nuisance_vec,
                        stats::quantile(nuisance_vec, probs = nuisance_lower_quantile))
@@ -167,10 +172,12 @@ compute_posterior.default <- function(input_obj,
 .format_param_posterior <- function(alpha_max,
                                     bool_adjust_covariates,
                                     bool_covariates_as_library,
+                                    library_min,
                                     nuisance_lower_quantile) {
   list(posterior_alpha_max = alpha_max,
        posterior_bool_adjust_covariates = bool_adjust_covariates,
        posterior_bool_covariates_as_library = bool_covariates_as_library,
+       posterior_library_min = library_min,
        posterior_nuisance_lower_quantile = nuisance_lower_quantile)
 }
 

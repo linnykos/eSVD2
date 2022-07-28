@@ -32,6 +32,7 @@ format_covariates <- function(dat,
 
   for(var in factor_vec){
     vec <- covariate_df[,var]
+    vec <- droplevels(vec)
     if(!all(is.null(variables_enumerate_all)) && var %in% variables_enumerate_all){
       uniq_level <- levels(vec)
     } else {
