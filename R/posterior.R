@@ -137,7 +137,7 @@ compute_posterior.default <- function(input_obj,
   library_mat <- exp(tcrossprod(
     covariates[,library_idx], esvd_res$z_mat[,library_idx]
   ))
-  if(!is.null(library_min)) library_mat <- pmax(library_min, library_min)
+  if(!is.null(library_min)) library_mat <- pmax(library_mat, library_min)
 
   nuisance_vec <- pmax(nuisance_vec,
                        stats::quantile(nuisance_vec, probs = nuisance_lower_quantile))
