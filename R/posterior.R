@@ -27,6 +27,7 @@ compute_posterior.eSVD <- function(input_obj,
                                    alpha_max = 50,
                                    bool_adjust_covariates = F,
                                    bool_covariates_as_library = T,
+                                   bool_return_components = F,
                                    library_min = NULL,
                                    nuisance_lower_quantile = 0.01,
                                    ...){
@@ -44,6 +45,7 @@ compute_posterior.eSVD <- function(input_obj,
   param <- .format_param_posterior(alpha_max = alpha_max,
                                    bool_adjust_covariates = bool_adjust_covariates,
                                    bool_covariates_as_library = bool_covariates_as_library,
+                                   bool_return_components = bool_return_components,
                                    library_min = library_min,
                                    nuisance_lower_quantile = nuisance_lower_quantile)
   input_obj$param <- .combine_two_named_lists(input_obj$param, param)
@@ -62,12 +64,17 @@ compute_posterior.eSVD <- function(input_obj,
     bool_adjust_covariates = bool_adjust_covariates,
     bool_covariates_as_library = bool_covariates_as_library,
     bool_library_includes_interept = bool_library_includes_interept,
+    bool_return_components = bool_return_components,
     library_min = library_min,
     nuisance_lower_quantile = nuisance_lower_quantile
   )
 
   input_obj[[latest_Fit]]$posterior_mean_mat <- res$posterior_mean_mat
   input_obj[[latest_Fit]]$posterior_var_mat <- res$posterior_var_mat
+  if(bool_return_components){
+    input_obj[[latest_Fit]]$numerator_mat <- res$numerator_mat
+    input_obj[[latest_Fit]]$denominator_mat <- res$denominator_mat
+  }
 
   input_obj
 }
@@ -106,6 +113,7 @@ compute_posterior.default <- function(input_obj,
                                       bool_adjust_covariates = F,
                                       bool_covariates_as_library = T,
                                       bool_library_includes_interept = T,
+                                      bool_return_components = F,
                                       library_min = NULL,
                                       nuisance_lower_quantile = 0.01,
                                       ...){
@@ -164,19 +172,29 @@ compute_posterior.default <- function(input_obj,
   colnames(posterior_mean_mat) <- colnames(input_obj)
   colnames(posterior_var_mat) <- colnames(input_obj)
 
-  list(posterior_mean_mat = posterior_mean_mat,
-       posterior_var_mat = posterior_var_mat)
+  if(!bool_return_components){
+    list(posterior_mean_mat = posterior_mean_mat,
+         posterior_var_mat = posterior_var_mat)
+  } else {
+    list(posterior_mean_mat = posterior_mean_mat,
+         posterior_var_mat = posterior_var_mat,
+         numerator_mat = AplusAlpha,
+         denominator_mat = SplusBeta)
+  }
+
 }
 
 
 .format_param_posterior <- function(alpha_max,
                                     bool_adjust_covariates,
                                     bool_covariates_as_library,
+                                    bool_return_components,
                                     library_min,
                                     nuisance_lower_quantile) {
   list(posterior_alpha_max = alpha_max,
        posterior_bool_adjust_covariates = bool_adjust_covariates,
        posterior_bool_covariates_as_library = bool_covariates_as_library,
+       posterior_bool_return_components = bool_return_components,
        posterior_library_min = library_min,
        posterior_nuisance_lower_quantile = nuisance_lower_quantile)
 }
