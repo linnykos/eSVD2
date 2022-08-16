@@ -30,6 +30,7 @@ compute_posterior.eSVD <- function(input_obj,
                                    bool_return_components = F,
                                    library_min = NULL,
                                    nuisance_lower_quantile = 0.01,
+                                   pseudocount = 0,
                                    ...){
   stopifnot(inherits(input_obj, "eSVD"), "latest_Fit" %in% names(input_obj),
             input_obj[["latest_Fit"]] %in% names(input_obj),
@@ -47,7 +48,8 @@ compute_posterior.eSVD <- function(input_obj,
                                    bool_covariates_as_library = bool_covariates_as_library,
                                    bool_return_components = bool_return_components,
                                    library_min = library_min,
-                                   nuisance_lower_quantile = nuisance_lower_quantile)
+                                   nuisance_lower_quantile = nuisance_lower_quantile,
+                                   pseudocount = pseudocount)
   input_obj$param <- .combine_two_named_lists(input_obj$param, param)
   case_control_variable <- .get_object(eSVD_obj = input_obj, which_fit = "param", what_obj = "init_case_control_variable")
   library_size_variable <- .get_object(eSVD_obj = input_obj, which_fit = "param", what_obj = "init_library_size_variable")
@@ -66,7 +68,8 @@ compute_posterior.eSVD <- function(input_obj,
     bool_library_includes_interept = bool_library_includes_interept,
     bool_return_components = bool_return_components,
     library_min = library_min,
-    nuisance_lower_quantile = nuisance_lower_quantile
+    nuisance_lower_quantile = nuisance_lower_quantile,
+    pseudocount = pseudocount
   )
 
   input_obj[[latest_Fit]]$posterior_mean_mat <- res$posterior_mean_mat
@@ -116,6 +119,7 @@ compute_posterior.default <- function(input_obj,
                                       bool_return_components = F,
                                       library_min = NULL,
                                       nuisance_lower_quantile = 0.01,
+                                      pseudocount = 0,
                                       ...){
   stopifnot(inherits(input_obj, c("matrix", "dgCMatrix")),
             is.list(esvd_res),
@@ -129,6 +133,7 @@ compute_posterior.default <- function(input_obj,
             !bool_adjust_covariates | !bool_covariates_as_library)
 
   if(inherits(input_obj, "dgCMatrix")) input_obj <- as.matrix(input_obj)
+  if(!is.null(pseudocount) && pseudocount > 0) input_obj <- input_obj + pseudocount
   case_control_idx <- which(colnames(covariates) == case_control_variable)
 
   library_size_variables <- library_size_variable
@@ -190,12 +195,14 @@ compute_posterior.default <- function(input_obj,
                                     bool_covariates_as_library,
                                     bool_return_components,
                                     library_min,
-                                    nuisance_lower_quantile) {
+                                    nuisance_lower_quantile,
+                                    pseudocount) {
   list(posterior_alpha_max = alpha_max,
        posterior_bool_adjust_covariates = bool_adjust_covariates,
        posterior_bool_covariates_as_library = bool_covariates_as_library,
        posterior_bool_return_components = bool_return_components,
        posterior_library_min = library_min,
-       posterior_nuisance_lower_quantile = nuisance_lower_quantile)
+       posterior_nuisance_lower_quantile = nuisance_lower_quantile,
+       posterior_pseudocount = pseudocount)
 }
 
