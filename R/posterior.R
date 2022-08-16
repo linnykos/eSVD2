@@ -24,7 +24,7 @@ compute_posterior <- function(input_obj, ...) {UseMethod("compute_posterior")}
 #' \code{input_obj[[input_obj[["latest_Fit"]]]]}.
 #' @export
 compute_posterior.eSVD <- function(input_obj,
-                                   alpha_max = 50,
+                                   alpha_max = NULL,
                                    bool_adjust_covariates = F,
                                    bool_covariates_as_library = T,
                                    bool_return_components = F,
@@ -115,7 +115,7 @@ compute_posterior.default <- function(input_obj,
                                       esvd_res,
                                       library_size_variable,
                                       nuisance_vec,
-                                      alpha_max = 50,
+                                      alpha_max = NULL,
                                       bool_adjust_covariates = F,
                                       bool_covariates_as_library = T,
                                       bool_library_includes_interept = T,
