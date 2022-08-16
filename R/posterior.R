@@ -28,9 +28,10 @@ compute_posterior.eSVD <- function(input_obj,
                                    bool_adjust_covariates = F,
                                    bool_covariates_as_library = T,
                                    bool_return_components = F,
-                                   library_min = NULL,
+                                   bool_stabilize_underdispersion = T,
+                                   library_min = 1,
                                    nuisance_lower_quantile = 0.01,
-                                   pseudocount = 0,
+                                   pseudocount = 1,
                                    ...){
   stopifnot(inherits(input_obj, "eSVD"), "latest_Fit" %in% names(input_obj),
             input_obj[["latest_Fit"]] %in% names(input_obj),
@@ -47,6 +48,7 @@ compute_posterior.eSVD <- function(input_obj,
                                    bool_adjust_covariates = bool_adjust_covariates,
                                    bool_covariates_as_library = bool_covariates_as_library,
                                    bool_return_components = bool_return_components,
+                                   bool_stabilize_underdispersion = bool_stabilize_underdispersion,
                                    library_min = library_min,
                                    nuisance_lower_quantile = nuisance_lower_quantile,
                                    pseudocount = pseudocount)
@@ -67,6 +69,7 @@ compute_posterior.eSVD <- function(input_obj,
     bool_covariates_as_library = bool_covariates_as_library,
     bool_library_includes_interept = bool_library_includes_interept,
     bool_return_components = bool_return_components,
+    bool_stabilize_underdispersion = bool_stabilize_underdispersion,
     library_min = library_min,
     nuisance_lower_quantile = nuisance_lower_quantile,
     pseudocount = pseudocount
@@ -117,9 +120,10 @@ compute_posterior.default <- function(input_obj,
                                       bool_covariates_as_library = T,
                                       bool_library_includes_interept = T,
                                       bool_return_components = F,
-                                      library_min = NULL,
+                                      bool_stabilize_underdispersion = T,
+                                      library_min = 1,
                                       nuisance_lower_quantile = 0.01,
-                                      pseudocount = 0,
+                                      pseudocount = 1,
                                       ...){
   stopifnot(inherits(input_obj, c("matrix", "dgCMatrix")),
             is.list(esvd_res),
@@ -154,6 +158,9 @@ compute_posterior.default <- function(input_obj,
 
   nuisance_vec <- pmax(nuisance_vec,
                        stats::quantile(nuisance_vec, probs = nuisance_lower_quantile))
+  if(bool_stabilize_underdispersion & mean(log10(nuisance_vec)) > 0) {
+    nuisance_vec <- 10^(scale(log10(nuisance_vec), center = T, scale = F))
+  }
   Alpha <- sweep(mean_mat_nolib, MARGIN = 2,
                  STATS = nuisance_vec, FUN = "*")
   AplusAlpha <- input_obj + Alpha
@@ -186,7 +193,6 @@ compute_posterior.default <- function(input_obj,
          numerator_mat = AplusAlpha,
          denominator_mat = SplusBeta)
   }
-
 }
 
 
@@ -194,6 +200,7 @@ compute_posterior.default <- function(input_obj,
                                     bool_adjust_covariates,
                                     bool_covariates_as_library,
                                     bool_return_components,
+                                    bool_stabilize_underdispersion,
                                     library_min,
                                     nuisance_lower_quantile,
                                     pseudocount) {
@@ -201,6 +208,7 @@ compute_posterior.default <- function(input_obj,
        posterior_bool_adjust_covariates = bool_adjust_covariates,
        posterior_bool_covariates_as_library = bool_covariates_as_library,
        posterior_bool_return_components = bool_return_components,
+       posterior_bool_stabilize_underdispersion = bool_stabilize_underdispersion,
        posterior_library_min = library_min,
        posterior_nuisance_lower_quantile = nuisance_lower_quantile,
        posterior_pseudocount = pseudocount)
