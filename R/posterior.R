@@ -138,6 +138,7 @@ compute_posterior.default <- function(input_obj,
 
   if(inherits(input_obj, "dgCMatrix")) input_obj <- as.matrix(input_obj)
   if(!is.null(pseudocount) && pseudocount > 0) input_obj <- input_obj + pseudocount
+  if(is.null(case_control_variable)) case_control_variable <- numeric(0)
   case_control_idx <- which(colnames(covariates) == case_control_variable)
 
   library_size_variables <- library_size_variable

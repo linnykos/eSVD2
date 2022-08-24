@@ -38,6 +38,8 @@ initialize_esvd <- function(dat,
                             lambda = 0.01,
                             library_size_variable = "Log_UMI",
                             offset_variables = "Log_UMI",
+                            metadata_case_control = NULL,
+                            metadata_individual = NULL,
                             verbose = 0){
   stopifnot(inherits(dat, c("dgCMatrix", "matrix")),
             nrow(dat) == nrow(covariates),
@@ -46,7 +48,9 @@ initialize_esvd <- function(dat,
             lambda <= 1e4, lambda >= 1e-4,
             library_size_variable %in% colnames(covariates),
             is.null(case_control_variable) || case_control_variable %in% colnames(covariates),
-            "Intercept" %in% colnames(covariates))
+            "Intercept" %in% colnames(covariates),
+            all(is.null(metadata_case_control)) || (all(is.numeric(metadata_case_control)) && all(metadata_case_control %in% c(0,1))),
+            all(is.null(metadata_individual)) || all(is.factor(metadata_individual)))
   stopifnot(all(is.null(offset_variables)) ||
               (all(offset_variables %in% colnames(covariates)) && !"Intercept" %in% offset_variables))
 
@@ -61,7 +65,6 @@ initialize_esvd <- function(dat,
 
   if(verbose >= 1) print("Performing GLMs")
   z_mat <- .initialize_coefficient(bool_intercept = bool_intercept,
-                                   case_control_variable = case_control_variable,
                                    covariates = covariates,
                                    dat = dat,
                                    lambda = lambda,
@@ -82,13 +85,19 @@ initialize_esvd <- function(dat,
   )
 
   eSVD_obj[["latest_Fit"]] <- "fit_Init"
+
+  if(all(is.null(metadata_case_control)) & !is.null(case_control_variable)){
+    metadata_case_control <- covariates[,case_control_variable]
+  }
+  eSVD_obj[["case_control"]] <- metadata_case_control
+  eSVD_obj[["individual"]] <- metadata_individual
+
   eSVD_obj
 }
 
 #####################
 
 .initialize_coefficient <- function(bool_intercept,
-                                    case_control_variable,
                                     covariates,
                                     dat,
                                     lambda,

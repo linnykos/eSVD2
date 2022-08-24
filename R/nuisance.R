@@ -37,6 +37,7 @@ estimate_nuisance.eSVD <- function(input_obj,
   covariates <- .get_object(eSVD_obj = input_obj, what_obj = "covariates", which_fit = NULL)
   latest_Fit <- .get_object(eSVD_obj = input_obj, what_obj = "latest_Fit", which_fit = NULL)
   case_control_variable <- .get_object(eSVD_obj = input_obj, what_obj = "init_case_control_variable", which_fit = "param")
+  if(is.null(case_control_variable)) case_control_variable <- numeric(0)
   x_mat <-.get_object(eSVD_obj = input_obj, what_obj = "x_mat", which_fit = latest_Fit)
   y_mat <-.get_object(eSVD_obj = input_obj, what_obj = "y_mat", which_fit = latest_Fit)
   z_mat <-.get_object(eSVD_obj = input_obj, what_obj = "z_mat", which_fit = latest_Fit)

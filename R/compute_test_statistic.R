@@ -23,26 +23,21 @@ compute_test_statistic <- function(input_obj, ...) {UseMethod("compute_test_stat
 #' @return \code{eSVD} object with added element \code{"teststat_vec"}
 #' @export
 compute_test_statistic.eSVD <- function(input_obj,
-                                        covariate_individual,
-                                        metadata,
                                         verbose = 0,
                                         ...){
   stopifnot(inherits(input_obj, "eSVD"), "latest_Fit" %in% names(input_obj),
             input_obj[["latest_Fit"]] %in% names(input_obj),
             inherits(input_obj[[input_obj[["latest_Fit"]]]], "eSVD_Fit"),
-            all(rownames(metadata) == rownames(input_obj$dat)),
-            covariate_individual %in% colnames(metadata),
-            is.factor(metadata[,covariate_individual]))
+            all(!is.null(input_obj[["case_control"]])) && all(input_obj[["case_control"]] %in% c(0,1)) && length(input_obj[["case_control"]]) == nrow(input_obj[["dat"]]),
+            all(!is.null(input_obj[["individual"]])) && all(is.factor(input_obj[["case_control"]])) && length(input_obj[["individual"]]) == nrow(input_obj[["dat"]]))
 
-  case_control_variable <- .get_object(eSVD_obj = input_obj, what_obj = "init_case_control_variable", which_fit = "param")
-  covariates <- .get_object(eSVD_obj = input_obj, what_obj = "covariates", which_fit = NULL)
-  cc_vec <- covariates[,case_control_variable]
+  cc_vec <- input_obj[["case_control"]]
   cc_levels <- sort(unique(cc_vec), decreasing = F)
   stopifnot(length(cc_levels) == 2)
   control_idx <- which(cc_vec == cc_levels[1])
   case_idx <- which(cc_vec == cc_levels[2])
 
-  individual_vec <- metadata[,covariate_individual]
+  individual_vec <- input_obj[["individual"]]
   control_individuals <- unique(individual_vec[control_idx])
   case_individuals <- unique(individual_vec[case_idx])
   stopifnot(length(intersect(control_individuals, case_individuals)) == 0)
@@ -60,8 +55,7 @@ compute_test_statistic.eSVD <- function(input_obj,
     posterior_var_mat = posterior_var_mat,
     case_individuals = case_individuals,
     control_individuals = control_individuals,
-    covariate_individual = covariate_individual,
-    metadata = metadata,
+    individual_vec = individual_vec,
     verbose = verbose
   )
 
@@ -97,24 +91,21 @@ compute_test_statistic.default <- function(input_obj,
                                            posterior_var_mat,
                                            case_individuals,
                                            control_individuals,
-                                           covariate_individual,
-                                           metadata,
+                                           individual_vec,
                                            verbose = 0,
                                            ...) {
   stopifnot(inherits(input_obj, "matrix"))
 
   posterior_mean_mat <- input_obj
   stopifnot(all(dim(posterior_mean_mat) == dim(posterior_var_mat)),
-            covariate_individual %in% colnames(metadata),
-            all(rownames(metadata) == rownames(posterior_mean_mat)))
+            length(individual_vec) == nrow(posterior_mean_mat))
 
   p <- ncol(posterior_mean_mat)
 
   if(verbose >= 1) print("Computing individual-level statistics")
   tmp <- .determine_individual_indices(case_individuals = case_individuals,
                                        control_individuals = control_individuals,
-                                       covariate_individual = covariate_individual,
-                                       metadata = metadata)
+                                       individual_vec = individual_vec)
   all_indiv_idx <- c(tmp$case_indiv_idx, tmp$control_indiv_idx)
   avg_mat <- .construct_averaging_matrix(idx_list = all_indiv_idx,
                                          n = nrow(posterior_mean_mat))
@@ -150,13 +141,12 @@ compute_test_statistic.default <- function(input_obj,
 
 .determine_individual_indices <- function(case_individuals,
                                           control_individuals,
-                                          covariate_individual,
-                                          metadata){
+                                          individual_vec){
   case_indiv_idx <- lapply(case_individuals, function(indiv){
-    which(metadata[,covariate_individual] == indiv)
+    which(individual_vec == indiv)
   })
   control_indiv_idx <- lapply(control_individuals, function(indiv){
-    which(metadata[,covariate_individual] == indiv)
+    which(individual_vec == indiv)
   })
 
   list(case_indiv_idx = case_indiv_idx,
