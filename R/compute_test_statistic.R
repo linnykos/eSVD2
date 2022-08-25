@@ -29,7 +29,7 @@ compute_test_statistic.eSVD <- function(input_obj,
             input_obj[["latest_Fit"]] %in% names(input_obj),
             inherits(input_obj[[input_obj[["latest_Fit"]]]], "eSVD_Fit"),
             all(!is.null(input_obj[["case_control"]])) && all(input_obj[["case_control"]] %in% c(0,1)) && length(input_obj[["case_control"]]) == nrow(input_obj[["dat"]]),
-            all(!is.null(input_obj[["individual"]])) && all(is.factor(input_obj[["case_control"]])) && length(input_obj[["individual"]]) == nrow(input_obj[["dat"]]))
+            all(!is.null(input_obj[["individual"]])) && all(is.factor(input_obj[["individual"]])) && length(input_obj[["individual"]]) == nrow(input_obj[["dat"]]))
 
   cc_vec <- input_obj[["case_control"]]
   cc_levels <- sort(unique(cc_vec), decreasing = F)
