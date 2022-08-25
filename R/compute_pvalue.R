@@ -1,9 +1,8 @@
-compute_df <- function(input_obj,
-                       metadata,
-                       covariate_individual){
-  case_control_variable <- .get_object(eSVD_obj = input_obj, what_obj = "init_case_control_variable", which_fit = "param")
-  covariates <- .get_object(eSVD_obj = input_obj, what_obj = "covariates", which_fit = NULL)
-  cc_vec <- covariates[,case_control_variable]
+compute_df <- function(input_obj){
+  stopifnot(all(!is.null(input_obj[["case_control"]])) && all(input_obj[["case_control"]] %in% c(0,1)) && length(input_obj[["case_control"]]) == nrow(input_obj[["dat"]]),
+            all(!is.null(input_obj[["individual"]])) && all(is.factor(input_obj[["individual"]])) && length(input_obj[["individual"]]) == nrow(input_obj[["dat"]]))
+
+  cc_vec <- input_obj[["case_control"]]
   cc_levels <- sort(unique(cc_vec), decreasing = F)
   stopifnot(length(cc_levels) == 2)
   control_idx <- which(cc_vec == cc_levels[1])
@@ -13,16 +12,15 @@ compute_df <- function(input_obj,
   posterior_mean_mat <- .get_object(eSVD_obj = input_obj, what_obj = "posterior_mean_mat", which_fit = latest_Fit)
   posterior_var_mat <- .get_object(eSVD_obj = input_obj, what_obj = "posterior_var_mat", which_fit = latest_Fit)
 
-  individual_vec <- metadata[,covariate_individual]
+  individual_vec <- input_obj[["individual"]]
   control_individuals <- unique(individual_vec[control_idx])
   case_individuals <- unique(individual_vec[case_idx])
   tmp <- .determine_individual_indices(case_individuals = case_individuals,
-                                       control_individuals = control_individuals,
-                                       covariate_individual = covariate_individual,
-                                       metadata = metadata)
+                                               control_individuals = control_individuals,
+                                               individual_vec = individual_vec)
   all_indiv_idx <- c(tmp$case_indiv_idx, tmp$control_indiv_idx)
   avg_mat <- .construct_averaging_matrix(idx_list = all_indiv_idx,
-                                         n = nrow(posterior_mean_mat))
+                                                 n = nrow(posterior_mean_mat))
   avg_posterior_mean_mat <- as.matrix(avg_mat %*% posterior_mean_mat)
   avg_posterior_var_mat <- as.matrix(avg_mat %*% posterior_var_mat)
 
@@ -30,11 +28,11 @@ compute_df <- function(input_obj,
   control_row_idx <- (length(case_individuals)+1):nrow(avg_posterior_mean_mat)
   case_gaussian_mean <- Matrix::colMeans(avg_posterior_mean_mat[case_row_idx,,drop = F])
   control_gaussian_mean <- Matrix::colMeans(avg_posterior_mean_mat[control_row_idx,,drop = F])
-  case_gaussian_var <- eSVD2:::.compute_mixture_gaussian_variance(
+  case_gaussian_var <- .compute_mixture_gaussian_variance(
     avg_posterior_mean_mat = avg_posterior_mean_mat[case_row_idx,,drop = F],
     avg_posterior_var_mat = avg_posterior_var_mat[case_row_idx,,drop = F]
   )
-  control_gaussian_var <- eSVD2:::.compute_mixture_gaussian_variance(
+  control_gaussian_var <- .compute_mixture_gaussian_variance(
     avg_posterior_mean_mat = avg_posterior_mean_mat[control_row_idx,,drop = F],
     avg_posterior_var_mat = avg_posterior_var_mat[control_row_idx,,drop = F]
   )
