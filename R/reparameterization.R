@@ -98,18 +98,18 @@
   .reparameterize(x_mat, y_mat, equal_covariance = equal_covariance)
 }
 
-.reparameterization_esvd_covariates <- function(eSVD_obj,
+.reparameterization_esvd_covariates <- function(input_obj,
                                                 fit_name,
                                                 omitted_variables,
                                                 verbose = 0){
 
-  x_mat <- eSVD_obj[[fit_name]]$x_mat
-  y_mat <- eSVD_obj[[fit_name]]$y_mat
-  z_mat <- eSVD_obj[[fit_name]]$z_mat
+  x_mat <- input_obj[[fit_name]]$x_mat
+  y_mat <- input_obj[[fit_name]]$y_mat
+  z_mat <- input_obj[[fit_name]]$z_mat
   k <- ncol(x_mat)
   p <- nrow(y_mat)
 
-  covariate_mat <- eSVD_obj$covariates
+  covariate_mat <- input_obj$covariates
   stopifnot("Intercept" %in% colnames(covariate_mat))
   covariate_mat <- covariate_mat[,which(!colnames(covariate_mat) %in% omitted_variables),drop=F]
   covariate_mat2 <- covariate_mat[,which(colnames(covariate_mat) != "Intercept")]
@@ -134,11 +134,11 @@
   res <- eSVD2:::.reparameterize(x_mat, y_mat, equal_covariance = T)
   x_mat <- res$x_mat; y_mat <- res$y_mat
 
-  eSVD_obj[[fit_name]]$x_mat <- x_mat
-  eSVD_obj[[fit_name]]$y_mat <- y_mat
-  eSVD_obj[[fit_name]]$z_mat <- z_mat
+  input_obj[[fit_name]]$x_mat <- x_mat
+  input_obj[[fit_name]]$y_mat <- y_mat
+  input_obj[[fit_name]]$z_mat <- z_mat
 
-  eSVD_obj
+  input_obj
 }
 
 
