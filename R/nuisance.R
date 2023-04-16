@@ -116,6 +116,7 @@ estimate_nuisance.default <- function(input_obj,
                           bool_use_log = bool_use_log,
                           verbose = verbose)
   })
+
   if(length(colnames(input_obj)) > 0) names(nuisance_vec) <- colnames(input_obj)
 
   pmax(nuisance_vec, min_val)

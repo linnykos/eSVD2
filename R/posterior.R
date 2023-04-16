@@ -142,7 +142,9 @@ compute_posterior.default <- function(input_obj,
   case_control_idx <- which(colnames(covariates) == case_control_variable)
 
   library_size_variables <- library_size_variable
-  if(bool_covariates_as_library) library_size_variables <- unique(c(library_size_variables, setdiff(colnames(covariates), c("Intercept", case_control_variable))))
+  if(bool_covariates_as_library) library_size_variables <- unique(c(library_size_variables,
+                                                                    setdiff(colnames(covariates),
+                                                                            c("Intercept", case_control_variable))))
   if(bool_library_includes_interept) library_size_variables <-  unique(c("Intercept", library_size_variables))
 
   library_idx <- which(colnames(covariates) %in% library_size_variables)
