@@ -6,7 +6,6 @@ multtest <- function(teststat_vec,
     res <- .multtest_truncatedGauss(teststat_vec,
                                     observed_quantile = observed_quantile)
   }
-  print(res)
   if(any(is.na(res))){
     res <- .multtest_simple(teststat_vec,
                             observed_quantile = observed_quantile)
