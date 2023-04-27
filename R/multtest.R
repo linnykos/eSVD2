@@ -27,12 +27,11 @@ multtest <- function(teststat_vec,
 
   pvalue_vec <- sapply(teststat_vec, function(x){
     if(x < null_mean) {
-      Rmpfr::pnorm(x, mean = null_mean, sd = null_sd, log.p = F)
+      2*Rmpfr::pnorm(x, mean = null_mean, sd = null_sd, log.p = F)
     } else {
-      Rmpfr::pnorm(null_mean - (x-null_mean), mean = null_mean, sd = null_sd, log.p = F)
+      2*Rmpfr::pnorm(null_mean - (x-null_mean), mean = null_mean, sd = null_sd, log.p = F)
     }
   })
-  pvalue_vec <- pvalue_vec*2
   names(pvalue_vec) <- names(teststat_vec)
   fdr_vec <- stats::p.adjust(pvalue_vec, method = "BH")
   names(fdr_vec) <- names(teststat_vec)
