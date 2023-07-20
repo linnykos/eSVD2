@@ -164,6 +164,8 @@ compute_posterior.default <- function(input_obj,
   if(bool_stabilize_underdispersion & mean(log10(nuisance_vec)) > 0) {
     nuisance_vec <- 10^(scale(log10(nuisance_vec), center = T, scale = F))
   }
+
+  if(!is.null(alpha_max)) mean_mat_nolib <- pmin(mean_mat_nolib, alpha_max)
   Alpha <- sweep(mean_mat_nolib, MARGIN = 2,
                  STATS = nuisance_vec, FUN = "*")
   AplusAlpha <- input_obj + Alpha
@@ -175,7 +177,6 @@ compute_posterior.default <- function(input_obj,
     AplusAlpha <- exp(tmp - nat_mat_confounder)
   }
 
-  if(!is.null(alpha_max)) AplusAlpha <- pmin(AplusAlpha, alpha_max)
 
   SplusBeta <- sweep(library_mat, MARGIN = 2,
                      STATS = nuisance_vec, FUN = "+")
