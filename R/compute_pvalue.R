@@ -48,3 +48,44 @@ compute_df <- function(input_obj){
 
   df_vec
 }
+
+compute_pvalue <- function(input_obj,
+                           verbose = 0,
+                           ...){
+  df_vec <- eSVD2:::compute_df(input_obj = input_obj)
+  names(df_vec) <- names(df_vec)
+
+  teststat_vec <- input_obj$teststat_vec
+  p <- length(teststat_vec)
+  gaussian_teststat <- sapply(1:p, function(j){
+    qnorm(pt(teststat_vec[j], df = df_vec[j]))
+  })
+  names(gaussian_teststat) <- names(teststat_vec)
+
+  locfdr_res <- locfdr::locfdr(gaussian_teststat, plot = 0)
+  fdr_vec <- locfdr_res$fdr
+  names(fdr_vec) <- names(gaussian_teststat)
+  null_mean <- locfdr_res$fp0["mlest", "delta"]
+  null_sd <- locfdr_res$fp0["mlest", "sigma"]
+  log10pvalue_vec <- sapply(gaussian_teststat, function(x){
+    if(x < null_mean) {
+      Rmpfr::pnorm(x, mean = null_mean, sd = null_sd, log.p = T)
+    } else {
+      Rmpfr::pnorm(null_mean - (x-null_mean), mean = null_mean, sd = null_sd, log.p = T)
+    }
+  })
+  log10pvalue_vec <- -(log10pvalue_vec/log(10) + log10(2))
+  names(log10pvalue_vec) <- names(teststat_vec)
+
+  pvalue_list <- list(
+    df_vec = df_vec,
+    fdr_vec = fdr_vec,
+    gaussian_teststat = gaussian_teststat,
+    log10pvalue = log10pvalue_vec,
+    null_mean = null_mean,
+    null_sd = null_sd
+  )
+
+  input_obj[["pvalue_list"]] <- pvalue_list
+  input_obj
+}

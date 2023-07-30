@@ -1,6 +1,6 @@
 Package: eSVD2
 Title: eSVD2
-Version: 0.0.0.0068
+Version: 0.0.0.0069
 Authors@R: person("First", "Last", email = "first.last@example.com", role = c("aut", "cre"))
 Description: Assuming each row and column of a matrix is associated with a low-dimensional vector, eSVD estimates an embedding for each cell with respect to a hierarchical model where the inner product between the row's and column's latent vectors is the natural parameter of a one-parameter exponential family random variable.
 Depends:
