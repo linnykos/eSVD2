@@ -58,15 +58,15 @@ compute_pvalue <- function(input_obj,
   teststat_vec <- input_obj$teststat_vec
   p <- length(teststat_vec)
   gaussian_teststat <- sapply(1:p, function(j){
-    qnorm(pt(teststat_vec[j], df = df_vec[j]))
+    stats::qnorm(stats::pt(teststat_vec[j], df = df_vec[j]))
   })
   names(gaussian_teststat) <- names(teststat_vec)
 
-  locfdr_res <- locfdr::locfdr(gaussian_teststat, plot = 0)
-  fdr_vec <- locfdr_res$fdr
+  fdr_res <- multtest(gaussian_teststat)
+  fdr_vec <- fdr_res$fdr_vec
   names(fdr_vec) <- names(gaussian_teststat)
-  null_mean <- locfdr_res$fp0["mlest", "delta"]
-  null_sd <- locfdr_res$fp0["mlest", "sigma"]
+  null_mean <- fdr_res$null_mean
+  null_sd <- fdr_res$null_sd
   log10pvalue_vec <- sapply(gaussian_teststat, function(x){
     if(x < null_mean) {
       Rmpfr::pnorm(x, mean = null_mean, sd = null_sd, log.p = T)
