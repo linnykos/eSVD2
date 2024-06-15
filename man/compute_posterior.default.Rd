@@ -11,11 +11,15 @@
   esvd_res,
   library_size_variable,
   nuisance_vec,
-  alpha_max = 50,
+  alpha_max = 1000,
   bool_adjust_covariates = F,
   bool_covariates_as_library = T,
   bool_library_includes_interept = T,
+  bool_return_components = F,
+  bool_stabilize_underdispersion = T,
+  library_min = 0.1,
   nuisance_lower_quantile = 0.01,
+  pseudocount = 0,
   ...
 )
 }
@@ -36,13 +40,30 @@ variables should have already been split into numerous indicator variables).}
 \item{esvd_res}{Output of \code{opt_esvd.default}, notably with elements
 \code{x_mat}, \code{y_mat} and \code{z_mat}}
 
+\item{library_size_variable}{A string of the variable name (which must be in \code{covariates}) of which variable denotes the sequenced (i.e., observed) library size.}
+
 \item{nuisance_vec}{Vector of non-negative numerics of length \code{ncol(input_obj)}, such as
 the output of \code{estimate_nuisance.default}.}
 
-\item{alpha_max}{Maximum value of numerator when computing posterior.}
+\item{alpha_max}{Maximum value of numerator when computing posterior, default is \code{1e3}.}
+
+\item{bool_adjust_covariates}{Boolean to adjust the numerator in the posterior by the donor covariates, default is \code{FALSE}.
+This parameter is experimental, and we have not yet encountered a scenario where it is useful to be set to be \code{TRUE}.}
+
+\item{bool_covariates_as_library}{Boolean to include the donor covariates effects in the adjusted library size, default is \code{TRUE}.}
+
+\item{bool_library_includes_interept}{Boolean if the intercept term from the eSVD matrix factorization should be included in the calculation for the covariate-adjusted library size, default is \code{TRUE}.}
+
+\item{bool_return_components}{Boolean to return the numerator and denominator of the posterior terms as well (which will themselves by matrices that are cell-by-gene matrices), default is \code{FALSE}.}
+
+\item{bool_stabilize_underdispersion}{Boolean to stabilize the over-dispersion parameter, specifically to rescale all the over-dispersions the global mean over-disperion is less than 1, default is \code{TRUE}.}
+
+\item{library_min}{All covariate-adjusted library size smaller than this value are set to this value, default is 0.1.}
 
 \item{nuisance_lower_quantile}{All the nuisance values that are smaller than this quantile
 are set to this quantile.}
+
+\item{pseudocount}{The additional count that is added to the count matrix, default is 0.}
 
 \item{...}{Additional parameters.}
 }

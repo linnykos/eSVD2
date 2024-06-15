@@ -8,20 +8,22 @@
 #' @param dat                      Dataset (either \code{matrix} or \code{dgCMatrix}) where the \eqn{n} rows represent cells
 #'                                 and \eqn{p} columns represent genes.
 #'                                 The rows and columns of the matrix should be named.
+#' @param covariates               \code{matrix} object with \eqn{n} rows with the same rownames as \code{dat} where the columns
+#'                                 represent the different covariates.
+#'                                 Notably, this should contain only numerical columns (i.e., all categorical
+#'                                 variables should have already been split into numerous indicator variables), and all the columns
+#'                                 in \code{covariates} will (strictly speaking) be included in the eSVD matrix factorization model.
+#' @param metadata_individual      Vector of factors of length \eqn{n} that denotes which cell originates from which individual.
 #' @param bool_intercept           Boolean on whether or not an intercept will be included as a covariate.
 #' @param case_control_variable    A string of the column name of \code{covariates} which depicts the case-control
 #'                                 status of each cell. Notably, this should be a binary variable where a \code{1}
 #'                                 is hard-coded to describe case, and a \code{0} to describe control.
-#' @param covariates               \code{matrix} object with \eqn{n} rows with the same rownames as \code{dat} where the columns
-#'                                 represent the different covariates.
-#'                                 Notably, this should contain only numerical columns (i.e., all categorical
-#'                                 variables should have already been split into numerous indicator variables).
 #' @param k                        Number of latent dimensions.
 #' @param lambda                   Penalty of the \code{mixed_effect_variables} when using \code{glmnet::glmnet} to
 #'                                 initialize the coefficients.
-#' @param mixed_effect_variables   A vector of strings depicting which column names in \code{covariate} will
-#'                                 incur the penalty \code{lambda}. This is used as a soft work-around for emulating
-#'                                 a mixed-effects model.
+#' @param library_size_variable    A string of the variable name (which must be in \code{covariates}) of which variable denotes the sequenced (i.e., observed) library size.
+#' @param metadata_case_control    (Optional) vector of length \eqn{n} with values strictly 0 or 1 that denotes if a cell is from cases or controls.
+#'                                 By default, this is set to \code{NULL} since the code will extract this information from \code{covariates}.
 #' @param offset_variables         A vector of strings depicting which column names in \code{covariate} will
 #'                                 be set to have a coefficient of \code{1} automatically (i.e., there will be no estimation
 #'                                 of their coefficient).
@@ -32,6 +34,7 @@
 #' @export
 initialize_esvd <- function(dat,
                             covariates,
+                            metadata_individual,
                             bool_intercept = F,
                             case_control_variable = NULL,
                             k = 30,
@@ -39,7 +42,6 @@ initialize_esvd <- function(dat,
                             library_size_variable = "Log_UMI",
                             offset_variables = "Log_UMI",
                             metadata_case_control = NULL,
-                            metadata_individual = NULL,
                             verbose = 0){
   stopifnot(inherits(dat, c("dgCMatrix", "matrix")),
             nrow(dat) == nrow(covariates),
@@ -50,7 +52,7 @@ initialize_esvd <- function(dat,
             is.null(case_control_variable) || case_control_variable %in% colnames(covariates),
             "Intercept" %in% colnames(covariates),
             all(is.null(metadata_case_control)) || (all(is.numeric(metadata_case_control)) && all(metadata_case_control %in% c(0,1))),
-            all(is.null(metadata_individual)) || all(is.factor(metadata_individual)))
+            all(is.factor(metadata_individual)))
   stopifnot(all(is.null(offset_variables)) ||
               (all(offset_variables %in% colnames(covariates)) && !"Intercept" %in% offset_variables))
 

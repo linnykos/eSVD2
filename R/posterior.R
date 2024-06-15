@@ -13,11 +13,18 @@ compute_posterior <- function(input_obj, ...) {UseMethod("compute_posterior")}
 #'
 #' The posterior is computed based on whatever \code{input_obj$latest_Fit} is set to.
 #'
-#' @param input_obj                 \code{eSVD} object outputed from \code{opt_esvd.eSVD}.
-#' @param alpha_max                 Maximum value of numerator when computing posterior.
-#' @param nuisance_lower_quantile   All the nuisance values that are smaller than this quantile
-#'                                  are set to this quantile.
-#' @param ...                       Additional parameters.
+#' @param input_obj                       \code{eSVD} object outputed from \code{opt_esvd.eSVD}.
+#' @param alpha_max                       Maximum value of numerator when computing posterior, default is \code{1e3}.
+#' @param bool_adjust_covariates          Boolean to adjust the numerator in the posterior by the donor covariates, default is \code{FALSE}.
+#'                                        This parameter is experimental, and we have not yet encountered a scenario where it is useful to be set to be \code{TRUE}.
+#' @param bool_covariates_as_library      Boolean to include the donor covariates effects in the adjusted library size, default is \code{TRUE}
+#' @param bool_return_components          Boolean to return the numerator and denominator of the posterior terms as well (which will themselves by matrices that are cell-by-gene matrices), default is \code{FALSE}
+#' @param bool_stabilize_underdispersion  Boolean to stabilize the over-dispersion parameter, specifically to rescale all the over-dispersions the global mean over-disperion is less than 1, default is \code{TRUE}
+#' @param library_min                     All covariate-adjusted library size smaller than this value are set to this value, default is 0.1.
+#' @param nuisance_lower_quantile         All the nuisance values that are smaller than this quantile
+#'                                        are set to this quantile, default is 0.01
+#' @param pseudocount                     The additional count that is added to the count matrix, default is 0.
+#' @param ...                             Additional parameters.
 #'
 #' @return \code{eSVD} object with \code{posterior_mean_mat}
 #' and \code{posterior_var_mat} appended to the list in
@@ -87,24 +94,33 @@ compute_posterior.eSVD <- function(input_obj,
 
 #' Compute posterior according to Gamma-Poisson model for matrices and sparse matrices.
 #'
-#' @param input_obj                Dataset (either \code{matrix} or \code{dgCMatrix}) where the \eqn{n} rows represent cells
-#'                                 and \eqn{p} columns represent genes.
-#'                                 The rows and columns of the matrix should be named.
-#' @param case_control_variable    A string of the column name of \code{covariates} which depicts the case-control
-#'                                 status of each cell. Notably, this should be a binary variable where a \code{1}
-#'                                 is hard-coded to describe case, and a \code{0} to describe control.
-#' @param covariates               \code{matrix} object with \eqn{n} rows with the same rownames as \code{dat} where the columns
-#'                                 represent the different covariates.
-#'                                 Notably, this should contain only numerical columns (i.e., all categorical
-#'                                 variables should have already been split into numerous indicator variables).
-#' @param esvd_res                 Output of \code{opt_esvd.default}, notably with elements
-#'                                 \code{x_mat}, \code{y_mat} and \code{z_mat}
-#' @param nuisance_vec             Vector of non-negative numerics of length \code{ncol(input_obj)}, such as
-#'                                 the output of \code{estimate_nuisance.default}.
-#' @param alpha_max                Maximum value of numerator when computing posterior.
-#' @param nuisance_lower_quantile  All the nuisance values that are smaller than this quantile
-#'                                 are set to this quantile.
-#' @param ...                      Additional parameters.
+#' @param input_obj                       Dataset (either \code{matrix} or \code{dgCMatrix}) where the \eqn{n} rows represent cells
+#'                                        and \eqn{p} columns represent genes.
+#'                                        The rows and columns of the matrix should be named.
+#' @param case_control_variable           A string of the column name of \code{covariates} which depicts the case-control
+#'                                        status of each cell. Notably, this should be a binary variable where a \code{1}
+#'                                        is hard-coded to describe case, and a \code{0} to describe control.
+#' @param covariates                      \code{matrix} object with \eqn{n} rows with the same rownames as \code{dat} where the columns
+#'                                        represent the different covariates.
+#'                                        Notably, this should contain only numerical columns (i.e., all categorical
+#'                                        variables should have already been split into numerous indicator variables).
+#' @param esvd_res                        Output of \code{opt_esvd.default}, notably with elements
+#'                                        \code{x_mat}, \code{y_mat} and \code{z_mat}
+#' @param library_size_variable           A string of the variable name (which must be in \code{covariates}) of which variable denotes the sequenced (i.e., observed) library size.
+#' @param nuisance_vec                    Vector of non-negative numerics of length \code{ncol(input_obj)}, such as
+#'                                        the output of \code{estimate_nuisance.default}.
+#' @param alpha_max                       Maximum value of numerator when computing posterior, default is \code{1e3}.
+#' @param bool_adjust_covariates          Boolean to adjust the numerator in the posterior by the donor covariates, default is \code{FALSE}.
+#'                                        This parameter is experimental, and we have not yet encountered a scenario where it is useful to be set to be \code{TRUE}.
+#' @param bool_covariates_as_library      Boolean to include the donor covariates effects in the adjusted library size, default is \code{TRUE}.
+#' @param bool_library_includes_interept  Boolean if the intercept term from the eSVD matrix factorization should be included in the calculation for the covariate-adjusted library size, default is \code{TRUE}.
+#' @param bool_return_components          Boolean to return the numerator and denominator of the posterior terms as well (which will themselves by matrices that are cell-by-gene matrices), default is \code{FALSE}.
+#' @param bool_stabilize_underdispersion  Boolean to stabilize the over-dispersion parameter, specifically to rescale all the over-dispersions the global mean over-disperion is less than 1, default is \code{TRUE}.
+#' @param library_min                     All covariate-adjusted library size smaller than this value are set to this value, default is 0.1.
+#' @param nuisance_lower_quantile         All the nuisance values that are smaller than this quantile
+#'                                        are set to this quantile.
+#' @param pseudocount                     The additional count that is added to the count matrix, default is 0.
+#' @param ...                             Additional parameters.
 #'
 #' @return A \code{list} of elements \code{posterior_mean_mat}
 #' and \code{posterior_var_mat}

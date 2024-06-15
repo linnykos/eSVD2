@@ -2,12 +2,14 @@
 % Please edit documentation in R/nuisance.R
 \name{estimate_nuisance.eSVD}
 \alias{estimate_nuisance.eSVD}
-\title{Estimate nuisance values for eSVD objects}
+\title{Estimate nuisance values for eSVD objects (i.e., over-dispersion)}
 \usage{
 \method{estimate_nuisance}{eSVD}(
   input_obj,
   bool_covariates_as_library = F,
   bool_library_includes_interept = T,
+  bool_use_log = F,
+  min_val = 1e-04,
   verbose = 0,
   ...
 )
@@ -16,6 +18,15 @@
 \item{input_obj}{\code{eSVD} object outputed from \code{opt_esvd.eSVD}.
 Specifically, the nuisance parameters will be estimated
 based on the fit in \code{input_obj[[input_obj[["latest_Fit"]]]]}.}
+
+\item{bool_covariates_as_library}{Boolean to adjust the numerator in the posterior by the donor covariates, default is \code{FALSE}.
+This parameter is experimental, and we have not yet encountered a scenario where it is useful to be set to be \code{TRUE}.}
+
+\item{bool_library_includes_interept}{Boolean if the intercept term from the eSVD matrix factorization should be included in the calculation for the covariate-adjusted library size, default is \code{TRUE}.}
+
+\item{bool_use_log}{Boolean if the nuisance (i.e., over-dispersion) parameter should be estimated on the log scale, default is \code{FALSE}.}
+
+\item{min_val}{Minimum value of the nuisance parameter.}
 
 \item{verbose}{Integer.}
 

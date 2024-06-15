@@ -9,16 +9,21 @@
 #' @export
 estimate_nuisance <- function(input_obj, ...) {UseMethod("estimate_nuisance")}
 
-#' Estimate nuisance values for eSVD objects
+#' Estimate nuisance values for eSVD objects (i.e., over-dispersion)
 #'
 #' Assumes a Gamma-Poisson model where the mean and variance are proportionally
 #' related.
 #'
-#' @param input_obj \code{eSVD} object outputed from \code{opt_esvd.eSVD}.
-#'                  Specifically, the nuisance parameters will be estimated
-#'                  based on the fit in \code{input_obj[[input_obj[["latest_Fit"]]]]}.
-#' @param verbose   Integer.
-#' @param ...       Additional parameters.
+#' @param input_obj                       \code{eSVD} object outputed from \code{opt_esvd.eSVD}.
+#'                                        Specifically, the nuisance parameters will be estimated
+#'                                        based on the fit in \code{input_obj[[input_obj[["latest_Fit"]]]]}.
+#' @param bool_covariates_as_library      Boolean to adjust the numerator in the posterior by the donor covariates, default is \code{FALSE}.
+#'                                        This parameter is experimental, and we have not yet encountered a scenario where it is useful to be set to be \code{TRUE}.
+#' @param bool_library_includes_interept  Boolean if the intercept term from the eSVD matrix factorization should be included in the calculation for the covariate-adjusted library size, default is \code{TRUE}.
+#' @param bool_use_log                    Boolean if the nuisance (i.e., over-dispersion) parameter should be estimated on the log scale, default is \code{FALSE}.
+#' @param min_val                         Minimum value of the nuisance parameter.
+#' @param verbose                         Integer.
+#' @param ...                             Additional parameters.
 #'
 #' @return \code{eSVD} object with \code{nuisance_vec} appended to the list in
 #' \code{input_obj[[input_obj[["latest_Fit"]]]]}.
@@ -88,6 +93,8 @@ estimate_nuisance.eSVD <- function(input_obj,
 #'                     expected value of each entry.
 #' @param library_mat  A \code{matrix} of \eqn{n} rows and \eqn{p} columns that represents the
 #'                     library size of each entry.
+#' @param bool_use_log Boolean if the nuisance (i.e., over-dispersion) parameter should be estimated on the log scale, default is \code{FALSE}.
+#' @param min_val      Minimum value of the nuisance parameter.
 #' @param verbose      Integer.
 #' @param ...          Additional parameters.
 #'

@@ -131,7 +131,7 @@
     x_mat[,ell] <- stats::residuals(lm_res)
   }
 
-  res <- eSVD2:::.reparameterize(x_mat, y_mat, equal_covariance = T)
+  res <- .reparameterize(x_mat, y_mat, equal_covariance = T)
   x_mat <- res$x_mat; y_mat <- res$y_mat
 
   input_obj[[fit_name]]$x_mat <- x_mat

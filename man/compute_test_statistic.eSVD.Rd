@@ -4,23 +4,10 @@
 \alias{compute_test_statistic.eSVD}
 \title{Compute test statistics for eSVD object}
 \usage{
-\method{compute_test_statistic}{eSVD}(
-  input_obj,
-  covariate_individual,
-  metadata,
-  verbose = 0,
-  ...
-)
+\method{compute_test_statistic}{eSVD}(input_obj, verbose = 0, ...)
 }
 \arguments{
 \item{input_obj}{\code{eSVD} object outputed from \code{compute_posterior.eSVD}.}
-
-\item{covariate_individual}{A string of the column name of \code{metadata} which depicts the individual
-each cell originates from. Notably, this column in \code{metadata} should be a factor vector.}
-
-\item{metadata}{\code{data frame} object with \eqn{n} rows with the same row names as \code{input_obj$dat}
-where the columns represent the different covariates.
-Notably, this should can contain categorical variables.}
 
 \item{verbose}{Integer.}
 

@@ -21,11 +21,12 @@ test_that("compute_test_statistic works", {
                                 case_individuals = case_individuals,
                                 control_individuals = control_individuals,
                                 covariate_individual = "individual",
+                                individual_vec = individual_vec,
                                 metadata = metadata)
 
-  mean_val <- mean(res)
-  sd_val <- sd(res)
-  quantile_vec <- sapply(res, function(x){
+  mean_val <- mean(res$teststat_vec)
+  sd_val <- sd(res$teststat_vec)
+  quantile_vec <- sapply(res$teststat_vec, function(x){
     1-2*abs(stats::pnorm(x, mean = mean_val, sd = sd_val)-.5)
   })
   expect_true(mean(abs(quantile_vec[true_cc_status == 1])) > 2*mean(abs(quantile_vec[true_cc_status == 2])))
@@ -41,8 +42,7 @@ test_that(".determine_individual_indices works", {
   rownames(metadata) <- paste0("c", 1:n)
   res <- .determine_individual_indices(case_individuals = c("1", "2"),
                                        control_individuals = c("3", "4"),
-                                       covariate_individual = "individual",
-                                       metadata = metadata)
+                                       individual_vec = metadata[,"individual"])
 
   expect_true(is.list(res))
   expect_true(all(sort(names(res)) == sort(c("case_indiv_idx", "control_indiv_idx"))))
@@ -68,8 +68,7 @@ test_that(".construct_averaging_matrix works", {
   rownames(metadata) <- paste0("c", 1:n)
   tmp <- .determine_individual_indices(case_individuals = c("1", "2"),
                                        control_individuals = c("3", "4"),
-                                       covariate_individual = "individual",
-                                       metadata = metadata)
+                                       individual_vec = metadata[,"individual"])
   all_indiv_idx <- c(tmp$case_indiv_idx, tmp$control_indiv_idx)
   res <- .construct_averaging_matrix(idx_list = all_indiv_idx,
                                      n = n)

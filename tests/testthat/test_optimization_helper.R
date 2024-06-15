@@ -10,7 +10,9 @@ test_that("opt_x and opt_yz works", {
   nat_mat <- log(tcrossprod(x_mat, y_mat))
 
   # Simulate data
-  dat <- generate_data(nat_mat, family = "poisson", nuisance_param_vec = NA,
+  dat <- generate_data(nat_mat,
+                       family = "poisson",
+                       nuisance_param_vec = NA,
                        library_size_vec = 1)
 
   # Simulate a covariate whose coefficients are fixed, i.e., an offset

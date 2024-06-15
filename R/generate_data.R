@@ -1,24 +1,27 @@
 #' Generate data
 #'
-#' @param nat_mat An \eqn{n\times p} matrix of natural parameters, where
-#'                \eqn{n} rows represent cells and \eqn{p} columns represent genes.
-#' @param family A character string, one of \code{"gaussian"}, \code{"exponential"},
-#'               \code{"poisson"}, \code{"neg_binom"}, \code{"curved_gaussian"},
-#'               and \code{"bernoulli"}.
-#' @param nuisance_param_vec Either \code{NA} or a single numeric or a length-\eqn{p}
-#'                           vector of numerics representing nuisance parameters
-#'                           (for \code{family = "neg_binom"} and
-#'                           \code{family = "curved_gausian"}).
-#'                           It is only required if
-#'                           \code{family \%in\% c("neg_binom", "curved_gaussian")}.
-#' @param library_size_vec Either \code{NA} or a length-\eqn{n} vector of numerics
-#' @param tol Small positive value to determine the smallest possible value in the output
-#'            matrix, useful for only \code{family = "curved_gaussian"}.
+#' @param nat_mat             An \eqn{n\times p} matrix of natural parameters, where
+#'                            \eqn{n} rows represent cells and \eqn{p} columns represent genes.
+#' @param family              A character string, one of \code{"gaussian"}, \code{"exponential"},
+#'                            \code{"poisson"}, \code{"neg_binom"}, \code{"curved_gaussian"},
+#'                            and \code{"bernoulli"}.
+#' @param nuisance_param_vec  Either \code{NA} or a single numeric or a length-\eqn{p}
+#'                            vector of numerics representing nuisance parameters
+#'                            (for \code{family = "neg_binom"} and
+#'                            \code{family = "curved_gausian"}).
+#'                            It is only required if
+#'                            \code{family \%in\% c("neg_binom", "curved_gaussian")}.
+#' @param library_size_vec    Either \code{NA} or a length-\eqn{n} vector of numerics
+#' @param tol                 Small positive value to determine the smallest possible value in the output
+#'                            matrix, useful for only \code{family = "curved_gaussian"}.
 #'
 #' @return The generated data matrix
 #' @export
-generate_data <- function(
-    nat_mat, family, nuisance_param_vec = NA, library_size_vec = 1, tol = 1e-3
+generate_data <- function(nat_mat,
+                          family,
+                          nuisance_param_vec = NA,
+                          library_size_vec = 1,
+                          tol = 1e-3
 ) {
   family <- esvd_family(as.character(family))
   stopifnot(
@@ -47,7 +50,10 @@ generate_data <- function(
   dat
 }
 
-.generate_values <- function(nat_mat, family, nuisance_param_vec, library_size_vec) {
+.generate_values <- function(nat_mat,
+                             family,
+                             nuisance_param_vec,
+                             library_size_vec) {
 
   n <- nrow(nat_mat)
   p <- ncol(nat_mat)

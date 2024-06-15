@@ -12,11 +12,6 @@ compute_test_statistic <- function(input_obj, ...) {UseMethod("compute_test_stat
 #' Compute test statistics for eSVD object
 #'
 #' @param input_obj             \code{eSVD} object outputed from \code{compute_posterior.eSVD}.
-#' @param covariate_individual  A string of the column name of \code{metadata} which depicts the individual
-#'                              each cell originates from. Notably, this column in \code{metadata} should be a factor vector.
-#' @param metadata              \code{data frame} object with \eqn{n} rows with the same row names as \code{input_obj$dat}
-#'                              where the columns represent the different covariates.
-#'                              Notably, this should can contain categorical variables.
 #' @param verbose               Integer.
 #' @param ...                   Additional parameters.
 #'
@@ -77,11 +72,7 @@ compute_test_statistic.eSVD <- function(input_obj,
 #'                             that are the case individuals.
 #' @param control_individuals  Vector of strings representing the individuals in \code{metadata[,covariate_individual]}
 #'                             that are the control individuals.
-#' @param covariate_individual A string of the column name of \code{metadata} which depicts the individual
-#'                             each cell originates from. Notably, this column in \code{metadata} should be a factor vector.
-#' @param metadata             \code{data frame} object with \eqn{n} rows with the same row names as \code{input_obj$dat}
-#'                             where the columns represent the different covariates.
-#'                             Notably, this should can contain categorical variables.
+#' @param individual_vec       Vector of strings of length \eqn{n} (i.e., the number of cells) that denote which cell originates from which individual.
 #' @param verbose              Integer.
 #' @param ...                  Additional parameters.
 #'

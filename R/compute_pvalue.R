@@ -1,4 +1,11 @@
-compute_df <- function(input_obj){
+#' Compute the degree of freedom
+#'
+#' This is an intermediary function used in \code{compute_pvalue}
+#'
+#' @param input_obj \code{eSVD} object outputed from \code{compute_test_statistic}.
+#'
+#' @return a named vector of degree-of-freedom values, one for each gene
+.compute_df <- function(input_obj){
   stopifnot(all(!is.null(input_obj[["case_control"]])) && all(input_obj[["case_control"]] %in% c(0,1)) && length(input_obj[["case_control"]]) == nrow(input_obj[["dat"]]),
             all(!is.null(input_obj[["individual"]])) && all(is.factor(input_obj[["individual"]])) && length(input_obj[["individual"]]) == nrow(input_obj[["dat"]]))
 
@@ -49,10 +56,18 @@ compute_df <- function(input_obj){
   df_vec
 }
 
+#' Compute p-values
+#'
+#' @param input_obj   \code{eSVD} object outputed from \code{compute_test_statistic}.
+#' @param verbose     Integer.
+#' @param ...         Additional parameters.
+#'
+#' @return \code{eSVD} object with added element \code{"pvalue_list"}
+#' @export
 compute_pvalue <- function(input_obj,
                            verbose = 0,
                            ...){
-  df_vec <- eSVD2:::compute_df(input_obj = input_obj)
+  df_vec <- .compute_df(input_obj = input_obj)
   names(df_vec) <- names(df_vec)
 
   teststat_vec <- input_obj$teststat_vec

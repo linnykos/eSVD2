@@ -9,8 +9,7 @@
   posterior_var_mat,
   case_individuals,
   control_individuals,
-  covariate_individual,
-  metadata,
+  individual_vec,
   verbose = 0,
   ...
 )
@@ -30,12 +29,7 @@ that are the case individuals.}
 \item{control_individuals}{Vector of strings representing the individuals in \code{metadata[,covariate_individual]}
 that are the control individuals.}
 
-\item{covariate_individual}{A string of the column name of \code{metadata} which depicts the individual
-each cell originates from. Notably, this column in \code{metadata} should be a factor vector.}
-
-\item{metadata}{\code{data frame} object with \eqn{n} rows with the same row names as \code{input_obj$dat}
-where the columns represent the different covariates.
-Notably, this should can contain categorical variables.}
+\item{individual_vec}{Vector of strings of length \eqn{n} (i.e., the number of cells) that denote which cell originates from which individual.}
 
 \item{verbose}{Integer.}
 

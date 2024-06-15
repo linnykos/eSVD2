@@ -2,70 +2,70 @@
 # Generator token: 10BE3573-1514-4C36-9D1C-5A225CD40393
 
 .data_loader <- function(mat) {
-    .Call(`_eSVD2_data_loader`, mat)
+    .Call('_eSVD2_data_loader', PACKAGE = 'eSVD2', mat)
 }
 
 data_loader_description <- function(loader_) {
-    invisible(.Call(`_eSVD2_data_loader_description`, loader_))
+    invisible(.Call('_eSVD2_data_loader_description', PACKAGE = 'eSVD2', loader_))
 }
 
 test_data_loader <- function(mat) {
-    invisible(.Call(`_eSVD2_test_data_loader`, mat))
+    invisible(.Call('_eSVD2_test_data_loader', PACKAGE = 'eSVD2', mat))
 }
 
 .esvd_family <- function(family) {
-    .Call(`_eSVD2_esvd_family`, family)
+    .Call('_eSVD2_esvd_family', PACKAGE = 'eSVD2', family)
 }
 
 objfn_all_r <- function(XC, YZ, k, loader, family, s, gamma, l2penx, l2peny, l2penz) {
-    .Call(`_eSVD2_objfn_all_r`, XC, YZ, k, loader, family, s, gamma, l2penx, l2peny, l2penz)
+    .Call('_eSVD2_objfn_all_r', PACKAGE = 'eSVD2', XC, YZ, k, loader, family, s, gamma, l2penx, l2peny, l2penz)
 }
 
 objfn_Xi_r <- function(XCi, YZ, k, loader, row_ind, family, si, gamma, l2penx) {
-    .Call(`_eSVD2_objfn_Xi_r`, XCi, YZ, k, loader, row_ind, family, si, gamma, l2penx)
+    .Call('_eSVD2_objfn_Xi_r', PACKAGE = 'eSVD2', XCi, YZ, k, loader, row_ind, family, si, gamma, l2penx)
 }
 
 grad_Xi_r <- function(XCi, YZ, k, loader, row_ind, family, si, gamma, l2penx) {
-    .Call(`_eSVD2_grad_Xi_r`, XCi, YZ, k, loader, row_ind, family, si, gamma, l2penx)
+    .Call('_eSVD2_grad_Xi_r', PACKAGE = 'eSVD2', XCi, YZ, k, loader, row_ind, family, si, gamma, l2penx)
 }
 
 hessian_Xi_r <- function(XCi, YZ, k, loader, row_ind, family, si, gamma, l2penx) {
-    .Call(`_eSVD2_hessian_Xi_r`, XCi, YZ, k, loader, row_ind, family, si, gamma, l2penx)
+    .Call('_eSVD2_hessian_Xi_r', PACKAGE = 'eSVD2', XCi, YZ, k, loader, row_ind, family, si, gamma, l2penx)
 }
 
 feas_Xi_r <- function(XCi, YZ, family) {
-    .Call(`_eSVD2_feas_Xi_r`, XCi, YZ, family)
+    .Call('_eSVD2_feas_Xi_r', PACKAGE = 'eSVD2', XCi, YZ, family)
 }
 
 objfn_YZj_r <- function(XC, YZj, k, YZind, loader, col_ind, family, s, gammaj, l2peny, l2penz) {
-    .Call(`_eSVD2_objfn_YZj_r`, XC, YZj, k, YZind, loader, col_ind, family, s, gammaj, l2peny, l2penz)
+    .Call('_eSVD2_objfn_YZj_r', PACKAGE = 'eSVD2', XC, YZj, k, YZind, loader, col_ind, family, s, gammaj, l2peny, l2penz)
 }
 
 grad_YZj_r <- function(XC, YZj, k, YZind, loader, col_ind, family, s, gammaj, l2peny, l2penz) {
-    .Call(`_eSVD2_grad_YZj_r`, XC, YZj, k, YZind, loader, col_ind, family, s, gammaj, l2peny, l2penz)
+    .Call('_eSVD2_grad_YZj_r', PACKAGE = 'eSVD2', XC, YZj, k, YZind, loader, col_ind, family, s, gammaj, l2peny, l2penz)
 }
 
 hessian_YZj_r <- function(XC, YZj, k, YZind, loader, col_ind, family, s, gammaj, l2peny, l2penz) {
-    .Call(`_eSVD2_hessian_YZj_r`, XC, YZj, k, YZind, loader, col_ind, family, s, gammaj, l2peny, l2penz)
+    .Call('_eSVD2_hessian_YZj_r', PACKAGE = 'eSVD2', XC, YZj, k, YZind, loader, col_ind, family, s, gammaj, l2peny, l2penz)
 }
 
 feas_YZj_r <- function(XC, YZj, family) {
-    .Call(`_eSVD2_feas_YZj_r`, XC, YZj, family)
+    .Call('_eSVD2_feas_YZj_r', PACKAGE = 'eSVD2', XC, YZj, family)
 }
 
 gamma_rate <- function(x, mu, s) {
-    .Call(`_eSVD2_gamma_rate`, x, mu, s)
+    .Call('_eSVD2_gamma_rate', PACKAGE = 'eSVD2', x, mu, s)
 }
 
 log_gamma_rate <- function(x, mu, s, lower = -10.0, upper = 10.0) {
-    .Call(`_eSVD2_log_gamma_rate`, x, mu, s, lower, upper)
+    .Call('_eSVD2_log_gamma_rate', PACKAGE = 'eSVD2', x, mu, s, lower, upper)
 }
 
 .opt_x <- function(XC0, YZ, k, loader, family, s, gamma, l2penx, verbose = 0L, inplace = TRUE) {
-    .Call(`_eSVD2_opt_x`, XC0, YZ, k, loader, family, s, gamma, l2penx, verbose, inplace)
+    .Call('_eSVD2_opt_x', PACKAGE = 'eSVD2', XC0, YZ, k, loader, family, s, gamma, l2penx, verbose, inplace)
 }
 
 .opt_yz <- function(YZ0, XC, k, YZind, loader, family, s, gamma, l2peny, l2penz, verbose = 0L, inplace = TRUE) {
-    .Call(`_eSVD2_opt_yz`, YZ0, XC, k, YZind, loader, family, s, gamma, l2peny, l2penz, verbose, inplace)
+    .Call('_eSVD2_opt_yz', PACKAGE = 'eSVD2', YZ0, XC, k, YZind, loader, family, s, gamma, l2peny, l2penz, verbose, inplace)
 }
 

@@ -6,20 +6,37 @@
 \usage{
 \method{compute_posterior}{eSVD}(
   input_obj,
-  alpha_max = 50,
+  alpha_max = 1000,
   bool_adjust_covariates = F,
   bool_covariates_as_library = T,
+  bool_return_components = F,
+  bool_stabilize_underdispersion = T,
+  library_min = 0.1,
   nuisance_lower_quantile = 0.01,
+  pseudocount = 0,
   ...
 )
 }
 \arguments{
 \item{input_obj}{\code{eSVD} object outputed from \code{opt_esvd.eSVD}.}
 
-\item{alpha_max}{Maximum value of numerator when computing posterior.}
+\item{alpha_max}{Maximum value of numerator when computing posterior, default is \code{1e3}.}
+
+\item{bool_adjust_covariates}{Boolean to adjust the numerator in the posterior by the donor covariates, default is \code{FALSE}.
+This parameter is experimental, and we have not yet encountered a scenario where it is useful to be set to be \code{TRUE}.}
+
+\item{bool_covariates_as_library}{Boolean to include the donor covariates effects in the adjusted library size, default is \code{TRUE}}
+
+\item{bool_return_components}{Boolean to return the numerator and denominator of the posterior terms as well (which will themselves by matrices that are cell-by-gene matrices), default is \code{FALSE}}
+
+\item{bool_stabilize_underdispersion}{Boolean to stabilize the over-dispersion parameter, specifically to rescale all the over-dispersions the global mean over-disperion is less than 1, default is \code{TRUE}}
+
+\item{library_min}{All covariate-adjusted library size smaller than this value are set to this value, default is 0.1.}
 
 \item{nuisance_lower_quantile}{All the nuisance values that are smaller than this quantile
-are set to this quantile.}
+are set to this quantile, default is 0.01}
+
+\item{pseudocount}{The additional count that is added to the count matrix, default is 0.}
 
 \item{...}{Additional parameters.}
 }

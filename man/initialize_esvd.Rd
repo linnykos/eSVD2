@@ -7,13 +7,14 @@
 initialize_esvd(
   dat,
   covariates,
-  subject_variables,
+  metadata_individual,
   bool_intercept = F,
   case_control_variable = NULL,
   k = 30,
   lambda = 0.01,
   library_size_variable = "Log_UMI",
   offset_variables = "Log_UMI",
+  metadata_case_control = NULL,
   verbose = 0
 )
 }
@@ -25,7 +26,10 @@ The rows and columns of the matrix should be named.}
 \item{covariates}{\code{matrix} object with \eqn{n} rows with the same rownames as \code{dat} where the columns
 represent the different covariates.
 Notably, this should contain only numerical columns (i.e., all categorical
-variables should have already been split into numerous indicator variables).}
+variables should have already been split into numerous indicator variables), and all the columns
+in \code{covariates} will (strictly speaking) be included in the eSVD matrix factorization model.}
+
+\item{metadata_individual}{Vector of factors of length \eqn{n} that denotes which cell originates from which individual.}
 
 \item{bool_intercept}{Boolean on whether or not an intercept will be included as a covariate.}
 
@@ -38,15 +42,16 @@ is hard-coded to describe case, and a \code{0} to describe control.}
 \item{lambda}{Penalty of the \code{mixed_effect_variables} when using \code{glmnet::glmnet} to
 initialize the coefficients.}
 
+\item{library_size_variable}{A string of the variable name (which must be in \code{covariates}) of which variable denotes the sequenced (i.e., observed) library size.}
+
 \item{offset_variables}{A vector of strings depicting which column names in \code{covariate} will
 be set to have a coefficient of \code{1} automatically (i.e., there will be no estimation
 of their coefficient).}
 
-\item{verbose}{Integer}
+\item{metadata_case_control}{(Optional) vector of length \eqn{n} with values strictly 0 or 1 that denotes if a cell is from cases or controls.
+By default, this is set to \code{NULL} since the code will extract this information from \code{covariates}.}
 
-\item{mixed_effect_variables}{A vector of strings depicting which column names in \code{covariate} will
-incur the penalty \code{lambda}. This is used as a soft work-around for emulating
-a mixed-effects model.}
+\item{verbose}{Integer}
 }
 \value{
 \code{eSVD} object with elements \code{dat}, \code{covariates},
