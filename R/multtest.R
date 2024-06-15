@@ -1,4 +1,10 @@
-# teststat_vec: should be a gaussian-like vector
+#' Perform multiple-testing adjustment using Efron's empirical null
+#'
+#' @param teststat_vec a vector of Gaussian-like test statistics
+#' @param observed_quantile The quantiles of \code{teststat_vec} used to estimate the null distribution
+#'
+#' @return a list with \code{fdr_vec}, \code{logpvalue_vec},
+#' \code{method}, \code{null_mean}, \code{null_sd}, and \code{pvalue_vec}
 multtest <- function(teststat_vec,
                      observed_quantile = c(0.05, 0.95)){
   res <- .multtest_locfdr(teststat_vec)

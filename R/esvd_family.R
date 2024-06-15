@@ -1,10 +1,3 @@
-### Most functions for distribution families have been implemented using C++
-### Below are additional R functions
-
-
-
-## Initialize the natural parameter from data
-
 # Gaussian
 # theta = mu = mean
 .dat_to_nat.gaussian <- function(A, gamma, tol = 1e-3) {
@@ -101,7 +94,11 @@
 
 
 
-## Constructor for distribution family
+#' Internal Constructor for distribution family
+#'
+#' @param family string
+#'
+#' @return an object with conversion functions
 esvd_family <- function(family)
 {
   family <- as.character(family)
