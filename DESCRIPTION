@@ -20,7 +20,9 @@ Imports:
     RSpectra,
     sparseMatrixStats
 Suggests:
-    testthat, numDeriv
+    numDeriv,
+    Seurat,
+    testthat
 LinkingTo:
     Rcpp, RcppEigen, BH
 NeedsCompilation: yes
