@@ -25,3 +25,4 @@ LinkingTo:
     Rcpp, RcppEigen, BH
 NeedsCompilation: yes
 RoxygenNote: 7.3.1
+URL: https://linnykos.github.io/eSVD2/

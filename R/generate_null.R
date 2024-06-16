@@ -32,7 +32,7 @@ generate_null <- function(cell_per_person = 100,
               0,
               rep(c(0,1), each = s/2),
               rep(c(0,1), times = s/2),
-              scale(round(rnorm(s, mean = 30, sd = 5)), center = F, scale = T),
+              scale(round(stats::rnorm(s, mean = 30, sd = 5)), center = F, scale = T),
               1:s)
   colnames(df) <- c("Intercept", "Log_UMI", "CC", "Sex", "Age", "Individual")
   # expand to covariate matrix
@@ -43,8 +43,8 @@ generate_null <- function(cell_per_person = 100,
   z_mat <- cbind(rep(0, p), # intercept
                  rep(0.1, p), # library
                  c(rep(0.8,10),rep(0, p-10)), # cc
-                 rnorm(p, mean = 0, sd = 0.2), # sex
-                 rnorm(p, mean = 0, sd = 0.5)) # age
+                 stats::rnorm(p, mean = 0, sd = 0.2), # sex
+                 stats::rnorm(p, mean = 0, sd = 0.5)) # age
   colnames(z_mat) <- colnames(df)[1:(ncol(df)-1)]
 
   # form nuisance
