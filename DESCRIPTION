@@ -15,16 +15,19 @@ Imports:
     locfdr,
     Matrix,
     matrixStats,
-    npregfast,
     Rmpfr,
     RSpectra,
     sparseMatrixStats
 Suggests:
+    knitr,
+    npregfast,
     numDeriv,
     Seurat,
-    testthat
+    testthat,
+    utils
 LinkingTo:
     Rcpp, RcppEigen, BH
+VignetteBuilder: knitr
 NeedsCompilation: yes
 RoxygenNote: 7.3.1
 URL: https://linnykos.github.io/eSVD2/

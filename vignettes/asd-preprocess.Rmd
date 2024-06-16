@@ -1,0 +1,178 @@
+---
+title: "Neuron preprocessing for eSVD-DE tutorial"
+author: "Kevin Z. Lin"
+date: "2024-06-16"
+output: 
+  rmarkdown::html_vignette:
+    df_print: "kable"
+vignette: >
+  %\VignetteIndexEntry{Neuron preprocessing for eSVD-DE tutorial}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Downloading the data
+
+The data we will be working with can be downloaded from [https://cells.ucsc.edu/autism/rawMatrix.zip](https://cells.ucsc.edu/autism/rawMatrix.zip). After downloading this, you will get a file called `rawMatrix.zip`, which, after unzipping, 
+contains
+
+- `barcodes.tsv`: A matrix with 104,559 rows (i.e., cells) and 1 column, denoting the cells' barcodes
+- `genes.tsv`: A matrix with 65,217 rows (i.e., genes) and 2 columns, denoting the ENSEMBL ID or Gene Symbols 
+- `matrix.mtx`: A sparse matrix with 65,217 rows and 104,559 columns, denoting the counts for each cell-gene pair
+- `meta.txt`: A matrix with 104,559 rows (i.e., cells) and 16 columns, containing various covariates about each cell/donor
+
+The original paper is from [https://pubmed.ncbi.nlm.nih.gov/31097668/](https://pubmed.ncbi.nlm.nih.gov/31097668/). 
+
+# Setting up in R
+
+You will the following packages. `sparseMatrixStats` is from Bioconductor.
+
+```{r, eval = FALSE}
+library(Matrix)
+library(Seurat)
+library(sparseMatrixStats)
+
+set.seed(10)
+date_of_run <- Sys.time()
+session_info <- devtools::session_info()
+```
+
+# Reading in the data
+
+First, we read in the data. For simplicity in this vignette's preprocessing, since there are some duplicated genes, we arbitrarily remove any duplicates.
+
+```{r, eval = FALSE}
+mat <- Matrix::readMM("/Users/kevinlin/Downloads/rawMatrix/matrix.mtx")
+gene_mat <- read.csv("/Users/kevinlin/Downloads/rawMatrix/genes.tsv", sep = "\t", header = F)
+cell_mat <- read.csv("/Users/kevinlin/Downloads/rawMatrix/barcodes.tsv", sep = "\t", header = F)
+metadata <- read.csv("/Users/kevinlin/Downloads/rawMatrix/meta.txt", sep = "\t", header = T, stringsAsFactors = TRUE)
+metadata$individual <- factor(paste0("indiv_", metadata$individual))
+
+rownames(mat) <- gene_mat[,2]
+colnames(mat) <- cell_mat[,1]
+
+# remove duplicates
+if(any(duplicated(rownames(mat)))){
+  mat <- mat[-which(duplicated(rownames(mat))),]
+}
+
+rownames(metadata) <- metadata$cell
+metadata <- metadata[,setdiff(colnames(metadata), "cell")]
+```
+
+# Creating Seurat object
+
+Next, we create the Seurat object and filter only the cells that are in Layer 2/3. (We will abbreviate this Seurat object as "asd" for "Autism Spectrum Disorder".)
+
+```{r, eval = FALSE}
+asd <- Seurat::CreateSeuratObject(counts = mat,
+                                  meta.data = metadata)
+
+asd <- subset(asd, cluster == "L2/3")
+
+asd[["percent.mt"]] <- Seurat::PercentageFeatureSet(asd, pattern = "^MT-")
+```
+
+# Preprocessing the Seurat object
+
+We then do basic preprocessing. Mainly, this consists of first remove genes that have no counts at all, then removing cells that have too many counts, then removing genes with too many counts. Then, we aggregate genes that are deemed highly variable, the original DEGs found in the Velmeshev et al. paper, housekeeping genes, and SFARI genes. The union of all these genes are the ones that we set as "highly variable," as we would like the eSVD-DE analysis later to use these genes.
+
+Once we are done with this step, we are ready to perform the eSVD-DE analysis (in the other vignette).
+
+```{r, eval = FALSE}
+set.seed(10)
+mat <- SeuratObject::LayerData(asd, layer = "counts", assay = "RNA")
+mat <- Matrix::t(mat)
+
+# remove genes with all 0's
+gene_sum <- Matrix::colSums(mat)
+if (any(gene_sum == 0)) {
+  features <- SeuratObject::Features(asd)
+  features <- setdiff(features, names(gene_sum)[which(gene_sum == 0)])
+  asd <- subset(asd, features = features)
+}
+
+# remove cells with too high counts
+keep_vec <- rep(TRUE, length(Seurat::Cells(asd)))
+keep_vec[asd$nCount_RNA >= 60000] <- FALSE
+asd[["keep"]] <- keep_vec
+asd <- subset(asd, keep == TRUE)
+
+# remove genes with too high counts
+mat <- SeuratObject::LayerData(asd, layer = "counts", assay = "RNA")
+mat <- Matrix::t(mat)
+gene_total <- Matrix::colSums(log1p(mat))
+gene_threshold <- log1p(10) * nrow(mat)
+features <- colnames(mat)[which(gene_total <= gene_threshold)]
+asd <- subset(asd, features = features)
+
+# find the variable genes
+asd <- Seurat::NormalizeData(asd)
+asd <- Seurat::FindVariableFeatures(asd, selection.method = "vst", nfeatures = 5000)
+
+data("velmeshev_gene_df", package = "eSVD2")
+de_genes <- velmeshev_gene_df[velmeshev_gene_df[, "Cell type"] == "L2/3", "Gene name"]
+data("housekeeping_df", package = "eSVD2")
+hk_genes <- housekeeping_df[, "Gene"]
+
+data("sfari_df", package = "eSVD2")
+sfari_genes <- sfari_df[, "gene.symbol"]
+
+gene_keep <- unique(c(
+  de_genes,
+  hk_genes,
+  sfari_genes,
+  Seurat::VariableFeatures(asd)
+))
+gene_current <- SeuratObject::Features(asd)
+gene_keep <- intersect(gene_current, gene_keep)
+Seurat::VariableFeatures(asd) <- gene_keep
+```
+With this done, we can save this minimal Seurat object for the eSVD-DE vignette. This file will be roughly 302 Mb in size.
+
+```{r, eval = FALSE}
+save(asd, date_of_run, session_info, file = "asd_seurat.RData")
+```
+
+# Visualizing the data
+
+It is nice to visualize any dataset before we do any analysis, and eSVD-DE is no different. Hence, we can do some simple preprocessing.
+
+```{r, eval = FALSE}
+set.seed(10)
+asd <- Seurat::ScaleData(asd, features = Seurat::VariableFeatures(asd))
+asd <- Seurat::RunPCA(asd,
+                      features = Seurat::VariableFeatures(object = asd),
+                      verbose = FALSE)
+
+set.seed(10)
+asd <- Seurat::RunUMAP(asd, dims = 1:30)
+```
+
+```{r, eval = FALSE}
+p1 <- Seurat::DimPlot(
+  asd,
+  reduction = 'umap',
+  group.by = 'diagnosis',
+  label = TRUE,
+  repel = TRUE,
+  label.size = 2.5
+) + Seurat::NoLegend()
+p2 <- Seurat::DimPlot(
+  asd,
+  reduction = 'umap',
+  group.by = 'individual',
+  label = TRUE,
+  repel = TRUE,
+  label.size = 2.5
+) + Seurat::NoLegend()
+p1 + p2
+```
+
+```{r, out.width = "800px", fig.align="center", echo = FALSE, fig.cap=c("UMAP of the L2/3 neurons")}
+knitr::include_graphics("../vignettes/asd-umap.png")
+```
