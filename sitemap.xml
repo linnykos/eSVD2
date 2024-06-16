@@ -7,6 +7,12 @@
     <loc>https://linnykos.github.io/eSVD2/LICENSE-text.html</loc>
   </url>
   <url>
+    <loc>https://linnykos.github.io/eSVD2/articles/asd-preprocess.html</loc>
+  </url>
+  <url>
+    <loc>https://linnykos.github.io/eSVD2/articles/asd.html</loc>
+  </url>
+  <url>
     <loc>https://linnykos.github.io/eSVD2/articles/eSVD2.html</loc>
   </url>
   <url>
@@ -67,6 +73,9 @@
     <loc>https://linnykos.github.io/eSVD2/reference/generate_null.html</loc>
   </url>
   <url>
+    <loc>https://linnykos.github.io/eSVD2/reference/housekeeping_df.html</loc>
+  </url>
+  <url>
     <loc>https://linnykos.github.io/eSVD2/reference/index.html</loc>
   </url>
   <url>
@@ -95,5 +104,11 @@
   </url>
   <url>
     <loc>https://linnykos.github.io/eSVD2/reference/reparameterization_esvd_covariates.html</loc>
+  </url>
+  <url>
+    <loc>https://linnykos.github.io/eSVD2/reference/sfari_df.html</loc>
+  </url>
+  <url>
+    <loc>https://linnykos.github.io/eSVD2/reference/velmeshev_gene_df.html</loc>
   </url>
 </urlset>
