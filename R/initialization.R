@@ -13,7 +13,7 @@
 #'                                 Notably, this should contain only numerical columns (i.e., all categorical
 #'                                 variables should have already been split into numerous indicator variables), and all the columns
 #'                                 in \code{covariates} will (strictly speaking) be included in the eSVD matrix factorization model.
-#' @param metadata_individual      Vector of factors of length \eqn{n} that denotes which cell originates from which individual.
+#' @param metadata_individual      \code{factor} vector of length \eqn{n} that denotes which cell originates from which individual.
 #' @param bool_intercept           Boolean on whether or not an intercept will be included as a covariate.
 #' @param case_control_variable    A string of the column name of \code{covariates} which depicts the case-control
 #'                                 status of each cell. Notably, this should be a binary variable where a \code{1}
@@ -73,10 +73,10 @@ initialize_esvd <- function(dat,
                                    offset_variables = offset_variables,
                                    verbose = verbose)
 
-  eSVD_obj <- list(dat = dat,
-                   covariates = covariates,
-                   param = param)
-  class(eSVD_obj) <- "eSVD"
+  eSVD_obj <- structure(list(dat = dat,
+                             covariates = covariates,
+                             param = param),
+                        class = "eSVD")
 
   if(verbose >= 1) print("Computing residuals")
   eSVD_obj[["fit_Init"]] <- .initialize_residuals(

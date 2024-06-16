@@ -29,7 +29,7 @@ Notably, this should contain only numerical columns (i.e., all categorical
 variables should have already been split into numerous indicator variables), and all the columns
 in \code{covariates} will (strictly speaking) be included in the eSVD matrix factorization model.}
 
-\item{metadata_individual}{Vector of factors of length \eqn{n} that denotes which cell originates from which individual.}
+\item{metadata_individual}{\code{factor} vector of length \eqn{n} that denotes which cell originates from which individual.}
 
 \item{bool_intercept}{Boolean on whether or not an intercept will be included as a covariate.}
 

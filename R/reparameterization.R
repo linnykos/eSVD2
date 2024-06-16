@@ -98,10 +98,21 @@
   .reparameterize(x_mat, y_mat, equal_covariance = equal_covariance)
 }
 
-.reparameterization_esvd_covariates <- function(input_obj,
-                                                fit_name,
-                                                omitted_variables,
-                                                verbose = 0){
+#' Reparameterize eSVD object
+#'
+#' @param input_obj           \code{eSVD} object, after either \code{initialize_esvd()} or
+#'                            \code{opt_esvd()}
+#' @param fit_name            The name of the fit in \code{input_obj} that you wish to reparameterize. This should be in \code{names(input_obj)}
+#' @param omitted_variables   Either \code{NULL} (the default) or variables in \code{input_obj$covariates} that should not be reparameterized
+#' @param verbose             Integer.
+#'
+#' @return \code{eSVD} object after adjusting the fit in \code{fit_name}.
+reparameterization_esvd_covariates <- function(input_obj,
+                                               fit_name,
+                                               omitted_variables = NULL,
+                                               verbose = 0){
+  stopifnot(fit_name %in% names(input_obj),
+            is.null(omitted_variables) || all(omitted_variables %in% colnames(input_obj$covariates)))
 
   x_mat <- input_obj[[fit_name]]$x_mat
   y_mat <- input_obj[[fit_name]]$y_mat
