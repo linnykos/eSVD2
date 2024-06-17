@@ -1,8 +1,20 @@
 Package: eSVD2
-Title: eSVD2
-Version: 0.0.1.0000
-Authors@R: person("First", "Last", email = "first.last@example.com", role = c("aut", "cre"))
-Description: Assuming each row and column of a matrix is associated with a low-dimensional vector, eSVD estimates an embedding for each cell with respect to a hierarchical model where the inner product between the row's and column's latent vectors is the natural parameter of a one-parameter exponential family random variable.
+Title: eSVD2 for performing the eSVD-DE for cohort-wide differential expression analysis
+Version: 1.0.0
+Authors@R: person("Kevin Z", "Lin", email = "kzlin@uw.edu", role = c("aut", "cre"))
+Description: This package is for the eSVD-DE, a way to test for differential 
+    expression for single-cell RNA-seq data when many donors/individuals are 
+    sequenced, and you wish to test for differential expression at the 
+    individual-level (i.e., among individuals), not at cell-level. 
+    Specifically, this method uses the eSVD matrix factorization to pool 
+    information among genes together, and then carefully adjusts the denoised 
+    gene expression to not inflate the Type-1 error. The eSVD matrix 
+    factorization (which is the backbone of the eSVD-DE method) assumes that 
+    each row and column of a matrix is associated with a low-dimensional 
+    vector, and eSVD estimates an embedding for each cell with respect to a 
+    hierarchical model where the inner product between the row's and column's 
+    latent vectors is the natural parameter of a one-parameter exponential 
+    family random variable.
 Depends:
     R (>= 3.5.0),
     Rcpp
@@ -19,6 +31,7 @@ Imports:
     RSpectra,
     sparseMatrixStats
 Suggests:
+    devtools,
     knitr,
     npregfast,
     numDeriv,

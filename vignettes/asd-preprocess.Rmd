@@ -31,7 +31,7 @@ The original paper is from [https://pubmed.ncbi.nlm.nih.gov/31097668/](https://p
 
 You will the following packages. `sparseMatrixStats` is from Bioconductor.
 
-```{r, eval = FALSE}
+```{r, warning = FALSE, message = FALSE}
 library(Matrix)
 library(Seurat)
 library(sparseMatrixStats)
@@ -116,6 +116,7 @@ asd <- Seurat::FindVariableFeatures(asd, selection.method = "vst", nfeatures = 5
 
 data("velmeshev_gene_df", package = "eSVD2")
 de_genes <- velmeshev_gene_df[velmeshev_gene_df[, "Cell type"] == "L2/3", "Gene name"]
+
 data("housekeeping_df", package = "eSVD2")
 hk_genes <- housekeeping_df[, "Gene"]
 
@@ -128,11 +129,14 @@ gene_keep <- unique(c(
   sfari_genes,
   Seurat::VariableFeatures(asd)
 ))
+rm_idx <- grep("^MT", gene_keep) # remove mitochondrial genes
+if(length(rm_idx) > 0) gene_keep <- gene_keep[-rm_idx]
 gene_current <- SeuratObject::Features(asd)
 gene_keep <- intersect(gene_current, gene_keep)
 Seurat::VariableFeatures(asd) <- gene_keep
+asd <- subset(asd, features = Seurat::VariableFeatures(asd))
 ```
-With this done, we can save this minimal Seurat object for the eSVD-DE vignette. This file will be roughly 302 Mb in size.
+With this done, we can save this minimal Seurat object for the eSVD-DE vignette. This file will be roughly 97 Mb in size.
 
 ```{r, eval = FALSE}
 save(asd, date_of_run, session_info, file = "asd_seurat.RData")
@@ -174,5 +178,14 @@ p1 + p2
 ```
 
 ```{r, out.width = "800px", fig.align="center", echo = FALSE, fig.cap=c("UMAP of the L2/3 neurons")}
-knitr::include_graphics("../vignettes/asd-umap.png")
+knitr::include_graphics("https://github.com/linnykos/eSVD2/blob/master/vignettes/asd-umap.png?raw=true")
 ```
+
+# Setup
+
+The following shows the suggested package versions that the developer (GitHub username: linnykos) used when developing the eSVD2 package.
+
+```{r}
+devtools::session_info()
+```
+

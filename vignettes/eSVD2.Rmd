@@ -73,17 +73,19 @@ The separation between case and control cells is purely determined by the indivi
 * **Step 1 (Initializing the eSVD object):** First, we initialize the object of class `eSVD`, which we will call `eSVD_obj`. This is done using the `eSVD2::initialize_esvd()` function. All the following operations will use
 `eSVD_obj` for all calculations through the usage of this method. This is where we pass the inputs `dat`, `covariates`, and `metadata_individual`. Notice that after `eSVD2::initialize_esvd()` (and later, after `eSVD2::opt_esvd()`) we always call `eSVD2::reparameterization_esvd_covariates()` to ensure that the fit remains identifiable.
 
+Empirically, we have found it useful to set `omitted_variables` as the `Log_UMI` and the batch variables. (Here, there are no batch variables.) This means that when eSVD2 reparameterizes the variables, it does not fiddle with the coefficient for `Log_UMI`. We found this beneficial since the coefficient for specifically the covariate `Log_UMI` bears a special meaning (as it impacts the normalization of the sequencing depth most directly), and we do not wish to "mix" covariates correlated with `Log_UMI` too early. (Overall, this is not a strict recommendation, however, we have found this practice to be beneficial in almost all instances we have used eSVD2, so we ourselves have not tried deviating from this convention.)
+
 This typically looks like the following.
 ```{r}
 set.seed(10)
 eSVD_obj <- eSVD2::initialize_esvd(
   dat = obs_mat,
   covariates = covariates,
+  metadata_individual = metadata_individual,
   case_control_variable = "CC",
   bool_intercept = T,
   k = 5,
   lambda = 0.1,
-  metadata_individual = metadata_individual,
   verbose = 0
 )
 eSVD_obj <- eSVD2::reparameterization_esvd_covariates(
@@ -96,9 +98,10 @@ names(eSVD_obj)
 ```
 
 * **Step 2 (Fitting the eSVD object):** 
-
 We now fit the eSVD. Typically, we recommend fitting twice
-(i.e., calling `eSVD2::opt_esvd()` twice) due to the non-convex nature of the objective function. In the first call of `eSVD2::opt_esvd()`, hold all the coefficients to all the covariates aside from the case-control covariate (here, denoted as `"CC"` so we remove as muhc of the case-control covariate effect as possible. Then, in the second call of `eSVD2::opt_esvd()`, we allow all the coefficients to be optimized.
+(i.e., calling `eSVD2::opt_esvd()` twice) due to the non-convex nature of the objective function. In the first call of `eSVD2::opt_esvd()`, hold all the coefficients to all the covariates aside from the case-control covariate (here, denoted as `"CC"` so we remove as much of the case-control covariate effect as possible. Then, in the second call of `eSVD2::opt_esvd()`, we allow all the coefficients to be optimized.
+
+Note that in the last fit of `eSVD2::opt_esvd()`, we do not set any `omitted_variables`. This is our typical recommendation -- it is good to allow all coefficients to be reparameterized right before the optimization is all done.
 
 ```{r}
 set.seed(10)
@@ -221,142 +224,6 @@ graphics::lines(
 
 The following shows the suggested package versions that the developer (GitHub username: linnykos) used when developing the eSVD2 package.
 
-```R
-> devtools::session_info()
-─ Session info ────────────────────
- setting  value
- version  R version 4.3.2 (2023-10-31)
- os       macOS Sonoma 14.2.1
- system   aarch64, darwin20
- ui       RStudio
- language (EN)
- collate  en_US.UTF-8
- ctype    en_US.UTF-8
- tz       America/Los_Angeles
- date     2024-06-15
- rstudio  2024.04.1+748 Chocolate Cosmos (desktop)
- pandoc   3.1.11 @ /Applications/RStudio.app/Contents/Resources/app/quarto/bin/tools/aarch64/ (via rmarkdown)
-
-─ Packages ────────────────────────
- package          * version    date (UTC) lib source
- abind              1.4-5      2016-07-21 [1] CRAN (R 4.3.0)
- cachem             1.0.8      2023-05-01 [1] CRAN (R 4.3.0)
- cli                3.6.2      2023-12-11 [1] CRAN (R 4.3.1)
- cluster            2.1.6      2023-12-01 [1] CRAN (R 4.3.1)
- codetools          0.2-20     2024-03-31 [1] CRAN (R 4.3.1)
- colorspace         2.1-0      2023-01-23 [1] CRAN (R 4.3.0)
- cowplot            1.1.3      2024-01-22 [1] CRAN (R 4.3.1)
- data.table         1.15.4     2024-03-30 [1] CRAN (R 4.3.1)
- deldir             2.0-4      2024-02-28 [1] CRAN (R 4.3.1)
- devtools           2.4.5      2022-10-11 [1] CRAN (R 4.3.0)
- digest             0.6.35     2024-03-11 [1] CRAN (R 4.3.1)
- dotCall64          1.1-1      2023-11-28 [1] CRAN (R 4.3.1)
- dplyr              1.1.4      2023-11-17 [1] CRAN (R 4.3.1)
- ellipsis           0.3.2      2021-04-29 [1] CRAN (R 4.3.0)
- eSVD2            * 0.0.1.0000 2024-06-16 [1] local
- evaluate           0.23       2023-11-01 [1] CRAN (R 4.3.1)
- fansi              1.0.6      2023-12-08 [1] CRAN (R 4.3.1)
- fastDummies        1.7.3      2023-07-06 [1] CRAN (R 4.3.0)
- fastmap            1.1.1      2023-02-24 [1] CRAN (R 4.3.0)
- fitdistrplus       1.1-11     2023-04-25 [1] CRAN (R 4.3.0)
- fs                 1.6.3      2023-07-20 [1] CRAN (R 4.3.0)
- future             1.33.2     2024-03-26 [1] CRAN (R 4.3.1)
- future.apply       1.11.2     2024-03-28 [1] CRAN (R 4.3.1)
- generics           0.1.3      2022-07-05 [1] CRAN (R 4.3.0)
- ggplot2            3.5.0      2024-02-23 [1] CRAN (R 4.3.1)
- ggrepel            0.9.5      2024-01-10 [1] CRAN (R 4.3.1)
- ggridges           0.5.6      2024-01-23 [1] CRAN (R 4.3.1)
- globals            0.16.3     2024-03-08 [1] CRAN (R 4.3.1)
- glue               1.7.0      2024-01-09 [1] CRAN (R 4.3.1)
- goftest            1.2-3      2021-10-07 [1] CRAN (R 4.3.0)
- gridExtra          2.3        2017-09-09 [1] CRAN (R 4.3.0)
- gtable             0.3.4      2023-08-21 [1] CRAN (R 4.3.0)
- htmltools          0.5.8.1    2024-04-04 [1] CRAN (R 4.3.1)
- htmlwidgets        1.6.4      2023-12-06 [1] CRAN (R 4.3.1)
- httpuv             1.6.15     2024-03-26 [1] CRAN (R 4.3.1)
- httr               1.4.7      2023-08-15 [1] CRAN (R 4.3.0)
- ica                1.0-3      2022-07-08 [1] CRAN (R 4.3.0)
- igraph             2.0.3      2024-03-13 [1] CRAN (R 4.3.1)
- irlba              2.3.5.1    2022-10-03 [1] CRAN (R 4.3.2)
- jsonlite           1.8.8      2023-12-04 [1] CRAN (R 4.3.1)
- KernSmooth         2.23-22    2023-07-10 [1] CRAN (R 4.3.0)
- knitr              1.45       2023-10-30 [1] CRAN (R 4.3.1)
- later              1.3.2      2023-12-06 [1] CRAN (R 4.3.1)
- lattice            0.22-6     2024-03-20 [1] CRAN (R 4.3.1)
- lazyeval           0.2.2      2019-03-15 [1] CRAN (R 4.3.0)
- leiden             0.4.3.1    2023-11-17 [1] CRAN (R 4.3.1)
- lifecycle          1.0.4      2023-11-07 [1] CRAN (R 4.3.1)
- listenv            0.9.1      2024-01-29 [1] CRAN (R 4.3.1)
- lmtest             0.9-40     2022-03-21 [1] CRAN (R 4.3.0)
- magrittr           2.0.3      2022-03-30 [1] CRAN (R 4.3.0)
- MASS               7.3-60.0.1 2024-01-13 [1] CRAN (R 4.3.1)
- Matrix             1.6-5      2024-01-11 [1] CRAN (R 4.3.2)
- matrixStats        1.3.0      2024-04-11 [1] CRAN (R 4.3.1)
- memoise            2.0.1      2021-11-26 [1] CRAN (R 4.3.0)
- mime               0.12       2021-09-28 [1] CRAN (R 4.3.0)
- miniUI             0.1.1.1    2018-05-18 [1] CRAN (R 4.3.0)
- munsell            0.5.1      2024-04-01 [1] CRAN (R 4.3.1)
- nlme               3.1-164    2023-11-27 [1] CRAN (R 4.3.1)
- parallelly         1.37.1     2024-02-29 [1] CRAN (R 4.3.1)
- patchwork          1.2.0      2024-01-08 [1] CRAN (R 4.3.1)
- pbapply            1.7-2      2023-06-27 [1] CRAN (R 4.3.0)
- pillar             1.9.0      2023-03-22 [1] CRAN (R 4.3.0)
- pkgbuild           1.4.4      2024-03-17 [1] CRAN (R 4.3.1)
- pkgconfig          2.0.3      2019-09-22 [1] CRAN (R 4.3.0)
- pkgload            1.3.4      2024-01-16 [1] CRAN (R 4.3.1)
- plotly             4.10.4     2024-01-13 [1] CRAN (R 4.3.1)
- plyr               1.8.9      2023-10-02 [1] CRAN (R 4.3.1)
- png                0.1-8      2022-11-29 [1] CRAN (R 4.3.0)
- polyclip           1.10-6     2023-09-27 [1] CRAN (R 4.3.1)
- profvis            0.3.8      2023-05-02 [1] CRAN (R 4.3.0)
- progressr          0.14.0     2023-08-10 [1] CRAN (R 4.3.0)
- promises           1.3.0      2024-04-05 [1] CRAN (R 4.3.1)
- purrr              1.0.2      2023-08-10 [1] CRAN (R 4.3.0)
- R6                 2.5.1      2021-08-19 [1] CRAN (R 4.3.0)
- RANN               2.6.1      2019-01-08 [1] CRAN (R 4.3.0)
- RColorBrewer       1.1-3      2022-04-03 [1] CRAN (R 4.3.0)
- Rcpp             * 1.0.12     2024-01-09 [1] CRAN (R 4.3.1)
- RcppAnnoy          0.0.22     2024-01-23 [1] CRAN (R 4.3.1)
- RcppHNSW           0.6.0      2024-02-04 [1] CRAN (R 4.3.1)
- remotes            2.5.0      2024-03-17 [1] CRAN (R 4.3.1)
- reshape2           1.4.4      2020-04-09 [1] CRAN (R 4.3.0)
- reticulate         1.35.0     2024-01-31 [1] CRAN (R 4.3.1)
- rlang              1.1.3      2024-01-10 [1] CRAN (R 4.3.1)
- rmarkdown          2.26       2024-03-05 [1] CRAN (R 4.3.1)
- ROCR               1.0-11     2020-05-02 [1] CRAN (R 4.3.0)
- RSpectra           0.16-1     2022-04-24 [1] CRAN (R 4.3.0)
- rstudioapi         0.16.0     2024-03-24 [1] CRAN (R 4.3.1)
- Rtsne              0.17       2023-12-07 [1] CRAN (R 4.3.1)
- scales             1.3.0      2023-11-28 [1] CRAN (R 4.3.1)
- scattermore        1.2        2023-06-12 [1] CRAN (R 4.3.0)
- sctransform        0.4.1      2023-10-19 [1] CRAN (R 4.3.1)
- sessioninfo        1.2.2      2021-12-06 [1] CRAN (R 4.3.0)
- Seurat           * 5.0.3      2024-03-18 [1] CRAN (R 4.3.1)
- SeuratObject     * 5.0.1      2023-11-17 [1] CRAN (R 4.3.1)
- shiny              1.8.1.1    2024-04-02 [1] CRAN (R 4.3.1)
- sp               * 2.1-3      2024-01-30 [1] CRAN (R 4.3.1)
- spam               2.10-0     2023-10-23 [1] CRAN (R 4.3.1)
- spatstat.data      3.0-4      2024-01-15 [1] CRAN (R 4.3.1)
- spatstat.explore   3.2-7      2024-03-21 [1] CRAN (R 4.3.1)
- spatstat.geom      3.2-9      2024-02-28 [1] CRAN (R 4.3.1)
- spatstat.random    3.2-3      2024-02-29 [1] CRAN (R 4.3.1)
- spatstat.sparse    3.0-3      2023-10-24 [1] CRAN (R 4.3.1)
- spatstat.utils     3.0-4      2023-10-24 [1] CRAN (R 4.3.1)
- stringi            1.8.3      2023-12-11 [1] CRAN (R 4.3.1)
- stringr            1.5.1      2023-11-14 [1] CRAN (R 4.3.1)
- survival           3.5-8      2024-02-14 [1] CRAN (R 4.3.1)
- tensor             1.5        2012-05-05 [1] CRAN (R 4.3.0)
- tibble             3.2.1      2023-03-20 [1] CRAN (R 4.3.0)
- tidyr              1.3.1      2024-01-24 [1] CRAN (R 4.3.1)
- tidyselect         1.2.1      2024-03-11 [1] CRAN (R 4.3.1)
- urlchecker         1.0.1      2021-11-30 [1] CRAN (R 4.3.0)
- usethis            2.2.3      2024-02-19 [1] CRAN (R 4.3.1)
- utf8               1.2.4      2023-10-22 [1] CRAN (R 4.3.1)
- uwot               0.1.16     2023-06-29 [1] CRAN (R 4.3.0)
- vctrs              0.6.5      2023-12-01 [1] CRAN (R 4.3.1)
- viridisLite        0.4.2      2023-05-02 [1] CRAN (R 4.3.0)
- xfun               0.43       2024-03-25 [1] CRAN (R 4.3.1)
- xtable             1.8-4      2019-04-21 [1] CRAN (R 4.3.0)
- yaml               2.3.8      2023-12-11 [1] CRAN (R 4.3.1)
- zoo                1.8-12     2023-04-13 [1] CRAN (R 4.3.0)
+```{r}
+devtools::session_info()
 ```
