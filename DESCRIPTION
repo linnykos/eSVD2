@@ -32,14 +32,17 @@ Imports:
     sparseMatrixStats
 Suggests:
     devtools,
+    EnhancedVolcano,
     knitr,
     npregfast,
     numDeriv,
     Seurat,
+    SeuratObject,
     testthat,
     utils
 LinkingTo:
     Rcpp, RcppEigen, BH
+biocViews: SingleCell, RNASeq, GeneExpression, Transcription, DifferentialExpression
 VignetteBuilder: knitr
 NeedsCompilation: yes
 RoxygenNote: 7.3.1
