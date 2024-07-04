@@ -42,7 +42,7 @@
 #' \describe{
 #'   \item{Gene}{Gene name}
 #' }
-#' @source <https://www.science.org/doi/10.1126/science.aav8130>
+#' @source <https://academic.oup.com/nar/article/49/D1/D947/5871367>
 #' @examples
 #' \dontrun{
 #' # How the data was loaded
