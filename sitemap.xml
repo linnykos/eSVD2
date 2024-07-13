@@ -1,120 +1,43 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url>
-    <loc>https://linnykos.github.io/eSVD2/404.html</loc>
-  </url>
-  <url>
-    <loc>https://linnykos.github.io/eSVD2/LICENSE-text.html</loc>
-  </url>
-  <url>
-    <loc>https://linnykos.github.io/eSVD2/articles/asd-preprocess.html</loc>
-  </url>
-  <url>
-    <loc>https://linnykos.github.io/eSVD2/articles/asd.html</loc>
-  </url>
-  <url>
-    <loc>https://linnykos.github.io/eSVD2/articles/eSVD2.html</loc>
-  </url>
-  <url>
-    <loc>https://linnykos.github.io/eSVD2/articles/index.html</loc>
-  </url>
-  <url>
-    <loc>https://linnykos.github.io/eSVD2/authors.html</loc>
-  </url>
-  <url>
-    <loc>https://linnykos.github.io/eSVD2/index.html</loc>
-  </url>
-  <url>
-    <loc>https://linnykos.github.io/eSVD2/reference/compute_posterior.default.html</loc>
-  </url>
-  <url>
-    <loc>https://linnykos.github.io/eSVD2/reference/compute_posterior.eSVD.html</loc>
-  </url>
-  <url>
-    <loc>https://linnykos.github.io/eSVD2/reference/compute_posterior.html</loc>
-  </url>
-  <url>
-    <loc>https://linnykos.github.io/eSVD2/reference/compute_pvalue.html</loc>
-  </url>
-  <url>
-    <loc>https://linnykos.github.io/eSVD2/reference/compute_test_statistic.default.html</loc>
-  </url>
-  <url>
-    <loc>https://linnykos.github.io/eSVD2/reference/compute_test_statistic.eSVD.html</loc>
-  </url>
-  <url>
-    <loc>https://linnykos.github.io/eSVD2/reference/compute_test_statistic.html</loc>
-  </url>
-  <url>
-    <loc>https://linnykos.github.io/eSVD2/reference/data_loader.html</loc>
-  </url>
-  <url>
-    <loc>https://linnykos.github.io/eSVD2/reference/dot-compute_df.html</loc>
-  </url>
-  <url>
-    <loc>https://linnykos.github.io/eSVD2/reference/dot-reparameterize.html</loc>
-  </url>
-  <url>
-    <loc>https://linnykos.github.io/eSVD2/reference/estimate_nuisance.default.html</loc>
-  </url>
-  <url>
-    <loc>https://linnykos.github.io/eSVD2/reference/estimate_nuisance.eSVD.html</loc>
-  </url>
-  <url>
-    <loc>https://linnykos.github.io/eSVD2/reference/estimate_nuisance.html</loc>
-  </url>
-  <url>
-    <loc>https://linnykos.github.io/eSVD2/reference/esvd_family.html</loc>
-  </url>
-  <url>
-    <loc>https://linnykos.github.io/eSVD2/reference/format_covariates.html</loc>
-  </url>
-  <url>
-    <loc>https://linnykos.github.io/eSVD2/reference/gandal_df.html</loc>
-  </url>
-  <url>
-    <loc>https://linnykos.github.io/eSVD2/reference/generate_data.html</loc>
-  </url>
-  <url>
-    <loc>https://linnykos.github.io/eSVD2/reference/generate_null.html</loc>
-  </url>
-  <url>
-    <loc>https://linnykos.github.io/eSVD2/reference/housekeeping_df.html</loc>
-  </url>
-  <url>
-    <loc>https://linnykos.github.io/eSVD2/reference/index.html</loc>
-  </url>
-  <url>
-    <loc>https://linnykos.github.io/eSVD2/reference/initialize_esvd.html</loc>
-  </url>
-  <url>
-    <loc>https://linnykos.github.io/eSVD2/reference/multtest.html</loc>
-  </url>
-  <url>
-    <loc>https://linnykos.github.io/eSVD2/reference/opt_esvd.default.html</loc>
-  </url>
-  <url>
-    <loc>https://linnykos.github.io/eSVD2/reference/opt_esvd.eSVD.html</loc>
-  </url>
-  <url>
-    <loc>https://linnykos.github.io/eSVD2/reference/opt_esvd.html</loc>
-  </url>
-  <url>
-    <loc>https://linnykos.github.io/eSVD2/reference/opt_x.html</loc>
-  </url>
-  <url>
-    <loc>https://linnykos.github.io/eSVD2/reference/opt_yz.html</loc>
-  </url>
-  <url>
-    <loc>https://linnykos.github.io/eSVD2/reference/print.esvd_data_loader.html</loc>
-  </url>
-  <url>
-    <loc>https://linnykos.github.io/eSVD2/reference/reparameterization_esvd_covariates.html</loc>
-  </url>
-  <url>
-    <loc>https://linnykos.github.io/eSVD2/reference/sfari_df.html</loc>
-  </url>
-  <url>
-    <loc>https://linnykos.github.io/eSVD2/reference/velmeshev_gene_df.html</loc>
-  </url>
+<urlset xmlns = 'http://www.sitemaps.org/schemas/sitemap/0.9'>
+<url><loc>https://linnykos.github.io/eSVD2/404.html</loc></url>
+<url><loc>https://linnykos.github.io/eSVD2/LICENSE-text.html</loc></url>
+<url><loc>https://linnykos.github.io/eSVD2/articles/asd-preprocess.html</loc></url>
+<url><loc>https://linnykos.github.io/eSVD2/articles/asd.html</loc></url>
+<url><loc>https://linnykos.github.io/eSVD2/articles/eSVD2.html</loc></url>
+<url><loc>https://linnykos.github.io/eSVD2/articles/index.html</loc></url>
+<url><loc>https://linnykos.github.io/eSVD2/authors.html</loc></url>
+<url><loc>https://linnykos.github.io/eSVD2/index.html</loc></url>
+<url><loc>https://linnykos.github.io/eSVD2/reference/compute_posterior.default.html</loc></url>
+<url><loc>https://linnykos.github.io/eSVD2/reference/compute_posterior.eSVD.html</loc></url>
+<url><loc>https://linnykos.github.io/eSVD2/reference/compute_posterior.html</loc></url>
+<url><loc>https://linnykos.github.io/eSVD2/reference/compute_pvalue.html</loc></url>
+<url><loc>https://linnykos.github.io/eSVD2/reference/compute_test_statistic.default.html</loc></url>
+<url><loc>https://linnykos.github.io/eSVD2/reference/compute_test_statistic.eSVD.html</loc></url>
+<url><loc>https://linnykos.github.io/eSVD2/reference/compute_test_statistic.html</loc></url>
+<url><loc>https://linnykos.github.io/eSVD2/reference/data_loader.html</loc></url>
+<url><loc>https://linnykos.github.io/eSVD2/reference/dot-compute_df.html</loc></url>
+<url><loc>https://linnykos.github.io/eSVD2/reference/dot-reparameterize.html</loc></url>
+<url><loc>https://linnykos.github.io/eSVD2/reference/estimate_nuisance.default.html</loc></url>
+<url><loc>https://linnykos.github.io/eSVD2/reference/estimate_nuisance.eSVD.html</loc></url>
+<url><loc>https://linnykos.github.io/eSVD2/reference/estimate_nuisance.html</loc></url>
+<url><loc>https://linnykos.github.io/eSVD2/reference/esvd_family.html</loc></url>
+<url><loc>https://linnykos.github.io/eSVD2/reference/fisher_test.html</loc></url>
+<url><loc>https://linnykos.github.io/eSVD2/reference/format_covariates.html</loc></url>
+<url><loc>https://linnykos.github.io/eSVD2/reference/gandal_df.html</loc></url>
+<url><loc>https://linnykos.github.io/eSVD2/reference/generate_data.html</loc></url>
+<url><loc>https://linnykos.github.io/eSVD2/reference/generate_null.html</loc></url>
+<url><loc>https://linnykos.github.io/eSVD2/reference/housekeeping_df.html</loc></url>
+<url><loc>https://linnykos.github.io/eSVD2/reference/index.html</loc></url>
+<url><loc>https://linnykos.github.io/eSVD2/reference/initialize_esvd.html</loc></url>
+<url><loc>https://linnykos.github.io/eSVD2/reference/multtest.html</loc></url>
+<url><loc>https://linnykos.github.io/eSVD2/reference/opt_esvd.default.html</loc></url>
+<url><loc>https://linnykos.github.io/eSVD2/reference/opt_esvd.eSVD.html</loc></url>
+<url><loc>https://linnykos.github.io/eSVD2/reference/opt_esvd.html</loc></url>
+<url><loc>https://linnykos.github.io/eSVD2/reference/opt_x.html</loc></url>
+<url><loc>https://linnykos.github.io/eSVD2/reference/opt_yz.html</loc></url>
+<url><loc>https://linnykos.github.io/eSVD2/reference/print.esvd_data_loader.html</loc></url>
+<url><loc>https://linnykos.github.io/eSVD2/reference/reparameterization_esvd_covariates.html</loc></url>
+<url><loc>https://linnykos.github.io/eSVD2/reference/sfari_df.html</loc></url>
+<url><loc>https://linnykos.github.io/eSVD2/reference/velmeshev_gene_df.html</loc></url>
 </urlset>
+
