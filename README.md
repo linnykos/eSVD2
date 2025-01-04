@@ -9,13 +9,13 @@ This repository contains all the functions to perform eSVD-DE (for package `eSVD
 This code was developed and tested primarily on R 4.3.2. on a 2023 Macbook Pro (macOS Sonoma 14.2.1) equipped with Apple M2 Max processor (32 Gb RAM).
 
 <!-- badges: start -->
-[![DOI:10.1186/s12859-024-05724-7](https://img.shields.io/badge/doi-10.1073/pnas.2303647120-firebrick.svg)](https://doi.org/10.1186/s12859-024-05724-7)
+[![DOI:10.1186/s12859-024-05724-7](https://img.shields.io/badge/doi-10.1186/s12859--024--05724--7-firebrick.svg)](https://doi.org/10.1186/s12859-024-05724-7)
 [![Lifecycle: stable](https://img.shields.io/badge/lifecycle-stable-brightgreen.svg)](https://lifecycle.r-lib.org/articles/stages.html#stable)
 <!-- badges: end -->
   
 # Tutorials and vignettes
 
-Please see https://linnykos.github.io/eSVD2/index.html for in-depth tutorials and vignettes on how to use Tilted-CCA.
+Please see https://linnykos.github.io/eSVD2/index.html for in-depth tutorials and vignettes on how to use eSVD-DE.
 
 # Installation
 
@@ -27,7 +27,7 @@ devtools::install_github("linnykos/eSVD2")
 ```
 The package itself depends on several packages. These include `irlba`, `glmnet`, `locfdr`, `Matrix`, `matrixStats`, `Rmpfr`, `RSpectra`, and `sparseMatrixStats`. See the last section of this README to see where (i.e., CRAN, Bioconductor, or GitHub) to download all such packages. We have noted that `Rmpfr` is sometimes tricky to install due to its required C++ libraries.
 
-After installation of all the dependencies, the installation of the `tiltedCCA` package itself takes modest time (less than 10 minutes). The installation time mainly consists of time to compile the C++ code since the matrix factorization optimization was written using Rcpp for faster performance.
+After installation of all the dependencies, the installation of the `eSVD2` package itself takes modest time (less than 10 minutes). The installation time mainly consists of time to compile the C++ code since the matrix factorization optimization was written using Rcpp for faster performance.
 
 <details>
 <summary>**Known installation issues and the solutions**</summary>
@@ -39,12 +39,12 @@ Error in irlba::irlba() :
 ```
 then it is likely you need to downgrade your version of `Matrix` to `1.6-1.1`. See https://github.com/bwlewis/irlba/issues/70#issuecomment-1826900769. Hence, in the R console,
 ```R
+remove.packages("Seurat")
 remove.packages("SeuratObject")
 remove.packages("Matrix")
-remove.packages("irlba")
-install.packages("Matrix", type = "source")
-install.packages("irlba", type = "source")
-install.packages("SeuratObject")
+remotes::install_version("Matrix", version = "1.6-1.1")
+remotes::install_version("SeuratObject", version = "5.0.0")
+remotes::install_version("Seurat", version = "5.0.0")
 ```
 </details>
 
