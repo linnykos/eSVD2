@@ -225,6 +225,10 @@ opt_esvd.default <- function(input_obj,
     if(i >= 2){
       resid <- abs(losses[i] - losses[i - 1])
       thresh <- tol * max(1, abs(losses[i - 1]))
+      if(verbose >= 2) {
+        print("Residual of loss: ", resid)
+        print("Threshold for termination: ", thresh)
+      }
       if(resid <= thresh) break()
     }
   }
