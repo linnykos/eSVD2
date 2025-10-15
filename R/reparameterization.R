@@ -123,7 +123,7 @@ reparameterization_esvd_covariates <- function(input_obj,
   covariate_mat <- input_obj$covariates
   stopifnot("Intercept" %in% colnames(covariate_mat))
   covariate_mat <- covariate_mat[,which(!colnames(covariate_mat) %in% omitted_variables),drop=F]
-  covariate_mat2 <- covariate_mat[,which(colnames(covariate_mat) != "Intercept")]
+  covariate_mat2 <- covariate_mat[,which(colnames(covariate_mat) != "Intercept"),drop=F]
 
   for(ell in 1:k){
     tmp_df <- cbind(x_mat[,ell], covariate_mat2)

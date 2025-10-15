@@ -30,6 +30,7 @@ format_covariates <- function(dat,
   n <- nrow(covariate_df)
 
   factor_vec <- colnames(covariate_df)[sapply(covariate_df, is.factor)]
+
   numeric_vec <- setdiff(colnames(covariate_df), factor_vec)
   if(length(numeric_vec) > 0){
     covariate_df2 <- covariate_df[,numeric_vec,drop = F]
