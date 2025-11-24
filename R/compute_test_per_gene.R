@@ -46,6 +46,7 @@ compute_test_per_gene <- function(input_obj,
   ## ------------------------------------------------------------
   ## 0. Basic checks and pull eSVD pieces
   ## ------------------------------------------------------------
+  if(verbose > 0) print("Basic checks")
   stopifnot(
     inherits(input_obj, "eSVD"),
     "latest_Fit" %in% names(input_obj)
@@ -110,6 +111,7 @@ compute_test_per_gene <- function(input_obj,
   ## 1. Setup covariate indices for posterior construction
   ##    (mirrors compute_posterior.default)
   ## ------------------------------------------------------------
+  if(verbose > 0) print("Setting up posterior calculations")
 
   # These are stored in param by initialize_esvd / nuisance estimation
   case_control_variable <- .get_object(
@@ -176,6 +178,8 @@ compute_test_per_gene <- function(input_obj,
   ## ------------------------------------------------------------
   ## 2. Prepare containers for per-gene outputs
   ## ------------------------------------------------------------
+  if(verbose > 0) print("Preparing per-gene outputs")
+
   n  <- nrow(dat)
   p  <- ncol(dat)
   gn <- colnames(dat)
@@ -201,22 +205,24 @@ compute_test_per_gene <- function(input_obj,
   if (verbose >= 1) message("Looping over ", p, " genes in compute_test_per_gene()")
 
   for (j in 1:10) {
-    if (verbose >= 2 && p > 100 && (j %% 100 == 0)) {
+    if (verbose == 2 && p > 100 && (j %% 100 == 0)) {
+      message("  gene ", j, "/", p, " (", gn[j], ")")
+    }
+    if (verbose >= 3) {
       message("  gene ", j, "/", p, " (", gn[j], ")")
     }
 
     # Counts for this gene
+    if(verbose >= 4) print("Extracting gene")
+
     y_j <- as.numeric(dat[, j])
     if (!is.null(pseudocount) && pseudocount > 0) {
       y_j <- y_j + pseudocount
     }
 
     # 3a. Gamma-Poisson posterior *for this gene only*
-
-    # nat_mat1[, j] = x_mat %*% t(y_mat[j, ])
+    if(verbose >= 4) print("Computing natural parameters")
     nat1_j <- as.vector(tcrossprod(x_mat, y_mat[j, , drop = FALSE]))
-
-    # nat_mat2[, j] = covariates[,-library_idx] %*% t(z_mat[j, -library_idx])
     nat2_j <- as.vector(tcrossprod(cov_nolib, z_mat[j, -library_idx, drop = FALSE]))
 
     nat_nolib_j   <- nat1_j + nat2_j
@@ -242,6 +248,7 @@ compute_test_per_gene <- function(input_obj,
     }
 
     # library_mat[, j] = exp( covariates[,library_idx] %*% t(z_mat[j, library_idx]) )
+    if(verbose >= 4) print("Computing library size")
     library_j <- as.vector(
       tcrossprod(cov_lib, z_mat[j, library_idx, drop = FALSE])
     )
@@ -251,12 +258,14 @@ compute_test_per_gene <- function(input_obj,
     }
 
     # SplusBeta = library_mat + nuisance_vec (column-wise)
+    if(verbose >= 4) print("Computing posteriors")
     SplusBeta_j <- library_j + nuisance_j
 
     posterior_mean_j <- AplusAlpha_j / SplusBeta_j
     posterior_var_j  <- AplusAlpha_j / (SplusBeta_j^2)
 
     # 3b. Average posterior mean/var over individuals (one gene)
+    if(verbose >= 4) print("Averaging over people")
     avg_mean_j <- as.vector(avg_mat %*% posterior_mean_j)
     avg_var_j  <- as.vector(avg_mat %*% posterior_var_j)
 
@@ -267,6 +276,7 @@ compute_test_per_gene <- function(input_obj,
     control_var_indiv  <- avg_var_j[control_row_idx]
 
     # Mixture Gaussian means (same as Matrix::colMeans in the original 1-col case)
+    if(verbose >= 4) print("Computing Gaussian distributions")
     case_gaussian_mean    <- mean(case_mean_indiv)
     control_gaussian_mean <- mean(control_mean_indiv)
 
@@ -278,10 +288,12 @@ compute_test_per_gene <- function(input_obj,
       mean(control_mean_indiv^2) - control_gaussian_mean^2
 
     # 3c. Welch t-statistic for this gene (same formula as compute_test_statistic.default)
+    if(verbose >= 4) print("Computing test statistic")
     t_j <- (case_gaussian_mean - control_gaussian_mean) /
       sqrt(case_gaussian_var / n1 + control_gaussian_var / n2)
 
     # 3d. Gene-specific df_j (same as .compute_df(), but per gene)
+    if(verbose >= 4) print("Computing degree of freedom")
     numerator_j <- (case_gaussian_var / n1 + control_gaussian_var / n2)^2
     denominator_j <- (case_gaussian_var / n1)^2 / (n1 - 1) +
       (control_gaussian_var / n2)^2 / (n2 - 1)
@@ -298,12 +310,13 @@ compute_test_per_gene <- function(input_obj,
   ## 4. Convert t + df to Gaussian test stats and empirical-null p-values
   ##    (mirrors compute_pvalue)
   ## ------------------------------------------------------------
-
+  if(verbose > 0) print("Computing Gaussianized test statistics")
   # t + df -> Gaussian statistic (vectorized version of the original sapply)
   gaussian_teststat <- stats::qnorm(stats::pt(teststat_vec, df = df_vec))
   names(gaussian_teststat) <- names(teststat_vec)
 
   # empirical null & FDR (unchanged)
+  if(verbose > 0) print("Computing multiple-testing adjusted via empirical null")
   fdr_res <- multtest(gaussian_teststat)
   fdr_vec <- fdr_res$fdr_vec
   names(fdr_vec) <- names(gaussian_teststat)
@@ -312,6 +325,7 @@ compute_test_per_gene <- function(input_obj,
   null_sd   <- fdr_res$null_sd
 
   # two-sided log p-values using symmetric tail around null_mean
+  if(verbose > 0) print("Computing p-values")
   logp_vec <- sapply(gaussian_teststat, function(x) {
     if (x < null_mean) {
       Rmpfr::pnorm(x,
@@ -341,6 +355,7 @@ compute_test_per_gene <- function(input_obj,
   ## ------------------------------------------------------------
   ## 5. Attach per-gene outputs to object and return
   ## ------------------------------------------------------------
+  if(verbose > 0) print("Returning")
   input_obj[["teststat_vec"]]  <- teststat_vec
   input_obj[["case_mean"]]     <- case_mean_vec
   input_obj[["control_mean"]]  <- control_mean_vec
