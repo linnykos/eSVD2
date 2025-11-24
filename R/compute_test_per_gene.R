@@ -204,7 +204,7 @@ compute_test_per_gene <- function(input_obj,
 
   if (verbose >= 1) message("Looping over ", p, " genes in compute_test_per_gene()")
 
-  for (j in 1:10) {
+  for (j in seq(p)) {
     if (verbose == 2 && p > 100 && (j %% 100 == 0)) {
       message("  gene ", j, "/", p, " (", gn[j], ")")
     }
