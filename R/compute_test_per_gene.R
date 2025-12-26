@@ -20,7 +20,6 @@
 #' @param pseudocount Numeric; additional count added to each entry in the
 #'                   count matrix when forming the posterior.
 #' @param verbose    Integer; controls printed messages.
-#' @param ...        Additional arguments (currently ignored).
 #'
 #' @return The input \code{eSVD} object with:
 #'   \itemize{
@@ -40,8 +39,7 @@ compute_test_per_gene <- function(input_obj,
                                   library_min = 1e-2,
                                   nuisance_lower_quantile = 0.01,
                                   pseudocount = 0,
-                                  verbose = 0,
-                                  ...) {
+                                  verbose = 0) {
 
   ## ------------------------------------------------------------
   ## 0. Basic checks and pull eSVD pieces

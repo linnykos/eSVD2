@@ -9,5 +9,5 @@ test_that("fisher_test works", {
                      set2_genes = set2_genes,
                      all_genes = all_genes)
 
-  stopifnot(abs(res$pvalue - 0.0014) <= 1e-2)
+  expect_true(abs(res$pvalue - 0.0014) <= 1e-2)
 })

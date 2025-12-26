@@ -42,3 +42,19 @@ test_that(".initialize_coefficient works for sparse matrices", {
   expect_true(all(res[,"Intercept"] == 0))
   expect_true(all(res[,"Log_UMI"] == 1))
 })
+
+test_that(".initialize_coefficient works for no covariates", {
+  # load("tests/assets/synthetic_data.RData")
+  load("../assets/synthetic_data.RData")
+
+  res <- .initialize_coefficient(bool_intercept = FALSE,
+                                 covariates = covariates[,c("Intercept", "Log_UMI", "case_control_1")],
+                                 dat = dat,
+                                 lambda = 0.1,
+                                 offset_variables = "Log_UMI")
+
+  expect_true(all(dim(res) == c(ncol(dat), 3)))
+  expect_true(all(res[,"Intercept"] == 0))
+  expect_true(all(res[,"Log_UMI"] == 1))
+})
+

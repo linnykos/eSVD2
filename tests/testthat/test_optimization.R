@@ -6,6 +6,8 @@ test_that("opt_esvd works for eSVD_obj", {
 
   eSVD_obj$fit_First <- NULL
   eSVD_obj$teststat_vec <- NULL
+  eSVD_obj$control_mean <- NULL
+  eSVD_obj$case_mean <- NULL
   eSVD_obj$latest_Fit <- "fit_Init"
 
   expect_true(inherits(eSVD_obj$dat, "dgCMatrix"))
@@ -15,7 +17,8 @@ test_that("opt_esvd works for eSVD_obj", {
   expect_true(is.list(res))
   expect_true(inherits(res, "eSVD"))
   expect_true(all(sort(names(res)) == sort(c("dat", "covariates", "param", "fit_Init",
-                                             "fit_First", "latest_Fit"))))
+                                             "fit_First", "latest_Fit", "individual",
+                                             "case_control"))))
   expect_true(inherits(res$fit_First, "eSVD_Fit"))
   expect_true(all(sort(names(res$fit_First)) == sort(c("x_mat", "y_mat",
                                                        "z_mat", "loss"))))

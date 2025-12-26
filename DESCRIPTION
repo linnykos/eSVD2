@@ -1,6 +1,6 @@
 Package: eSVD2
 Title: eSVD2 for performing the eSVD-DE for cohort-wide differential expression analysis
-Version: 1.0.1.04
+Version: 1.0.1.05
 Authors@R: person("Kevin Z", "Lin", email = "kzlin@uw.edu", role = c("aut", "cre"))
 Description: This package is for the eSVD-DE, a way to test for differential 
     expression for single-cell RNA-seq data when many donors/individuals are 

@@ -122,19 +122,36 @@ initialize_esvd <- function(dat,
     if(verbose == 1 && p >= 10 && j %% floor(p/10) == 0) cat('*')
     if(verbose >= 2) print(paste0("Working on variable ", j , " of ", p))
 
-    glm_fit <- glmnet::glmnet(x = covariates_tmp,
-                              y = as.numeric(dat[,j]),
-                              family = "poisson",
-                              offset = offset_vec,
-                              alpha = 0,
-                              standardize = F,
-                              intercept = bool_intercept,
-                              lambda = exp(seq(log(1e4), log(lambda), length.out = 100)))
+    if(ncol(covariates_tmp) > 1){
+      glm_fit <- glmnet::glmnet(x = covariates_tmp,
+                                y = as.numeric(dat[,j]),
+                                family = "poisson",
+                                offset = offset_vec,
+                                alpha = 0,
+                                standardize = F,
+                                intercept = bool_intercept,
+                                lambda = exp(seq(log(1e4), log(lambda), length.out = 100)))
 
-    if(bool_intercept){
-      z_mat[j, c("Intercept", colnames(covariates_tmp))] <- c(glm_fit$a0[length(glm_fit$a0)], glm_fit$beta[,ncol(glm_fit$beta)])
+      if(bool_intercept){
+        z_mat[j, c("Intercept", colnames(covariates_tmp))] <- c(glm_fit$a0[length(glm_fit$a0)], glm_fit$beta[,ncol(glm_fit$beta)])
+      } else {
+        z_mat[j, c("Intercept", colnames(covariates_tmp))] <- c(0, glm_fit$beta[,ncol(glm_fit$beta)])
+      }
     } else {
-      z_mat[j, c("Intercept", colnames(covariates_tmp))] <- c(0, glm_fit$beta[,ncol(glm_fit$beta)])
+      # Handle corner case when there are no covariates to adjust for
+
+      df <- as.data.frame(cbind(
+        as.numeric(dat[,j]), covariates_tmp
+      ))
+      colnames(df) <- "y"
+
+      if(bool_intercept){
+        glm_fit <- stats::glm(y ~ ., data = df, family = stats::poisson)
+        z_mat[j, c("Intercept", colnames(covariates_tmp))] <- stats::coef(glm_fit)
+      } else {
+        glm_fit <- stats::glm(y ~ . - 1, data = df, family = stats::poisson)
+        z_mat[j, c("Intercept", colnames(covariates_tmp))] <- c(0, stats::coef(glm_fit))
+      }
     }
   }
 

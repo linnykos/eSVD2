@@ -24,9 +24,8 @@ colnames(covariate_df)[ncol(covariate_df)] <- "individual"
 covariate_df[,"case_control"] <- as.factor(covariate_df[,"case_control"])
 covariate_df[,"gender"] <- as.factor(covariate_df[,"gender"])
 covariate_df[,"individual"] <- as.factor(covariate_df[,"individual"])
-covariates <- format_covariates(dat = abs(matrix(rnorm(n*p), nrow = n, ncol = p)),
-                               covariate_df = covariate_df[,which(colnames(covariate_df) != "Log_UMI")],
-                               subject_variable = "individual")
+covariates <- eSVD2::format_covariates(dat = abs(matrix(rnorm(n*p), nrow = n, ncol = p)),
+                                       covariate_df = covariate_df[,which(colnames(covariate_df) != "Log_UMI")])
 covariates[,"Log_UMI"] <- covariate_df[,"Log_UMI"]
 
 z_mat <- cbind(0.5,
@@ -34,7 +33,7 @@ z_mat <- cbind(0.5,
                c(rep(0, .9*p), rep(1, 2/3*(.1*p)), rep(2, 1/3*(.1*p))),
                rnorm(p)
 )
-for(i in 1:num_indiv){
+for(i in 2:num_indiv){
   tmp <- rnorm(p, mean = 0, sd = .2)
   z_mat <- cbind(z_mat, tmp)
 }
@@ -70,28 +69,45 @@ metadata <- data.frame(individual = factor(rep(1:num_indiv, each = n_per_indiv))
 rownames(metadata) <- rownames(dat)
 covariates[,"Log_UMI"] <- log(Matrix::rowSums(dat))
 
+########################
+
+categorical_vars <-  c("gender")
+numerical_vars <- NULL
+
+case_control_var <- "case_control"
+id_var <- "individual"
+
 # fit eSVD
 eSVD_obj <- eSVD2::initialize_esvd(dat = dat,
-                                   covariates = covariates,
+                                   covariates = covariates[,-grep(id_var, colnames(covariates))],
                                    case_control_variable = case_control_variable,
+                                   bool_intercept = TRUE,
                                    k = 5,
-                                   subject_variables = colnames(covariates)[grep("individual", colnames(covariates))],
+                                   lambda = 0.1,
+                                   metadata_case_control = covariates[,case_control_variable],
+                                   metadata_individual = covariate_df[,id_var],
                                    verbose = 1)
+
 eSVD_obj <- eSVD2::opt_esvd(input_obj = eSVD_obj,
                             max_iter = 50,
                             verbose = 1)
-# pred_mat <- exp(tcrossprod(eSVD_obj$fit_First$x_mat, eSVD_obj$fit_First$y_mat) + tcrossprod(eSVD_obj$covariates, eSVD_obj$fit_First$z_mat)); image(pred_mat)
-# plot(eSVD_obj$fit_First$z_mat[,"case_control"], col = true_cc_status)
+
 eSVD_obj <- eSVD2::estimate_nuisance(input_obj = eSVD_obj,
-                                     bool_library_includes_interept = T,
+                                     bool_covariates_as_library = TRUE,
+                                     bool_library_includes_interept = TRUE,
+                                     bool_use_log = FALSE,
                                      verbose = 1)
-# plot(eSVD_obj$fit_First$nuisance_vec, jitter(nuisance_vec), asp = T)
+
 eSVD_obj <- eSVD2::compute_posterior(input_obj = eSVD_obj,
-                                     bool_adjust_covariates = F,
-                                     bool_covariates_as_library = T)
+                                     bool_adjust_covariates = FALSE,
+                                     alpha_max = 2*max(dat@x),
+                                     bool_covariates_as_library = TRUE,
+                                     bool_stabilize_underdispersion = TRUE,
+                                     library_min = 0.1,
+                                     pseudocount = 0)
+
 eSVD_obj <- eSVD2::compute_test_statistic(input_obj = eSVD_obj,
-                                          covariate_individual = "individual",
-                                          metadata = metadata)
+                                          verbose = 1)
 
 save(dat, covariates, metadata, nuisance_vec,
      nat_mat_nolib, gamma_mat, library_mat,
