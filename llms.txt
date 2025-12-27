@@ -147,6 +147,9 @@ The following shows the suggested package versions that the developer
   : Compute posterior according to Gamma-Poisson model for eSVD object
 - [`compute_pvalue()`](https://linnykos.github.io/eSVD2/reference/compute_pvalue.md)
   : Compute p-values
+- [`compute_test_per_gene()`](https://linnykos.github.io/eSVD2/reference/compute_test_per_gene.md)
+  : Gene-wise posterior + test statistic + p-value without storing
+  posterior matrices
 - [`compute_test_statistic()`](https://linnykos.github.io/eSVD2/reference/compute_test_statistic.md)
   : Compute test statistics
 - [`compute_test_statistic(`*`<default>`*`)`](https://linnykos.github.io/eSVD2/reference/compute_test_statistic.default.md)
@@ -197,6 +200,8 @@ The following shows the suggested package versions that the developer
   : Internal data loader function
 - [`reparameterization_esvd_covariates()`](https://linnykos.github.io/eSVD2/reference/reparameterization_esvd_covariates.md)
   : Reparameterize eSVD object
+- [`report_results()`](https://linnykos.github.io/eSVD2/reference/report_results.md)
+  : Report the DE results from eSVD
 - [`sfari_df`](https://linnykos.github.io/eSVD2/reference/sfari_df.md) :
   SFARI genes
 - [`velmeshev_gene_df`](https://linnykos.github.io/eSVD2/reference/velmeshev_gene_df.md)

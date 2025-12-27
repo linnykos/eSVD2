@@ -310,7 +310,7 @@ devtools::session_info()
 #>  collate  C.UTF-8
 #>  ctype    C.UTF-8
 #>  tz       UTC
-#>  date     2025-12-26
+#>  date     2025-12-27
 #>  pandoc   3.1.11 @ /opt/hostedtoolcache/pandoc/3.1.11/x64/ (via rmarkdown)
 #>  quarto   NA
 #> 
@@ -331,7 +331,7 @@ devtools::session_info()
 #>  dotCall64          1.2      2024-10-04 [1] RSPM
 #>  dplyr              1.1.4    2023-11-17 [1] RSPM
 #>  ellipsis           0.3.2    2021-04-29 [1] RSPM
-#>  eSVD2            * 1.0.1.05 2025-12-26 [1] local
+#>  eSVD2            * 1.0.1.05 2025-12-27 [1] local
 #>  evaluate           1.0.5    2025-08-27 [1] RSPM
 #>  farver             2.1.2    2024-05-13 [1] RSPM
 #>  fastDummies        1.7.5    2025-01-20 [1] RSPM

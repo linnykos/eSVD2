@@ -207,7 +207,7 @@ devtools::session_info()
     ##  collate  C.UTF-8
     ##  ctype    C.UTF-8
     ##  tz       UTC
-    ##  date     2025-12-26
+    ##  date     2025-12-27
     ##  pandoc   3.1.11 @ /opt/hostedtoolcache/pandoc/3.1.11/x64/ (via rmarkdown)
     ##  quarto   NA
     ## 
