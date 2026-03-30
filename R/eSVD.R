@@ -40,6 +40,11 @@ eSVD <- function(batch_var_prefix, # a variable inside categorical_vars. Can be 
                                            layer = "counts"))
 
   if(verbose > 0) print("Processing the covariates")
+  if(is.factor(seurat_obj@meta.data[,id_var])) seurat_obj@meta.data[,id_var] <- droplevels(seurat_obj@meta.data[,id_var])
+  for(variable in categorical_vars){
+    if(is.factor(seurat_obj@meta.data[,variable])) seurat_obj@meta.data[,variable] <- droplevels(seurat_obj@meta.data[,variable])
+  }
+
   if(length(categorical_vars) >= 1){
     categorical_vars_subset <- categorical_vars[sapply(categorical_vars, function(x){
       length(levels(droplevels(seurat_obj@meta.data[,x]))) > 1
