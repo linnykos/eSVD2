@@ -137,7 +137,7 @@ estimate_nuisance.default <- function(input_obj,
                  s = s),
       warning = function(e){NULL},
       error = function(e){NULL})
-    if(!all(is.null(res))) {return(res)}
+    if(!is.null(res) && length(res) == 1 && is.finite(res) && res > 0) {return(res)}
   }
 
   res <- tryCatch(
@@ -146,7 +146,7 @@ estimate_nuisance.default <- function(input_obj,
                        s = s)),
     warning = function(e){NULL},
     error = function(e){NULL})
-  if(!all(is.null(res))) {return(res)}
+  if(!is.null(res) && length(res) == 1 && is.finite(res) && res > 0) {return(res)}
 
   if(verbose > 0) warning(paste0("Nuisance estimation failed at variable ", j))
   return(0)
