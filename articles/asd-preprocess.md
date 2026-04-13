@@ -207,7 +207,7 @@ devtools::session_info()
     ##  collate  C.UTF-8
     ##  ctype    C.UTF-8
     ##  tz       UTC
-    ##  date     2026-03-30
+    ##  date     2026-04-13
     ##  pandoc   3.1.11 @ /opt/hostedtoolcache/pandoc/3.1.11/x64/ (via rmarkdown)
     ##  quarto   NA
     ## 
@@ -216,7 +216,7 @@ devtools::session_info()
     ##  abind               1.4-8    2024-09-12 [1] RSPM
     ##  bslib               0.10.0   2026-01-26 [1] RSPM
     ##  cachem              1.1.0    2024-05-16 [1] RSPM
-    ##  cli                 3.6.5    2025-04-23 [1] RSPM
+    ##  cli                 3.6.6    2026-04-09 [1] RSPM
     ##  cluster             2.1.8.2  2026-02-05 [3] CRAN (R 4.5.3)
     ##  codetools           0.2-20   2024-03-31 [3] CRAN (R 4.5.3)
     ##  cowplot             1.2.0    2025-07-07 [1] RSPM
@@ -226,8 +226,8 @@ devtools::session_info()
     ##  devtools            2.5.0    2026-03-14 [1] RSPM
     ##  digest              0.6.39   2025-11-19 [1] RSPM
     ##  dotCall64           1.2      2024-10-04 [1] RSPM
-    ##  dplyr               1.2.0    2026-02-03 [1] RSPM
-    ##  ellipsis            0.3.2    2021-04-29 [1] RSPM
+    ##  dplyr               1.2.1    2026-04-03 [1] RSPM
+    ##  ellipsis            0.3.3    2026-04-04 [1] RSPM
     ##  evaluate            1.0.5    2025-08-27 [1] RSPM
     ##  farver              2.1.2    2024-05-13 [1] RSPM
     ##  fastDummies         1.7.5    2025-01-20 [1] RSPM
@@ -250,7 +250,7 @@ devtools::session_info()
     ##  httpuv              1.6.17   2026-03-18 [1] RSPM
     ##  httr                1.4.8    2026-02-13 [1] RSPM
     ##  ica                 1.0-3    2022-07-08 [1] RSPM
-    ##  igraph              2.2.2    2026-02-12 [1] RSPM
+    ##  igraph              2.2.3    2026-04-07 [1] RSPM
     ##  irlba               2.3.7    2026-01-30 [1] RSPM
     ##  jquerylib           0.1.4    2021-04-26 [1] RSPM
     ##  jsonlite            2.0.0    2025-03-27 [1] RSPM
@@ -258,11 +258,11 @@ devtools::session_info()
     ##  knitr               1.51     2025-12-20 [1] RSPM
     ##  later               1.4.8    2026-03-05 [1] RSPM
     ##  lattice             0.22-9   2026-02-09 [3] CRAN (R 4.5.3)
-    ##  lazyeval            0.2.2    2019-03-15 [1] RSPM
+    ##  lazyeval            0.2.3    2026-04-04 [1] RSPM
     ##  lifecycle           1.0.5    2026-01-08 [1] RSPM
     ##  listenv             0.10.1   2026-03-10 [1] RSPM
     ##  lmtest              0.9-40   2022-03-21 [1] RSPM
-    ##  magrittr            2.0.4    2025-09-12 [1] RSPM
+    ##  magrittr            2.0.5    2026-04-04 [1] RSPM
     ##  MASS                7.3-65   2025-02-28 [3] CRAN (R 4.5.3)
     ##  Matrix            * 1.7-4    2025-08-28 [3] CRAN (R 4.5.3)
     ##  MatrixGenerics    * 1.22.0   2025-10-29 [1] Bioconduc~
@@ -279,14 +279,14 @@ devtools::session_info()
     ##  pkgbuild            1.4.8    2025-05-26 [1] RSPM
     ##  pkgconfig           2.0.3    2019-09-22 [1] RSPM
     ##  pkgdown             2.2.0    2025-11-06 [1] RSPM
-    ##  pkgload             1.5.0    2026-02-03 [1] RSPM
+    ##  pkgload             1.5.1    2026-04-01 [1] RSPM
     ##  plotly              4.12.0   2026-01-24 [1] RSPM
     ##  plyr                1.8.9    2023-10-02 [1] RSPM
     ##  png                 0.1-9    2026-03-15 [1] RSPM
     ##  polyclip            1.10-7   2024-07-23 [1] RSPM
-    ##  progressr           0.18.0   2025-11-06 [1] RSPM
+    ##  progressr           0.19.0   2026-03-31 [1] RSPM
     ##  promises            1.5.0    2025-11-01 [1] RSPM
-    ##  purrr               1.2.1    2026-01-09 [1] RSPM
+    ##  purrr               1.2.2    2026-04-10 [1] RSPM
     ##  R6                  2.6.1    2025-02-15 [1] RSPM
     ##  ragg                1.5.2    2026-03-23 [1] RSPM
     ##  RANN                2.6.2    2024-08-25 [1] RSPM
@@ -295,8 +295,8 @@ devtools::session_info()
     ##  RcppAnnoy           0.0.23   2026-01-12 [1] RSPM
     ##  RcppHNSW            0.6.0    2024-02-04 [1] RSPM
     ##  reshape2            1.4.5    2025-11-12 [1] RSPM
-    ##  reticulate          1.45.0   2026-02-13 [1] RSPM
-    ##  rlang               1.1.7    2026-01-09 [1] RSPM
+    ##  reticulate          1.46.0   2026-04-09 [1] RSPM
+    ##  rlang               1.2.0    2026-04-06 [1] RSPM
     ##  rmarkdown           2.31     2026-03-26 [1] RSPM
     ##  ROCR                1.0-12   2026-01-23 [1] RSPM
     ##  RSpectra            0.16-2   2024-07-18 [1] RSPM
@@ -308,7 +308,7 @@ devtools::session_info()
     ##  sctransform         0.4.3    2026-01-10 [1] RSPM
     ##  sessioninfo         1.2.3    2025-02-05 [1] RSPM
     ##  Seurat            * 5.4.0    2025-12-14 [1] RSPM
-    ##  SeuratObject      * 5.3.0    2025-12-12 [1] RSPM
+    ##  SeuratObject      * 5.4.0    2026-04-11 [1] RSPM
     ##  shiny               1.13.0   2026-02-20 [1] RSPM
     ##  sp                * 2.2-1    2026-02-13 [1] RSPM
     ##  spam                2.11-3   2026-01-08 [1] RSPM
@@ -331,7 +331,7 @@ devtools::session_info()
     ##  tidyselect          1.2.1    2024-03-11 [1] RSPM
     ##  usethis             3.2.1    2025-09-06 [1] RSPM
     ##  uwot                0.2.4    2025-11-10 [1] RSPM
-    ##  vctrs               0.7.2    2026-03-21 [1] RSPM
+    ##  vctrs               0.7.3    2026-04-11 [1] RSPM
     ##  viridisLite         0.4.3    2026-02-04 [1] RSPM
     ##  xfun                0.57     2026-03-20 [1] RSPM
     ##  xtable              1.8-8    2026-02-22 [1] RSPM

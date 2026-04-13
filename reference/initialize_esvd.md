@@ -65,8 +65,8 @@ initialize_esvd(
 - lambda:
 
   Penalty of the `mixed_effect_variables` when using
-  [`glmnet::glmnet`](https://rdrr.io/pkg/glmnet/man/glmnet.html) to
-  initialize the coefficients.
+  [`glmnet::glmnet`](https://glmnet.stanford.edu/reference/glmnet.html)
+  to initialize the coefficients.
 
 - library_size_variable:
 
