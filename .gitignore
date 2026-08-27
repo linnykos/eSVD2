@@ -1,32 +1,93 @@
-*verbose*.txt
-*.tar.gz
-*.Rproj.user*
-*.Rhistory
-*.Ruserdata
-*.out
-.Rproj.user
-*.Rout
-.Rout
-*.ROut
-.ROut
-*/.DS_Store
+# ---------------------------------------------------------------------------
+# .gitignore -- what never enters git history.
+#
+# NOTE: this is deliberately *narrower* than .Rbuildignore. Things like
+# additional_context/, CLAUDE*.md and HISTORY_*.md ARE tracked here (they are
+# useful to collaborators on GitHub) but are excluded from the CRAN tarball
+# by .Rbuildignore. Keep the two files in sync when adding new material.
+# ---------------------------------------------------------------------------
+
+# --- OS / editor cruft ---
 .DS_Store
-main/beta_vec
-results/
-figures/*.RData
-results/*.RData
-results/old/*.RData
-simulation/*.RData
-experiment/*.RData
-data/*.RData
-markdown/Zeisel_*_cache
-markdown/Zeisel_*_files
-*cache*
-cache
-_files
-*_files*
+.DS_Store?
+*/.DS_Store
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+*~
+.*.swp
+.vscode/
+.idea/
+
+# --- R session state ---
+.Rproj.user
+*.Rproj.user*
+.Rhistory
+*.Rhistory
+.RData
+*.RData
+.Ruserdata
+*.Ruserdata
+.Rapp.history
+*-Ex.R
+
+# ...but the package's shipped datasets must stay tracked.
+!data/*.rda
+
+# --- R build / check artifacts ---
+*.tar.gz
+*.Rcheck/
+..Rcheck/
+src/*.o
+src/*.so
+src/*.dll
+src/*.dylib
 *.o
 *.dll
 *.so
 *.dylib
+*.Rout
+.Rout
+*.ROut
+.ROut
+*.out
+*verbose*.txt
+
+# --- pkgdown site (rebuilt by .github/workflows/pkgdown.yaml) ---
 docs
+pkgdown/
+
+# --- knitr / rmarkdown caches ---
+*cache*
+cache
+_files
+*_files*
+markdown/Zeisel_*_cache
+markdown/Zeisel_*_files
+
+# --- Analysis scratch space (not part of the package) ---
+main/beta_vec
+results/
+figures/*.RData
+simulation/*.RData
+experiment/*.RData
+
+# --- Python (for any reticulate / scanpy side work) ---
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+.venv/
+venv/
+env/
+.pytest_cache/
+
+# --- LaTeX build artifacts (keep the .tex source) ---
+*.aux
+*.log
+*.toc
+*.synctex.gz
+*.fls
+*.fdb_latexmk
+*.bbl
+*.blg

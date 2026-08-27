@@ -1,0 +1,48 @@
+#!/bin/sh
+# Pre-commit guard: block oversized files from entering git history. Large files
+# bloat the repo permanently (git history keeps every blob forever, even after a
+# later delete) and can hit GitHub limits (50 MB warning / 100 MB hard reject on
+# plain git). This is especially easy to trip in a Dropbox-shared collaboration
+# where big PDFs, data dumps, or figures land in the tree.
+#
+# Threshold: files >= MAX_MB are blocked. Default 50 MB (GitHub's own warning
+# line, ~2x margin under the 100 MB hard limit). Override per-commit with e.g.
+#   MAX_MB=25 git commit ...
+# Bypass entirely (use sparingly) with:  git commit --no-verify
+#
+# Scope: ALL staged files. Narrow the `case` block below if you only want to
+# guard a specific directory (e.g. raw/).
+
+MAX_MB=${MAX_MB:-50}
+MAX_BYTES=$((MAX_MB * 1024 * 1024))
+
+too_big=""
+# --diff-filter=ACM = Added / Copied / Modified staged files (skip deletions).
+# Loop runs in the current shell (here-doc redirect, not a pipe) so $too_big
+# survives.
+while IFS= read -r file; do
+	[ -z "$file" ] && continue
+	# To scope to a subdirectory, uncomment:
+	#   case "$file" in raw/*) ;; *) continue ;; esac
+	# Size of the STAGED blob (what will actually be committed), not the worktree.
+	size=$(git cat-file -s ":$file" 2>/dev/null) || continue
+	if [ "$size" -ge "$MAX_BYTES" ]; then
+		mb=$(( (size + 1048575) / 1048576 ))
+		too_big="${too_big}
+  ${file} (${mb} MB)"
+	fi
+done <<EOF
+$(git diff --cached --name-only --diff-filter=ACM)
+EOF
+
+if [ -n "$too_big" ]; then
+	printf '\n✗ Commit blocked — file(s) at or above %s MB:\n%s\n\n' "$MAX_MB" "$too_big"
+	printf 'Large files should not go into git history. Options:\n'
+	printf '  • Unstage it:            git restore --staged <file>\n'
+	printf '  • Keep it out of git:    add the pattern to .gitignore\n'
+	printf '  • Allow a bigger limit:  MAX_MB=<n> git commit ...\n'
+	printf '  • Override this once:    git commit --no-verify   (use sparingly)\n\n'
+	exit 1
+fi
+
+exit 0
