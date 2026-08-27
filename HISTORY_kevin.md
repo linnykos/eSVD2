@@ -96,3 +96,83 @@
 - Decided **not** to change any package code this session — the request was to
   produce the plan, and the ordering in `CRAN_READINESS.md` §6 depends on the
   unresolved CRAN-vs-Bioconductor question.
+
+### [2026-08-27] (Session 2 — writing the unit-test plan)
+
+- Wrote `additional_context/UNIT_TEST_PLAN.md` (720 lines): the full proposed
+  suite, ~200 `test_that` blocks against the current ~40. Replaced §3 of
+  `CRAN_READINESS.md` with a pointer to it and added `T-*` test citations at the
+  §1.1 / §1.3 / §1.4 / §4.1 / §4.3 "Test" paragraphs and in §6 step 9.
+- **Every test carries an explicit `oracle` field**, tagged `[oracle]` /
+  `[invariant]` / `[snapshot]`. This is the field to argue about in review: a
+  test whose oracle is "whatever the code returns today" locks in the bug. The
+  ID scheme (`T-<AREA>-nn`) exists so Kevin can strike or dispute tests by
+  reference without quoting them.
+- **Decided the plan is fixture-first, not assertion-first.** The bulk of the
+  work is regenerating `tests/assets/`, not writing `expect_*` calls. Proposed
+  `F-TINY` (120×20, 6 individuals), `F-SMALL` (400×40, 8), `F-DEGEN` (hand-built
+  degenerate inputs, never stored), `F-NULL`, `F-DERIV` (per-family feasible
+  points). Fitted objects are built at test time from raw inputs, not stored —
+  smaller *and* a stronger test than reading back a stored fit.
+- **Decided the work order in the plan deliberately contradicts
+  `CRAN_READINESS.md` §6**: harness → fixtures → the two *free* equivalence tests
+  → gradient tests → fixes. Rationale: the matrix-vs-per-gene and
+  `gamma_rate`-vs-`log_gamma_rate` pairs need no new oracle (each is the other's)
+  and together cover the posterior/test/p-value stack plus the nuisance
+  estimator, so they are the cheapest possible safety net and must exist before
+  anything is touched.
+
+**Four defects found while writing the plan that §1 of `CRAN_READINESS.md` does
+not list** (all recorded in the new §3 of that file):
+
+- **Four of seven families are unusable at their documented defaults** —
+  verified. `opt_esvd.default` defaults `nuisance_vec = rep(NA, ncol(dat))`, but
+  `gaussian`, `curved_gaussian`, `neg_binom`, `neg_binom2` all consume `gamma`,
+  so `objfn_all_r` returns `NA` and `opt_esvd.default(family = "gaussian")` dies
+  with `missing value where TRUE/FALSE needed` — naming neither the family nor
+  the parameter. Only `poisson` and `bernoulli` ignore `gamma` entirely. This is
+  why six families have no tests: a naive test would fail immediately and it
+  would look like the test's fault.
+- **`format_covariates()` drops the *first* factor level; the roxygen says the
+  last** — verified with `factor(c("a","a","b","b","c","c"))` → columns `g_b`,
+  `g_c`. Second doc/code mismatch in the same function: it rescales only the
+  variables named in `rescale_numeric_variables`, while the roxygen says "all
+  the numerical variables".
+- **`data_loader()` returns a null external pointer without erroring** for an S4
+  that is not `dgCMatrix` (a `dgeMatrix` is plausible user input) or a dense
+  matrix that is neither integer nor numeric — verified. The
+  `Rcpp::stop("unsupported matrix type")` is only reachable for a non-S4
+  non-matrix, because the two type tests are `if`/`else if` and the `else`
+  catches neither fall-through.
+
+**Correction to my own session-1 claim (`CRAN_READINESS.md` §4.1):** a
+serialized-and-restored `XPtr` does **not** segfault under the current Rcpp.
+`saveRDS`/`readRDS` round-tripping `esvd_family()` or `data_loader()` output and
+then calling `feas_Xi_r()` / `objfn_all_r()` gives a clean
+`Error: external pointer is not valid` from Rcpp's checked `XPtr(SEXP)`
+constructor — verified in a subprocess. The guard is still worth adding (we
+should own that guarantee rather than inherit it from a dependency, and the
+message is unhelpful), but it is not a crash risk and should not be prioritized
+as one. **The real pointer hazard is different and previously unnoticed:**
+`DenseDataLoader` holds an `Eigen::Ref` to the *R matrix's own memory*, so a
+loader outliving its R matrix dangles. That is `T-CPP-PTR-04` and it is the one I
+would write first.
+
+- Open: 16 questions collected in `UNIT_TEST_PLAN.md` §9, each blocking at least
+  one test. Four need Kevin specifically because they are about *intended*
+  behaviour, not code: `Q-POST-1` (which direction should
+  `bool_stabilize_underdispersion` fire), `Q-TSTAT-1` (one-cell individual:
+  finite-but-huge or error), `Q-REP-1` (rank-deficient `.reparameterize`: warn,
+  error, or proceed — `opt_esvd` currently swallows it in a `tryCatch` so a
+  rank-deficient fit is indistinguishable from a good one), `Q-GAM-1` (what
+  should `gamma_rate` return for an all-zero gene).
+- Open: `Q-PROP-2` — the null-calibration test (`generate_null()` → p-values
+  approximately uniform, KS test) is simultaneously the most valuable test in the
+  plan (it is the paper's Type-1-error claim, executable, and would have caught
+  §1.1) and the most likely to make a CRAN check flaky on a machine we don't
+  control. My recommendation is a slow/CI-only tier rather than the CRAN suite.
+- Noted `verbose` probes were run against the **installed** `eSVD2 1.0.1.2`, not
+  the working tree's `1.0.1.07`. Every `[verified]` claim in the new file carries
+  that caveat; re-confirm against a fresh install before acting on any of them.
+- Decided again **not** to change package code — the request was explicitly to
+  produce the test list for review before any implementation or fixture work.

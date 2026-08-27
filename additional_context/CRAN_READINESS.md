@@ -15,6 +15,11 @@ things that block submission, then things a reviewer will make you fix, then tes
 debt. Nothing in §1–§3 has been fixed yet — this document is the plan, not a
 changelog.
 
+**Companion document.** The proposed test suite lives in
+`additional_context/UNIT_TEST_PLAN.md` — ~200 tests with IDs, oracles, and the
+open questions that block them. §3 below is now a pointer to it. Every test
+citation in this document (`T-PVAL-01`, `T-CPP-FAM-03`, …) refers to that file.
+
 Equation numbers refer to Lin, Qiu & Roeder (2024), indexed in
 `additional_context/summary.md` as `lin2024esvd`.
 
@@ -92,7 +97,8 @@ a cohort with 15+ individuals per arm routinely produce |t| well past 10.
 **Test (new, `test_compute_pvalue.R`):** feed a test-statistic vector containing
 `t = 40, df = 18`; assert `gaussian_teststat` is finite, assert
 `pvalue_list$method == "locfdr"`, and assert monotonicity of
-`log10pvalue` in `|teststat|`.
+`log10pvalue` in `|teststat|`. See `UNIT_TEST_PLAN.md` `T-PVAL-01`, `T-PVAL-02`,
+`T-PVAL-03`, `T-MT-03`, `T-MT-04`.
 
 ---
 
@@ -161,6 +167,7 @@ rank, erroring with a message that names the collinear covariates.
 **Test:** run `reparameterization_esvd_covariates()` with (a) a factor level
 containing a space and parentheses, (b) a deliberately collinear covariate pair;
 assert an informative error rather than `NA`-contamination or a subscript error.
+See `UNIT_TEST_PLAN.md` `T-REP-05`, `T-REP-06`, `T-FMT-09`.
 
 ---
 
@@ -195,7 +202,8 @@ preserving names and type. Reconcile the roxygen with the intended direction and
 say which way "over/under-dispersion" runs in this parameterization.
 
 **Test:** assert `is.numeric(nuisance_vec) && !is.matrix(nuisance_vec)` and that
-`names()` survive, on both branches of the guard.
+`names()` survive, on both branches of the guard. See `UNIT_TEST_PLAN.md`
+`T-POST-07`; the direction question is `T-POST-08` / `Q-POST-1`.
 
 ---
 
@@ -531,117 +539,74 @@ a comment block of example R code. That is inert and needs no action.)
 
 ---
 
-## 3. Missing unit tests
+## 3. Missing unit tests → see `UNIT_TEST_PLAN.md`
 
-Current suite: 12 files, ~40 `test_that` blocks. What follows is what is
-**not** covered. Fixtures live in `tests/assets/` and are loaded via
-`load("../assets/synthetic_data.RData")`; new fixtures should use
-`testthat::test_path()` instead (§5.5).
+**This section has moved.** The full proposed test suite now lives in
+`additional_context/UNIT_TEST_PLAN.md`, which supersedes what used to be here:
+everything §3 listed is absorbed there, expanded with the C++ backend, error
+messages, fixtures, and an explicit list of the questions that block individual
+tests. Each test carries an ID (`T-<AREA>-nn`) so it can be referred to in
+review, plus an **oracle** field saying where its expected answer comes from —
+which is the field that separates a real correctness test from a snapshot of
+current behaviour.
 
-### 3.1 Functions with **zero** test coverage
+**Read `UNIT_TEST_PLAN.md` before writing any test.** It is a proposal awaiting
+review, not an agreed plan: ~200 `test_that` blocks against the current ~40, and
+16 open questions that need Kevin's answer before the corresponding tests can be
+written.
 
-| Function | File | Why it matters |
-|---|---|---|
-| **`eSVD()`** | `R/eSVD.R` | **The main user-facing wrapper.** 200 lines orchestrating the entire pipeline, exported, undocumented, untested. Needs at least one end-to-end run on a small `SeuratObject` asserting the returned object has `teststat_vec`, `case_mean`, `control_mean`, `pvalue_list`; plus a run with `bool_diet = TRUE` and one with `bool_diet = FALSE` asserting the two agree. |
-| `compute_pvalue()` | `R/compute_pvalue.R` | Produces the package's headline output. Untested. See §1.1. |
-| `.compute_df()` | `R/compute_pvalue.R` | Welch–Satterthwaite df. Check against `stats::t.test(...)$parameter` on a case where both reduce to the same thing. |
-| `multtest()` + all 3 estimators | `R/multtest.R` | The empirical null. Needs a test per estimator, and a test that the **fallback chain is entered in the right order** and reports which one ran. |
-| `format_covariates()` | `R/format_covariates.R` | Every downstream matrix depends on its column names and ordering. Test: one-hot drops the first level; `variables_enumerate_all` keeps all levels; numeric scaling is sd-1 and **not** centered (paper is explicit about not centering); `Log_UMI` equals `log(rowSums(dat))`; `Intercept` is first. |
-| `reparameterization_esvd_covariates()` | `R/reparameterization.R` | Only `.reparameterize()`/`.identification()` are tested. The covariate-orthogonalization step (paper's Step 1) is not. Test the invariant the paper states: `crossprod(x_mat, covariates) ≈ 0` afterwards, and `y_mat %*% t(x_mat) + z_mat %*% t(covariates)` is **unchanged**. |
-| `esvd_family()`, `.dat_to_nat.*`, `.nat_to_canon()` | `R/esvd_family.R` | 7 families × 2 conversions, all untested. Test `nat_to_canon(dat_to_nat(x)) ≈ x` where the family admits it, and that `feasibility()` rejects out-of-domain natural parameters. |
-| `generate_null()` | `R/generate_null.R` | Exported and documented; the null simulation the paper's Type-1 error claims rest on. Test that returned dimensions and column names match the documented contract. |
-| `data_loader()`, `print.esvd_data_loader()` | `R/data_loader.R` | Exported S3 method with no test. |
-| `.get_object()` | `R/data_management.R` | The accessor every pipeline function routes through. Test each `what_obj` branch and the unrecognized-key error (§1.8). |
-| `.combine_two_named_lists()` | `R/utils.R` | Has a hand-rolled `NULL`-preserving path (the `TEMP_NAME` trick) that is subtle and untested. |
-| `.nonzero_col()`, `.mult_vec_mat()`, `.mult_mat_vec()` | `R/utils.R` | Test `.mult_mat_vec(m, v) == m %*% diag(v)` and the `.nonzero_col()` empty-column early return. |
-| `report_results()` | `R/report_results.R` | The happy path is tested; the `message()`-and-`invisible()` path when the object is incomplete is not. |
+What it adds that this section did not have:
 
-### 3.2 Numerical-gradient checks for the C++ backend
+- **§1 Fixtures.** The single largest piece of work. The current
+  `synthetic_data.RData` cannot support the suite — too large (§2.8), stores a
+  fully-fitted object so tests read back their own output, and has only one
+  shape, so no degenerate case is reachable. Proposes `F-TINY` / `F-SMALL` /
+  `F-DEGEN` / `F-NULL` / `F-DERIV`.
+- **§3 C++ tests** — data loader (dense int / dense double / sparse as each
+  other's oracle, the `Flag::na` and all-zero-column paths), `numDeriv` gradient
+  and Hessian checks for all 7 families, constrained-Newton behaviour, `opt_x` /
+  `opt_yz`, `gamma_rate` vs `log_gamma_rate`, and external-pointer hygiene.
+- **§5 Error-message tests** — 28 of them, one per malformed-input path.
+- **§7 A regression table** mapping every defect in §1, §2 and §4 of *this*
+  document to the test that must fail before its fix and pass after. That table
+  is the acceptance criterion for §6 below.
+- **§9 Sixteen open questions**, each blocking at least one test. Four of them
+  (`Q-POST-1`, `Q-TSTAT-1`, `Q-REP-1`, `Q-GAM-1`) are about intended behaviour
+  and only Kevin can answer them.
 
-`numDeriv` is already in `Suggests` but never used. For each of the 7 families,
-at a random feasible point, assert:
+Four defects were found while writing that plan which are **not** listed in §1 of
+this document and probably should be:
 
-```r
-expect_equal(grad_Xi_r(...),     numDeriv::grad(function(v) objfn_Xi_r(v, ...), x), tolerance = 1e-6)
-expect_equal(hessian_Xi_r(...),  numDeriv::hessian(function(v) objfn_Xi_r(v, ...), x), tolerance = 1e-5)
-```
+1. **Four of seven families are unusable at their documented defaults.**
+   `opt_esvd.default`'s default `nuisance_vec = rep(NA, ncol(input_obj))`, but
+   `gaussian`, `curved_gaussian`, `neg_binom` and `neg_binom2` all consume
+   `gamma` — so `objfn_all_r` returns `NA` and `opt_esvd.default(family =
+   "gaussian")` dies with `Error: missing value where TRUE/FALSE needed`, naming
+   neither the family nor the parameter — **[verified]**. (Test `T-OPT-05`.)
+2. **`format_covariates()` drops the *first* factor level; its roxygen says the
+   last** — **[verified]**: `factor(c("a","a","b","b","c","c"))` yields columns
+   `g_b`, `g_c`. (Test `T-FMT-02`.)
+3. **`format_covariates()` rescales only the variables named in
+   `rescale_numeric_variables`; its roxygen says it "rescales all the numerical
+   variables"** — [inspection]. (Test `T-FMT-06`.)
+4. **`data_loader()` returns a null external pointer without erroring** for an S4
+   that is not `dgCMatrix` (e.g. a `dgeMatrix` — plausible user input) or a dense
+   matrix that is neither integer nor numeric. The `Rcpp::stop("unsupported
+   matrix type")` is only reached for a non-S4 non-matrix. The failure surfaces
+   later as `Error: external pointer is not valid` — **[verified]**. (Tests
+   `T-CPP-LOAD-05`, `T-VAL-22`.)
 
-and the same for `objfn_YZj_r` / `grad_YZj_r` / `hessian_YZj_r`. This is the
-highest-value C++ test available: an analytic-derivative error in
-`src/family_*.cpp` currently produces a silently mis-converged fit with no
-symptom. Only `poisson` is exercised at all today, and only end-to-end.
+And one claim in §4.1 below is **overstated**: a serialized-and-restored `XPtr`
+does *not* segfault under the current Rcpp. `saveRDS`/`readRDS` round-tripping
+`esvd_family()` or `data_loader()` output and then calling `feas_Xi_r()` or
+`objfn_all_r()` gives a clean R error, `Error: external pointer is not valid`,
+from Rcpp's checked `XPtr(SEXP)` constructor — **[verified]**. The guard is still
+worth adding (the message is unhelpful, and we would then own the guarantee
+rather than inheriting it from a dependency), but this is not a segfault risk.
+The live pointer risk is different and is `T-CPP-PTR-04`: `DenseDataLoader` holds
+an `Eigen::Ref` to the **R matrix's own memory**, so a loader outliving its R
+matrix dangles.
 
-### 3.3 Untested branches of tested functions
-
-- `opt_esvd.default(covariates = NULL)` — the `z_mat = NULL` path (§1.8).
-- `opt_esvd.default` with a `family` other than `"poisson"`. Six families are
-  documented and reachable; none is tested.
-- `initialize_esvd(bool_intercept = TRUE)` — both existing tests assert
-  `res[,"Intercept"] == 0`, i.e. only the `FALSE` branch.
-- `initialize_esvd` with `offset_variables = NULL`.
-- `compute_posterior(bool_adjust_covariates = TRUE)` — documented as
-  "experimental", entirely untested, and it is mutually exclusive with
-  `bool_covariates_as_library` via a `stopifnot` that no test covers.
-- `compute_posterior(bool_return_components = TRUE)`.
-- `estimate_nuisance(bool_use_log = TRUE)` — forces the `log_gamma_rate` path.
-- `.nuisance_in_sequence()`'s failure branch — it returns `0` and `warning()`s
-  only when `verbose > 0`, so a silent `0` (later clamped to `min_val`) is
-  indistinguishable from a real estimate. Test that failures are countable.
-- `.svd_in_sequence()`'s fallbacks — the `irlba → RSpectra → base::svd` chain.
-  Only the first link is ever exercised. Feed a matrix that makes `irlba` warn.
-- `multtest()`'s fallback chain (§3.1).
-
-### 3.4 Invariants worth asserting (property-based)
-
-These encode the paper's own claims and would catch whole classes of regression:
-
-1. **Reparameterization preserves predictions.** After
-   `reparameterization_esvd_covariates()`, `Ŷ X̂ᵀ + Ẑ Cᵀ` is unchanged to
-   ~1e-8. The paper asserts this twice ("the predictive power of our
-   factorization did not change"); nothing checks it.
-2. **Orthogonality.** After Step 1, `X̂ᵀC ≈ 0`. After Step 2, `X̂ᵀX̂/n` and
-   `ŶᵀŶ/p` are diagonal **and equal**.
-3. **Monotone loss.** `all(diff(res$loss) < 0)` — tested for `fit_First` only;
-   assert it for every `opt_esvd` call and every family.
-4. **Determinism.** The paper's selling point: *"different practitioners using
-   our method would necessarily obtain the same resulting fit."* Run
-   `opt_esvd()` twice on identical input and assert `identical()` output. This
-   guards the C++ from any future thread/atomic non-determinism.
-5. **Posterior sanity.** `posterior_mean_mat > 0` and `posterior_var_mat > 0`
-   everywhere, all finite; and `posterior_var = posterior_mean / SplusBeta`
-   exactly (from Eq. 14).
-6. **Null calibration.** Using `generate_null()`, assert the p-values from a
-   genuinely null gene set are roughly uniform (e.g. KS test p > 0.01 with a
-   fixed seed). This is the paper's Type-1 error claim as an executable test,
-   and it is what would have caught §1.1.
-7. **Recovery.** On `generate_data()` output with known `nat_mat`, assert
-   `estimate_nuisance()` recovers the true nuisance within tolerance.
-
-### 3.5 Input-validation tests
-
-Every exported function should have one test that malformed input gives a
-*useful* error rather than a downstream `NA`. Highest priority, because
-`stopifnot()` is used pervasively and its messages are unhelpful:
-
-- `initialize_esvd`: `k > ncol(dat)`; unnamed `dat`; `covariates` without an
-  `"Intercept"` column; `metadata_individual` not a factor.
-- `compute_test_statistic`: an individual appearing in **both** case and control
-  (there is a `stopifnot` for this — test it); an individual with exactly one
-  cell (variance is then 0 → `t = ±Inf`); a group with one individual
-  (`n1 - 1 = 0` → df is `NaN`). **The one-individual-per-arm case deserves a
-  real error message, not a `NaN`.**
-- `fisher_test`: genes in `set1_genes` not in `all_genes`.
-- `format_covariates`: `nrow` mismatch between `dat` and `covariate_df`; a factor
-  with a single level (there is a `stopifnot(length(levels(vec)) > 1)`).
-
-### 3.6 Verbose branches
-
-Every `verbose` level of every function should be smoke-tested under
-`expect_no_error()`. §1.2 is a hard crash sitting in `verbose = 2` of the core
-optimizer that no test would catch today. `compute_test_per_gene()` has verbose
-levels up to 4.
-
----
 
 ## 4. C++ backend (`src/`)
 
@@ -671,8 +636,11 @@ if (R_ExternalPtrAddr(family["internal"]) == NULL)
 ```
 
 **Test.** `saveRDS()` an `esvd_family()` result, `readRDS()` it, call
-`objfn_all_r()`, and `expect_error()` — not a crash. This test cannot be written
-until the guard exists, which is the point.
+`objfn_all_r()`, and `expect_error()` — not a crash. See `UNIT_TEST_PLAN.md`
+`T-CPP-PTR-01..04`. **Note the correction recorded in §3:** this already gives a
+clean `Error: external pointer is not valid` rather than a segfault
+— **[verified]** — so the guard is about the *message*, not about crash safety.
+The live pointer risk is `T-CPP-PTR-04` instead.
 
 ### 4.2 `Rcpp::warning()` inside a C++ frame holding Eigen objects — **[inspection]**
 
@@ -730,7 +698,11 @@ re-derive it.
 Add: all-zero counts for a gene; a gene with a single non-zero count; very large
 `mu` with tiny `s`; and assert `gamma_rate` and `exp(log_gamma_rate)` agree to
 ~1e-4 across a grid (they estimate the same quantity by different routes, so they
-are each other's oracle — a second free equivalence test, like §1.5).
+are each other's oracle — a second free equivalence test, like §1.5). See
+`UNIT_TEST_PLAN.md` `T-CPP-GAM-01..08`; note the file's `T-CPP-GAM-02` proposes
+reusing the R reference implementation already sitting in the comment block at
+`src/gamma_rate.cpp:58–75` as an independent oracle, and `T-CPP-GAM-08` flags
+that a `mu` shorter than `x` is an out-of-bounds read rather than an error.
 
 ### 4.4 Packaging hygiene — **[policy]**
 
@@ -821,8 +793,12 @@ Each step is independently verifiable, and later steps depend on earlier ones.
 6. **Add the numerical-gradient tests** (§3.2). These make the C++ safe to touch.
 7. **Fix §4.1, §4.2, §4.3** — the C++ status-reporting work, now guarded by (6).
 8. **Fix §1.3, §1.6, §1.7** — the larger R refactors, now guarded by (5).
-9. **Fill the coverage gaps** (§3.1, §3.3, §3.4, §3.5, §3.6). Add
-   `covr::package_coverage()` to CI and set a floor.
+9. **Fill the coverage gaps** — now enumerated in `UNIT_TEST_PLAN.md` §2, §4,
+   §5 and §6. Add `covr::package_coverage()` to CI and set a floor (C-09).
+   `UNIT_TEST_PLAN.md` §10 gives a test-first ordering that differs from this
+   one: the harness and fixtures land first, then the two *free* equivalence
+   tests (matrix-vs-per-gene, `gamma_rate`-vs-`log_gamma_rate`) as a safety net,
+   then the gradient tests, and only then the fixes above.
 10. **Vignettes** (§2.7), README (§5.6), `DESCRIPTION` polish (§2.6),
     `cran-comments.md`.
 11. **`R CMD check --as-cran`** clean on macOS + Linux + Windows

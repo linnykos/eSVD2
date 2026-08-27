@@ -21,7 +21,11 @@ package suitable for CRAN submission*. The emphasis is **correctness first**
 (hidden failure modes, silent `NaN`/`Inf`, untested code paths, dependency
 policy), not performance. The working document driving this effort is
 `additional_context/CRAN_READINESS.md` — read it before touching package
-structure, `DESCRIPTION`, `NAMESPACE`, `src/`, or `tests/`.
+structure, `DESCRIPTION`, `NAMESPACE`, `src/`, or `tests/`. Its companion is
+`additional_context/UNIT_TEST_PLAN.md`, the proposed test suite (~200 tests, each
+with an ID and an explicit oracle); read it before writing any test or
+regenerating anything in `tests/assets/`. It is a proposal awaiting review, not
+an agreed plan.
 
 **Method in one paragraph** (so a session need not re-read the paper):
 eSVD-DE models a cells × genes count matrix `A` hierarchically as
@@ -53,7 +57,7 @@ Paths below are relative to this file's directory and are the same for everyone.
 | `data/` | Shipped reference gene lists (`gandal_df`, `housekeeping_df`, `sfari_df`, `velmeshev_gene_df`). |
 | `tests/testthat/` | testthat suite. Fixtures live in `tests/assets/` and are loaded with `load("../assets/...")`. |
 | `vignettes/` | `eSVD2.Rmd` (self-contained toy runs), `asd.Rmd` / `asd-preprocess.Rmd` (need external downloads; heavy chunks are `eval = FALSE`). |
-| `additional_context/` | Reference PDFs + `summary.md` index + `CRAN_READINESS.md`. **Excluded from the CRAN tarball** via `.Rbuildignore`. |
+| `additional_context/` | Reference PDFs + `summary.md` index + `CRAN_READINESS.md` (audit) + `UNIT_TEST_PLAN.md` (proposed test suite). **Excluded from the CRAN tarball** via `.Rbuildignore`. |
 | `oldcode/` | Superseded code, kept for reference; `.Rbuildignore`d. |
 
 **`.gitignore` vs `.Rbuildignore`.** These are deliberately different.
