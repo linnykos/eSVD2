@@ -4,10 +4,18 @@
 \alias{compute_test_statistic.eSVD}
 \title{Compute test statistics for eSVD object}
 \usage{
-\method{compute_test_statistic}{eSVD}(input_obj, verbose = 0, ...)
+\method{compute_test_statistic}{eSVD}(
+  input_obj,
+  min_cells_per_individual = 3,
+  verbose = 0,
+  ...
+)
 }
 \arguments{
 \item{input_obj}{\code{eSVD} object outputed from \code{compute_posterior.eSVD}.}
+
+\item{min_cells_per_individual}{Minimum number of cells an individual must
+contribute; see \code{compute_test_statistic.default}.}
 
 \item{verbose}{Integer.}
 

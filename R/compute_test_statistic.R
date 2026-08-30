@@ -12,12 +12,15 @@ compute_test_statistic <- function(input_obj, ...) {UseMethod("compute_test_stat
 #' Compute test statistics for eSVD object
 #'
 #' @param input_obj             \code{eSVD} object outputed from \code{compute_posterior.eSVD}.
+#' @param min_cells_per_individual  Minimum number of cells an individual must
+#'                              contribute; see \code{compute_test_statistic.default}.
 #' @param verbose               Integer.
 #' @param ...                   Additional parameters.
 #'
 #' @return \code{eSVD} object with added element \code{"teststat_vec"}
 #' @export
 compute_test_statistic.eSVD <- function(input_obj,
+                                        min_cells_per_individual = 3,
                                         verbose = 0,
                                         ...){
   stopifnot(inherits(input_obj, "eSVD"), "latest_Fit" %in% names(input_obj),
@@ -51,6 +54,7 @@ compute_test_statistic.eSVD <- function(input_obj,
     case_individuals = case_individuals,
     control_individuals = control_individuals,
     individual_vec = individual_vec,
+    min_cells_per_individual = min_cells_per_individual,
     verbose = verbose
   )
 
@@ -73,6 +77,12 @@ compute_test_statistic.eSVD <- function(input_obj,
 #' @param control_individuals  Vector of strings representing the individuals in \code{metadata[,covariate_individual]}
 #'                             that are the control individuals.
 #' @param individual_vec       Vector of strings of length \eqn{n} (i.e., the number of cells) that denote which cell originates from which individual.
+#' @param min_cells_per_individual  Minimum number of cells an individual must
+#'                             contribute for the test to be computed. Individuals
+#'                             with fewer are expected to have been dropped
+#'                             upstream by \code{eSVD_helper}; reaching here with
+#'                             one is an error rather than a silently noisy
+#'                             statistic. Set to \code{0} to disable the check.
 #' @param verbose              Integer.
 #' @param ...                  Additional parameters.
 #'
@@ -83,6 +93,7 @@ compute_test_statistic.default <- function(input_obj,
                                            case_individuals,
                                            control_individuals,
                                            individual_vec,
+                                           min_cells_per_individual = 3,
                                            verbose = 0,
                                            ...) {
   stopifnot(inherits(input_obj, "matrix"))
@@ -90,6 +101,11 @@ compute_test_statistic.default <- function(input_obj,
   posterior_mean_mat <- input_obj
   stopifnot(all(dim(posterior_mean_mat) == dim(posterior_var_mat)),
             length(individual_vec) == nrow(posterior_mean_mat))
+
+  .check_cohort_is_testable(case_individuals = case_individuals,
+                            control_individuals = control_individuals,
+                            individual_vec = individual_vec,
+                            min_cells_per_individual = min_cells_per_individual)
 
   p <- ncol(posterior_mean_mat)
 
@@ -162,6 +178,64 @@ compute_test_statistic.default <- function(input_obj,
                                                avg_posterior_var_mat){
   Matrix::colMeans(avg_posterior_var_mat) + Matrix::colMeans(avg_posterior_mean_mat^2) -
     Matrix::colMeans(avg_posterior_mean_mat)^2
+}
+
+#' Check that a cohort can support a two-sample test
+#'
+#' Two conditions, both of which otherwise fail silently or obscurely much
+#' further downstream.
+#'
+#' Individuals with very few cells are meant to have been dropped upstream by
+#' the cohort filter; reaching here with one means the filter was skipped, and
+#' the honest response is to stop rather than to compute a statistic from a
+#' single cell's posterior.
+#'
+#' An arm with fewer than two individuals is a harder failure: the
+#' Welch-Satterthwaite denominator contains \code{(v/n)^2/(n-1)}, so
+#' \code{n = 1} makes the degrees of freedom \code{0} and every downstream
+#' \code{stats::pt()} call returns \code{NaN}.
+#'
+#' @param case_individuals          Vector of individuals in the case arm.
+#' @param control_individuals       Vector of individuals in the control arm.
+#' @param individual_vec            \code{factor} of length \eqn{n} naming each
+#'                                  cell's individual.
+#' @param min_cells_per_individual  Minimum number of cells an individual must
+#'                                  contribute. Set to \code{0} to disable.
+#'
+#' @return \code{invisible(TRUE)}; called for the error.
+#' @noRd
+.check_cohort_is_testable <- function(case_individuals,
+                                      control_individuals,
+                                      individual_vec,
+                                      min_cells_per_individual = 3){
+  if(length(case_individuals) < 2 || length(control_individuals) < 2){
+    stop("each arm needs at least 2 individuals to form a two-sample test; ",
+         "found ", length(case_individuals), " case and ",
+         length(control_individuals), " control. ",
+         "With one individual in an arm the Welch degrees of freedom are 0 ",
+         "and every p-value is NaN")
+  }
+
+  if(min_cells_per_individual > 0){
+    tested_individuals <- c(as.character(case_individuals),
+                            as.character(control_individuals))
+    cell_count_vec <- table(as.character(individual_vec))
+    cell_count_vec <- cell_count_vec[names(cell_count_vec) %in%
+                                       tested_individuals]
+
+    sparse_idx <- which(cell_count_vec < min_cells_per_individual)
+    if(length(sparse_idx) > 0){
+      stop("individual(s) ",
+           paste0(names(cell_count_vec)[sparse_idx], " (",
+                  as.integer(cell_count_vec)[sparse_idx], " cells)",
+                  collapse = ", "),
+           " have fewer than ", min_cells_per_individual,
+           " cells. Remove them upstream (see `eSVD_helper`), or pass ",
+           "`min_cells_per_individual = 0` to proceed anyway")
+    }
+  }
+
+  invisible(TRUE)
 }
 
 .format_param_test_statistic <- function(case_individuals,

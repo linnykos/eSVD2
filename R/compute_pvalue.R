@@ -3,9 +3,12 @@
 #' This is an intermediary function used in \code{compute_pvalue}
 #'
 #' @param input_obj \code{eSVD} object outputed from \code{compute_test_statistic}.
+#' @param min_cells_per_individual Minimum number of cells an individual must
+#'                                 contribute; see \code{compute_test_statistic}.
 #'
 #' @return a named vector of degree-of-freedom values, one for each gene
-.compute_df <- function(input_obj){
+#' @noRd
+.compute_df <- function(input_obj, min_cells_per_individual = 3){
   stopifnot(all(!is.null(input_obj[["case_control"]])) && all(input_obj[["case_control"]] %in% c(0,1)) && length(input_obj[["case_control"]]) == nrow(input_obj[["dat"]]),
             all(!is.null(input_obj[["individual"]])) && all(is.factor(input_obj[["individual"]])) && length(input_obj[["individual"]]) == nrow(input_obj[["dat"]]))
 
@@ -22,6 +25,16 @@
   individual_vec <- input_obj[["individual"]]
   control_individuals <- unique(individual_vec[control_idx])
   case_individuals <- unique(individual_vec[case_idx])
+
+  # The Welch-Satterthwaite denominator below contains (v/n)^2/(n-1), so an arm
+  # with one individual makes `df_vec` zero and every downstream `stats::pt()`
+  # NaN. Stopping here names the cause; without it the failure surfaces much
+  # later as "missing values and NaN's not allowed".
+  .check_cohort_is_testable(case_individuals = case_individuals,
+                            control_individuals = control_individuals,
+                            individual_vec = individual_vec,
+                            min_cells_per_individual = min_cells_per_individual)
+
   tmp <- .determine_individual_indices(case_individuals = case_individuals,
                                                control_individuals = control_individuals,
                                                individual_vec = individual_vec)
@@ -59,15 +72,19 @@
 #' Compute p-values
 #'
 #' @param input_obj   \code{eSVD} object outputed from \code{compute_test_statistic}.
+#' @param min_cells_per_individual  Minimum number of cells an individual must
+#'                    contribute; see \code{compute_test_statistic}.
 #' @param verbose     Integer.
 #' @param ...         Additional parameters.
 #'
 #' @return \code{eSVD} object with added element \code{"pvalue_list"}
 #' @export
 compute_pvalue <- function(input_obj,
+                           min_cells_per_individual = 3,
                            verbose = 0,
                            ...){
-  df_vec <- .compute_df(input_obj = input_obj)
+  df_vec <- .compute_df(input_obj = input_obj,
+                        min_cells_per_individual = min_cells_per_individual)
   names(df_vec) <- names(df_vec)
 
   teststat_vec <- input_obj$teststat_vec

@@ -82,6 +82,7 @@ Hostnames and URIs that are the same for everyone are fine here.
 |---|---|---|
 | `EXAMPLES_REPO` | Clone of <https://github.com/linnykos/eSVD2_examples> — all analyses reported in the paper. Not required to develop the package. | per-person copy |
 | `PAPER_DATA` | Downloaded public datasets used by the vignettes and the paper (Adams GSE136831, Habermann GSE135893, Smillie, Velmeshev). Large; never tracked in git. | per-person copy |
+| `WAS2CODE_REPO` | Clone of the Was2CODE project (Tati collaboration). Source of `R/esvd_helper.R`, the cohort-filtering wrapper being imported into `eSVD2` as §2.17 of `UNIT_TEST_PLAN.md`. Not required to develop the package once the file is imported. | per-person copy |
 
 Git remote (same for everyone): `https://github.com/linnykos/eSVD2.git`.
 pkgdown site (same for everyone): <https://linnykos.github.io/eSVD2/>.

@@ -10,6 +10,7 @@
   case_individuals,
   control_individuals,
   individual_vec,
+  min_cells_per_individual = 3,
   verbose = 0,
   ...
 )
@@ -30,6 +31,13 @@ that are the case individuals.}
 that are the control individuals.}
 
 \item{individual_vec}{Vector of strings of length \eqn{n} (i.e., the number of cells) that denote which cell originates from which individual.}
+
+\item{min_cells_per_individual}{Minimum number of cells an individual must
+contribute for the test to be computed. Individuals
+with fewer are expected to have been dropped
+upstream by \code{eSVD_helper}; reaching here with
+one is an error rather than a silently noisy
+statistic. Set to \code{0} to disable the check.}
 
 \item{verbose}{Integer.}
 

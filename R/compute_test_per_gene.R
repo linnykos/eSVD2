@@ -16,6 +16,8 @@
 #' @param bool_stabilize_underdispersion Boolean; if TRUE, mean-center
 #'                   log10(nuisance_vec) when it suggests under-dispersion.
 #' @param library_min Minimum value for the covariate-adjusted library size.
+#' @param min_cells_per_individual Minimum number of cells an individual must
+#'   contribute; see \code{compute_test_statistic}.
 #' @param nuisance_lower_quantile Lower quantile at which to floor nuisance_vec.
 #' @param pseudocount Numeric; additional count added to each entry in the
 #'                   count matrix when forming the posterior.
@@ -37,6 +39,7 @@ compute_test_per_gene <- function(input_obj,
                                   bool_covariates_as_library = TRUE,
                                   bool_stabilize_underdispersion = TRUE,
                                   library_min = 1e-2,
+                                  min_cells_per_individual = 3,
                                   nuisance_lower_quantile = 0.01,
                                   pseudocount = 0,
                                   verbose = 0) {

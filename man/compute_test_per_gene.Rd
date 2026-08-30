@@ -11,6 +11,7 @@ compute_test_per_gene(
   bool_covariates_as_library = TRUE,
   bool_stabilize_underdispersion = TRUE,
   library_min = 0.01,
+  min_cells_per_individual = 3,
   nuisance_lower_quantile = 0.01,
   pseudocount = 0,
   verbose = 0
@@ -33,6 +34,9 @@ covariates in the covariate-adjusted library size.}
 log10(nuisance_vec) when it suggests under-dispersion.}
 
 \item{library_min}{Minimum value for the covariate-adjusted library size.}
+
+\item{min_cells_per_individual}{Minimum number of cells an individual must
+contribute; see \code{compute_test_statistic}.}
 
 \item{nuisance_lower_quantile}{Lower quantile at which to floor nuisance_vec.}
 

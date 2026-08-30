@@ -4,10 +4,13 @@
 \alias{compute_pvalue}
 \title{Compute p-values}
 \usage{
-compute_pvalue(input_obj, verbose = 0, ...)
+compute_pvalue(input_obj, min_cells_per_individual = 3, verbose = 0, ...)
 }
 \arguments{
 \item{input_obj}{\code{eSVD} object outputed from \code{compute_test_statistic}.}
+
+\item{min_cells_per_individual}{Minimum number of cells an individual must
+contribute; see \code{compute_test_statistic}.}
 
 \item{verbose}{Integer.}
 

@@ -181,44 +181,68 @@ double gamma_rate(NumericVector x, NumericVector mu, NumericVector s)
     double ub = Rcpp::max(s);
     const double gamma = 0.5;
     const int max_try = 10;
-    std::pair<double, double> dvals = deriv(ub);
+
+    // max(s) is a starting point, not a bound. beta and s share units --- they
+    // enter the likelihood only through (s + beta) --- but beta is free to
+    // exceed any library size. Before this loop existed, the Newton search
+    // below was clamped to [lb, max(s)] and returned max(s) as if it were the
+    // MLE whenever the true root lay above it, so any gene whose
+    // over-dispersion was small enough silently got nuisance_vec = max(s).
+    //
+    // [l(b)]' -> -0 as b -> +Inf, so [l(ub)]' > 0 means the maximizer is still
+    // to the right of ub and the bracket has to grow.
+    const int max_grow = 60;
+    std::pair<double, double> ub_dvals = deriv(ub);
+    for(int i = 0; i < max_grow && ub_dvals.first > 0.0; i++)
+    {
+        ub *= 2.0;
+        ub_dvals = deriv(ub);
+    }
+
+    std::pair<double, double> dvals = ub_dvals;
     if(dvals.second > 0.0)
     {
         for(int i = 0; i < max_try; i++)
         {
             const double new_ub = gamma * ub;
             std::pair<double, double> new_dvals = deriv(new_ub);
+            // Never shrink past the root: [l(new_ub)]' > 0 would put the
+            // maximizer above new_ub again and re-introduce the truncation
+            // the growth loop above exists to prevent.
+            if(new_dvals.first > 0.0)
+                break;
             if(new_dvals.second <= 0.0)
                 break;
             ub = new_ub;
         }
     }
 
-    // Lower bound
-    double lb = 1e-6;
-    // Initial guess
-    double guess = std::min(1.0, 0.5 * (lb + ub));
+    // Lower bound. Shrink it until it is genuinely on the left of the root,
+    // i.e. [l(lb)]' > 0. With the growth loop above having secured
+    // [l(ub)]' <= 0, the root is then bracketed on both sides and the search
+    // below cannot return a bound in place of a maximum.
+    double lb = std::min(1e-6, 0.5 * ub);
+    for(int i = 0; i < max_grow && deriv(lb).first <= 0.0; i++)
+    {
+        lb *= 0.5;
+    }
+
+    // Initial guess: the geometric mean of the bracket. A fixed 1.0 was fine
+    // while ub was capped at max(s), but the bracket can now span many orders
+    // of magnitude and a guess at one end leaves Newton with too far to travel.
+    double guess = std::sqrt(lb * ub);
     // Precision parameter
     const int digits = std::numeric_limits<double>::digits;
     int get_digits = static_cast<int>(digits * 0.5);
-    // Maximum number of iterations for Newton's method
-    const std::uintmax_t max_iter = 10;
+    // Maximum number of iterations. Ten sufficed only because the bracket was
+    // capped; across a wide bracket Newton needs room to cross it. Boost falls
+    // back to bisection whenever a Newton step leaves the bracket, so a
+    // generous cap costs nothing on easy inputs and is what makes hard ones
+    // converge.
+    const std::uintmax_t max_iter = 200;
 
-    double res = 0.0;
-    for(int i = 0; i < max_try; i++)
-    {
-        std::uintmax_t iter = max_iter;
-        res = newton_raphson_iterate(deriv, guess, lb, ub, get_digits, iter);
-        std::pair<double, double> dvals = deriv(res);
-        // If [l(b*)]'' > 0, make guess smaller and try again
-        if(dvals.second > 0.0)
-        {
-            guess *= gamma;
-            lb *= gamma;
-        } else {
-            return res;
-        }
-    }
+    std::uintmax_t iter = max_iter;
+    double res = newton_raphson_iterate(deriv, guess, lb, ub, get_digits, iter);
 
     return res;
 }
