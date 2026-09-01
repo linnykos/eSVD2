@@ -65,8 +65,8 @@ estimate_nuisance.eSVD <- function(input_obj,
     covariates[,library_idx], z_mat[,library_idx]
   ))
 
-  nuisance_vec <- estimate_nuisance.default(
-    input_obj = dat,
+  res <- .estimate_nuisance_matrix(
+    dat = dat,
     mean_mat = mean_mat_nolib,
     library_mat = library_mat,
     bool_use_log = bool_use_log,
@@ -74,11 +74,12 @@ estimate_nuisance.eSVD <- function(input_obj,
     verbose = verbose
   )
 
-  input_obj[[latest_Fit]]$nuisance_vec <- nuisance_vec
+  input_obj[[latest_Fit]]$nuisance_vec <- res$nuisance_vec
   param <- .format_param_nuisance(bool_covariates_as_library = bool_covariates_as_library,
                                   bool_library_includes_interept = bool_library_includes_interept,
                                   bool_use_log = bool_use_log,
-                                  min_val = min_val)
+                                  min_val = min_val,
+                                  num_failed = res$num_failed)
   input_obj$param <- .combine_two_named_lists(input_obj$param, param)
 
   input_obj
@@ -98,7 +99,8 @@ estimate_nuisance.eSVD <- function(input_obj,
 #' @param verbose      Integer.
 #' @param ...          Additional parameters.
 #'
-#' @return Vector of length \eqn{p}
+#' @return Vector of length \eqn{p}. A gene whose estimation fails on both
+#' routes gets \code{min_val}, and a warning reports how many genes did.
 #' @export
 estimate_nuisance.default <- function(input_obj,
                                       mean_mat,
@@ -106,12 +108,48 @@ estimate_nuisance.default <- function(input_obj,
                                       bool_use_log = F,
                                       min_val =  1e-4,
                                       verbose = 0, ...){
-  stopifnot(inherits(input_obj, c("matrix", "dgCMatrix")),
-            is.matrix(mean_mat), is.matrix(library_mat),
-            all(dim(mean_mat) == dim(input_obj)),
-            all(dim(library_mat) == dim(input_obj)))
+  res <- .estimate_nuisance_matrix(dat = input_obj,
+                                   mean_mat = mean_mat,
+                                   library_mat = library_mat,
+                                   bool_use_log = bool_use_log,
+                                   min_val = min_val,
+                                   verbose = verbose)
 
-  p <- ncol(input_obj)
+  res$nuisance_vec
+}
+
+#' Estimate every gene's nuisance parameter, counting the failures
+#'
+#' Shared by both \code{estimate_nuisance} methods. A gene falls through to
+#' \code{min_val} when both \code{gamma_rate} and \code{log_gamma_rate} fail;
+#' that used to be indistinguishable from a successful fit, since the
+#' \code{0} returned on failure was clamped to \code{min_val} and the warning
+#' fired only under \code{verbose > 0}. The count is returned so the
+#' \code{eSVD} method can record it in \code{param$nuisance_num_failed}, and
+#' a warning is raised whenever it is positive.
+#'
+#' @inheritParams estimate_nuisance.default
+#' @param dat  The count matrix (\code{input_obj} of the methods).
+#'
+#' @returns List with \code{nuisance_vec} (named by \code{colnames(dat)})
+#' and \code{num_failed}.
+#' @noRd
+.estimate_nuisance_matrix <- function(dat,
+                                      mean_mat,
+                                      library_mat,
+                                      bool_use_log,
+                                      min_val,
+                                      verbose){
+  stopifnot(inherits(dat, c("matrix", "dgCMatrix")),
+            is.matrix(mean_mat), is.matrix(library_mat))
+  if(!all(dim(mean_mat) == dim(dat)) || !all(dim(library_mat) == dim(dat))){
+    stop("`mean_mat` (", paste0(dim(mean_mat), collapse = " x "),
+         ") and `library_mat` (", paste0(dim(library_mat), collapse = " x "),
+         ") must both have the dimensions of the count matrix (",
+         paste0(dim(dat), collapse = " x "), ")")
+  }
+
+  p <- ncol(dat)
   nuisance_vec <- sapply(1:p, function(j){
     if(verbose ==1 && p > 10 && j %% floor(p/10) == 0) cat('*')
     if(verbose >= 2) print(paste0(j, " of ", p))
@@ -119,16 +157,26 @@ estimate_nuisance.default <- function(input_obj,
     .nuisance_in_sequence(j = j,
                           mu = mean_mat[,j],
                           s = library_mat[,j],
-                          x = as.numeric(input_obj[,j]),
+                          x = as.numeric(dat[,j]),
                           bool_use_log = bool_use_log,
                           verbose = verbose)
   })
 
-  if(length(colnames(input_obj)) > 0) names(nuisance_vec) <- colnames(input_obj)
+  failed_idx <- which(is.na(nuisance_vec))
+  num_failed <- length(failed_idx)
+  if(num_failed > 0){
+    warning("nuisance estimation failed for ", num_failed, " of ", p,
+            " gene(s); those genes are set to `min_val` = ", min_val)
+    nuisance_vec[failed_idx] <- 0
+  }
 
-  pmax(nuisance_vec, min_val)
+  if(length(colnames(dat)) > 0) names(nuisance_vec) <- colnames(dat)
+
+  list(nuisance_vec = pmax(nuisance_vec, min_val),
+       num_failed = num_failed)
 }
 
+# Returns NA when both routes fail; the caller counts and clamps.
 .nuisance_in_sequence <- function(j, mu, s, x, bool_use_log, verbose){
   if(!bool_use_log){
     res <- tryCatch(
@@ -148,19 +196,21 @@ estimate_nuisance.default <- function(input_obj,
     error = function(e){NULL})
   if(!is.null(res) && length(res) == 1 && is.finite(res) && res > 0) {return(res)}
 
-  if(verbose > 0) warning(paste0("Nuisance estimation failed at variable ", j))
-  return(0)
+  if(verbose > 0) print(paste0("Nuisance estimation failed at variable ", j))
+  return(NA_real_)
 }
 
 
 .format_param_nuisance <- function(bool_covariates_as_library,
                                    bool_library_includes_interept,
                                    bool_use_log,
-                                   min_val) {
+                                   min_val,
+                                   num_failed = 0) {
   list(nuisance_bool_covariates_as_library = bool_covariates_as_library,
        nuisance_bool_library_includes_interept = bool_library_includes_interept,
        nuisance_bool_use_log = bool_use_log,
-       nuisance_min_val = min_val)
+       nuisance_min_val = min_val,
+       nuisance_num_failed = num_failed)
 }
 
 

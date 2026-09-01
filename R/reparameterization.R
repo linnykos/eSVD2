@@ -13,8 +13,14 @@
   if(any(eigen_x$values <= tol) | any(eigen_y$values <= tol))
     warning("Detecting rank defficiency in reparameterization step")
 
-  Dx <- eigen_x$values
-  Dy <- eigen_y$values
+  # Proceed after the warning (question Q-REP-1). An eigenvalue at or below
+  # `tol` is floored at `tol` rather than inverted: `Dx^(-1/2)` of an exact
+  # zero is Inf and of a rounding-error negative is NaN, and either used to
+  # kill the `eigen()` below with "infinite or missing values". The floored
+  # direction carries no signal in `x_mat` (that is what the zero eigenvalue
+  # means), so the product `x_mat %*% t(y_mat)` is still preserved.
+  Dx <- pmax(eigen_x$values, tol)
+  Dy <- pmax(eigen_y$values, tol)
 
   # form R
   tmp <- crossprod(.mult_mat_vec(Vy, sqrt(Dy)), .mult_mat_vec(Vx, sqrt(Dx)))
@@ -36,7 +42,9 @@
   }
 
   eigen_sym <- eigen(sym_prod)
-  W_mat <- .mult_vec_mat(sqrt(eigen_sym$values), t(eigen_sym$vectors))
+  # `sym_prod` is positive semi-definite in exact arithmetic; after the
+  # flooring above a rounding-error negative eigenvalue would give NaN.
+  W_mat <- .mult_vec_mat(sqrt(pmax(eigen_sym$values, 0)), t(eigen_sym$vectors))
 
   if(check){
     mat1 <- tcrossprod(W_mat %*% cov_x, W_mat)
@@ -107,12 +115,18 @@
 #' @param verbose             Integer.
 #'
 #' @return \code{eSVD} object after adjusting the fit in \code{fit_name}.
+#' @export
 reparameterization_esvd_covariates <- function(input_obj,
                                                fit_name,
                                                omitted_variables = NULL,
                                                verbose = 0){
-  stopifnot(fit_name %in% names(input_obj),
-            is.null(omitted_variables) || all(omitted_variables %in% colnames(input_obj$covariates)))
+  if(length(fit_name) != 1 || !fit_name %in% names(input_obj)){
+    available_fits <- names(input_obj)[sapply(input_obj, inherits, "eSVD_Fit")]
+    stop("`fit_name` = \"", paste0(fit_name, collapse = "\", \""),
+         "\" is not a fit in `input_obj`; the available fits are \"",
+         paste0(available_fits, collapse = "\", \""), "\"")
+  }
+  stopifnot(is.null(omitted_variables) || all(omitted_variables %in% colnames(input_obj$covariates)))
 
   x_mat <- input_obj[[fit_name]]$x_mat
   y_mat <- input_obj[[fit_name]]$y_mat
@@ -239,25 +253,53 @@ reparameterization_esvd_covariates <- function(input_obj,
   res
 }
 
+#' Deterministic starting vector for the iterative SVD solvers
+#'
+#' \code{irlba::irlba} and \code{RSpectra::svds} both start from a random
+#' vector drawn from the user's RNG stream. Two runs of the pipeline on
+#' identical input therefore differed by about 1e-9 after initialization,
+#' and the alternating optimization amplified that to O(1) differences in
+#' the test statistics of the most strongly DE genes. A fixed start removes
+#' the run-to-run variation (though not the sensitivity it exposed).
+#'
+#' A golden-ratio (Weyl) sequence pushed through \code{qnorm} gives a
+#' pseudo-random-looking vector that is deterministic and touches no RNG
+#' state, so a user's \code{set.seed()} is not consumed.
+#'
+#' @param n Length.
+#'
+#' @returns Unit-norm numeric vector of length \code{n}.
+#' @noRd
+.svd_start_vector <- function(n){
+  uniform_vec <- (seq_len(n) * (sqrt(5) - 1) / 2 + 0.5) %% 1
+  start_vec <- stats::qnorm(uniform_vec)
+
+  start_vec / sqrt(sum(start_vec^2))
+}
+
 .irlba_custom <- function(check_stability,
                           K,
                           mat,
                           mean_vec,
                           scale_max,
                           sd_vec){
+  start_vec <- .svd_start_vector(ncol(mat))
+
   if(inherits(mat, "dgCMatrix")){
     if(!all(is.null(scale_max))) warning("scale_max does not work with sparse matrices when using irlba")
     tmp <- irlba::irlba(A = mat,
                         nv = K,
                         work = min(c(K + 10, dim(mat))),
                         scale = sd_vec,
-                        center = mean_vec)
+                        center = mean_vec,
+                        v = start_vec)
 
     if(check_stability & K > 5) {
       tmp2 <- irlba::irlba(A = mat,
                            nv = 5,
                            scale = sd_vec,
-                           center = mean_vec)
+                           center = mean_vec,
+                           v = start_vec)
       ratio_vec <- tmp2$d/tmp$d[1:5]
       if(any(ratio_vec > 2) | any(ratio_vec < 1/2)) warning("irlba is potentially unstable")
     }
@@ -272,10 +314,10 @@ reparameterization_esvd_covariates <- function(input_obj,
       mat[mat < -abs(scale_max)] <- -abs(scale_max)
     }
 
-    tmp <- irlba::irlba(A = mat, nv = K)
+    tmp <- irlba::irlba(A = mat, nv = K, v = start_vec)
 
     if(check_stability & K > 5) {
-      tmp2 <- irlba::irlba(A = mat, nv = 5)
+      tmp2 <- irlba::irlba(A = mat, nv = 5, v = start_vec)
       ratio_vec <- tmp2$d/tmp$d[1:5]
       if(any(ratio_vec > 2) | any(ratio_vec < 1/2)) warning("irlba is potentially unstable")
     }
@@ -304,10 +346,12 @@ reparameterization_esvd_covariates <- function(input_obj,
     }
   }
 
-  tmp <- RSpectra::svds(A = mat, k = K)
+  # RSpectra works on the smaller Gram matrix, so the start has that length.
+  svds_opts <- list(initvec = .svd_start_vector(min(dim(mat))))
+  tmp <- RSpectra::svds(A = mat, k = K, opts = svds_opts)
 
   if(check_stability & K > 5) {
-    tmp2 <- RSpectra::svds(A = mat, k = 5)
+    tmp2 <- RSpectra::svds(A = mat, k = 5, opts = svds_opts)
     ratio_vec <- tmp2$d/tmp$d[1:5]
     if(any(ratio_vec > 2) | any(ratio_vec < 1/2)) warning("RSpectra is potentially unstable")
   }
@@ -315,32 +359,79 @@ reparameterization_esvd_covariates <- function(input_obj,
   tmp
 }
 
+# `mean_vec` is either NULL, a single logical (TRUE: compute the column means;
+# FALSE: do not center) or a full numeric vector of length ncol(mat). The
+# guard tests `is.logical()` rather than `length() == 1`, because `0.5` and
+# `TRUE` are both length 1 and `if(0.5)` would silently coerce (Q-SVD-2).
 .compute_matrix_mean <- function(mat, mean_vec){
-  if(length(mean_vec) == 1 && !is.null(mean_vec)){
+  if(is.null(mean_vec)) return(NULL)
+
+  if(is.logical(mean_vec) && length(mean_vec) == 1){
     if(mean_vec){
       mean_vec <- Matrix::colMeans(mat)
     } else{
       mean_vec <- NULL
     }
+  } else if(!is.numeric(mean_vec) || length(mean_vec) != ncol(mat)){
+    stop("`mean_vec` must be NULL, a single TRUE/FALSE, or a numeric vector ",
+         "of length ncol(mat) = ", ncol(mat), "; got a ", class(mean_vec)[1],
+         " of length ", length(mean_vec))
   }
 
   mean_vec
 }
 
 .compute_matrix_sd <- function(mat, sd_vec){
-  if(length(sd_vec) == 1 && !is.null(sd_vec)){
+  if(is.null(sd_vec)) return(NULL)
+
+  if(is.logical(sd_vec) && length(sd_vec) == 1){
     if(sd_vec){
-      if(inherits(x = mat, what = c('dgCMatrix', 'dgTMatrix'))){
-        sd_vec <- sparseMatrixStats::colSds(mat)
+      if(inherits(x = mat, what = 'dgCMatrix')){
+        sd_vec <- .sparse_col_sds(mat)
       } else {
-        sd_vec <- matrixStats::colSds(mat)
+        sd_vec <- matrixStats::colSds(as.matrix(mat))
       }
     } else{
       sd_vec <- NULL
     }
+  } else if(!is.numeric(sd_vec) || length(sd_vec) != ncol(mat)){
+    stop("`sd_vec` must be NULL, a single TRUE/FALSE, or a numeric vector ",
+         "of length ncol(mat) = ", ncol(mat), "; got a ", class(sd_vec)[1],
+         " of length ", length(sd_vec))
   }
 
   sd_vec
+}
+
+#' Column standard deviations of a sparse matrix, without densifying
+#'
+#' Replaces \code{sparseMatrixStats::colSds}, which is Bioconductor-only.
+#' The naive two-pass form
+#' \code{sqrt((colSums(x^2) - n*colMeans(x)^2)/(n-1))} suffers catastrophic
+#' cancellation on a column with a large mean and a small variance and
+#' returns \code{NaN}; this sums squared deviations over the stored non-zeros
+#' and adds the contribution of the implied zeros exactly:
+#' \code{sum_i (x_i - m)^2 = sum_stored (x_i - m)^2 + (n - nnz) * m^2}.
+#'
+#' @param mat  \code{dgCMatrix}.
+#'
+#' @returns Numeric vector of length \code{ncol(mat)}.
+#' @noRd
+.sparse_col_sds <- function(mat){
+  stopifnot(inherits(mat, "dgCMatrix"))
+
+  n <- nrow(mat)
+  col_mean_vec <- Matrix::colMeans(mat)
+  num_stored_vec <- diff(mat@p)
+  col_idx_vec <- rep(seq_len(ncol(mat)), num_stored_vec)
+  deviation_vec <- (mat@x - col_mean_vec[col_idx_vec])^2
+  stored_ss_vec <- as.numeric(tapply(deviation_vec,
+                                     factor(col_idx_vec,
+                                            levels = seq_len(ncol(mat))),
+                                     sum))
+  stored_ss_vec[is.na(stored_ss_vec)] <- 0
+
+  sqrt((stored_ss_vec + (n - num_stored_vec) * col_mean_vec^2) / (n - 1))
 }
 
 

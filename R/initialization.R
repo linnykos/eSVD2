@@ -45,9 +45,12 @@ initialize_esvd <- function(dat,
                             verbose = 0){
   stopifnot(inherits(dat, c("dgCMatrix", "matrix")),
             nrow(dat) == nrow(covariates),
-            is.matrix(covariates),
-            k <= ncol(dat), k > 0, k %% 1 == 0,
-            lambda <= 1e4, lambda >= 1e-4,
+            is.matrix(covariates))
+  if(length(k) != 1 || k %% 1 != 0 || k <= 0 || k > ncol(dat)){
+    stop("`k` = ", paste0(k, collapse = ", "), " must be a positive integer ",
+         "no larger than the number of genes, ncol(dat) = ", ncol(dat))
+  }
+  stopifnot(lambda <= 1e4, lambda >= 1e-4,
             library_size_variable %in% colnames(covariates),
             is.null(case_control_variable) || case_control_variable %in% colnames(covariates),
             "Intercept" %in% colnames(covariates),
@@ -57,7 +60,27 @@ initialize_esvd <- function(dat,
               (all(offset_variables %in% colnames(covariates)) && !"Intercept" %in% offset_variables))
 
   n <- nrow(dat); p <- ncol(dat)
-  if(is.matrix(dat)) dat[is.na(dat)] <- 0
+  # NAs are zeroed on both storage types. The sparse branch used to be
+  # skipped, and a single NA in a dgCMatrix then errored inside glmnet.
+  if(is.matrix(dat)){
+    dat[is.na(dat)] <- 0
+  } else if(anyNA(dat@x)){
+    dat@x[is.na(dat@x)] <- 0
+    dat <- Matrix::drop0(dat)
+  }
+
+  # An all-zero gene makes glmnet warn and return the wrong lambda's fit,
+  # sends gamma_rate to its clamp, and gives a 0/0 test statistic. The
+  # helper `eSVD_helper` removes such genes before the pipeline; reaching
+  # here with one is refused rather than silently mis-fitted (Q-STATUS-1).
+  all_zero_idx <- .which_all_zero(dat)
+  if(length(all_zero_idx) > 0){
+    stop(length(all_zero_idx), " gene(s) are all zero (",
+         paste0(utils::head(colnames(dat)[all_zero_idx], 5), collapse = ", "),
+         if(length(all_zero_idx) > 5) ", ..." else "",
+         "); remove them before initialization, or run `eSVD_helper`, ",
+         "which removes them and records the removal in `gene_status`")
+  }
   param <- .format_param_initialize(bool_intercept = bool_intercept,
                                     case_control_variable = case_control_variable,
                                     k = k,

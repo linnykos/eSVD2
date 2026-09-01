@@ -1,5 +1,12 @@
 context("Testing reparameterization")
 
+# Base-R replacement for `.mvrnorm()`, so the tests carry no undeclared
+# dependency (CRAN_READINESS.md 2.9). Draws n rows from N(mu, Sigma).
+.mvrnorm <- function(n, mu, Sigma){
+  z_mat <- matrix(stats::rnorm(n * length(mu)), nrow = n, ncol = length(mu))
+  sweep(z_mat %*% chol(Sigma), MARGIN = 2, STATS = mu, FUN = "+")
+}
+
 test_that(".identification works", {
  res <- .identification(diag(5), 2*diag(5))
 
@@ -41,8 +48,8 @@ test_that(".identification issues warning for rank defficient setting", {
 
 test_that(".identification is correct", {
  set.seed(20)
- cov_x <- cov(MASS::mvrnorm(n = 10, rep(0, 5), diag(5)))
- cov_y <- cov(MASS::mvrnorm(n = 10, rep(0, 5), toeplitz(5:1)))
+ cov_x <- cov(.mvrnorm(n = 10, rep(0, 5), diag(5)))
+ cov_y <- cov(.mvrnorm(n = 10, rep(0, 5), toeplitz(5:1)))
 
  res <- .identification(cov_x, cov_y)
 
@@ -72,8 +79,8 @@ test_that(".identification for 1-dim covariances (just variances)", {
 
 test_that(".reparameterize works", {
  set.seed(10)
- x_mat <- MASS::mvrnorm(60, rep(0, 5), diag(5))
- y_mat <- MASS::mvrnorm(50, rep(1, 5), 2*diag(5))
+ x_mat <- .mvrnorm(60, rep(0, 5), diag(5))
+ y_mat <- .mvrnorm(50, rep(1, 5), 2*diag(5))
 
  res <- .reparameterize(x_mat, y_mat, equal_covariance = T)
 
@@ -98,8 +105,8 @@ test_that(".reparameterize preserves the inner products", {
 
  bool_vec <- sapply(1:trials, function(x){
   set.seed(10*x)
-  x_mat <- MASS::mvrnorm(10, rep(0, 5), diag(5))
-  y_mat <- MASS::mvrnorm(10, rep(1, 5), 2*diag(5))
+  x_mat <- .mvrnorm(10, rep(0, 5), diag(5))
+  y_mat <- .mvrnorm(10, rep(1, 5), 2*diag(5))
 
   res <- .reparameterize(x_mat, y_mat, equal_covariance = T)
 
@@ -117,8 +124,8 @@ test_that(".reparameterize yields the same second moment matrix", {
 
  bool_vec <- sapply(1:trials, function(x){
   set.seed(11*x)
-  x_mat <- MASS::mvrnorm(5, rep(0, 5), diag(5))
-  y_mat <- MASS::mvrnorm(5, rep(1, 5), 2*diag(5))
+  x_mat <- .mvrnorm(5, rep(0, 5), diag(5))
+  y_mat <- .mvrnorm(5, rep(1, 5), 2*diag(5))
 
   res <- .reparameterize(x_mat, y_mat, equal_covariance = T)
 
@@ -139,8 +146,8 @@ test_that(".reparameterize yields the same covariance matrix", {
   set.seed(12*x)
   n <- 10
   p <- 20
-  x_mat <- MASS::mvrnorm(n, rep(0, 5), diag(5))
-  y_mat <- MASS::mvrnorm(p, rep(1, 5), 2*diag(5))
+  x_mat <- .mvrnorm(n, rep(0, 5), diag(5))
+  y_mat <- .mvrnorm(p, rep(1, 5), 2*diag(5))
 
   res <- .reparameterize(x_mat, y_mat, equal_covariance = T)
 
@@ -158,8 +165,8 @@ test_that(".reparameterize yields diagonal covariances", {
 
  bool_vec <- sapply(1:trials, function(x){
   set.seed(13*x)
-  x_mat <- MASS::mvrnorm(10, rep(0, 5), diag(5))
-  y_mat <- MASS::mvrnorm(20, rep(1, 5), 2*diag(5))
+  x_mat <- .mvrnorm(10, rep(0, 5), diag(5))
+  y_mat <- .mvrnorm(20, rep(1, 5), 2*diag(5))
 
   res <- .reparameterize(x_mat, y_mat, equal_covariance = T)
 

@@ -47,6 +47,16 @@ SEXP data_loader(SEXP mat)
         Rcpp::stop("data_loader(): unsupported matrix type");
     }
 
+    // An S4 object that is not a dgCMatrix (e.g. a dgeMatrix), or a dense
+    // matrix that is neither integer nor double (e.g. character), falls
+    // through both branches above. Returning a null pointer here used to
+    // surface much later as "external pointer is not valid".
+    if (loader == nullptr)
+    {
+        Rcpp::stop("data_loader(): unsupported matrix type; supply a base "
+                   "integer or double matrix, or a dgCMatrix");
+    }
+
     return Rcpp::XPtr<DataLoader>(loader, true);
 }
 

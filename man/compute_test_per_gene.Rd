@@ -10,7 +10,7 @@ compute_test_per_gene(
   bool_adjust_covariates = FALSE,
   bool_covariates_as_library = TRUE,
   bool_stabilize_underdispersion = TRUE,
-  library_min = 0.01,
+  library_min = 0.1,
   min_cells_per_individual = 3,
   nuisance_lower_quantile = 0.01,
   pseudocount = 0,
@@ -33,7 +33,8 @@ covariates in the covariate-adjusted library size.}
 \item{bool_stabilize_underdispersion}{Boolean; if TRUE, mean-center
 log10(nuisance_vec) when it suggests under-dispersion.}
 
-\item{library_min}{Minimum value for the covariate-adjusted library size.}
+\item{library_min}{Minimum value for the covariate-adjusted library size;
+default 0.1, the same as \code{compute_posterior.eSVD}.}
 
 \item{min_cells_per_individual}{Minimum number of cells an individual must
 contribute; see \code{compute_test_statistic}.}
@@ -52,8 +53,8 @@ The input \code{eSVD} object with:
     \item \code{case_mean}    — case Gaussian means per gene.
     \item \code{control_mean} — control Gaussian means per gene.
     \item \code{pvalue_list}  — list with \code{df_vec}, \code{fdr_vec},
-          \code{gaussian_teststat}, \code{log10pvalue},
-          \code{null_mean}, \code{null_sd}.
+          \code{gaussian_teststat}, \code{log10pvalue}, \code{method},
+          \code{null_mean}, \code{null_sd}; see \code{compute_pvalue}.
   }
 }
 \description{

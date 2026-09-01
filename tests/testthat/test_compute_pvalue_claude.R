@@ -142,18 +142,27 @@ test_that("T-PVAL-01: gaussian_teststat is finite for a strongly DE gene", {
                                 verbose = 0)
 
   # One strongly up-regulated gene, which is exactly what a real dataset
-  # supplies and what the current code cannot represent.
+  # supplies and what the naive composition cannot represent.
   teststat_vec <- res$teststat_vec
   teststat_vec[1] <- 40
   df_vec <- rep(18, length(teststat_vec))
 
-  gaussian_teststat <- sapply(seq_along(teststat_vec), function(gene_idx){
-    stats::qnorm(stats::pt(teststat_vec[gene_idx], df = df_vec[gene_idx]))
-  })
+  # The package's transform (shared by `compute_pvalue` and
+  # `compute_test_per_gene`). An earlier draft of this test recomputed the
+  # naive `qnorm(pt())` inline, which could never pass.
+  gaussian_teststat <- .t_to_gaussian(teststat_vec = teststat_vec,
+                                      df_vec = df_vec)
 
   expect_true(all(is.finite(gaussian_teststat)),
               info = paste0("gene 1 gaussian_teststat = ",
                             gaussian_teststat[1]))
+  # The mirror image of `qnorm(pt(-40, 18, log.p = TRUE), log.p = TRUE)`.
+  expect_equal(unname(gaussian_teststat[1]), 8.915293, tolerance = 1e-5)
+  # And exact where the naive form is finite.
+  naive_vec <- stats::qnorm(stats::pt(teststat_vec[-1], df = df_vec[-1]))
+  expect_equal(unname(gaussian_teststat[-1]), unname(naive_vec),
+               tolerance = 1e-8)
+  expect_equal(names(gaussian_teststat), names(teststat_vec))
 })
 
 test_that("T-PVAL-01b: one Inf makes multtest silently abandon locfdr", {
@@ -169,14 +178,12 @@ test_that("T-PVAL-01b: one Inf makes multtest silently abandon locfdr", {
   names(teststat_vec) <- paste0("gene_", seq_along(teststat_vec))
 
   res_clean <- suppressWarnings(multtest(teststat_vec))
-
-  teststat_vec[1] <- Inf
-  res_dirty <- suppressWarnings(multtest(teststat_vec))
-
   expect_equal(res_clean$method, "locfdr")
-  # A non-finite entry should be rejected at entry, not absorbed.
-  expect_true(all(is.finite(res_dirty$fdr_vec)),
-              info = paste0("method fell back to: ", res_dirty$method))
+
+  # A non-finite entry is rejected at entry, not absorbed (T-MT-04): the
+  # silent fallback to `.multtest_simple` is no longer reachable this way.
+  teststat_vec[1] <- Inf
+  expect_error(multtest(teststat_vec), regexp = "finite")
 })
 
 ## The real damage of section 1.1: the empirical null silently degrades and the

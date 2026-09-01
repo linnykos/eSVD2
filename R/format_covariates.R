@@ -2,10 +2,18 @@
 #'
 #' Mainly, this method splits the categorical variables (which should be `factor` variables)
 #' into indicator variables (i.e.,
-#' one-hot encoding), dropping the last level, and then rescales
-#' all the numerical variables (but does not center them),
-#' and computes the \code{"Log_UMI"} (i.e., log total counts) for each cell.
+#' one-hot encoding), dropping the first level of each factor as the
+#' reference, then rescales the numerical variables named in
+#' \code{rescale_numeric_variables} (only those; the others are left as they
+#' are), and computes the \code{"Log_UMI"} (i.e., log total counts) for each cell.
 #' \code{"Log_UMI"} is added as its own column.
+#'
+#' The rescaling divides each named column by its root-mean-square
+#' (\code{scale(x, center = FALSE, scale = TRUE)}), not by its standard
+#' deviation, so the result does not have unit variance unless the column is
+#' also centered (\code{bool_center = TRUE}). What it does deliver is
+#' invariance to the unit the covariate was recorded in: age in years and age
+#' in months give identical columns.
 #'
 #' @param dat                         Dataset (either \code{matrix} or \code{dgCMatrix}) where the \eqn{n} rows represent cells
 #'                                    and \eqn{p} columns represent genes.
@@ -58,7 +66,12 @@ format_covariates <- function(dat,
     if(!all(is.null(variables_enumerate_all)) && var %in% variables_enumerate_all){
       uniq_level <- levels(vec)
     } else {
-      stopifnot(length(levels(vec)) > 1)
+      if(length(levels(vec)) < 2){
+        stop("factor variable `", var, "` has only one level (\"",
+             paste0(levels(vec), collapse = "\", \""),
+             "\") after dropping unused levels, so it cannot be split into ",
+             "indicators; remove it from `covariate_df`")
+      }
       uniq_level <- levels(vec)[-1]
     }
 

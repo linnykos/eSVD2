@@ -144,6 +144,55 @@ test_that("T-SVD-05c: the shifted Matrix form is stable and matches to 1e-10", {
   dense_mat[, 1] <- 1e6 + stats::rnorm(200, sd = 1e-3)
   sparse_mat <- methods::as(methods::as(dense_mat, "dMatrix"), "CsparseMatrix")
 
+  # The package's own implementation (`.sparse_col_sds` in
+  # R/reparameterization.R). An earlier draft defined a local copy of the
+  # same name here, which shadowed the package function and would have kept
+  # passing if the package's version regressed.
+  expect_true(exists(".sparse_col_sds"))
+  res <- .sparse_col_sds(sparse_mat)
+
+  expected <- matrixStats::colSds(as.matrix(sparse_mat))
+
+  expect_equal(res, expected, tolerance = 1e-10)
+})
+
+## Q-SVD-3, ANSWERED BY THE TEST. The decision rule was: try the four-line
+## `Matrix` rewrite, vendor the C++ only if it fails at 1e-10. It fails, and it
+## fails badly -- the naive two-pass form
+##   sqrt((colSums(x^2) - n*colMeans(x)^2)/(n-1))
+## suffers catastrophic cancellation on a column with a large mean and small
+## variance, goes NEGATIVE under the square root, and returns NaN. On the
+## fixture below, column 1 (mean 1e6, sd 1e-3) gives NaN while
+## `sparseMatrixStats::colSds` is exact to the last bit.
+##
+## So the naive rewrite is out. The good news is that vendoring C++ is still
+## not necessary: the SHIFTED form below is stable, stays sparse, and is a
+## handful of lines of `Matrix`. T-SVD-05c is the candidate to ship.
+test_that("T-SVD-05b: the naive two-pass rewrite fails, and this is why", {
+  set.seed(10)
+  dense_mat <- matrix(stats::rpois(200 * 8, lambda = 2) * 1.0,
+                      nrow = 200, ncol = 8)
+  dense_mat[, 1] <- 1e6 + stats::rnorm(200, sd = 1e-3)
+  sparse_mat <- methods::as(methods::as(dense_mat, "dMatrix"), "CsparseMatrix")
+
+  n <- nrow(sparse_mat)
+  col_mean_vec <- Matrix::colMeans(sparse_mat)
+  naive_sd_vec <- suppressWarnings(
+    sqrt((Matrix::colSums(sparse_mat^2) - n * col_mean_vec^2) / (n - 1))
+  )
+
+  # Column 1 is the pathological one; the rest are fine.
+  expect_true(is.nan(as.numeric(naive_sd_vec)[1]))
+  expect_true(all(is.finite(as.numeric(naive_sd_vec)[-1])))
+})
+
+test_that("T-SVD-05c: the shifted Matrix form is stable and matches to 1e-10", {
+  set.seed(10)
+  dense_mat <- matrix(stats::rpois(200 * 8, lambda = 2) * 1.0,
+                      nrow = 200, ncol = 8)
+  dense_mat[, 1] <- 1e6 + stats::rnorm(200, sd = 1e-3)
+  sparse_mat <- methods::as(methods::as(dense_mat, "dMatrix"), "CsparseMatrix")
+
   # Sum of squared deviations, computed over the STORED non-zeros only and
   # corrected for the implied zeros, so nothing densifies:
   #   sum_i (x_i - m)^2 = sum_{stored} (x_i - m)^2 + (n - nnz) * m^2

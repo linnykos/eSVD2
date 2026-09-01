@@ -25,7 +25,7 @@ This package can be installed through `devtools` in R.
 library("devtools")
 devtools::install_github("linnykos/eSVD2")
 ```
-The package itself depends on several packages. These include `irlba`, `glmnet`, `locfdr`, `Matrix`, `matrixStats`, `Rmpfr`, `RSpectra`, and `sparseMatrixStats`. See the last section of this README to see where (i.e., CRAN, Bioconductor, or GitHub) to download all such packages. We have noted that `Rmpfr` is sometimes tricky to install due to its required C++ libraries.
+The package itself depends on several packages. These include `irlba`, `glmnet`, `locfdr`, `Matrix`, `matrixStats`, `Rcpp`, and `RSpectra`, all on CRAN. `SeuratObject` is needed by `eSVD()` and `eSVD_helper()` to read the count matrix from a Seurat object.
 
 After installation of all the dependencies, the installation of the `eSVD2` package itself takes modest time (less than 10 minutes). The installation time mainly consists of time to compile the C++ code since the matrix factorization optimization was written using Rcpp for faster performance.
 

@@ -55,7 +55,8 @@
       return(param[[what_obj]])
 
     } else {
-      stopifnot("what_obj is not found")
+      stop("`what_obj` = \"", what_obj, "\" is not a recognized element ",
+           "of an eSVD object (with `which_fit` = \"", which_fit, "\")")
     }
   }
 }

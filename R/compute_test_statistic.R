@@ -23,6 +23,12 @@ compute_test_statistic.eSVD <- function(input_obj,
                                         min_cells_per_individual = 3,
                                         verbose = 0,
                                         ...){
+  if(is.null(input_obj[["dat"]])){
+    stop("`input_obj$dat` is missing. An object built with ",
+         "`eSVD(bool_diet = TRUE)` has no count matrix or posterior matrices ",
+         "and already carries its test statistics; the matrix path needs ",
+         "`bool_diet = FALSE`")
+  }
   stopifnot(inherits(input_obj, "eSVD"), "latest_Fit" %in% names(input_obj),
             input_obj[["latest_Fit"]] %in% names(input_obj),
             inherits(input_obj[[input_obj[["latest_Fit"]]]], "eSVD_Fit"),
@@ -162,6 +168,16 @@ compute_test_statistic.default <- function(input_obj,
 
 .construct_averaging_matrix <- function(idx_list,
                                         n){
+  # An empty index set is reachable through an unused factor level. Its row
+  # of the averaging matrix would be all zeros, which "averages" to 0 and
+  # silently biases the group mean.
+  empty_idx <- which(sapply(idx_list, length) == 0)
+  if(length(empty_idx) > 0){
+    stop("`idx_list` has ", length(empty_idx), " empty element(s) at position(s) ",
+         paste0(empty_idx, collapse = ", "),
+         "; every individual must contribute at least one cell. ",
+         "An unused factor level in the individual vector causes this")
+  }
   tmp <- unlist(idx_list)
   stopifnot(max(table(tmp)) == 1, max(tmp) <= n, min(tmp) >= 1, all(tmp %% 1 == 0))
 

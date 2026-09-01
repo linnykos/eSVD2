@@ -70,7 +70,7 @@ public:
             m_distr, m_si, m_gamma, m_l2penx);
     }
 
-    NumericVector grad(NumericVector x)
+    NumericVector grad(NumericVector x) override
     {
         // Write x to the XCi vector
         std::copy(x.begin(), x.end(), m_XCi.data());
@@ -78,7 +78,7 @@ public:
             m_distr, m_si, m_gamma, m_l2penx);
     }
 
-    NumericMatrix hessian(NumericVector x)
+    NumericMatrix hessian(NumericVector x) override
     {
         // Write x to the XCi vector
         std::copy(x.begin(), x.end(), m_XCi.data());
@@ -86,7 +86,7 @@ public:
             m_distr, m_si, m_gamma, m_l2penx);
     }
 
-    List direction(NumericVector x)
+    List direction(NumericVector x) override
     {
         // Write x to the XCi vector
         std::copy(x.begin(), x.end(), m_XCi.data());
@@ -94,7 +94,7 @@ public:
             m_distr, m_si, m_gamma, m_l2penx);
     }
 
-    bool feas(NumericVector x)
+    bool feas(NumericVector x) override
     {
         // Write x to the XCi vector
         std::copy(x.begin(), x.end(), m_XCi.data());

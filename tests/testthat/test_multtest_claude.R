@@ -17,32 +17,26 @@ test_that("T-MT-01: .multtest_locfdr recovers the null on clean N(0,1) data", {
   expect_equal(res$null_sd, 1, tolerance = 0.15)
 })
 
-## NEW FINDING, not in UNIT_TEST_PLAN.md and not in CRAN_READINESS.md.
-##
-## The three estimators are each other's oracle, and on 1000 draws from exactly
-## N(0, 1) they do NOT agree:
+## FINDING (2026-08-29), since FIXED (2026-09-01). On 1000 draws from exactly
+## N(0, 1) the three estimators used to disagree:
 ##
 ##   locfdr          mean = +0.0065   sd = 0.9866    <- accurate
 ##   truncated_mle   mean = +0.0671   sd = 1.1079    <- sd 12% too HIGH
 ##   simple          mean = +0.0104   sd = 0.7901    <- sd 21% too LOW
 ##
-## `.multtest_simple()` is the LAST fallback, and it underestimates the null
-## standard deviation by about a fifth. Dividing by a null sd that is 21% too
-## small inflates every z-score by about 27%, so the p-values it produces are
-## substantially ANTI-CONSERVATIVE.
+## Two distinct defects. `.multtest_simple()` took the raw sd of a TRUNCATED
+## sample (the middle 90%), which is 0.79 for a standard normal; it now divides
+## by the sd of a standard normal truncated at the same quantiles.
+## `.multtest_truncatedGauss()` optimized Efron's theta as a free parameter,
+## dropping the constraint p0 <= 1 that ties the window count to the null
+## mass; without it sigma0 is identified only by the truncated shape, which is
+## nearly flat towards sigma0 -> Inf (at 200 genes it returned sd = 2.57). It
+## now optimizes (delta0, sigma0, p0) with p0 <= 1, as Equation 4.12 states.
 ##
-## Combine that with section 1.1 and the consequence is concrete: one strongly
-## DE gene produces an `Inf`, `locfdr` errors, the `tryCatch` swallows it,
-## `.multtest_truncatedGauss` also fails on the `Inf`, and the run silently
-## lands on `.multtest_simple` -- whose own source comment disclaims it -- for
-## EVERY gene in the dataset. This is the mechanism by which section 1.1
-## changes results, quantified.
-##
-## The first test pins the observed biases so a change to any estimator is
-## caught. The second asserts what the plan's T-MT-02 asks -- that the three
-## agree -- and is expected to FAIL.
+## This test pins the corrected values so a regression in either estimator is
+## caught; T-MT-02 asserts the plan's agreement.
 
-test_that("T-MT-02a: the fallback estimators are biased, in opposite directions", {
+test_that("T-MT-02a: the fallback estimators are unbiased on clean N(0,1) data", {
   set.seed(10)
   teststat_vec <- stats::rnorm(1000)
   names(teststat_vec) <- paste0("gene_", seq_along(teststat_vec))
@@ -56,15 +50,16 @@ test_that("T-MT-02a: the fallback estimators are biased, in opposite directions"
   # locfdr is accurate on data drawn from the null it is estimating.
   expect_equal(res_locfdr$null_sd, 1, tolerance = 0.05)
 
-  # The truncated MLE is conservative: too wide a null means p-values that are
-  # too large. Survivable.
-  expect_true(res_truncated$null_sd > res_locfdr$null_sd)
+  # The constrained truncated MLE: the unconstrained version gave 1.108 here.
+  expect_equal(res_truncated$null_mean, 0, tolerance = 0.1)
+  expect_equal(res_truncated$null_sd, 1, tolerance = 0.05,
+               info = paste0("truncated null_sd = ", res_truncated$null_sd))
+  expect_equal(res_truncated$convergence, 0)
 
-  # `.multtest_simple` is ANTI-conservative: too narrow a null means p-values
-  # that are too small, across every gene at once.
-  expect_true(res_simple$null_sd < 0.85,
-              info = paste0("simple null_sd = ", res_simple$null_sd))
-  expect_true(res_simple$null_sd < res_locfdr$null_sd)
+  # The moment-corrected simple estimator: the raw truncated sd is 0.79.
+  expect_equal(res_simple$null_mean, 0, tolerance = 0.1)
+  expect_equal(res_simple$null_sd, 1, tolerance = 0.05,
+               info = paste0("simple null_sd = ", res_simple$null_sd))
 })
 
 test_that("T-MT-02: the three estimators agree on clean N(0,1) data", {
@@ -129,8 +124,8 @@ test_that("T-MT-05: the truncated-Gaussian fit returns a usable positive sd", {
   # `pnorm` with a negative sd is NaN, and `dnorm` with a negative sd is NaN
   # too -- so an unguarded objective returns NaN rather than +Inf and the
   # optimizer has no reason to step back.
-  expect_true(is.nan(stats::pnorm(0, mean = 0, sd = -1)))
-  expect_true(is.nan(stats::dnorm(0, mean = 0, sd = -1)))
+  expect_true(is.nan(suppressWarnings(stats::pnorm(0, mean = 0, sd = -1))))
+  expect_true(is.nan(suppressWarnings(stats::dnorm(0, mean = 0, sd = -1))))
 
   # What this test CAN check without reaching into the closure: the fitted sd
   # is finite and positive on well-behaved input. It does not exercise the
@@ -181,8 +176,14 @@ test_that("T-MT-08: observed_quantile is respected", {
   res_narrow <- .multtest_simple(teststat_vec,
                                  observed_quantile = c(0.25, 0.75))
 
-  # A strictly smaller central subset must give a strictly smaller sd.
-  expect_true(res_narrow$null_sd < res_wide$null_sd)
+  # Before the truncation correction, a narrower window gave a strictly
+  # smaller sd -- the bias this test used to pin. With the correction, both
+  # windows estimate the SAME null sd; that they still differ is what shows
+  # the argument reaches the computation, and that both are close to 1 is
+  # what shows the correction is right for either window.
+  expect_false(isTRUE(all.equal(res_narrow$null_sd, res_wide$null_sd)))
+  expect_equal(res_wide$null_sd, 1, tolerance = 0.1)
+  expect_equal(res_narrow$null_sd, 1, tolerance = 0.1)
 })
 
 test_that("T-MT-09: multtest's outputs are all named and finite", {

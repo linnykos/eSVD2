@@ -10,7 +10,14 @@ report_results(input_obj)
 \item{input_obj}{\code{eSVD} object outputed from \code{compute_pvalue}.}
 }
 \value{
-a data frame
+a data frame with one row per gene (in the order of
+\code{input_obj$teststat_vec}) and columns \code{genes}, \code{logFC}
+(\eqn{\log_2} of the case-to-control ratio of posterior means),
+\code{log10pvalue} (\eqn{-\log_{10}} of the two-sided p-value),
+\code{pvalue} and \code{pvalue_adj} (Benjamini-Hochberg). \code{pvalue}
+underflows to \code{0} for any gene with \code{log10pvalue} above about
+308, so genes should be ranked by \code{log10pvalue}, which keeps the
+distinction.
 }
 \description{
 Report the DE results from eSVD

@@ -158,7 +158,7 @@ test_that("T-GS-09: BH is computed on analyzed genes only", {
   dat <- .tiny_counts()
   dat_padded <- cbind(dat, matrix(0, nrow = nrow(dat), ncol = 50,
                                   dimnames = list(NULL,
-                                                  paste0("empty_", 1:50))))
+                                                  paste0("empty", 1:50))))
 
   res_plain <- .helper_run(dat)
   res_padded <- .helper_run(dat_padded)
@@ -179,7 +179,7 @@ test_that("T-GS-10: the empirical null is fit on analyzed genes only", {
   dat <- .tiny_counts()
   dat_padded <- cbind(dat, matrix(0, nrow = nrow(dat), ncol = 50,
                                   dimnames = list(NULL,
-                                                  paste0("empty_", 1:50))))
+                                                  paste0("empty", 1:50))))
 
   res_plain <- .helper_run(dat)
   res_padded <- .helper_run(dat_padded)

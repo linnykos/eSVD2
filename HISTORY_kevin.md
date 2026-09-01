@@ -549,3 +549,59 @@ would write first.
 - `devtools::document()` swapped `RoxygenNote: 7.3.3` for
   `Config/roxygen2/version: 8.1.0` in DESCRIPTION. Reverted — a local-toolchain
   artifact, not a change Kevin asked for. `man/` regeneration was kept.
+
+### [2026-09-01] (Session 9 — the code fixed to the reviewed suite)
+
+- Kevin: "I've checked all the unit tests. Can you go ahead and fix the
+  codebase?" Taken as the go-ahead. Suite went 522 pass / 37 fail / 28 skip →
+  **644 / 0 / 0**; `R CMD check --as-cran` 5 WARN / 3 NOTE → 1 WARN / 3 NOTE
+  (the WARN, `MASS` in tests, fixed after the run). Uncommitted.
+- Full fix table is `TEST_RUN_REPORT.md` Part 7. Non-obvious rationale only
+  below.
+- **Efron's truncated MLE**: the optimizer was fine; the model dropped the
+  `p0 <= 1` constraint by treating `theta` as free. Verified the old code's
+  2.57 was the true maximum of its objective via an independent
+  reimplementation before changing the model. Constrained version verified
+  across 50 seeds at N = 200 and 1000.
+- **`.multtest_simple`** corrected by the moments of a normal truncated at the
+  null quantiles. Exact when the window is all-null; mildly high otherwise
+  (1.26 on a 10% mixture at ±4). It is the last fallback, so acceptable.
+- **Non-determinism found**: identical `eSVD()` runs differed by up to 8 in
+  Welch statistics, from a 2e-9 `irlba` start-vector difference. Fixed the
+  reproducibility (`.svd_start_vector()`), NOT the sensitivity; recorded as
+  open. This was what made T-COH-08 and T-GS-05/09/10 fail, not the helper.
+- **Seurat renames `gene_1` → `gene-1`.** Fixture genes are now `gene1`. This
+  was also the real cause of T-COH-13's `subset()` error.
+- **Five tests were unsatisfiable as written** and were changed (report §7.2):
+  T-PVAL-01 recomputed the naive form inline; T-PVAL-01b contradicted T-MT-04;
+  T-MT-02a pinned the buggy values and contradicted T-MT-02; T-MT-08 pinned the
+  bias itself; T-MPFR-08 wanted two zero doubles to differ; T-COH-04 indexed
+  alphabetically-sorted factor levels. Plus T-SVD-05c shadowed the package
+  function with a local copy (code review).
+- **`bool_diet = TRUE` keeps `fit_Second`** — a deliberate behaviour change
+  because the spec and T-GS-11 presume it; flagged for Kevin.
+- **`eSVD()`'s `grep(id_var, ...)`** (unchanged line) dropped any covariate
+  column containing `id_var` as a substring; now removes the exact
+  `<id_var>_<level>` names. Found by the code review.
+- `eSVD_helper` forwards `min_cells_per_individual = min_cells_per_id` unless
+  the caller passes it, so `min_cells_per_id = 0` really disables the check.
+- `compute_test_per_gene` had the `min_cells_per_individual` argument but
+  never used it (session 8 claimed all three call sites); now it does.
+- `multtest()` errors (not warns) when no estimator yields a finite null;
+  `null_sd == 0` still proceeds with a step-function p-value (T-MT-07).
+- Code-review findings NOT fixed, recorded in `CLAUDE_kevin.md` Open
+  Questions 1–4: the nuisance blow-up after the bracket fix (10/20 fixture
+  genes above 1e4, stabilization rescales all by 10^-4.55), locfdr's misfit
+  warning triggering the fallback on real data, the 4× duplicated
+  case/control derivation, and the helper's memory duplication.
+- Mechanical CRAN items done in passing: `Rmpfr` and `sparseMatrixStats` out
+  of `DESCRIPTION` and code (`.sparse_col_sds()` replaces the latter), `Rcpp`
+  moved to Imports, `biocViews` removed, `withr` added to Suggests, `LICENSE`
+  two-line stub, `override` ×5, `exportPattern` removed with explicit
+  `@export` on the 17 public functions, `requireNamespace("SeuratObject")`.
+- Build needs pandoc. On the personal laptop (macOS) the shell PATH has none;
+  RStudio's copy at
+  `/Applications/RStudio.app/Contents/Resources/app/quarto/bin/tools/aarch64`
+  works when prepended before `R CMD build`.
+- `devtools::document()` again swapped `RoxygenNote` for
+  `Config/roxygen2/version: 8.1.0`; reverted again.

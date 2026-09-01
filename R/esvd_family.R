@@ -102,6 +102,13 @@
 esvd_family <- function(family)
 {
   family <- as.character(family)
+  valid_families <- c("gaussian", "curved_gaussian", "exponential", "poisson",
+                      "neg_binom", "neg_binom2", "bernoulli")
+  if(length(family) != 1 || !family %in% valid_families){
+    stop("`family` = \"", paste0(family, collapse = "\", \""),
+         "\" is not implemented; choose one of \"",
+         paste0(valid_families, collapse = "\", \""), "\"")
+  }
   obj <- .esvd_family(family)
 
   # Additional functions

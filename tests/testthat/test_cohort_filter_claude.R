@@ -117,9 +117,11 @@ test_that("T-COH-04: a 4-case / 1-control cohort is rejected", {
                                num_genes = 20,
                                num_individuals = 10,
                                seed_number = 40)
-  # Keep 4 cases and 1 control.
-  keep_donors <- c(levels(dat_list$individual_vec)[1],
-                   levels(dat_list$individual_vec)[6:9])
+  # Keep 4 cases and 1 control. Named explicitly: with ten donors the factor
+  # levels sort alphabetically ("indiv_1", "indiv_10", "indiv_2", ...), so
+  # indexing `levels()` positionally picked two controls and three cases.
+  # Donors 1-5 are controls and 6-10 cases in `.build_tiny_data()`.
+  keep_donors <- paste0("indiv_", c(1, 6:9))
   keep_vec <- dat_list$individual_vec %in% keep_donors
 
   seurat_obj <- .tiny_seurat(

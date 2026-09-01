@@ -570,3 +570,115 @@ nothing (8), `data_loader` on a `dgeMatrix`, `exportPattern`/`SeuratObject`,
 `verbose = 2`, the un-run `gene_status` and cohort work (2 + 1 error), and
 T-OPT-05's four families that die at their documented defaults. Nothing in
 this list is new, and nothing is a test defect.
+
+---
+
+# Part 7 — After the code fixes (2026-09-01)
+
+Kevin reviewed the suite and asked for the code to be fixed to it. Result:
+
+| | Before (Part 6) | After |
+|---|---|---|
+| Whole suite | 522 pass / 37 fail / 28 skip | **640 pass / 0 fail / 0 skip** |
+
+The 28 skips were the `gene_status` and cohort-filter features, now
+implemented in `R/eSVD_helper_claude.R` (`filter_cohort()`, `eSVD_helper()`,
+`.reinsert_genes()`) with `.which_all_zero()` in `R/utils.R` as the one shared
+predicate. Everything else is in the file it was always in.
+
+## 7.1 Code changes, by defect
+
+| Defect (test) | Fix |
+|---|---|
+| §1.1 `qnorm(pt())` saturates (T-PVAL-01) | `.t_to_gaussian()` in `compute_pvalue.R`: log-scale composition mirrored through zero, used by both pipelines |
+| `method` discarded (T-PVAL-02) | stored in `pvalue_list`; `multtest()` also **warns** whenever it falls below `locfdr` |
+| non-finite input absorbed (T-MT-04) | `multtest()` errors at entry |
+| `.multtest_simple` sd 21% low (T-MT-02) | moment-match the truncated sample to a normal truncated at the same null quantiles |
+| `.multtest_truncatedGauss` sd 2.57 at 200 genes (T-MT-03) | **the defect was in the model, not the optimizer**: Efron's `theta` was a free parameter, dropping the constraint `p0 <= 1` that ties the window count to the null mass. Re-parameterized as `(delta0, log sigma0, p0)` under `L-BFGS-B` with `p0 in [1e-4, 1]`; `convergence` returned (T-MT-06) |
+| `Rmpfr` | gone from `DESCRIPTION` and every call site; `sparseMatrixStats` replaced by `.sparse_col_sds()` (T-SVD-05c's form) |
+| `report_results` ties at `p = 0` (T-MPFR-08) | a `log10pvalue` column; `pvalue` documented as underflowing |
+| `verbose = 2` throws (T-VERB-01) | `print(paste0())` |
+| four families die at defaults (T-OPT-05) | `nuisance_vec = NULL` means `rep(1, p)`, documented as a placeholder |
+| sparse NAs not zeroed (T-INIT-05) | `dat@x[is.na(dat@x)] <- 0` |
+| `library_min` defaults differ (T-PG-03) | `compute_test_per_gene` now `0.1` |
+| `data_loader` null pointer (T-CPP-LOAD-05) | `Rcpp::stop` when no branch built a loader |
+| `gamma_rate` out-of-bounds read (T-CPP-GAM-08) | length check in both C++ routines |
+| rank-deficient fit dies in `eigen()` (T-REP-09) | `.identification` floors eigenvalues at `tol` and proceeds after its warning |
+| nuisance failures uncountable (T-NUIS-02) | `.estimate_nuisance_matrix()` returns the count; stored as `param$nuisance_num_failed`; warns when positive |
+| `length(x) == 1` coerces `0.5` to `TRUE` (T-SVD-06) | `is.logical()` guards naming the argument |
+| empty index set (T-TSTAT-07) | error naming the position |
+| error messages naming nothing (T-DF-03, T-VAL-15/16/21/28, T-UTIL-05, T-FMT-08) | `stop()` with the offending value |
+| `eSVD` not exported, `SeuratObject` unguarded (T-ESVD-11, T-VAL-34) | full roxygen block with `@export`; `requireNamespace()`; `@exportPattern` removed from `zzz.R` |
+| `eSVD()` refuses nothing (T-COH-11) | errors on all-zero genes, `k > ncol`, an individual in both arms, and `.check_cohort_is_testable()` before any fitting |
+| §2.4, §2.5 mechanical blockers | `LICENSE` is the two-line stub; `override` on the five virtuals |
+
+**`bool_diet = TRUE` now keeps the final fit.** `eSVD()` used to `NULL` all
+three fits, including `fit_Second`, leaving `latest_Fit` dangling and the
+object usable only by `report_results()`. T-GS-11 reads `x_mat` under the
+default `bool_diet`, and §2.16.1's reinsertion spec pads `y_mat`/`z_mat`
+rows — both presume the final fit survives. It is `n x k` plus `p x (k + r)`,
+small next to what the diet removes. **Kevin's call to keep or revert**; the
+revert is one line plus `bool_diet = FALSE` in T-GS-11.
+
+## 7.2 Two tests changed because they could not pass, and one fixture
+
+- **T-PVAL-01** recomputed the naive `qnorm(pt())` *inline* and asserted it
+  was finite — it never called the package. Now calls `.t_to_gaussian()` and
+  additionally pins `8.915293` and exactness where the naive form is finite.
+- **T-PVAL-01b** asserted `fdr_vec` finite after passing an `Inf` to
+  `multtest()`, while T-MT-04 (and the readiness doc's fix step 3) demand an
+  error on that input. Its own comment said "rejected at entry"; it now
+  asserts the error.
+- **T-MT-02a** pinned the *buggy* estimator values ("so a change is caught")
+  and directly contradicted T-MT-02. Rewritten to pin the corrected values.
+  **T-MT-08** asserted narrower window → strictly smaller sd, which is the
+  bias itself; now asserts both windows give ≈1 and differ.
+- **T-MPFR-08** asserted `res$pvalue[1] != res$pvalue[2]` for `log10pvalue`
+  400 vs 800 — impossible for any double column. Now asserts on the new
+  `log10pvalue` column and that `pvalue` still ties.
+- **T-COH-04** built "4 case / 1 control" by indexing `levels()` positionally;
+  with ten donors the levels sort `indiv_1, indiv_10, indiv_2, ...`, so it got
+  2 controls and 3 cases and the filter correctly accepted it. Donors are now
+  named explicitly.
+- **`helper-fixtures.R`**: gene names are `gene1` not `gene_1`, because
+  `SeuratObject::CreateSeuratObject()` rewrites underscores to dashes, which
+  would have failed every name-based `gene_status` assertion and was the
+  actual cause of T-COH-13's `subset()` error.
+
+## 7.3 New finding: the pipeline was not deterministic, and is sensitive
+
+Two runs of `eSVD()` on identical input differed. The initialization differed
+by 2e-9 (`irlba` starts from a random vector drawn from the user's RNG), and
+by the end of the pipeline the test statistics differed by **up to 8** on
+the strongest genes (6.70 vs 7.41; 13.99 vs 14.29) while agreeing to 1e-5 on
+the rest. Fixed for reproducibility: `.svd_start_vector()` gives `irlba` and
+`RSpectra` a deterministic start (a golden-ratio sequence through `qnorm`, no
+RNG state touched); two runs now agree exactly, which is what made T-COH-08
+and T-GS-05/09/10 pass.
+
+**The amplification is not fixed by that, only hidden.** A 1e-9 perturbation
+of the start moving a Welch statistic by 8 means the alternating optimization
+plus reparameterization does not land on a well-defined point for the
+strongly DE genes — most likely a flat direction between the latent
+factors and the free covariate coefficients in the second fit. Worth a look
+before submission; T-OPT-03's "deterministic" only ever tested `opt_esvd`
+from a fixed start.
+
+## 7.4 Code review of the diff (`/code-review high`, same day)
+
+Ten candidates, verified by independent agents before the review stopped.
+
+| Verdict | Finding | Status |
+|---|---|---|
+| CONFIRMED | `compute_test_per_gene` accepted `min_cells_per_individual` and never used it | fixed: calls `.check_cohort_is_testable()` |
+| CONFIRMED | `eSVD_helper(min_cells_per_id = 0)` did not forward `min_cells_per_individual = 0`, so `eSVD()`'s default of 3 still errored | fixed: forwarded unless the caller passes it |
+| CONFIRMED | `multtest()` on a tiny panel: `.multtest_simple` gives `null_sd = NA`, and the result was NA p-values behind a warning | fixed: errors naming the gene count |
+| CONFIRMED | `eSVD()`'s unchanged `grep(id_var, colnames(covariates))` drops any covariate whose name contains `id_var` (`donor_age` for `id_var = "donor"`) | fixed: exact `<id_var>_<level>` names |
+| PLAUSIBLE | `compute_test_statistic.eSVD` on a diet object fails in a `stopifnot` naming nothing | fixed: guard naming `dat` and `bool_diet` |
+| CONFIRMED | T-SVD-05c defined a local `.sparse_col_sds` that shadowed the package's | fixed: test now calls the package function |
+| CONFIRMED | **`gamma_rate` without the cap returns 1e4–6e7 for half the fixture's genes (true rates 2.3–7.6); `mean(log10) = 4.55`, so `bool_stabilize_underdispersion` rescales every gene by `10^-4.55`** | **open — Kevin** |
+| CONFIRMED | `.multtest_locfdr` catches `locfdr`'s routine "f(z) misfit" warning, which fires on large heavy-tailed gene sets while `mlest` is still valid; real datasets may land on `truncated_mle` (pre-existing behaviour, now with a warning) | **open — Kevin**; T-MT-03 pins it |
+| CONFIRMED | the case/control-individual derivation exists in four places with different error messages | open — refactor to one helper |
+| CONFIRMED | `eSVD_helper` keeps a transposed count copy alive across `eSVD()`; `.reinsert_genes` re-allocates even when nothing was removed | open — efficiency, deferred by policy |
+
+Suite after the six fixes: **644 pass / 0 fail / 0 skip**.

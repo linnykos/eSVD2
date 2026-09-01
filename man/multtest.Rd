@@ -7,14 +7,32 @@
 multtest(teststat_vec, observed_quantile = c(0.05, 0.95))
 }
 \arguments{
-\item{teststat_vec}{a vector of Gaussian-like test statistics}
+\item{teststat_vec}{Named vector of finite Gaussian-like test
+statistics, one per gene.}
 
-\item{observed_quantile}{The quantiles of \code{teststat_vec} used to estimate the null distribution}
+\item{observed_quantile}{Two numbers in \code{(0, 1)}, the lower and upper
+quantiles of \code{teststat_vec} that delimit the
+central subset used by the two fallback
+estimators.}
 }
 \value{
-a list with \code{fdr_vec}, \code{logpvalue_vec},
-\code{method}, \code{null_mean}, \code{null_sd}, and \code{pvalue_vec}
+A list with \code{fdr_vec} (BH-adjusted p-values), \code{logpvalue_vec}
+(\eqn{-\log_{10}} of the two-sided p-values), \code{method} (which estimator
+produced the null), \code{null_mean}, \code{null_sd}, and \code{pvalue_vec}
+(the two-sided p-values). All vectors carry \code{names(teststat_vec)}.
 }
 \description{
-Perform multiple-testing adjustment using Efron's empirical null
+Estimates the empirical null distribution \eqn{N(\mu_0, \sigma_0^2)} of the
+Gaussianized test statistics and converts every statistic to a two-sided
+p-value under it, followed by a Benjamini-Hochberg adjustment.
+}
+\details{
+Three estimators of the null are tried in order, each only when the
+previous one fails: \code{locfdr::locfdr} (\code{method = "locfdr"}), the
+truncated-Gaussian maximum-likelihood estimator of Efron (2007, Equation
+4.12) fitted to the statistics between the two \code{observed_quantile}
+quantiles (\code{method = "truncated_mle"}), and a moment-matching
+estimator on the same central subset (\code{method = "simple"}). A warning
+is raised whenever the chain falls below \code{locfdr}, so a degraded null
+is never silent; the estimator that ran is returned as \code{method}.
 }

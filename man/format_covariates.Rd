@@ -33,8 +33,17 @@ a \code{matrix} with the same number of rows as \code{dat}
 \description{
 Mainly, this method splits the categorical variables (which should be `factor` variables)
 into indicator variables (i.e.,
-one-hot encoding), dropping the last level, and then rescales
-all the numerical variables (but does not center them),
-and computes the \code{"Log_UMI"} (i.e., log total counts) for each cell.
+one-hot encoding), dropping the first level of each factor as the
+reference, then rescales the numerical variables named in
+\code{rescale_numeric_variables} (only those; the others are left as they
+are), and computes the \code{"Log_UMI"} (i.e., log total counts) for each cell.
 \code{"Log_UMI"} is added as its own column.
+}
+\details{
+The rescaling divides each named column by its root-mean-square
+(\code{scale(x, center = FALSE, scale = TRUE)}), not by its standard
+deviation, so the result does not have unit variance unless the column is
+also centered (\code{bool_center = TRUE}). What it does deliver is
+invariance to the unit the covariate was recorded in: age in years and age
+in months give identical columns.
 }

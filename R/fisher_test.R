@@ -32,11 +32,11 @@ fisher_test <- function(set1_genes,
   x <- length(intersect(set1_genes, set2_genes))
   
   if(verbose > 0){
-    paste0("#Other: ", m, 
-           ", #Bg: ", n, 
-           ", #Select: ", k, 
-           ", #Intersect: ", x,
-           ", #Expected: ", round(m*(k/length(all_genes)),1) )
+    print(paste0("#Other: ", m,
+                 ", #Bg: ", n,
+                 ", #Select: ", k,
+                 ", #Intersect: ", x,
+                 ", #Expected: ", round(m*(k/length(all_genes)),1) ))
   }
   
   pvalue <- sum(sapply(x:k, function(i){

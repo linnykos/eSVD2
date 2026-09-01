@@ -15,7 +15,8 @@
 #'                   covariates in the covariate-adjusted library size.
 #' @param bool_stabilize_underdispersion Boolean; if TRUE, mean-center
 #'                   log10(nuisance_vec) when it suggests under-dispersion.
-#' @param library_min Minimum value for the covariate-adjusted library size.
+#' @param library_min Minimum value for the covariate-adjusted library size;
+#'                   default 0.1, the same as \code{compute_posterior.eSVD}.
 #' @param min_cells_per_individual Minimum number of cells an individual must
 #'   contribute; see \code{compute_test_statistic}.
 #' @param nuisance_lower_quantile Lower quantile at which to floor nuisance_vec.
@@ -29,8 +30,8 @@
 #'     \item \code{case_mean}    — case Gaussian means per gene.
 #'     \item \code{control_mean} — control Gaussian means per gene.
 #'     \item \code{pvalue_list}  — list with \code{df_vec}, \code{fdr_vec},
-#'           \code{gaussian_teststat}, \code{log10pvalue},
-#'           \code{null_mean}, \code{null_sd}.
+#'           \code{gaussian_teststat}, \code{log10pvalue}, \code{method},
+#'           \code{null_mean}, \code{null_sd}; see \code{compute_pvalue}.
 #'   }
 #' @export
 compute_test_per_gene <- function(input_obj,
@@ -38,7 +39,7 @@ compute_test_per_gene <- function(input_obj,
                                   bool_adjust_covariates = FALSE,
                                   bool_covariates_as_library = TRUE,
                                   bool_stabilize_underdispersion = TRUE,
-                                  library_min = 1e-2,
+                                  library_min = 0.1,
                                   min_cells_per_individual = 3,
                                   nuisance_lower_quantile = 0.01,
                                   pseudocount = 0,
@@ -90,6 +91,13 @@ compute_test_per_gene <- function(input_obj,
   control_individuals <- unique(individual_vec[control_idx])
   case_individuals    <- unique(individual_vec[case_idx])
   stopifnot(length(intersect(control_individuals, case_individuals)) == 0)
+
+  # Same guard as compute_test_statistic.default and .compute_df, so the two
+  # pipelines cannot diverge on the inputs it exists for.
+  .check_cohort_is_testable(case_individuals = case_individuals,
+                            control_individuals = control_individuals,
+                            individual_vec = individual_vec,
+                            min_cells_per_individual = min_cells_per_individual)
 
   tmp_idx   <- .determine_individual_indices(
     case_individuals    = case_individuals,
@@ -312,11 +320,12 @@ compute_test_per_gene <- function(input_obj,
   ##    (mirrors compute_pvalue)
   ## ------------------------------------------------------------
   if(verbose > 0) print("Computing Gaussianized test statistics")
-  # t + df -> Gaussian statistic (vectorized version of the original sapply)
-  gaussian_teststat <- stats::qnorm(stats::pt(teststat_vec, df = df_vec))
-  names(gaussian_teststat) <- names(teststat_vec)
+  # t + df -> Gaussian statistic, on the log scale (same as compute_pvalue)
+  gaussian_teststat <- .t_to_gaussian(teststat_vec = teststat_vec,
+                                      df_vec = df_vec)
 
-  # empirical null & FDR (unchanged)
+  # empirical null, p-values & FDR, all from multtest so the matrix path and
+  # this one cannot drift
   if(verbose > 0) print("Computing multiple-testing adjusted via empirical null")
   fdr_res <- multtest(gaussian_teststat)
   fdr_vec <- fdr_res$fdr_vec
@@ -325,23 +334,8 @@ compute_test_per_gene <- function(input_obj,
   null_mean <- fdr_res$null_mean
   null_sd   <- fdr_res$null_sd
 
-  # two-sided log p-values using symmetric tail around null_mean
   if(verbose > 0) print("Computing p-values")
-  logp_vec <- sapply(gaussian_teststat, function(x) {
-    if (x < null_mean) {
-      Rmpfr::pnorm(x,
-                   mean  = null_mean,
-                   sd    = null_sd,
-                   log.p = TRUE)
-    } else {
-      Rmpfr::pnorm(null_mean - (x - null_mean),
-                   mean  = null_mean,
-                   sd    = null_sd,
-                   log.p = TRUE)
-    }
-  })
-  # convert log p to -log10(p) and account for two-sided test
-  log10pvalue_vec <- -(logp_vec / log(10) + log10(2))
+  log10pvalue_vec <- fdr_res$logpvalue_vec
   names(log10pvalue_vec) <- names(teststat_vec)
 
   pvalue_list <- list(
@@ -349,6 +343,7 @@ compute_test_per_gene <- function(input_obj,
     fdr_vec           = fdr_vec,
     gaussian_teststat = gaussian_teststat,
     log10pvalue       = log10pvalue_vec,
+    method            = fdr_res$method,
     null_mean         = null_mean,
     null_sd           = null_sd
   )

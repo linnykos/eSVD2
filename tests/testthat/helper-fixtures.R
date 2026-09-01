@@ -64,7 +64,10 @@
   nat_mat <- nat_mat + outer(cc_vec, cc_effect_vec)
 
   rownames(nat_mat) <- rownames(covariate_df)
-  colnames(nat_mat) <- paste0("gene_", seq_len(p))
+  # No underscore in the gene names: `SeuratObject::CreateSeuratObject()`
+  # rewrites "gene_1" to "gene-1", and every name-based assertion in the
+  # gene-status tests compares Seurat-derived output against `colnames(dat)`.
+  colnames(nat_mat) <- paste0("gene", seq_len(p))
 
   # `nuisance_true_vec` is the Gamma RATE beta_j = 1/gamma_j, matching what the
   # package's `nuisance_vec` holds -- NOT the paper's over-dispersion gamma_j.

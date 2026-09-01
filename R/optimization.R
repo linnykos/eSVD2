@@ -109,11 +109,16 @@ opt_esvd.eSVD <- function(input_obj,
 #'                           gene expression (instead of using the library size as a covariate to be
 #'                           regressed out).
 #' @param max_iter           Positive integer for number of iterations.
-#' @param nuisance_vec       Vector of non-negative numerics (or \code{NA}'s) of length \eqn{p},
+#' @param nuisance_vec       Vector of positive numerics of length \eqn{p},
 #'                           representing each gene's nuisance parameter when using an exponential-family
-#'                           distribution that requires one.
-#'                           It is used only when \code{family} is  \code{"curved_gaussian"} or
-#'                           \code{"neg_binom"} or \code{"neg_binom2"}.
+#'                           distribution that requires one: the standard deviation for
+#'                           \code{"gaussian"}, the coefficient of variation for
+#'                           \code{"curved_gaussian"}, and the size (number of failures) for
+#'                           \code{"neg_binom"} and \code{"neg_binom2"}. It is ignored by
+#'                           \code{"poisson"}, \code{"exponential"} and \code{"bernoulli"}.
+#'                           The default \code{NULL} uses \code{1} for every gene, which is a
+#'                           placeholder rather than an estimate; supply your own values for
+#'                           the families that use it.
 #' @param offset_variables   A vector of strings depicting which column names in \code{input_obj$covariate}
 #'                           be treated as an offset during the optimization (i.e., their coefficients will not change
 #'                           throughout the optimization).
@@ -134,7 +139,7 @@ opt_esvd.default <- function(input_obj,
                              l2pen = 0.1,
                              library_multipler = rep(1, nrow(input_obj)),
                              max_iter = 100,
-                             nuisance_vec = rep(NA, ncol(input_obj)),
+                             nuisance_vec = NULL,
                              offset_variables = NULL,
                              tol = 1e-6,
                              verbose = 0,
@@ -148,6 +153,16 @@ opt_esvd.default <- function(input_obj,
     nrow(x_init) == n, nrow(y_init) == p, ncol(y_init) == k,
     is.character(family), sum(!is.na(input_obj)) > 0
   )
+  # Four of the seven families consume `nuisance_vec` inside the objective,
+  # and an NA there used to surface as "missing value where TRUE/FALSE
+  # needed" from the line search. A default of 1 lets every family run at
+  # its defaults; it is documented as a placeholder, not an estimate.
+  if(is.null(nuisance_vec)) nuisance_vec <- rep(1, p)
+  if(length(nuisance_vec) != p || !is.numeric(nuisance_vec) ||
+     any(!is.finite(nuisance_vec)) || any(nuisance_vec <= 0)){
+    stop("`nuisance_vec` must be a vector of ", p,
+         " finite positive numerics (one per gene), or NULL")
+  }
   if(!all(is.null(offset_variables))){
     stopifnot(is.character(offset_variables),
               all(offset_variables %in% colnames(covariates)))
@@ -226,8 +241,8 @@ opt_esvd.default <- function(input_obj,
       resid <- abs(losses[i] - losses[i - 1])
       thresh <- tol * max(1, abs(losses[i - 1]))
       if(verbose >= 2) {
-        print("Residual of loss: ", resid)
-        print("Threshold for termination: ", thresh)
+        print(paste0("Residual of loss: ", resid))
+        print(paste0("Threshold for termination: ", thresh))
       }
       if(resid <= thresh) break()
     }

@@ -103,7 +103,7 @@ public:
         return Rcpp::NumericVector::is_na(val) ? Flag::na : Flag::regular;
     }
 
-    inline VecIterator& operator++()
+    inline VecIterator& operator++() override
     {
         // Note that this condition also implies m_nnz > 0
         if (this->m_innerpos < m_nnz - 1)

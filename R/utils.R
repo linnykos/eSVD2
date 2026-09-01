@@ -49,3 +49,23 @@
 
   list1
 }
+
+#' Which genes are all zero?
+#'
+#' The one definition of "all zero" shared by \code{eSVD_helper} (which
+#' labels and removes such genes), \code{eSVD} and \code{initialize_esvd}
+#' (which both refuse them). Three copies of this predicate would drift, and
+#' the helper would then start passing genes that \code{eSVD} rejects.
+#'
+#' \code{NA} entries count as zero, consistent with \code{initialize_esvd}
+#' zeroing them on entry: a gene that is all \code{NA} is all zero.
+#'
+#' @param dat  \code{matrix} or \code{dgCMatrix}, cells by genes.
+#'
+#' @returns Integer vector of column indices whose column sum is zero.
+#' @noRd
+.which_all_zero <- function(dat){
+  stopifnot(inherits(dat, c("matrix", "dgCMatrix")))
+
+  which(Matrix::colSums(dat, na.rm = TRUE) == 0)
+}

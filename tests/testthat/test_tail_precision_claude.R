@@ -93,8 +93,10 @@ test_that("T-MPFR-07: log.p is the fix; the unlogged form saturates", {
 })
 
 ## The one place information is genuinely lost -- and more precision is not the
-## cure, because the column is a double either way. Expected to FAIL until
-## `report_results()` exposes `log10pvalue`.
+## cure, because the column is a double either way. `10^(-400)` and `10^(-800)`
+## are both exactly 0 in double precision, so no `pvalue` column can ever
+## separate them; the fix is the `log10pvalue` column `report_results()` now
+## carries, which holds the distinction the whole time.
 test_that("T-MPFR-08: report_results can distinguish two extremely significant genes", {
   esvd_obj <- .small_esvd_obj()
 
@@ -104,10 +106,11 @@ test_that("T-MPFR-08: report_results can distinguish two extremely significant g
 
   res <- report_results(esvd_obj)
 
-  # `10^(-400)` and `10^(-800)` are both exactly 0 in double precision, so the
-  # reported p-values tie and the genes cannot be ranked -- while
-  # `pvalue_list$log10pvalue` has held the distinction the whole time.
-  expect_false(res$pvalue[1] == res$pvalue[2])
+  expect_true("log10pvalue" %in% colnames(res))
+  expect_false(res$log10pvalue[1] == res$log10pvalue[2])
+  expect_true(res$log10pvalue[2] > res$log10pvalue[1])
+  # The `pvalue` column still ties, and is documented as doing so.
+  expect_true(res$pvalue[1] == res$pvalue[2])
 })
 
 test_that("T-MPFR-08b: log10pvalue itself does distinguish them", {

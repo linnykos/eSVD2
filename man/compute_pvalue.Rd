@@ -17,8 +17,15 @@ contribute; see \code{compute_test_statistic}.}
 \item{...}{Additional parameters.}
 }
 \value{
-\code{eSVD} object with added element \code{"pvalue_list"}
+\code{eSVD} object with added element \code{"pvalue_list"}, a list
+with \code{df_vec}, \code{fdr_vec}, \code{gaussian_teststat},
+\code{log10pvalue} (\eqn{-\log_{10}} of the two-sided p-value),
+\code{method} (which empirical-null estimator ran; see \code{multtest}),
+\code{null_mean} and \code{null_sd}.
 }
 \description{
-Compute p-values
+Converts the Welch statistics in \code{input_obj$teststat_vec} to Gaussian
+statistics via their Welch-Satterthwaite degrees of freedom, fits an
+empirical null with \code{multtest}, and returns two-sided p-values on the
+\eqn{-\log_{10}} scale with Benjamini-Hochberg adjustment.
 }

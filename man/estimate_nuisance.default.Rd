@@ -34,7 +34,8 @@ library size of each entry.}
 \item{...}{Additional parameters.}
 }
 \value{
-Vector of length \eqn{p}
+Vector of length \eqn{p}. A gene whose estimation fails on both
+routes gets \code{min_val}, and a warning reports how many genes did.
 }
 \description{
 Estimate nuisance values for matrix or sparse matrices.

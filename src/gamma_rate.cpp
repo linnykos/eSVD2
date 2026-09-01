@@ -173,6 +173,14 @@ public:
 // [[Rcpp::export]]
 double gamma_rate(NumericVector x, NumericVector mu, NumericVector s)
 {
+    // The derivative object indexes mu and s by x's length, so a shorter
+    // input is an out-of-bounds read rather than an error without this.
+    if (mu.length() != x.length() || s.length() != x.length())
+    {
+        Rcpp::stop("gamma_rate(): x, mu and s must have the same length "
+                   "(got %d, %d and %d)", x.length(), mu.length(), s.length());
+    }
+
     // Function object
     LogLikDeriv deriv(x, mu, s);
 
@@ -357,6 +365,12 @@ public:
 double log_gamma_rate(NumericVector x, NumericVector mu, NumericVector s,
                       double lower = -10.0, double upper = 10.0)
 {
+    if (mu.length() != x.length() || s.length() != x.length())
+    {
+        Rcpp::stop("log_gamma_rate(): x, mu and s must have the same length "
+                   "(got %d, %d and %d)", x.length(), mu.length(), s.length());
+    }
+
     NumericVector logmu = Rcpp::log(mu);
     NumericVector logs = Rcpp::log(s);
     NumericVector mus = mu * s;

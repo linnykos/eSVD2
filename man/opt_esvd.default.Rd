@@ -14,7 +14,7 @@
   l2pen = 0.1,
   library_multipler = rep(1, nrow(input_obj)),
   max_iter = 100,
-  nuisance_vec = rep(NA, ncol(input_obj)),
+  nuisance_vec = NULL,
   offset_variables = NULL,
   tol = 1e-06,
   verbose = 0,
@@ -63,11 +63,16 @@ regressed out).}
 
 \item{max_iter}{Positive integer for number of iterations.}
 
-\item{nuisance_vec}{Vector of non-negative numerics (or \code{NA}'s) of length \eqn{p},
+\item{nuisance_vec}{Vector of positive numerics of length \eqn{p},
 representing each gene's nuisance parameter when using an exponential-family
-distribution that requires one.
-It is used only when \code{family} is  \code{"curved_gaussian"} or
-\code{"neg_binom"} or \code{"neg_binom2"}.}
+distribution that requires one: the standard deviation for
+\code{"gaussian"}, the coefficient of variation for
+\code{"curved_gaussian"}, and the size (number of failures) for
+\code{"neg_binom"} and \code{"neg_binom2"}. It is ignored by
+\code{"poisson"}, \code{"exponential"} and \code{"bernoulli"}.
+The default \code{NULL} uses \code{1} for every gene, which is a
+placeholder rather than an estimate; supply your own values for
+the families that use it.}
 
 \item{offset_variables}{A vector of strings depicting which column names in \code{input_obj$covariate}
 be treated as an offset during the optimization (i.e., their coefficients will not change
