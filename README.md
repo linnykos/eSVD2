@@ -4,9 +4,9 @@ output: github_document
 
 # Purpose
 
-This repository contains all the functions to perform eSVD-DE (for package `eSVD2`, version `1.0.0` as of June 16, 2024) and the downstream analysis, for the paper "eSVD-DE: cohort-wide differential expression in single-cell RNA-seq data using exponential-family embeddings". See the companion GitHub package https://github.com/linnykos/eSVD2_examples for all the analyses performed in the paper. (Note, the original analysis was performed on eSVD2 version 0.0.0.0071, and we are working to make the code in https://github.com/linnykos/eSVD2_examples to be compatibile with the latest version of eSVD2.)
+This repository contains the `eSVD2` R package, which implements eSVD-DE, the method of the paper "eSVD-DE: cohort-wide differential expression in single-cell RNA-seq data using exponential-family embeddings" (Lin, Qiu and Roeder, *BMC Bioinformatics*, 2024). See the companion repository https://github.com/linnykos/eSVD2_examples for all the analyses performed in the paper. (Note, the original analysis was performed on eSVD2 version 0.0.0.0071, and we are working to make the code in https://github.com/linnykos/eSVD2_examples compatible with the latest version of eSVD2.)
 
-This code was developed and tested primarily on R 4.3.2. on a 2023 Macbook Pro (macOS Sonoma 14.2.1) equipped with Apple M2 Max processor (32 Gb RAM).
+The current version is `1.0.2`; see `NEWS.md` for what changed. This code was developed and tested primarily on R 4.3 and 4.5 on a 2023 Macbook Pro (macOS Sonoma 14.2.1) equipped with Apple M2 Max processor (32 Gb RAM).
 
 <!-- badges: start -->
 [![DOI:10.1186/s12859-024-05724-7](https://img.shields.io/badge/doi-10.1186/s12859--024--05724--7-firebrick.svg)](https://doi.org/10.1186/s12859-024-05724-7)
@@ -19,13 +19,15 @@ Please see https://linnykos.github.io/eSVD2/index.html for in-depth tutorials an
 
 # Installation
 
-This package can be installed through `devtools` in R.
+The development version can be installed from GitHub with `remotes` (or `devtools`) in R.
 
 ```R
-library("devtools")
-devtools::install_github("linnykos/eSVD2")
+# install.packages("remotes")
+remotes::install_github("linnykos/eSVD2")
 ```
-The package itself depends on several packages. These include `irlba`, `glmnet`, `locfdr`, `Matrix`, `matrixStats`, `Rcpp`, and `RSpectra`, all on CRAN. `SeuratObject` is needed by `eSVD()` and `eSVD_helper()` to read the count matrix from a Seurat object.
+(Once the package is accepted on CRAN, `install.packages("eSVD2")` will install the released version.)
+
+The package itself depends on several packages. These include `irlba`, `glmnet`, `locfdr`, `Matrix`, `matrixStats`, `Rcpp`, and `RSpectra`, all on CRAN. `SeuratObject` is needed by `eSVD()` and `eSVD_helper()` to read the count matrix from a Seurat object; the lower-level functions (`initialize_esvd()`, `opt_esvd()`, ...) work on a plain `matrix` or `dgCMatrix` and do not need it.
 
 After installation of all the dependencies, the installation of the `eSVD2` package itself takes modest time (less than 10 minutes). The installation time mainly consists of time to compile the C++ code since the matrix factorization optimization was written using Rcpp for faster performance.
 
@@ -54,7 +56,7 @@ See https://linnykos.github.io/eSVD2/articles/eSVD2.html for the small demo on h
 
 # Setup
 
-The following shows the suggested package versions that the developer (GitHub username: linnykos) used when developing the eSVD2 package.
+The following shows the package versions that the developer (GitHub username: linnykos) used when developing version 1.0.0 of the eSVD2 package in June 2024; version 1.0.2 has since been checked under R 4.5.1.
 
 ```R
 > devtools::session_info()

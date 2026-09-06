@@ -312,21 +312,37 @@
   seurat_obj
 }
 
+# F-TINY has 20 genes, far too few for locfdr's spline fit, so `multtest()`
+# legitimately falls back and warns. Whether locfdr happens to converge on a
+# given 18-gene run is numerically a coin flip (a 1e-16 change in the
+# reparameterization flipped it), so the warning is muffled here rather than
+# asserted; every other warning still surfaces.
+.muffle_locfdr_fallback <- function(expr){
+  withCallingHandlers(expr, warning = function(cnd){
+    if(grepl("locfdr could not estimate the empirical null",
+             conditionMessage(cnd))){
+      invokeRestart("muffleWarning")
+    }
+  })
+}
+
 # Thin wrapper so the section 2.16 and 2.17 tests read as one call. It routes
 # through `eSVD_helper()`, which under question Q-COH-7 is where all the
 # filtering, gene-status labelling and reinsertion live.
 .helper_run <- function(dat, k = 2, ...){
   seurat_obj <- .tiny_seurat(dat = dat)
 
-  eSVD_helper(batch_var_prefix = NULL,
-              case_control_levels = c("0", "1"),
-              case_control_var = "CC",
-              categorical_vars = c("Sex"),
-              id_var = "Individual",
-              numerical_vars = "Age",
-              seurat_obj = seurat_obj,
-              k = k,
-              ...)
+  .muffle_locfdr_fallback(
+    eSVD_helper(batch_var_prefix = NULL,
+                case_control_levels = c("0", "1"),
+                case_control_var = "CC",
+                categorical_vars = c("Sex"),
+                id_var = "Individual",
+                numerical_vars = "Age",
+                seurat_obj = seurat_obj,
+                k = k,
+                ...)
+  )
 }
 
 # The same, through `eSVD()` directly, for the tests that must distinguish the
@@ -334,13 +350,15 @@
 .esvd_run <- function(dat, k = 2, ...){
   seurat_obj <- .tiny_seurat(dat = dat)
 
-  eSVD(batch_var_prefix = NULL,
-       case_control_levels = c("0", "1"),
-       case_control_var = "CC",
-       categorical_vars = c("Sex"),
-       id_var = "Individual",
-       numerical_vars = "Age",
-       seurat_obj = seurat_obj,
-       k = k,
-       ...)
+  .muffle_locfdr_fallback(
+    eSVD(batch_var_prefix = NULL,
+         case_control_levels = c("0", "1"),
+         case_control_var = "CC",
+         categorical_vars = c("Sex"),
+         id_var = "Individual",
+         numerical_vars = "Age",
+         seurat_obj = seurat_obj,
+         k = k,
+         ...)
+  )
 }

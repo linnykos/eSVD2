@@ -43,10 +43,17 @@ opt_yz(
 
 \item{verbose}{Verbosity parameter}
 
-\item{inplace}{Whether the input XC_init will be modified and returned}
+\item{inplace}{Whether the input YZ_init will be modified and returned}
 
 \item{...}{Additional parameters}
+}
+\value{
+The optimized `[Y Z]` matrix, p by (k + r), with the columns in
+`fixed_cols` unchanged. It carries an integer attribute
+`num_linesearch_failed`, the number of columns whose Newton line search
+found no descent step.
 }
 \description{
 Optimize Y and Z given X and C
 }
+\keyword{internal}

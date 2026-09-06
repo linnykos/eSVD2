@@ -24,6 +24,15 @@
 #' (\eqn{-\log_{10}} of the two-sided p-values), \code{method} (which estimator
 #' produced the null), \code{null_mean}, \code{null_sd}, and \code{pvalue_vec}
 #' (the two-sided p-values). All vectors carry \code{names(teststat_vec)}.
+#' @examples
+#' set.seed(10)
+#' # 300 null statistics from N(0.2, 1.1^2) plus a few real signals
+#' teststat_vec <- c(stats::rnorm(300, mean = 0.2, sd = 1.1), 6, -7, 8)
+#' names(teststat_vec) <- paste0("gene", seq_along(teststat_vec))
+#' res <- multtest(teststat_vec)
+#' res$method
+#' c(res$null_mean, res$null_sd)
+#' which(res$fdr_vec < 0.05)
 #' @export
 multtest <- function(teststat_vec,
                      observed_quantile = c(0.05, 0.95)){

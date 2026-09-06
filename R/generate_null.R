@@ -1,21 +1,28 @@
 #' Generate null data
 #'
-#' This function doesn't allow of much flexbility, and is meant primarily for simple null simulations.
+#' This function does not allow much flexibility, and is meant primarily for simple null simulations.
 #' Here, `n` (the number of cells) is equal to `cell_per_person*num_individuals`.
 #'
 #' @param cell_per_person The number of cells per individual
 #' @param num_genes       The number of genes in the simulation
 #' @param num_individuals The number of individuals
 #'
-#' @return a list with \code{covariates} (a `matrix` with `n` cells and
-#' 4 columns, named `"Intercept"`, `"Log_UMI"`, `"Sex"`, and `"Age"`,
-#' which will be used in `eSVD2::initialize_esvd`),
-#' \code{df} (a `data.frame` with `num_individuals` rows
-#' and 5 columns, named named `"Intercept"`, `"Log_UMI"`, `"Sex"`, `"Age"`, and `"Individual"`),
-#' \code{metadata_individual} (a `matrix` with `n` rows and 1 column called `"Individual"` for
-#' which cell originates from which individual)
-#' \code{nat_mat} (a `n` by `p` `matrix` denoting the natural parameter for each cell's gene expression), and
-#' \code{obs_mat} (a `n` by `p` `dgCMatrix` denoting the observed count for each cell's gene expression),
+#' @return a list with \code{covariates} (a `matrix` with `n` rows (cells) and
+#' 5 columns, named `"Intercept"`, `"Log_UMI"`, `"CC"`, `"Sex"` and `"Age"`,
+#' ready for `initialize_esvd`; `"CC"` is the 0/1 case-control indicator),
+#' \code{df} (a `data.frame` with `num_individuals` rows and the 6 columns
+#' `"Intercept"`, `"Log_UMI"`, `"CC"`, `"Sex"`, `"Age"` and `"Individual"`),
+#' \code{metadata_individual} (a `factor` of length `n` naming each cell's
+#' individual),
+#' \code{nat_mat} (a `n` by `p` `matrix` of natural parameters), and
+#' \code{obs_mat} (a `n` by `p` `dgCMatrix` of observed counts). The first 10
+#' genes carry a case-control effect; the rest are null.
+#' @examples
+#' set.seed(10)
+#' sim <- generate_null(cell_per_person = 15, num_genes = 40,
+#'                      num_individuals = 8)
+#' dim(sim$obs_mat)
+#' table(sim$metadata_individual)
 #' @export
 generate_null <- function(cell_per_person = 100,
                           num_genes = 1000,
@@ -32,7 +39,7 @@ generate_null <- function(cell_per_person = 100,
               0,
               rep(c(0,1), each = s/2),
               rep(c(0,1), times = s/2),
-              scale(round(stats::rnorm(s, mean = 30, sd = 5)), center = F, scale = T),
+              scale(round(stats::rnorm(s, mean = 30, sd = 5)), center = FALSE, scale = TRUE),
               1:s)
   colnames(df) <- c("Intercept", "Log_UMI", "CC", "Sex", "Age", "Individual")
   # expand to covariate matrix
@@ -178,7 +185,6 @@ generate_null <- function(cell_per_person = 100,
                                 lambda = lib_mat[,j]*gamma_mat[,j])
   }
   covariates[,"Log_UMI"] <- log1p(Matrix::rowSums(obs_mat))
-  length(which(obs_mat == 0))/prod(dim(obs_mat))
 
   rownames(obs_mat) <- rownames(nat_mat)
   colnames(obs_mat) <- paste0("gene_", 1:ncol(obs_mat))

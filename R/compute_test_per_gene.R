@@ -33,6 +33,34 @@
 #'           \code{gaussian_teststat}, \code{log10pvalue}, \code{method},
 #'           \code{null_mean}, \code{null_sd}; see \code{compute_pvalue}.
 #'   }
+#' @examples
+#' set.seed(10)
+#' sim <- generate_null(cell_per_person = 15, num_genes = 40,
+#'                      num_individuals = 8)
+#' esvd_obj <- initialize_esvd(dat = sim$obs_mat,
+#'                             covariates = sim$covariates,
+#'                             metadata_individual = sim$metadata_individual,
+#'                             case_control_variable = "CC",
+#'                             bool_intercept = TRUE,
+#'                             k = 2,
+#'                             lambda = 0.1)
+#' esvd_obj <- reparameterization_esvd_covariates(input_obj = esvd_obj,
+#'                                                fit_name = "fit_Init",
+#'                                                omitted_variables = "Log_UMI")
+#' esvd_obj <- opt_esvd(input_obj = esvd_obj,
+#'                      max_iter = 5,
+#'                      offset_variables = setdiff(colnames(esvd_obj$covariates), "CC"),
+#'                      fit_name = "fit_First",
+#'                      fit_previous = "fit_Init")
+#' esvd_obj <- reparameterization_esvd_covariates(input_obj = esvd_obj,
+#'                                                fit_name = "fit_First",
+#'                                                omitted_variables = "Log_UMI")
+#' esvd_obj <- estimate_nuisance(input_obj = esvd_obj)
+#' esvd_obj <- compute_test_per_gene(input_obj = esvd_obj,
+#'                                   alpha_max = 2 * max(sim$obs_mat))
+#' utils::head(esvd_obj$teststat_vec)
+#' # no cell-by-gene posterior matrices were stored
+#' names(esvd_obj$fit_First)
 #' @export
 compute_test_per_gene <- function(input_obj,
                                   alpha_max = 1e3,
@@ -139,11 +167,6 @@ compute_test_per_gene <- function(input_obj,
     what_obj  = "nuisance_bool_library_includes_interept"
   )
 
-  if (!is.null(pseudocount) && pseudocount > 0) {
-    # we'll add this gene-wise, but record here for clarity
-    # (no need to actually allocate dat + pseudocount)
-  }
-
   if (is.null(case_control_variable)) {
     case_control_variable <- numeric(0)
   }
@@ -180,8 +203,9 @@ compute_test_per_gene <- function(input_obj,
   }
   if (bool_stabilize_underdispersion &&
       mean(log10(nuisance_vec)) > 0) {
-    # center log10 nuisance if it suggests under-dispersion
-    nuisance_vec <- 10^(scale(log10(nuisance_vec), center = TRUE, scale = FALSE))
+    # Recentre log10 nuisance when it suggests under-dispersion; the same
+    # subtraction as `compute_posterior.default`, so the two paths agree.
+    nuisance_vec <- 10^(log10(nuisance_vec) - mean(log10(nuisance_vec)))
   }
 
   ## ------------------------------------------------------------

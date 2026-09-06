@@ -11,7 +11,8 @@ opt_esvd <- function(input_obj, ...) {UseMethod("opt_esvd")}
 
 #' Optimize eSVD for eSVD objects
 #'
-#' @param input_obj         \code{eSVD} object outputed from \code{apply_initial_threshold}.
+#' @param input_obj         \code{eSVD} object output from \code{initialize_esvd}
+#'                          (or an earlier \code{opt_esvd}).
 #' @param fit_name          String for the name of that will become the current fit when
 #'                          storing the results in \code{input_obj}.
 #' @param fit_previous      String for the name of the previous fit that this function will
@@ -19,7 +20,7 @@ opt_esvd <- function(input_obj, ...) {UseMethod("opt_esvd")}
 #' @param l2pen             Small positive number for the amount of penalization for both the cells'
 #'                          and the genes' latent vectors as well as the coefficients.
 #' @param max_iter          Positive integer for number of iterations.
-#' @param offset_variables  A vector of strings depicting which column names in \code{input_obj$covariate}
+#' @param offset_variables  A vector of strings depicting which column names in \code{input_obj$covariates}
 #'                          be treated as an offset during the optimization (i.e., their coefficients will not change
 #'                          throughout the optimization).
 #' @param tol               Small positive number to differentiate between zero and non-zero.
@@ -28,6 +29,30 @@ opt_esvd <- function(input_obj, ...) {UseMethod("opt_esvd")}
 #'
 #' @return \code{eSVD} object with added elements with name to whatever
 #' \code{fit_name} was set to.
+#' @examples
+#' set.seed(10)
+#' sim <- generate_null(cell_per_person = 15, num_genes = 40,
+#'                      num_individuals = 8)
+#' esvd_obj <- initialize_esvd(dat = sim$obs_mat,
+#'                             covariates = sim$covariates,
+#'                             metadata_individual = sim$metadata_individual,
+#'                             case_control_variable = "CC",
+#'                             bool_intercept = TRUE,
+#'                             k = 2,
+#'                             lambda = 0.1)
+#' esvd_obj <- reparameterization_esvd_covariates(input_obj = esvd_obj,
+#'                                                fit_name = "fit_Init",
+#'                                                omitted_variables = "Log_UMI")
+#' esvd_obj <- opt_esvd(input_obj = esvd_obj,
+#'                      max_iter = 5,
+#'                      offset_variables = setdiff(colnames(esvd_obj$covariates), "CC"),
+#'                      fit_name = "fit_First",
+#'                      fit_previous = "fit_Init")
+#' esvd_obj <- reparameterization_esvd_covariates(input_obj = esvd_obj,
+#'                                                fit_name = "fit_First",
+#'                                                omitted_variables = "Log_UMI")
+#' esvd_obj$latest_Fit
+#' esvd_obj$fit_First$loss
 #' @export
 opt_esvd.eSVD <- function(input_obj,
                           fit_name = "fit_First",
@@ -96,7 +121,7 @@ opt_esvd.eSVD <- function(input_obj,
 #'                           \code{"neg_binom2"}, or \code{"bernoulli"}. Notably, with exception of
 #'                           \code{"neg_binom2"}, all the other families are parameterized such that
 #'                           eSVD is fitting the dot product to be the canonical parameter of these
-#'                           expoential-family distributions. For \code{"neg_binom2"}, the dot
+#'                           exponential-family distributions. For \code{"neg_binom2"}, the dot
 #'                           product is the log-mean of the distribution (i.e., similar to the canonical
 #'                           parameterization of the Poisson family).
 #' @param l2pen              Small positive number for the amount of penalization for both the cells'
@@ -119,7 +144,7 @@ opt_esvd.eSVD <- function(input_obj,
 #'                           The default \code{NULL} uses \code{1} for every gene, which is a
 #'                           placeholder rather than an estimate; supply your own values for
 #'                           the families that use it.
-#' @param offset_variables   A vector of strings depicting which column names in \code{input_obj$covariate}
+#' @param offset_variables   A vector of strings depicting which column names in \code{input_obj$covariates}
 #'                           be treated as an offset during the optimization (i.e., their coefficients will not change
 #'                           throughout the optimization).
 #' @param tol                Small positive number to differentiate between zero and non-zero.
@@ -127,8 +152,10 @@ opt_esvd.eSVD <- function(input_obj,
 #' @param ...                Additional parameters
 #'
 #' @return a \code{list} with elements \code{x_mat}, \code{y_mat},
-#' \code{z_mat}, \code{library_multiplier}, \code{loss}, \code{nuisance_vec}
-#' and \code{param}.
+#' \code{z_mat}, \code{covariates}, \code{library_multipler}, \code{loss}
+#' (the objective after every iteration), \code{nuisance_vec} and
+#' \code{param}. A warning is raised if any row or column update ended in a
+#' failed line search.
 #' @export
 opt_esvd.default <- function(input_obj,
                              x_init,
@@ -157,6 +184,10 @@ opt_esvd.default <- function(input_obj,
   # and an NA there used to surface as "missing value where TRUE/FALSE
   # needed" from the line search. A default of 1 lets every family run at
   # its defaults; it is documented as a placeholder, not an estimate.
+  if(anyNA(x_init) || anyNA(y_init) || (!is.null(z_init) && anyNA(z_init)) ||
+     (!is.null(covariates) && anyNA(covariates))){
+    stop("`x_init`, `y_init`, `z_init` and `covariates` must not contain NA")
+  }
   if(is.null(nuisance_vec)) nuisance_vec <- rep(1, p)
   if(length(nuisance_vec) != p || !is.numeric(nuisance_vec) ||
      any(!is.finite(nuisance_vec)) || any(nuisance_vec <= 0)){
@@ -190,6 +221,10 @@ opt_esvd.default <- function(input_obj,
   fixed_cols <- which(colnames(yz_mat) %in% offset_variables)
 
   losses <- c()
+  # Line-search failures are counted in C++ and handed back as an attribute
+  # (a C++ frame must not raise an R warning; see constrained_newton.cpp).
+  # They are summed over all iterations and reported once, below.
+  num_linesearch_failed <- 0
   for(i in seq_len(max_iter))
   {
     if(verbose >= 1) cat("========== eSVD Iter ", i, " ==========\n\n", sep = "")
@@ -204,6 +239,8 @@ opt_esvd.default <- function(input_obj,
       gamma = nuisance_vec,
       l2penx = l2pen,
       verbose = verbose)
+    num_linesearch_failed <- num_linesearch_failed +
+      .attr_or_zero(xc_mat, "num_linesearch_failed")
 
     # Optimize Y and Z given X
     yz_mat <- opt_yz(
@@ -218,6 +255,8 @@ opt_esvd.default <- function(input_obj,
       l2peny = l2pen,
       l2penz = l2pen,
       verbose = verbose)
+    num_linesearch_failed <- num_linesearch_failed +
+      .attr_or_zero(yz_mat, "num_linesearch_failed")
 
     # Loss function
     loss <- objfn_all_r(
@@ -233,6 +272,12 @@ opt_esvd.default <- function(input_obj,
       l2penz = l2pen
     )
 
+    if(!is.finite(loss)){
+      stop("the eSVD objective became non-finite at iteration ", i,
+           " (loss = ", loss, "). The fit has diverged; a smaller step ",
+           "(larger `l2pen`) or a better initialization is needed, and ",
+           "collinear covariates are a common cause")
+    }
     losses <- c(losses, loss)
     if(verbose >= 1) cat("========== eSVD Iter ", i, ", loss = ", loss, " ==========\n\n", sep = "")
 
@@ -248,12 +293,20 @@ opt_esvd.default <- function(input_obj,
     }
   }
 
-  x_mat <- xc_mat[,1:k, drop = F]
-  y_mat <- yz_mat[,1:k, drop = F]
-  if(k < ncol(yz_mat)){
-    z_mat <- yz_mat[,(k+1):ncol(yz_mat), drop = F]
+  if(num_linesearch_failed > 0){
+    warning("the Newton line search failed for ", num_linesearch_failed,
+            " row/column update(s) over ", length(losses), " iteration(s), ",
+            "leaving those rows or columns at their previous values; the ",
+            "fit may not have converged")
   }
-  tmp <- tryCatch(.reparameterize(x_mat, y_mat, equal_covariance = T),
+
+  # Subsetting drops the C++ attribute, so it does not leak into the fit.
+  x_mat <- xc_mat[,1:k, drop = FALSE]
+  y_mat <- yz_mat[,1:k, drop = FALSE]
+  if(k < ncol(yz_mat)){
+    z_mat <- yz_mat[,(k+1):ncol(yz_mat), drop = FALSE]
+  }
+  tmp <- tryCatch(.reparameterize(x_mat, y_mat, equal_covariance = TRUE),
                   error = function(e){list(x_mat = x_mat, y_mat = y_mat)})
   x_mat <- tmp$x_mat
   y_mat <- tmp$y_mat

@@ -45,6 +45,31 @@
 #' @returns Either \code{NA} (the cohort was rejected; see the warning), or a
 #' list with \code{dropped_individuals} (character vector, possibly empty) and
 #' \code{seurat_obj} (the object with those individuals' cells removed).
+#' @examples
+#' if(requireNamespace("SeuratObject", quietly = TRUE)){
+#'   set.seed(10)
+#'   sim <- generate_null(cell_per_person = 15, num_genes = 40,
+#'                        num_individuals = 8)
+#'   meta_df <- data.frame(sim$covariates[, c("CC", "Sex", "Age")])
+#'   meta_df$Sex <- factor(meta_df$Sex)
+#'   meta_df$Individual <- sim$metadata_individual
+#'   rownames(meta_df) <- rownames(sim$obs_mat)
+#'   # Seurat rewrites "gene_1" as "gene-1" (with a warning); rename first
+#'   count_mat <- Matrix::t(sim$obs_mat)
+#'   rownames(count_mat) <- gsub("_", "", rownames(count_mat))
+#'   seurat_obj <- SeuratObject::CreateSeuratObject(counts = count_mat,
+#'                                                  meta.data = meta_df)
+#'
+#'   # drop two cells from one individual: with min_cells_per_id = 15 that
+#'   # individual is removed, with a warning naming it
+#'   seurat_small <- seurat_obj[, -(1:2)]
+#'   res <- filter_cohort(seurat_obj = seurat_small,
+#'                        id_var = "Individual",
+#'                        case_control_var = "CC",
+#'                        min_cells_per_id = 15)
+#'   res$dropped_individuals
+#'   ncol(res$seurat_obj)
+#' }
 #' @export
 filter_cohort <- function(seurat_obj,
                           id_var,
@@ -187,6 +212,35 @@ filter_cohort <- function(seurat_obj,
 #' @returns Either \code{NA} (the cohort was rejected; see the warning), or
 #' the \code{eSVD} object returned by \code{eSVD} with the removed genes
 #' reinserted as described above and an added element \code{gene_status}.
+#' @examples
+#' \donttest{
+#' if(requireNamespace("SeuratObject", quietly = TRUE)){
+#'   set.seed(10)
+#'   sim <- generate_null(cell_per_person = 15, num_genes = 40,
+#'                        num_individuals = 8)
+#'   meta_df <- data.frame(sim$covariates[, c("CC", "Sex", "Age")])
+#'   meta_df$Sex <- factor(meta_df$Sex)
+#'   meta_df$Individual <- sim$metadata_individual
+#'   rownames(meta_df) <- rownames(sim$obs_mat)
+#'   # Seurat rewrites "gene_1" as "gene-1" (with a warning); rename first
+#'   count_mat <- Matrix::t(sim$obs_mat)
+#'   rownames(count_mat) <- gsub("_", "", rownames(count_mat))
+#'   seurat_obj <- SeuratObject::CreateSeuratObject(counts = count_mat,
+#'                                                  meta.data = meta_df)
+#'
+#'   esvd_obj <- eSVD_helper(batch_var_prefix = NULL,
+#'                           case_control_levels = c("0", "1"),
+#'                           case_control_var = "CC",
+#'                           categorical_vars = "Sex",
+#'                           id_var = "Individual",
+#'                           numerical_vars = "Age",
+#'                           seurat_obj = seurat_obj,
+#'                           k = 2,
+#'                           max_iter = 5)
+#'   table(esvd_obj$gene_status)
+#'   utils::head(report_results(esvd_obj))
+#' }
+#' }
 #' @export
 eSVD_helper <- function(batch_var_prefix, # a variable inside categorical_vars. Can be NULL
                         case_control_levels, # Control and then Case

@@ -63,3 +63,32 @@ This function reproduces the behavior of
 \code{compute_pvalue()}, but it computes everything one gene at a time
 without ever allocating an n x p posterior mean/variance matrix.
 }
+\examples{
+set.seed(10)
+sim <- generate_null(cell_per_person = 15, num_genes = 40,
+                     num_individuals = 8)
+esvd_obj <- initialize_esvd(dat = sim$obs_mat,
+                            covariates = sim$covariates,
+                            metadata_individual = sim$metadata_individual,
+                            case_control_variable = "CC",
+                            bool_intercept = TRUE,
+                            k = 2,
+                            lambda = 0.1)
+esvd_obj <- reparameterization_esvd_covariates(input_obj = esvd_obj,
+                                               fit_name = "fit_Init",
+                                               omitted_variables = "Log_UMI")
+esvd_obj <- opt_esvd(input_obj = esvd_obj,
+                     max_iter = 5,
+                     offset_variables = setdiff(colnames(esvd_obj$covariates), "CC"),
+                     fit_name = "fit_First",
+                     fit_previous = "fit_Init")
+esvd_obj <- reparameterization_esvd_covariates(input_obj = esvd_obj,
+                                               fit_name = "fit_First",
+                                               omitted_variables = "Log_UMI")
+esvd_obj <- estimate_nuisance(input_obj = esvd_obj)
+esvd_obj <- compute_test_per_gene(input_obj = esvd_obj,
+                                  alpha_max = 2 * max(sim$obs_mat))
+utils::head(esvd_obj$teststat_vec)
+# no cell-by-gene posterior matrices were stored
+names(esvd_obj$fit_First)
+}

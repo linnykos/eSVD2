@@ -117,3 +117,33 @@ the initialization decomposes. Results for the retained genes therefore
 differ from a run that kept the all-zero genes; they equal a run of
 \code{eSVD} on the filtered object exactly.
 }
+\examples{
+\donttest{
+if(requireNamespace("SeuratObject", quietly = TRUE)){
+  set.seed(10)
+  sim <- generate_null(cell_per_person = 15, num_genes = 40,
+                       num_individuals = 8)
+  meta_df <- data.frame(sim$covariates[, c("CC", "Sex", "Age")])
+  meta_df$Sex <- factor(meta_df$Sex)
+  meta_df$Individual <- sim$metadata_individual
+  rownames(meta_df) <- rownames(sim$obs_mat)
+  # Seurat rewrites "gene_1" as "gene-1" (with a warning); rename first
+  count_mat <- Matrix::t(sim$obs_mat)
+  rownames(count_mat) <- gsub("_", "", rownames(count_mat))
+  seurat_obj <- SeuratObject::CreateSeuratObject(counts = count_mat,
+                                                 meta.data = meta_df)
+
+  esvd_obj <- eSVD_helper(batch_var_prefix = NULL,
+                          case_control_levels = c("0", "1"),
+                          case_control_var = "CC",
+                          categorical_vars = "Sex",
+                          id_var = "Individual",
+                          numerical_vars = "Age",
+                          seurat_obj = seurat_obj,
+                          k = 2,
+                          max_iter = 5)
+  table(esvd_obj$gene_status)
+  utils::head(report_results(esvd_obj))
+}
+}
+}

@@ -5,10 +5,6 @@ date: "2024-06-16"
 output: 
   rmarkdown::html_vignette:
     df_print: "kable"
-vignette: >
-  %\VignetteIndexEntry{Neuron analysis for Layer 2/3 in ASD}
-  %\VignetteEngine{knitr::rmarkdown}
-  %\VignetteEncoding{UTF-8}
 ---
 
 ```{r setup, include=FALSE}
@@ -38,7 +34,7 @@ library(EnhancedVolcano)
 
 set.seed(10)
 date_of_run <- Sys.time()
-session_info <- devtools::session_info()
+session_info <- sessionInfo()
 ```
 
 
@@ -311,7 +307,7 @@ EnhancedVolcano::EnhancedVolcano(
 ```
 
 ```{r, out.width = "600px", fig.align="center", echo = FALSE, fig.cap=c("Volcano plot the eSVD-DE analysis, highlighting the Gandal et al. genes")}
-knitr::include_graphics("https://github.com/linnykos/eSVD2/blob/master/vignettes/volcano.png?raw=true")
+knitr::include_graphics("volcano.png")
 ```
 
 Alternatively, you can make the volcano plot that specifically highlights the housekeeping genes, which can act as a rough "negative control". That is, we would not expect many of the housekeeping genes to be significantly different between case and control donors. This is what we see in our volcano plot.
@@ -354,7 +350,7 @@ EnhancedVolcano::EnhancedVolcano(
 ```
 
 ```{r, out.width = "600px", fig.align="center", echo = FALSE, fig.cap=c("Volcano plot the eSVD-DE analysis, highlighting the housekeeping genes")}
-knitr::include_graphics("https://github.com/linnykos/eSVD2/blob/master/vignettes/volcano_hk.png?raw=true")
+knitr::include_graphics("volcano_hk.png")
 ```
 
 # Setup
@@ -362,6 +358,6 @@ knitr::include_graphics("https://github.com/linnykos/eSVD2/blob/master/vignettes
 The following shows the suggested package versions that the developer (GitHub username: linnykos) used when developing the eSVD2 package.
 
 ```{r}
-devtools::session_info()
+sessionInfo()
 ```
 

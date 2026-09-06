@@ -389,3 +389,140 @@ test_that("T-VERB-02: verbose = 1 prints and verbose = 0 is silent", {
   expect_silent(compute_test_statistic(input_obj = esvd_obj, verbose = 0))
   expect_output(compute_test_statistic(input_obj = esvd_obj, verbose = 1))
 })
+
+# ---- categorical covariates that are not factors ----------------------------
+
+## `eSVD()` used to test each categorical variable with
+## `levels(droplevels(x))`, which errors on a character or numeric column
+## ("no applicable method for 'droplevels'"). Metadata columns coded 0/1 or as
+## strings are ordinary Seurat input, and the function converts them to
+## factors two lines later anyway.
+test_that("T-ESVD-12: eSVD accepts a numeric or character categorical variable", {
+  dat_list <- .tiny_data()
+  covariate_df <- dat_list$covariate_df
+  covariate_df$Sex <- as.character(covariate_df$Sex)
+  # Individuals 1, 4 and 5: not a function of CC (4, 5, 6) or Sex (even).
+  covariate_df$Batch <- as.numeric(dat_list$individual_vec %in%
+                                     c("indiv_1", "indiv_4", "indiv_5"))
+  seurat_obj <- .tiny_seurat(dat = dat_list$dat, covariate_df = covariate_df)
+
+  res <- .muffle_locfdr_fallback(
+    eSVD(batch_var_prefix = NULL,
+         case_control_levels = c("0", "1"),
+         case_control_var = "CC",
+         categorical_vars = c("Sex", "Batch"),
+         id_var = "Individual",
+         numerical_vars = "Age",
+         seurat_obj = seurat_obj,
+         k = 2,
+         max_iter = 2)
+  )
+
+  expect_true(inherits(res, "eSVD"))
+  z_cols <- colnames(res$fit_Second$z_mat)
+  expect_true("Sex_M" %in% z_cols || "Sex_F" %in% z_cols)
+  expect_true("Batch_1" %in% z_cols || "Batch_0" %in% z_cols)
+  expect_true(all(is.finite(res$teststat_vec)))
+})
+
+## Section 1.3 of CRAN_READINESS.md: collinear covariates used to reach the
+## reparameterization, where `lm()` returned NA coefficients that propagated
+## into z_mat, and the second `opt_esvd` then died with "missing value where
+## TRUE/FALSE needed". Both entry points now name the aliased column.
+test_that("T-REP-06 / T-VAL-35: collinear covariates are refused by name", {
+  dat_list <- .tiny_data()
+  covariates <- .tiny_covariates()
+  covariates <- cbind(covariates, Sex_copy = covariates[, "Sex_M"])
+
+  expect_error(
+    initialize_esvd(dat = dat_list$dat,
+                    covariates = covariates,
+                    metadata_individual = dat_list$individual_vec,
+                    bool_intercept = TRUE,
+                    case_control_variable = "CC_1",
+                    k = 2,
+                    lambda = 0.1),
+    "rank deficient.*Sex_copy"
+  )
+
+  # Reaching the reparameterization with such a design (bypassing the
+  # initializer) is refused there as well.
+  esvd_obj <- .small_esvd_obj()
+  esvd_obj$covariates <- cbind(esvd_obj$covariates,
+                               Sex_copy = esvd_obj$covariates[, "Sex_M"])
+  fit_name <- esvd_obj$latest_Fit
+  esvd_obj[[fit_name]]$z_mat <- cbind(esvd_obj[[fit_name]]$z_mat, Sex_copy = 0)
+  expect_error(
+    reparameterization_esvd_covariates(input_obj = esvd_obj,
+                                       fit_name = fit_name,
+                                       omitted_variables = "Log_UMI"),
+    "collinear.*Sex_copy"
+  )
+
+  # Through eSVD(): two metadata columns that code the same partition.
+  covariate_df <- dat_list$covariate_df
+  covariate_df$Batch <- covariate_df$Sex
+  seurat_obj <- .tiny_seurat(dat = dat_list$dat, covariate_df = covariate_df)
+  expect_error(
+    eSVD(batch_var_prefix = NULL,
+         case_control_levels = c("0", "1"),
+         case_control_var = "CC",
+         categorical_vars = c("Sex", "Batch"),
+         id_var = "Individual",
+         numerical_vars = "Age",
+         seurat_obj = seurat_obj,
+         k = 2,
+         max_iter = 2),
+    "rank deficient"
+  )
+})
+
+## Section 1.3, first failure mode: `as.data.frame()` applied `make.names()`
+## to the covariate names, so a factor level with a space or parentheses
+## produced a coefficient name that was not a column of z_mat.
+test_that("T-REP-05 / T-FMT-09: non-syntactic covariate names survive reparameterization", {
+  dat_list <- .tiny_data()
+  covariate_df <- dat_list$covariate_df
+  covariate_df$Sex <- factor(ifelse(covariate_df$Sex == "M",
+                                    "male (self-reported)", "female-1"))
+  covariates <- format_covariates(dat = dat_list$dat,
+                                  covariate_df = covariate_df,
+                                  rescale_numeric_variables = "Age")
+  expect_true("Sex_male (self-reported)" %in% colnames(covariates))
+
+  esvd_obj <- initialize_esvd(dat = dat_list$dat,
+                              covariates = covariates,
+                              metadata_individual = dat_list$individual_vec,
+                              bool_intercept = TRUE,
+                              case_control_variable = "CC_1",
+                              k = 2,
+                              lambda = 0.1)
+  before_mat <- tcrossprod(esvd_obj$fit_Init$x_mat, esvd_obj$fit_Init$y_mat) +
+    tcrossprod(esvd_obj$covariates, esvd_obj$fit_Init$z_mat)
+
+  res <- reparameterization_esvd_covariates(input_obj = esvd_obj,
+                                            fit_name = "fit_Init",
+                                            omitted_variables = "Log_UMI")
+  after_mat <- tcrossprod(res$fit_Init$x_mat, res$fit_Init$y_mat) +
+    tcrossprod(res$covariates, res$fit_Init$z_mat)
+
+  expect_equal(colnames(res$fit_Init$z_mat), colnames(covariates))
+  expect_equal(after_mat, before_mat, tolerance = 1e-8)
+  # and x_mat is orthogonal to every retained covariate, including the one
+  # with the awkward name
+  expect_lt(max(abs(crossprod(res$fit_Init$x_mat,
+                              covariates[, "Sex_male (self-reported)"]))), 1e-8)
+})
+
+## A non-finite objective is reported as such instead of as R's generic
+## "missing value where TRUE/FALSE needed" from the convergence test.
+test_that("T-OPT-06: opt_esvd refuses NA initial values", {
+  point <- .feasible_point("poisson", num_cells = 20, num_genes = 8)
+  x_bad <- point$x_mat
+  x_bad[1, 1] <- NA
+  expect_error(
+    opt_esvd(input_obj = point$dat, x_init = x_bad, y_init = point$y_mat,
+             family = "poisson", max_iter = 2, nuisance_vec = point$gamma_vec),
+    "must not contain NA"
+  )
+})

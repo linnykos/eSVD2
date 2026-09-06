@@ -2,18 +2,19 @@
 % Please edit documentation in R/data_loader.R
 \name{print.esvd_data_loader}
 \alias{print.esvd_data_loader}
-\title{Internal data loader function}
+\title{Print a data loader}
 \usage{
 \method{print}{esvd_data_loader}(x, ...)
 }
 \arguments{
-\item{x}{object}
+\item{x}{An \code{esvd_data_loader}, from \code{data_loader}.}
 
-\item{...}{additional arguments}
+\item{...}{Ignored.}
 }
 \value{
-description
+\code{x}, invisibly; called for its printed one-line description.
 }
 \description{
-Internal data loader function
+Print a data loader
 }
+\keyword{internal}

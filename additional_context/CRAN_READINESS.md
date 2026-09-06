@@ -12,8 +12,10 @@ also a correctness or CRAN-policy hazard.
 
 Items are ordered by how much they can hurt: silent wrong numbers first, then
 things that block submission, then things a reviewer will make you fix, then test
-debt. Nothing in §1–§3 has been fixed yet — this document is the plan, not a
-changelog.
+debt. **§1–§5 below are the original audit of 2026-08-27 and are kept as
+written; the current state of every item is in §0, directly below**, which is
+rewritten each session. §0 also carries the open questions and the suggested
+tests.
 
 **Companion document.** The proposed test suite lives in
 `additional_context/UNIT_TEST_PLAN.md` — ~200 tests with IDs, oracles, and the
@@ -29,6 +31,221 @@ Equation numbers refer to Lin, Qiu & Roeder (2024), indexed in
 `mean_mat * nuisance_vec`, and paper `ℓ + 1/γ` ↔ code `library_mat + nuisance_vec`.
 The code is internally consistent; the *documentation* never states the inversion,
 which is a documentation defect (§5.4), not a numerical one.
+
+---
+
+## 0. Status as of 2026-09-02 (session 10) — read this first
+
+**Bottom line.** `R CMD build` (vignette included) + `R CMD check --as-cran`
+on the tarball: **`Status: 2 NOTEs`, 0 ERRORs, 0 WARNINGs** (macOS 14.2.1 / arm64, R 4.5.1, 2026-09-02). The two NOTEs are `New submission` (unavoidable) and the environmental `'tidy' doesn't look like recent enough HTML Tidy` (this machine, not the package). Examples all run, slowest 0.55 s; vignette rebuilds in 64 s; under the check the suite reports `[ FAIL 0 | WARN 0 | SKIP 3 | PASS 685 ]` (the two extra skips read the source tree, which is absent in a tarball). Test suite: **687 pass / 0 fail / 0 warnings /
+1 skip** (`T-PROP-06`, `skip_on_cran`), 20 s. Tarball **1.0 MB** (was 13.2 MB).
+What remains before submission is a short list of decisions for Kevin
+(§0.3), not code.
+
+### 0.1 What this session changed
+
+**Test-suite warnings (Kevin's question).** A warning that escapes a test is
+not a CRAN failure — `R CMD check` only fails tests on errors — but each one
+is noise that hides a real one, and the check log prints them. Both were
+tests that produced the *intended* warning without asserting it:
+`T-REP-09` (rank-deficiency warning from `.identification`) now uses
+`expect_warning()`, and the `estimate_nuisance.default` extreme-`mu` test
+asserts the "nuisance estimation failed for 1 of 10 gene(s)" warning. A
+third source appeared mid-session and is worth knowing about: on the
+20-gene `F-TINY` fixture `multtest()` legitimately falls back from
+`locfdr` and warns, and **whether `locfdr` converges on 18 genes is a
+numerical coin flip** — a change to the reparameterization that altered
+`z_mat` by 4e-16 flipped eleven gene-status tests from silent to warning.
+The test helpers `.helper_run()` / `.esvd_run()` now muffle exactly that
+warning (`.muffle_locfdr_fallback()` in `helper-fixtures.R`); every other
+warning still surfaces. This is the same sensitivity recorded in
+`TEST_RUN_REPORT.md` §7.3, seen at a smaller scale.
+
+**Correctness (new this session, none previously listed):**
+
+| # | What | Where |
+|---|---|---|
+| N1 | **The single-covariate GLM fallback in `.initialize_coefficient()` dropped the library-size offset.** `glmnet` needs two predictors, so a design with only `Intercept + Log_UMI + CC_1` (i.e. `eSVD()` with no other covariates) went through `stats::glm()` *without* `offset = Log_UMI`, initializing every gene's intercept without adjusting for depth (intercept 1.13 vs the correct −1.6 on a Poisson(3) toy). Also `colnames(df) <- "y"` on a two-column frame left the predictor unnamed. Both fixed; oracle is `stats::glm(y ~ x + offset(log_umi))`. Tests `T-INIT-09`, `T-INIT-10`. | `R/initialization.R` |
+| N2 | **§1.3 was still open and is now fixed.** `reparameterization_esvd_covariates()` regressed each factor with `stats::lm(x ~ ., data = as.data.frame(...))`, which (a) `make.names()`-mangles covariate names with spaces or parentheses into names that are not columns of `z_mat`, and (b) returns `NA` for aliased columns, which propagated into `z_mat` and killed the *second* `opt_esvd` with "missing value where TRUE/FALSE needed". Replaced by `qr()` / `qr.coef()` / `qr.fitted()` on the design matrix (numerically identical: max diff 4e-16 on `F-TINY`), with a rank check that names the aliased columns. Tests `T-REP-05`, `T-REP-06`. | `R/reparameterization.R` |
+| N3 | **`initialize_esvd()` now refuses a rank-deficient `covariates`** by name. Previously glmnet's ridge silently fit it and the failure surfaced two stages later (N2). Consequence: the legacy test `initialize_esvd works` passed all 20 individual indicators and had to drop them, as `eSVD()` and the fixture script already do. **See Q5.** | `R/initialization.R`, `tests/testthat/test_initialization.R` |
+| N4 | **`eSVD()` errored on a numeric or character categorical variable** (`droplevels()` on a non-factor). The single-level test now uses `unique()`; the variable is converted to a factor two lines later anyway. Found by the new `eSVD()` example. Test `T-ESVD-12`. | `R/eSVD.R` |
+| N5 | **§1.4's `scale()` type change was still in the code** in both `compute_posterior.default` and `compute_test_per_gene` (T-POST-07 passed by coercion). Replaced by `10^(log10(v) - mean(log10(v)))`; `nuisance_vec` stays a named numeric vector. Roxygen for `bool_stabilize_underdispersion` now says what the code does and in which direction. | `R/posterior.R`, `R/compute_test_per_gene.R` |
+| N6 | **§4.2 fixed.** `Rcpp::warning()` no longer fires inside the C++ line search. `constr_newton` returns `linesearch_failed`; `opt_x`/`opt_yz` count failures and attach `num_linesearch_failed` as an attribute; `opt_esvd.default` raises **one** aggregated R warning. `ObjectiveYZ` gained the five missing `override`s. Tests `T-CN-01..03`. **See Q6.** | `src/constrained_newton.cpp`, `src/optimization.cpp`, `R/optimization.R`, `R/utils.R` |
+| N7 | `opt_esvd.default` refuses `NA` in `x_init`/`y_init`/`z_init`/`covariates` and stops with a named message when the objective becomes non-finite, instead of R's generic error from the convergence test. Test `T-OPT-06`. | `R/optimization.R` |
+| N8 | `eSVD()` computed `alpha_max` as `2 * max(dat@x)`, which errors if the Seurat count layer is dense. Now `2 * max(dat)`. | `R/eSVD.R` |
+| N9 | 48 `T`/`F` literals → `TRUE`/`FALSE`; six scalar `&`/`|` → `&&`/`||`; `.opt_esvd_setup_z_mat()` returns explicitly; stray no-op expression removed from `generate_null()`; empty `if` block removed from `compute_test_per_gene()`. | package-wide |
+
+**Packaging:**
+
+- `DESCRIPTION`: `Version: 1.0.2`; Title in title case without the package
+  name; Description no longer starts with "This package" and cites
+  `Lin, Qiu and Roeder (2024) <doi:10.1186/s12859-024-05724-7>`; `URL`
+  gains the GitHub repo, `BugReports` added. `Suggests` trimmed to what is
+  used: `knitr`, `numDeriv`, `rmarkdown` (**was missing** — the vignette
+  is `rmarkdown::html_vignette`), `Seurat`, `SeuratObject`, `testthat`,
+  `withr`. Dropped `devtools`, `EnhancedVolcano` (Bioconductor),
+  `npregfast` (unused).
+- **Tarball 13.2 MB → 1.0 MB.** `tests/assets/synthetic_data.RData`
+  regenerated at 20 individuals × 20 cells × 60 genes with `compress = "xz"`
+  (432 KB; was 2000 × 150 and 9.7 MB); it keeps only the objects a test
+  reads. `tests/assets/data_generation.R` rewritten to match (the fixture
+  is what that script produces under `devtools::load_all()`).
+  `initialize_esvd1.rda` (1.3 MB) was loaded by no test and is deleted.
+  **See Q10.**
+- **§2.7 resolved as option (b):** `asd.Rmd`, `asd-preprocess.Rmd` and the
+  three PNGs moved to `vignettes/articles/` (the `usethis::use_article()`
+  layout: pkgdown renders them under the same `articles/` URLs, `R CMD
+  build` excludes them via `^vignettes/articles$`). Their vignette-index
+  blocks are removed, the PNGs are included by relative path, and
+  `devtools::session_info()` → `sessionInfo()`. **See Q4.**
+- `eSVD2.Rmd`: `library(Seurat)` replaced by a `requireNamespace()` guard on
+  the one UMAP chunk; `T`/`F` fixed; `sessionInfo()`.
+- **`@examples` on every exported function** (21 Rd files). The chain is
+  `generate_null(15 cells × 8 individuals × 40 genes)` → each step; the whole
+  chain runs in about 0.5 s and `locfdr` converges at 40 genes. The three
+  Seurat-dependent examples (`eSVD`, `eSVD_helper`, `filter_cohort`) are
+  guarded by `requireNamespace("SeuratObject")`; the first two are also in
+  `\donttest{}` (they still run under `--as-cran`).
+- `@returns` for `opt_x`, `opt_yz`, `data_loader`, `esvd_family`,
+  `print.esvd_data_loader` (was the placeholder "description"); all five
+  marked `@keywords internal`. `.reparameterize` is `@noRd`. §5.4: the
+  rate/scale inversion is now stated in `estimate_nuisance.eSVD`,
+  `estimate_nuisance.default`, `compute_posterior.default` and `eSVD`.
+  Typos (`outputed`, `expoential`, `flexbility`, "defficiency" in a warning)
+  fixed; `sfari_df` `@source` pointed at the Velmeshev paper and now points
+  at SFARI; `gandal_df`'s example carried a personal `/Users/kevinlin/...`
+  path.
+- `NEWS.md` (ships) and `cran-comments.md` (`.Rbuildignore`d) created.
+  README: version, installation, dependency paragraph; `compatibile`.
+- Junk removed: `inst/include/.Rapp.history` (0 bytes, would have shipped),
+  `vignettes/.DS_Store`, the empty `tests/testthat/_snaps/`.
+
+**Deliberately not changed:**
+
+- **§5.3 `print()` → `message()`: resolved as *no change*.** Every
+  `print()`/`cat()` in `R/` is behind `verbose`. CRAN's own reviewer
+  boilerplate ("Instead of print()/cat() rather use message()/warning() or
+  **if(verbose) cat(..)**") explicitly accepts verbose-gated output, and
+  Kevin's R style guide mandates `print(paste0(...))` for progress. The one
+  ungated `message()` (in `report_results` when results are missing) is
+  fine as is.
+- `Config/testthat/edition: 3` and removing `context()` from the twelve
+  legacy files: not done. Edition 3 changes `expect_equal()` semantics and
+  would have to be re-verified across 687 tests for no CRAN benefit.
+- The misspelled argument names `bool_library_includes_interept` and
+  `library_multipler` (see Q3).
+
+### 0.2 Where each audit item stands
+
+| Item | State |
+|---|---|
+| §1.1 `qnorm(pt())` saturation | done (session 9), `.t_to_gaussian()` |
+| §1.2 `verbose = 2` throws | done |
+| §1.3 formula-based reparameterization | **done this session (N2, N3)** |
+| §1.4 `scale()` type change / doc direction | **done this session (N5)** |
+| §1.5 pipeline drift, weak equivalence test | done; the legacy test is now element-wise too |
+| §1.6 `.compute_df()` recomputes group stats | **open, low priority** — still recomputes; both copies verified equal by `T-PG-01/02`. The refactor into `.split_individuals_by_arm()` is item 3 of `CLAUDE_kevin.md` |
+| §1.7 `sigma0` unconstrained | done (log-scale, L-BFGS-B, `p0 ≤ 1`) |
+| §1.8 small items | done (all rows, including `T`/`F` package-wide this session) |
+| §2.1 `sparseMatrixStats` | done (`.sparse_col_sds()`) |
+| §2.2 `Rmpfr` | done |
+| §2.3 `exportPattern` | done |
+| §2.4 `LICENSE` stub | done (`YEAR: 2026`, `COPYRIGHT HOLDER: Kevin Z. Lin`; see Q2) |
+| §2.5 compiler `override` | done; `ObjectiveYZ` completed this session |
+| §2.6 `DESCRIPTION` | **done this session** except `Authors@R` (Q1) |
+| §2.7 vignettes | **done this session** (articles; Q4) |
+| §2.8 tarball | **done this session** (1.0 MB) |
+| §2.9 `MASS` | done |
+| §4.1 pointer null checks | not done; Rcpp already gives a clean R error on a restored pointer, so this is cosmetic |
+| §4.2 `Rcpp::warning` in C++ frame | **done this session (N6)** |
+| §4.3 `gamma_rate` bracket | done (session 8); the nuisance blow-up it exposed is Q11 |
+| §4.4 valgrind / sanitizers | **not done**; recommended once before submission (rhub or a local ASan build) |
+| §5.1 `eSVD()` docs | done |
+| §5.2 missing `@return` | **done this session** |
+| §5.3 `print()` → `message()` | resolved as no change (above) |
+| §5.4 rate/scale inversion in docs | **done this session** |
+| §5.5 testthat modernization | partly: `_snaps/` removed; edition 3 and `context()` deferred |
+| §5.6 README | **done this session** |
+
+### 0.3 Questions for Kevin (blocking or affecting submission)
+
+1. **`Authors@R`.** Add Yixuan Qiu and Kathryn Roeder? The paper credits
+   "KZL and YQ coded eSVD-DE in R and C++"; `src/` is largely Yixuan's. A
+   defensible line is
+   `c(person("Kevin Z.", "Lin", role = c("aut", "cre"), email = ...),
+   person("Yixuan", "Qiu", role = "aut"), person("Kathryn", "Roeder", role = "aut"))`.
+   Their agreement to be listed is customary. Also pick one spelling:
+   `DESCRIPTION` says "Kevin Z", `LICENSE` says "Kevin Z. Lin".
+2. **Version `1.0.2`** was chosen (the audit's suggestion); the last GitHub
+   release is 1.0.0. Fine, or `1.1.0` given the behavioural changes in
+   `NEWS.md`?
+3. **Misspelled public argument names** `bool_library_includes_interept`
+   (in `estimate_nuisance`, `compute_posterior`, `eSVD`) and
+   `library_multipler` (`opt_esvd.default`). Renaming is an API break for
+   `eSVD2_examples`. Recommendation: ship 1.0.2 as is, rename in the next
+   minor version with a deprecation shim. Your call.
+4. **ASD tutorials as pkgdown articles** (§2.7 option b) — confirm. The
+   pkgdown URLs do not change, but the two documents no longer ship on
+   CRAN and `EnhancedVolcano` left `Suggests`. If you would rather keep
+   them as vignettes, the alternative is a `knitr::opts_chunk$set(eval =
+   FALSE)` setup plus `Additional_repositories` for Bioconductor.
+5. **Refusing rank-deficient `covariates` at `initialize_esvd()`** (N3).
+   Before, a design with every individual's indicator was accepted (ridge
+   tolerates it) and broke two stages later; now it is an error naming the
+   aliased columns. One consequence: `format_covariates(variables_enumerate_all
+   = ...)` produces a full set of level indicators, which is collinear with
+   the intercept, so that option can no longer be fed to `initialize_esvd()`
+   with `bool_intercept = TRUE`. Is that acceptable, or should the check be
+   a warning?
+6. **The aggregated line-search warning** (N6). `opt_esvd()` now warns once
+   per call when any Newton row/column update found no descent step. In the
+   test fixtures it never fires. If it fires routinely on real data it will
+   be noise; you know the real-data behaviour. Options: keep; downgrade to
+   `verbose >= 1` output and record the count in `param`; or both.
+7. **`multtest()`'s fallback warning on small gene sets** (open item 2 of
+   `CLAUDE_kevin.md`). Under about 50 genes `locfdr` fails routinely and the
+   user gets a warning per run. Acceptable, or only warn when the fallback
+   is *not* explained by gene count?
+8. **`generate_null()` names genes `gene_1`, …**, which Seurat rewrites to
+   `gene-1` with a warning; the new examples rename them first. Renaming
+   in `generate_null()` itself (to `gene1`) would be cleaner but changes its
+   output and `T-GEN-*`.
+9. **The regenerated legacy fixture.** The eight legacy test files now run
+   on a 400 × 60 fixture instead of 2000 × 150. They pass unchanged (except
+   the two edits noted in N3 and §1.5). Alternative: port them to the built
+   fixtures in `helper-fixtures.R` and delete `tests/assets/` entirely.
+10. **Carried over, unchanged, still needing you:** the nuisance blow-up
+    under the uncapped `gamma_rate` (item 1 of `CLAUDE_kevin.md`); whether
+    `.multtest_locfdr` should catch warnings (item 2); keep `bool_diet`
+    keeping the final fit (item 5); the non-determinism amplification
+    (item 6) — new evidence above: a 4e-16 perturbation flips `locfdr`'s
+    convergence on 18 genes, so any comparison of two pipeline runs needs
+    tolerances set with that in mind.
+11. **`devtools::document()` (roxygen2 8.1.0 on this machine) replaces
+    `RoxygenNote: 7.3.3` with `Config/roxygen2/version: 8.1.0` every time.**
+    Session 9 reverted it and so did this one, but the `man/` pages *are*
+    generated by 8.1.0, so the field is now untruthful either way. Either
+    keep reverting (harmless to the check) or accept the new field.
+12. **Before submitting:** run once on Windows and Linux
+    (`devtools::check_win_devel()`, `rhub::rhub_check()`), and once with
+    sanitizers (§4.4). This session only checked macOS/arm64.
+
+### 0.4 Suggested new tests (from working through the code)
+
+Each of these is a gap I noticed but did not fill, because it either needs
+a decision above or a fixture that does not exist yet.
+
+| ID | What it would pin | Why it is missing |
+|---|---|---|
+| T-PG-06 | `compute_test_per_gene()` vs the matrix path with `bool_adjust_covariates = TRUE` **and** `pseudocount = 1`. `T-PG-01/02` compares the two at the defaults only, so the confounder-adjustment and pseudocount branches of the per-gene loop have no oracle. | Needs `bool_covariates_as_library = FALSE` (the two are mutually exclusive), a setting no fixture uses |
+| T-CN-04 | A run in which the line search actually fails, asserting exactly one warning whose count matches `sum(attr(...))`. `T-CN-01` only checks the attribute exists. | Needs a reproducible failing case; `exponential` with a near-boundary start is the candidate |
+| T-INIT-11 | `eSVD()` on a Seurat object whose count layer is a dense `matrix` (N8). | Needs a dense-layer Seurat fixture |
+| T-ESVD-13 | Non-syntactic metadata levels (`"ASD (severe)"`) through the whole `eSVD()` path, not just `initialize_esvd` + reparameterization (`T-REP-05`). | Seurat's own handling of such levels is untested here |
+| T-FMT-10 | `format_covariates(variables_enumerate_all = ...)` followed by `initialize_esvd()` — currently an error by N3; the test should assert whichever behaviour Q5 chooses. | Blocked on Q5 |
+| T-NUIS-06 | `estimate_nuisance.eSVD` with `bool_use_log = TRUE` agrees with `FALSE` on well-behaved genes (they estimate the same MLE by two routes; `T-CPP-GAM-*` covers the C++ layer but not this R argument). | Straightforward; not written because Q10's blow-up may change what "well-behaved" means |
+| T-MT-05 | `multtest()` with more than ~500 genes stays on `locfdr` (no warning), pinning the gene-count threshold the Q7 message quotes. | Cheap; depends on Q7 |
+| T-GS-17 | `eSVD_helper()` when the *filtered* cohort has an all-zero gene that was non-zero before the drop (the ordering argument in its roxygen). | Needs a fixture where one individual carries a gene alone |
+| T-SVD-05 | `.svd_start_vector()` gives identical `irlba` and `RSpectra` output across two R sessions (determinism across sessions, not just within one). | Needs `callr`; would add a Suggests |
 
 ---
 
@@ -806,7 +1023,37 @@ Each step is independently verifiable, and later steps depend on earlier ones.
 
 ---
 
-## Appendix: baseline `R CMD check --as-cran` result
+## Appendix: `R CMD check --as-cran` results
+
+### 2026-09-02 (session 10) — current
+
+R 4.5.1, aarch64-apple-darwin20, macOS Sonoma 14.2.1, Apple clang 15.0.0.
+pandoc from RStudio's bundle (`/Applications/RStudio.app/Contents/Resources/app/quarto/bin/tools/aarch64`) prepended to `PATH`.
+
+```
+R CMD build eSVD2                       # vignette built; tarball 1,020,379 bytes
+_R_CHECK_FORCE_SUGGESTS_=false R CMD check --as-cran eSVD2_1.0.2.tar.gz
+```
+
+**Result: `Status: 2 NOTEs`.**
+
+```
+* checking CRAN incoming feasibility ... NOTE
+Maintainer: 'Kevin Z Lin <kzlin@uw.edu>'
+New submission
+* checking tests ... Running 'testthat.R' OK      [ FAIL 0 | WARN 0 | SKIP 3 | PASS 685 ]
+* checking re-building of vignette outputs ... [63s/64s] OK
+* checking HTML version of manual ... NOTE
+Skipping checking HTML validation: 'tidy' doesn't look like recent enough HTML Tidy.
+```
+
+Everything else `OK`, including `examples with --run-donttest` (slowest
+example `eSVD`, 0.55 s), `installed package size`, `compiled code`,
+`Rd \usage sections`, `for unstated dependencies in vignettes`. The
+`_R_CHECK_FORCE_SUGGESTS_=false` flag is now moot: every `Suggests`
+package is on CRAN and installed here.
+
+### 2026-08-27 — baseline
 
 Recorded **2026-08-27** on R 4.5.1, aarch64-apple-darwin20, macOS Sonoma 14.2.1,
 Apple clang 15.0.0. Command:

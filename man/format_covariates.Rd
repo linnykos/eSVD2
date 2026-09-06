@@ -28,7 +28,10 @@ columns are the different categorical or numerical variables that you wish to ad
 in \code{covariate_df} you would like to split into indicators. By default, this is \code{NULL}, meaning all the \code{factor} variables are split into indicators}
 }
 \value{
-a \code{matrix} with the same number of rows as \code{dat}
+a \code{matrix} with the same number of rows as \code{dat}, whose
+first two columns are \code{"Intercept"} and \code{"Log_UMI"}, followed by
+the numerical variables and then one indicator column
+\code{"<variable>_<level>"} per retained factor level.
 }
 \description{
 Mainly, this method splits the categorical variables (which should be `factor` variables)
@@ -46,4 +49,20 @@ deviation, so the result does not have unit variance unless the column is
 also centered (\code{bool_center = TRUE}). What it does deliver is
 invariance to the unit the covariate was recorded in: age in years and age
 in months give identical columns.
+}
+\examples{
+set.seed(10)
+dat <- matrix(stats::rpois(60 * 5, lambda = 3), nrow = 60, ncol = 5)
+dimnames(dat) <- list(paste0("cell", 1:60), paste0("gene", 1:5))
+covariate_df <- data.frame(
+  CC = factor(rep(c("control", "case"), each = 30),
+              levels = c("control", "case")),
+  Sex = factor(rep(c("F", "M"), times = 30)),
+  Age = stats::rnorm(60, mean = 40, sd = 10)
+)
+covariates <- format_covariates(dat = dat,
+                                covariate_df = covariate_df,
+                                rescale_numeric_variables = "Age")
+colnames(covariates)
+utils::head(covariates, 3)
 }

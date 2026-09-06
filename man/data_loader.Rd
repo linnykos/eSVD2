@@ -2,16 +2,20 @@
 % Please edit documentation in R/data_loader.R
 \name{data_loader}
 \alias{data_loader}
-\title{Internal data loader function}
+\title{Internal data loader}
 \usage{
 data_loader(mat)
 }
 \arguments{
-\item{mat}{matrix}
+\item{mat}{\code{matrix} (integer or double) or \code{dgCMatrix}, cells by
+genes.}
 }
 \value{
-pointer
+An external pointer of class \code{esvd_data_loader}.
 }
 \description{
-Internal data loader function
+Wraps a dense \code{matrix} or a \code{dgCMatrix} in a C++ iterator used
+by the optimizer. The pointer is only valid in the R session that created
+it; a restored copy (e.g. from \code{readRDS}) errors when used.
 }
+\keyword{internal}

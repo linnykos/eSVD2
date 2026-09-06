@@ -6,16 +6,16 @@
 \usage{
 \method{estimate_nuisance}{eSVD}(
   input_obj,
-  bool_covariates_as_library = F,
-  bool_library_includes_interept = T,
-  bool_use_log = F,
+  bool_covariates_as_library = FALSE,
+  bool_library_includes_interept = TRUE,
+  bool_use_log = FALSE,
   min_val = 1e-04,
   verbose = 0,
   ...
 )
 }
 \arguments{
-\item{input_obj}{\code{eSVD} object outputed from \code{opt_esvd.eSVD}.
+\item{input_obj}{\code{eSVD} object output from \code{opt_esvd.eSVD}.
 Specifically, the nuisance parameters will be estimated
 based on the fit in \code{input_obj[[input_obj[["latest_Fit"]]]]}.}
 
@@ -38,5 +38,34 @@ This parameter is experimental, and we have not yet encountered a scenario where
 }
 \description{
 Assumes a Gamma-Poisson model where the mean and variance are proportionally
-related.
+related: \eqn{\lambda_{ji} \sim \mathrm{Gamma}(\mathrm{mean} = \mu_{ji},
+\mathrm{var} = \gamma_j \mu_{ji})}. The estimated \code{nuisance_vec} is
+the Gamma \emph{rate} \eqn{\beta_j = 1/\gamma_j}, the reciprocal of the
+over-dispersion \eqn{\gamma_j} in Lin, Qiu and Roeder (2024), so a
+\strong{larger} value means \strong{less} over-dispersion.
+}
+\examples{
+set.seed(10)
+sim <- generate_null(cell_per_person = 15, num_genes = 40,
+                     num_individuals = 8)
+esvd_obj <- initialize_esvd(dat = sim$obs_mat,
+                            covariates = sim$covariates,
+                            metadata_individual = sim$metadata_individual,
+                            case_control_variable = "CC",
+                            bool_intercept = TRUE,
+                            k = 2,
+                            lambda = 0.1)
+esvd_obj <- reparameterization_esvd_covariates(input_obj = esvd_obj,
+                                               fit_name = "fit_Init",
+                                               omitted_variables = "Log_UMI")
+esvd_obj <- opt_esvd(input_obj = esvd_obj,
+                     max_iter = 5,
+                     offset_variables = setdiff(colnames(esvd_obj$covariates), "CC"),
+                     fit_name = "fit_First",
+                     fit_previous = "fit_Init")
+esvd_obj <- reparameterization_esvd_covariates(input_obj = esvd_obj,
+                                               fit_name = "fit_First",
+                                               omitted_variables = "Log_UMI")
+esvd_obj <- estimate_nuisance(input_obj = esvd_obj)
+summary(esvd_obj$fit_First$nuisance_vec)
 }

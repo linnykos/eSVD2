@@ -13,13 +13,19 @@ compute_posterior <- function(input_obj, ...) {UseMethod("compute_posterior")}
 #'
 #' The posterior is computed based on whatever \code{input_obj$latest_Fit} is set to.
 #'
-#' @param input_obj                       \code{eSVD} object outputed from \code{opt_esvd.eSVD}.
+#' @param input_obj                       \code{eSVD} object output from \code{opt_esvd.eSVD}.
 #' @param alpha_max                       Maximum value of numerator when computing posterior, default is \code{1e3}.
 #' @param bool_adjust_covariates          Boolean to adjust the numerator in the posterior by the donor covariates, default is \code{FALSE}.
 #'                                        This parameter is experimental, and we have not yet encountered a scenario where it is useful to be set to be \code{TRUE}.
 #' @param bool_covariates_as_library      Boolean to include the donor covariates effects in the adjusted library size, default is \code{TRUE}
-#' @param bool_return_components          Boolean to return the numerator and denominator of the posterior terms as well (which will themselves by matrices that are cell-by-gene matrices), default is \code{FALSE}
-#' @param bool_stabilize_underdispersion  Boolean to stabilize the over-dispersion parameter, specifically to rescale all the over-dispersions the global mean over-disperion is less than 1, default is \code{TRUE}
+#' @param bool_return_components          Boolean to return the numerator and denominator of the posterior terms as well (themselves cell-by-gene matrices), default is \code{FALSE}
+#' @param bool_stabilize_underdispersion  Boolean, default \code{TRUE}. \code{nuisance_vec}
+#'                                        holds Gamma \emph{rates}, so a geometric mean above 1
+#'                                        means the genes look under-dispersed on average. When
+#'                                        that happens (\code{mean(log10(nuisance_vec)) > 0}), every
+#'                                        gene's rate is divided by the geometric mean so that
+#'                                        \code{mean(log10(nuisance_vec))} becomes 0; otherwise the
+#'                                        rates are left alone
 #' @param library_min                     All covariate-adjusted library size smaller than this value are set to this value, default is 0.1.
 #' @param nuisance_lower_quantile         All the nuisance values that are smaller than this quantile
 #'                                        are set to this quantile, default is 0.01
@@ -29,13 +35,39 @@ compute_posterior <- function(input_obj, ...) {UseMethod("compute_posterior")}
 #' @return \code{eSVD} object with \code{posterior_mean_mat}
 #' and \code{posterior_var_mat} appended to the list in
 #' \code{input_obj[[input_obj[["latest_Fit"]]]]}.
+#' @examples
+#' set.seed(10)
+#' sim <- generate_null(cell_per_person = 15, num_genes = 40,
+#'                      num_individuals = 8)
+#' esvd_obj <- initialize_esvd(dat = sim$obs_mat,
+#'                             covariates = sim$covariates,
+#'                             metadata_individual = sim$metadata_individual,
+#'                             case_control_variable = "CC",
+#'                             bool_intercept = TRUE,
+#'                             k = 2,
+#'                             lambda = 0.1)
+#' esvd_obj <- reparameterization_esvd_covariates(input_obj = esvd_obj,
+#'                                                fit_name = "fit_Init",
+#'                                                omitted_variables = "Log_UMI")
+#' esvd_obj <- opt_esvd(input_obj = esvd_obj,
+#'                      max_iter = 5,
+#'                      offset_variables = setdiff(colnames(esvd_obj$covariates), "CC"),
+#'                      fit_name = "fit_First",
+#'                      fit_previous = "fit_Init")
+#' esvd_obj <- reparameterization_esvd_covariates(input_obj = esvd_obj,
+#'                                                fit_name = "fit_First",
+#'                                                omitted_variables = "Log_UMI")
+#' esvd_obj <- estimate_nuisance(input_obj = esvd_obj)
+#' esvd_obj <- compute_posterior(input_obj = esvd_obj,
+#'                               alpha_max = 2 * max(sim$obs_mat))
+#' dim(esvd_obj$fit_First$posterior_mean_mat)
 #' @export
 compute_posterior.eSVD <- function(input_obj,
                                    alpha_max = 1e3,
-                                   bool_adjust_covariates = F,
-                                   bool_covariates_as_library = T,
-                                   bool_return_components = F,
-                                   bool_stabilize_underdispersion = T,
+                                   bool_adjust_covariates = FALSE,
+                                   bool_covariates_as_library = TRUE,
+                                   bool_return_components = FALSE,
+                                   bool_stabilize_underdispersion = TRUE,
                                    library_min = 0.1,
                                    nuisance_lower_quantile = 0.01,
                                    pseudocount = 0,
@@ -108,14 +140,23 @@ compute_posterior.eSVD <- function(input_obj,
 #'                                        \code{x_mat}, \code{y_mat} and \code{z_mat}
 #' @param library_size_variable           A string of the variable name (which must be in \code{covariates}) of which variable denotes the sequenced (i.e., observed) library size.
 #' @param nuisance_vec                    Vector of non-negative numerics of length \code{ncol(input_obj)}, such as
-#'                                        the output of \code{estimate_nuisance.default}.
+#'                                        the output of \code{estimate_nuisance.default}. These are Gamma
+#'                                        \emph{rates} \eqn{\beta_j = 1/\gamma_j}: the posterior mean is
+#'                                        \eqn{(A_{ji} + \mu_{ji}\beta_j)/(\ell_{ji} + \beta_j)}, so a larger
+#'                                        value pulls the posterior harder towards the fitted mean.
 #' @param alpha_max                       Maximum value of numerator when computing posterior, default is \code{1e3}.
 #' @param bool_adjust_covariates          Boolean to adjust the numerator in the posterior by the donor covariates, default is \code{FALSE}.
 #'                                        This parameter is experimental, and we have not yet encountered a scenario where it is useful to be set to be \code{TRUE}.
 #' @param bool_covariates_as_library      Boolean to include the donor covariates effects in the adjusted library size, default is \code{TRUE}.
 #' @param bool_library_includes_interept  Boolean if the intercept term from the eSVD matrix factorization should be included in the calculation for the covariate-adjusted library size, default is \code{TRUE}.
-#' @param bool_return_components          Boolean to return the numerator and denominator of the posterior terms as well (which will themselves by matrices that are cell-by-gene matrices), default is \code{FALSE}.
-#' @param bool_stabilize_underdispersion  Boolean to stabilize the over-dispersion parameter, specifically to rescale all the over-dispersions the global mean over-disperion is less than 1, default is \code{TRUE}.
+#' @param bool_return_components          Boolean to return the numerator and denominator of the posterior terms as well (themselves cell-by-gene matrices), default is \code{FALSE}.
+#' @param bool_stabilize_underdispersion  Boolean, default \code{TRUE}. \code{nuisance_vec}
+#'                                        holds Gamma \emph{rates}, so a geometric mean above 1
+#'                                        means the genes look under-dispersed on average. When
+#'                                        that happens (\code{mean(log10(nuisance_vec)) > 0}), every
+#'                                        gene's rate is divided by the geometric mean so that
+#'                                        \code{mean(log10(nuisance_vec))} becomes 0; otherwise the
+#'                                        rates are left alone.
 #' @param library_min                     All covariate-adjusted library size smaller than this value are set to this value, default is 0.1.
 #' @param nuisance_lower_quantile         All the nuisance values that are smaller than this quantile
 #'                                        are set to this quantile.
@@ -132,11 +173,11 @@ compute_posterior.default <- function(input_obj,
                                       library_size_variable,
                                       nuisance_vec,
                                       alpha_max = 1e3,
-                                      bool_adjust_covariates = F,
-                                      bool_covariates_as_library = T,
-                                      bool_library_includes_interept = T,
-                                      bool_return_components = F,
-                                      bool_stabilize_underdispersion = T,
+                                      bool_adjust_covariates = FALSE,
+                                      bool_covariates_as_library = TRUE,
+                                      bool_library_includes_interept = TRUE,
+                                      bool_return_components = FALSE,
+                                      bool_stabilize_underdispersion = TRUE,
                                       library_min = 0.1,
                                       nuisance_lower_quantile = 0.01,
                                       pseudocount = 0,
@@ -177,8 +218,13 @@ compute_posterior.default <- function(input_obj,
 
   nuisance_vec <- pmax(nuisance_vec,
                        stats::quantile(nuisance_vec, probs = nuisance_lower_quantile))
-  if(bool_stabilize_underdispersion & mean(log10(nuisance_vec)) > 0) {
-    nuisance_vec <- 10^(scale(log10(nuisance_vec), center = T, scale = F))
+  # Recentre log10(nuisance_vec) at 0 when the genes look under-dispersed on
+  # average (`nuisance_vec` is the Gamma rate, so a geometric mean above 1 is
+  # LESS over-dispersion than Poisson-Gamma with unit rate). Written as a
+  # plain subtraction rather than `scale()`, which returns a p x 1 matrix and
+  # moves `names()` to `rownames()`.
+  if(bool_stabilize_underdispersion && mean(log10(nuisance_vec)) > 0) {
+    nuisance_vec <- 10^(log10(nuisance_vec) - mean(log10(nuisance_vec)))
   }
 
   if(!is.null(alpha_max)) mean_mat_nolib <- pmin(mean_mat_nolib, alpha_max)
@@ -188,8 +234,8 @@ compute_posterior.default <- function(input_obj,
   # adjust the Alpha's based on the confounding covariates
   if(bool_adjust_covariates){
     tmp <- log(AplusAlpha)
-    nat_mat_confounder <- tcrossprod(covariates[,-idx_vec,drop = F],
-                                     esvd_res$z_mat[,-idx_vec,drop = F])
+    nat_mat_confounder <- tcrossprod(covariates[,-idx_vec,drop = FALSE],
+                                     esvd_res$z_mat[,-idx_vec,drop = FALSE])
     AplusAlpha <- exp(tmp - nat_mat_confounder)
   }
 

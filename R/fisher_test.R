@@ -12,6 +12,15 @@
 #' \code{set_overlap_len} for the number of genes in both \code{set1_genes} and \code{set2_genes},
 #' \code{set1_len} for number of genes in \code{set1_genes}, and
 #' \code{set2_len} for number of genes in \code{set2_genes}.
+#' @examples
+#' all_genes <- paste0("gene", 1:1000)
+#' set1_genes <- paste0("gene", 1:50)
+#' set2_genes <- paste0("gene", c(1:20, 501:530))
+#' res <- fisher_test(set1_genes = set1_genes,
+#'                    set2_genes = set2_genes,
+#'                    all_genes = all_genes)
+#' res$pvalue
+#' res$set_overlap_len
 #' @export
 fisher_test <- function(set1_genes,
                         set2_genes,
@@ -40,7 +49,7 @@ fisher_test <- function(set1_genes,
   }
   
   pvalue <- sum(sapply(x:k, function(i){
-    stats::dhyper(x = i, m = m, n = n, k = k, log = F)
+    stats::dhyper(x = i, m = m, n = n, k = k, log = FALSE)
   }))
   
   list(pvalue = pvalue,

@@ -11,13 +11,41 @@ compute_test_statistic <- function(input_obj, ...) {UseMethod("compute_test_stat
 
 #' Compute test statistics for eSVD object
 #'
-#' @param input_obj             \code{eSVD} object outputed from \code{compute_posterior.eSVD}.
+#' @param input_obj             \code{eSVD} object output from \code{compute_posterior.eSVD}.
 #' @param min_cells_per_individual  Minimum number of cells an individual must
 #'                              contribute; see \code{compute_test_statistic.default}.
 #' @param verbose               Integer.
 #' @param ...                   Additional parameters.
 #'
-#' @return \code{eSVD} object with added element \code{"teststat_vec"}
+#' @return \code{eSVD} object with added elements \code{teststat_vec},
+#' \code{case_mean} and \code{control_mean}, one entry per gene
+#' @examples
+#' set.seed(10)
+#' sim <- generate_null(cell_per_person = 15, num_genes = 40,
+#'                      num_individuals = 8)
+#' esvd_obj <- initialize_esvd(dat = sim$obs_mat,
+#'                             covariates = sim$covariates,
+#'                             metadata_individual = sim$metadata_individual,
+#'                             case_control_variable = "CC",
+#'                             bool_intercept = TRUE,
+#'                             k = 2,
+#'                             lambda = 0.1)
+#' esvd_obj <- reparameterization_esvd_covariates(input_obj = esvd_obj,
+#'                                                fit_name = "fit_Init",
+#'                                                omitted_variables = "Log_UMI")
+#' esvd_obj <- opt_esvd(input_obj = esvd_obj,
+#'                      max_iter = 5,
+#'                      offset_variables = setdiff(colnames(esvd_obj$covariates), "CC"),
+#'                      fit_name = "fit_First",
+#'                      fit_previous = "fit_Init")
+#' esvd_obj <- reparameterization_esvd_covariates(input_obj = esvd_obj,
+#'                                                fit_name = "fit_First",
+#'                                                omitted_variables = "Log_UMI")
+#' esvd_obj <- estimate_nuisance(input_obj = esvd_obj)
+#' esvd_obj <- compute_posterior(input_obj = esvd_obj,
+#'                               alpha_max = 2 * max(sim$obs_mat))
+#' esvd_obj <- compute_test_statistic(input_obj = esvd_obj)
+#' utils::head(esvd_obj$teststat_vec)
 #' @export
 compute_test_statistic.eSVD <- function(input_obj,
                                         min_cells_per_individual = 3,
@@ -36,7 +64,7 @@ compute_test_statistic.eSVD <- function(input_obj,
             all(!is.null(input_obj[["individual"]])) && all(is.factor(input_obj[["individual"]])) && length(input_obj[["individual"]]) == nrow(input_obj[["dat"]]))
 
   cc_vec <- input_obj[["case_control"]]
-  cc_levels <- sort(unique(cc_vec), decreasing = F)
+  cc_levels <- sort(unique(cc_vec), decreasing = FALSE)
   stopifnot(length(cc_levels) == 2)
   control_idx <- which(cc_vec == cc_levels[1])
   case_idx <- which(cc_vec == cc_levels[2])
@@ -129,15 +157,15 @@ compute_test_statistic.default <- function(input_obj,
   if(verbose >= 1) print("Computing group-level statistics")
   case_row_idx <- 1:length(case_individuals)
   control_row_idx <- (length(case_individuals)+1):nrow(avg_posterior_mean_mat)
-  case_gaussian_mean <- Matrix::colMeans(avg_posterior_mean_mat[case_row_idx,,drop = F])
-  control_gaussian_mean <- Matrix::colMeans(avg_posterior_mean_mat[control_row_idx,,drop = F])
+  case_gaussian_mean <- Matrix::colMeans(avg_posterior_mean_mat[case_row_idx,,drop = FALSE])
+  control_gaussian_mean <- Matrix::colMeans(avg_posterior_mean_mat[control_row_idx,,drop = FALSE])
   case_gaussian_var <- .compute_mixture_gaussian_variance(
-    avg_posterior_mean_mat = avg_posterior_mean_mat[case_row_idx,,drop = F],
-    avg_posterior_var_mat = avg_posterior_var_mat[case_row_idx,,drop = F]
+    avg_posterior_mean_mat = avg_posterior_mean_mat[case_row_idx,,drop = FALSE],
+    avg_posterior_var_mat = avg_posterior_var_mat[case_row_idx,,drop = FALSE]
   )
   control_gaussian_var <- .compute_mixture_gaussian_variance(
-    avg_posterior_mean_mat = avg_posterior_mean_mat[control_row_idx,,drop = F],
-    avg_posterior_var_mat = avg_posterior_var_mat[control_row_idx,,drop = F]
+    avg_posterior_mean_mat = avg_posterior_mean_mat[control_row_idx,,drop = FALSE],
+    avg_posterior_var_mat = avg_posterior_var_mat[control_row_idx,,drop = FALSE]
   )
 
   if(verbose >= 1) print("Computing test statistics")

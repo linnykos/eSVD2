@@ -33,14 +33,23 @@ test_that("compute_test_per_gene works", {
   eSVD_obj2$fit_First$nuisance_vec <- NULL
 
   res2 <- compute_test_per_gene(input_obj = eSVD_obj,
-                                alpha_max = 1e3,
+                                alpha_max = 2 * max(dat),
                                 bool_adjust_covariates = FALSE,
                                 bool_covariates_as_library = TRUE,
                                 bool_stabilize_underdispersion = TRUE,
-                                library_min = 1e-2,
+                                library_min = 0.1,
                                 nuisance_lower_quantile = 0.01,
                                 pseudocount = 0,
                                 verbose = 0 )
 
-  expect_true(abs(sum(res1$teststat_vec - res2$teststat_vec)) <= 1e-3)
+  # The fixture's posterior was computed with `alpha_max = 2 * max(dat)`
+  # and `library_min = 0.1` (tests/assets/data_generation.R); with the
+  # same settings here the two routes must agree gene by gene, not just in
+  # the sum of their differences.
+  expect_equal(unname(res2$teststat_vec), unname(res1$teststat_vec),
+               tolerance = 1e-6)
+  expect_equal(unname(res2$case_mean), unname(res1$case_mean),
+               tolerance = 1e-6)
+  expect_equal(unname(res2$control_mean), unname(res1$control_mean),
+               tolerance = 1e-6)
 })

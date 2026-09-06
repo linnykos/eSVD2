@@ -69,3 +69,11 @@
 
   which(Matrix::colSums(dat, na.rm = TRUE) == 0)
 }
+
+# An integer attribute set by the C++ optimizers, or 0 when absent (a matrix
+# that never went through `opt_x`/`opt_yz`).
+.attr_or_zero <- function(mat, attr_name){
+  val <- attr(mat, attr_name, exact = TRUE)
+  if(is.null(val)) return(0)
+  as.numeric(val)
+}

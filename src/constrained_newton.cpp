@@ -47,9 +47,11 @@ List line_search(
         alpha *= scaling;
     }
 
-    // This function will early return if a proper step size is found
-    // If no suitable alpha is obtained, return the initial x
-    Rcpp::warning("line search failed, returning the initial x");
+    // This function will early return if a proper step size is found.
+    // If no suitable alpha is obtained, return the initial x with step = 0.
+    // No Rcpp::warning() here: Rf_warning() can longjmp under
+    // options(warn = 2), skipping the destructors of the Eigen objects on
+    // this stack. The caller reads `step` and reports the failure to R.
     return List::create(
         Rcpp::Named("step") = 0.0,
         Rcpp::Named("newx") = x,
@@ -110,17 +112,27 @@ List constr_newton(
         return List::create(
             Rcpp::Named("x") = x,
             Rcpp::Named("fn") = fx,
-            Rcpp::Named("grad") = grad
+            Rcpp::Named("grad") = grad,
+            Rcpp::Named("linesearch_failed") = false
         );
 
     NumericMatrix hess = objective.hessian(x);
     NumericVector direction = compute_direction(hess, grad);
+    bool linesearch_failed = false;
 
     for(int i = 0; i < max_iter; i++)
     {
         List lns = line_search(1.0, x, fx, direction, objective, max_linesearch, 0.5);
         NumericVector newx = lns["newx"];
         double newfx = Rcpp::as<double>(lns["newfx"]);
+        const double step = Rcpp::as<double>(lns["step"]);
+        if(step <= 0.0)
+        {
+            // No descent step exists along the Newton direction; the iterate
+            // is unchanged, so iterating further cannot help.
+            linesearch_failed = true;
+            break;
+        }
 
         const double oldxnorm = xnorm;
         const double xdiff = vec_dist(newx, x);
@@ -142,6 +154,7 @@ List constr_newton(
     return List::create(
         Rcpp::Named("x") = x,
         Rcpp::Named("fn") = fx,
-        Rcpp::Named("grad") = grad
+        Rcpp::Named("grad") = grad,
+        Rcpp::Named("linesearch_failed") = linesearch_failed
     );
 }

@@ -605,3 +605,74 @@ would write first.
   works when prepended before `R CMD build`.
 - `devtools::document()` again swapped `RoxygenNote` for
   `Config/roxygen2/version: 8.1.0`; reverted again.
+
+### 2026-09-02 (Session 10 — test warnings, CRAN polish pass, readiness doc §0)
+- Kevin asked for the two test-suite warnings fixed and a CRAN polish pass,
+  with questions collected in `CRAN_READINESS.md`. Both warnings were tests
+  that produced the intended warning without asserting it (`T-REP-09`,
+  `estimate_nuisance.default` extreme-`mu`); now `expect_warning()`.
+- `R CMD check --as-cran` with the vignette built: `Status: 2 NOTEs`
+  (`New submission`; HTML Tidy missing locally). Tarball 13.2 MB → 1.0 MB.
+  Suite 687 / 0 / 0 warnings / 1 skip, 20 s. Nothing committed.
+- Found and fixed four correctness defects not in the audit: (N1) the
+  single-covariate GLM fallback in `.initialize_coefficient()` dropped the
+  library-size offset; (N2) `reparameterization_esvd_covariates()` via
+  `lm(x ~ ., as.data.frame())` mangled non-syntactic names and propagated
+  `NA` for aliased columns — replaced by a QR solve, numerically identical
+  (4e-16); (N4) `eSVD()` errored on a non-factor categorical variable
+  (`droplevels`); (N5) §1.4's `scale()` type change was still present in
+  both posterior paths. Plus (N3) `initialize_esvd()` now refuses a
+  rank-deficient design by name, (N6) §4.2 `Rcpp::warning` replaced by a
+  counted flag and one R warning, (N7) NA/non-finite guards in
+  `opt_esvd.default`.
+- Decision: §5.3 (`print()` → `message()`) resolved as *no change*; CRAN's
+  reviewer text accepts `if(verbose) cat()`, and the style guide mandates
+  `print(paste0())`.
+- Decision (Claude's, reversible, flagged as Q4): ASD tutorials moved to
+  `vignettes/articles/` (pkgdown articles, `.Rbuildignore`d); their PNGs
+  included by relative path; `EnhancedVolcano` and `devtools` dropped from
+  `Suggests`; `rmarkdown` added (was missing).
+- Decision (Claude's, flagged as Q9): legacy fixture regenerated at
+  20 individuals × 20 cells × 60 genes with xz (432 KB), keeping only what
+  tests read; `initialize_esvd1.rda` was loaded by no test and is deleted.
+  Legacy `initialize_esvd works` now drops the individual indicators
+  (rank-deficient by construction); legacy per-gene equivalence test is
+  element-wise with matched `library_min`/`alpha_max`.
+- Added `@examples` to all exported functions (40-gene `generate_null` chain,
+  ≤ 0.55 s each; `locfdr` converges at 40 genes, fails at 18). Seurat ones
+  guarded by `requireNamespace()`, two in `\donttest{}`.
+- Empirical finding: a 4e-16 change in `z_mat` flipped `locfdr`'s
+  convergence on the 18-gene fixture (eleven gene-status tests went from
+  silent to warning). Handled with `.muffle_locfdr_fallback()` in the test
+  helpers; recorded as new evidence for the amplification item.
+- `devtools::document()` again swapped `RoxygenNote` for
+  `Config/roxygen2/version: 8.1.0`; reverted again (Q11).
+- Open: Q1–Q12 in `CRAN_READINESS.md` §0.3; suggested tests §0.4.
+
+### 2026-09-06 (Session 11 — folding the vetting history back into the `vet-r-package` skill)
+- No package code, tests, or docs changed this session; the eSVD2 tree is
+  exactly as session 10 left it (still uncommitted on `devel`).
+- Kevin asked for the sessions 1–10 findings to be written back into the
+  shared `vet-r-package` skill (`claude_skills` repo, sibling of this
+  project's Dropbox folder). Edited in place, uncommitted there: `pitfalls.md`
+  173 → 473 lines, plus targeted additions to `SKILL.md`, `plan-template.md`,
+  `cran-readiness.md`.
+- Decision: entries are written by bug class in the skill's generic
+  vocabulary (unit / observation / feature), never as eSVD2 narrative, so the
+  file stays a checklist rather than a session log. Policy items (CRAN
+  findings) went to `cran-readiness.md`; bug classes to `pitfalls.md`;
+  process lessons (check before reading source, oracle field on every test
+  bullet, multi-pass review folding, `code-review` on the fix diff, tests
+  for unbuilt features skipping on `exists()`) to `SKILL.md` and the plan
+  template.
+- Checked the new file with two fresh agents on a planted-bug snippet, one
+  given the file and one not. The control found the local bugs on its own;
+  the file's marginal value was the fixture- and cohort-level classes
+  (self-reading fixture, discarded `method`, fixture below `locfdr`'s range,
+  filter order, per-arm counting) and the regime axes. The with-file agent
+  flagged five entries as ambiguous and five bug classes with no entry
+  (user string as regex, dependency return object indexed by position,
+  design built from all metadata, dependency default slot, shared downstream
+  stage not covered by an equivalence test); all ten fixed before finishing.
+- Open: the skill edits are uncommitted in `claude_skills`; Kevin reviews
+  and commits there.

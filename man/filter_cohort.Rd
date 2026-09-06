@@ -74,3 +74,29 @@ must be \code{0} (off) or at least \code{3}.
 The three rejections return the same bare \code{NA}, so the warning text
 is what tells a caller which filter fired; each names its own threshold.
 }
+\examples{
+if(requireNamespace("SeuratObject", quietly = TRUE)){
+  set.seed(10)
+  sim <- generate_null(cell_per_person = 15, num_genes = 40,
+                       num_individuals = 8)
+  meta_df <- data.frame(sim$covariates[, c("CC", "Sex", "Age")])
+  meta_df$Sex <- factor(meta_df$Sex)
+  meta_df$Individual <- sim$metadata_individual
+  rownames(meta_df) <- rownames(sim$obs_mat)
+  # Seurat rewrites "gene_1" as "gene-1" (with a warning); rename first
+  count_mat <- Matrix::t(sim$obs_mat)
+  rownames(count_mat) <- gsub("_", "", rownames(count_mat))
+  seurat_obj <- SeuratObject::CreateSeuratObject(counts = count_mat,
+                                                 meta.data = meta_df)
+
+  # drop two cells from one individual: with min_cells_per_id = 15 that
+  # individual is removed, with a warning naming it
+  seurat_small <- seurat_obj[, -(1:2)]
+  res <- filter_cohort(seurat_obj = seurat_small,
+                       id_var = "Individual",
+                       case_control_var = "CC",
+                       min_cells_per_id = 15)
+  res$dropped_individuals
+  ncol(res$seurat_obj)
+}
+}

@@ -8,7 +8,7 @@
   input_obj,
   mean_mat,
   library_mat,
-  bool_use_log = F,
+  bool_use_log = FALSE,
   min_val = 1e-04,
   verbose = 0,
   ...
@@ -34,9 +34,15 @@ library size of each entry.}
 \item{...}{Additional parameters.}
 }
 \value{
-Vector of length \eqn{p}. A gene whose estimation fails on both
+Numeric vector of length \eqn{p} (named by \code{colnames(input_obj)}
+when present) of Gamma rates. A gene whose estimation fails on both
 routes gets \code{min_val}, and a warning reports how many genes did.
 }
 \description{
-Estimate nuisance values for matrix or sparse matrices.
+Each gene's value is the maximum-likelihood Gamma \emph{rate}
+\eqn{\beta_j = 1/\gamma_j} under \eqn{A_{ji} \mid \lambda_{ji} \sim
+\mathrm{Poisson}(\ell_{ji} \lambda_{ji})}, \eqn{\lambda_{ji} \sim
+\mathrm{Gamma}(\mu_{ji} \beta_j, \beta_j)}, with \eqn{\mu} from
+\code{mean_mat} and \eqn{\ell} from \code{library_mat}. Larger values
+mean less over-dispersion.
 }

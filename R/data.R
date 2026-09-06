@@ -73,7 +73,7 @@
 #'   \item{eagle}{See website for details}
 #'   \item{number.of.reports}{See website for details}
 #' }
-#' @source <https://www.science.org/doi/10.1126/science.aav8130>
+#' @source <https://gene.sfari.org/database/human-gene/>
 #' @examples
 #' \dontrun{
 #' # How the data was loaded
@@ -98,7 +98,7 @@
 #' @examples
 #' \dontrun{
 #' # How the data was loaded
-#' df <- openxlsx::read.xlsx("/Users/kevinlin/Downloads/41586_2022_5377_MOESM5_ESM.xlsx",
+#' df <- openxlsx::read.xlsx("41586_2022_5377_MOESM5_ESM.xlsx",
 #'                           sheet = "DEGene_Statistics")
 #' gandal_df <- df[,c("external_gene_name", "WholeCortex_ASD_logFC", "WholeCortex_ASD_FDR")]
 #' usethis::use_data(gandal_df)

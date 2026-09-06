@@ -91,18 +91,19 @@ test_that("T-REP-09: the warning survives opt_esvd's tryCatch", {
   # Force rank deficiency in the fit that `opt_esvd` will reparameterize.
   esvd_obj[[latest_fit]]$x_mat[, 2] <- esvd_obj[[latest_fit]]$x_mat[, 1]
 
-  # Today this ERRORS inside `eigen()` -- "infinite or missing values in 'x'" --
-  # rather than warning and proceeding, which is what question Q-REP-1 decided.
-  # Caught so the finding is reported as this assertion instead of aborting the
-  # file.
-  res <- try(reparameterization_esvd_covariates(input_obj = esvd_obj,
-                                                fit_name = latest_fit,
-                                                omitted_variables = "Log_UMI"),
-             silent = TRUE)
+  # This used to ERROR inside `eigen()` -- "infinite or missing values in
+  # 'x'" -- rather than warn and proceed, which is what question Q-REP-1
+  # decided. The warning is the expected behaviour, so it is asserted here
+  # rather than allowed to leak out of the test.
+  expect_warning(
+    res <- reparameterization_esvd_covariates(input_obj = esvd_obj,
+                                              fit_name = latest_fit,
+                                              omitted_variables = "Log_UMI"),
+    "rank deficiency"
+  )
 
-  expect_false(inherits(res, "try-error"),
-               info = if(inherits(res, "try-error"))
-                 conditionMessage(attr(res, "condition")) else "ok")
+  expect_true(inherits(res, "eSVD"))
+  expect_true(all(is.finite(res[[latest_fit]]$x_mat)))
 })
 
 test_that("T-REP-07: .identification does not return NaN on a negative eigenvalue", {

@@ -20,149 +20,120 @@ Resolves the location names declared in the master `CLAUDE.md` → *External Loc
 
 Name the machine specifically enough that another collaborator can tell whether it is reachable to them. **A missing row means unknown; only an explicit *(not present)* row means known-absent.**
 
-## Project Status (as of 2026-09-01)
+## Project Status (as of 2026-09-06)
 
 **Goal: get `eSVD2` onto CRAN.** Correctness first; efficiency is explicitly out
 of scope for now.
 
-Nine sessions in. **The code is now fixed to the test suite.** Kevin reviewed
-the suite (2026-09-01) and gave the go-ahead; this session changed 19 `R/`
-files, 4 `src/` files, `DESCRIPTION`, `NAMESPACE`, `LICENSE`, `README.md`, and
-added `R/eSVD_helper_claude.R` (`filter_cohort()`, `eSVD_helper()`, the
-`gene_status` reinsertion). **Suite: 644 pass / 0 fail / 0 skip** (was 522 /
-37 / 28). `R CMD check --as-cran` on the built tarball: **1 WARNING, 3 NOTEs**
-(was 5 WARNINGs, 3 NOTEs); the one WARNING (`MASS` in tests) was fixed after
-that run and the tests pass under the check itself. **Nothing is committed** —
-`git status` shows 41 modified files plus 4 new; review then commit on `devel`.
+Ten package sessions in (session 11 on 2026-09-06 changed nothing here; it
+wrote the vetting lessons into the shared `vet-r-package` skill). **The package now passes `R CMD check --as-cran` with the
+vignette built: `Status: 2 NOTEs`** (`New submission`, and a missing HTML
+Tidy on this machine), tarball **1.0 MB**, suite **687 pass / 0 fail /
+0 warnings / 1 skip** in 20 s. Session 9's commit `b36376c` is the last
+commit; **this session's work is uncommitted** — 45 modified/renamed files
+plus `NEWS.md`, `cran-comments.md`, two new test files. Review, then commit
+on `devel`.
 
-The working documents:
+**Read `additional_context/CRAN_READINESS.md` §0 first.** It is rewritten
+each session and holds: what changed (§0.1, nine new correctness fixes N1–N9
+plus packaging), the state of every audit item (§0.2), **twelve questions
+for Kevin** (§0.3) and nine suggested tests (§0.4). The §1–§5 audit below it
+is the frozen 2026-08-27 text. `TEST_RUN_REPORT.md` Part 7 and
+`UNIT_TEST_PLAN.md` are unchanged.
 
-- **`additional_context/TEST_RUN_REPORT.md`** — now has **Part 7** (this
-  session): every fix by defect, the five tests and one fixture that had to
-  change and why, and the non-determinism finding. Read this first.
-- **`additional_context/UNIT_TEST_PLAN.md`** — the spec the code was fixed to.
-  Every decision in it (§9) is implemented; §2.16 / §2.17 are built exactly to
-  the five-step order.
-- **`additional_context/CRAN_READINESS.md`** — the audit. **Now further behind**:
-  §1.1, §1.2, §1.5–§1.8, §2.1–§2.5, §2.9 and the §7 landmines are done; §2.6,
-  §2.7, §2.8 (tarball is **14.8 MB**) and §5 are not. Needs a pass.
-- **`additional_context/RMPFR_REPORT.md`** — settled; `Rmpfr` is gone.
-
-**What still blocks CRAN**, in order: (1) the tarball is 14.8 MB against the
-5 MB limit — `tests/assets/synthetic_data.RData` (9.7 MB) and
-`initialize_esvd1.rda` (1.3 MB) feed the twelve legacy tests; (2) the two
-`asd*.Rmd` vignettes (undeclared `sparseMatrixStats`, multi-GB downloads);
-(3) `DESCRIPTION` polish (§2.6: version, title, `Authors@R`); (4) `print()` →
-`message()` package-wide (§5.3).
-
-**Code review of the diff (`/code-review high`, 2026-09-01)** verified ten
-findings, tabulated in `TEST_RUN_REPORT.md` §7.4. Six were fixed in-session.
-**Four are open and are the first items below.**
+**What still stands between the package and a submission** is decisions,
+not code: `Authors@R` for Yixuan Qiu and Kathryn Roeder; version `1.0.2` vs
+`1.1.0`; whether to keep the misspelled argument names; confirming the ASD
+tutorials as pkgdown articles; confirming the new rank-deficiency refusal;
+then a Windows/Linux check (`devtools::check_win_devel()`, rhub) and one
+sanitizer run.
 
 ## Key Methodological Details
 
 - **`nuisance_vec` is the Gamma *rate* `β = 1/γ`**, the reciprocal of the paper's
-  overdispersion `γ_j`. Larger `nuisance_vec` = *less* overdispersion. Now
-  stated in `?eSVD`; the other roxygen blocks still need it (§5.4).
-- **The pipeline was not deterministic and is numerically sensitive.** `irlba`
-  starts from a random vector; two identical `eSVD()` runs differed by 2e-9 at
-  initialization and by **up to 8** in the Welch statistics of the strongest
-  genes (6.70 vs 7.41; 13.99 vs 14.29), while the rest agreed to 1e-5. Fixed
-  for reproducibility with `.svd_start_vector()` (golden-ratio sequence through
-  `qnorm`, no RNG touched) for both `irlba` and `RSpectra`; identical runs now
-  agree exactly. **The amplification is real and unexplained** — most likely
-  a flat direction between the latent factors and the free covariate
-  coefficients in the second fit. T-OPT-03's "deterministic" only tested
-  `opt_esvd` from a fixed start.
-- **`gamma_rate`'s bracket fix has a large downstream consequence.** With the
-  `max(s)` cap gone (session 8, Kevin-approved), Poisson-like genes get the
-  true MLE, which is enormous: on `.small_esvd_obj()` (true rates 2.3–7.6)
-  the estimates run **18 to 6e7, 10 of 20 genes above 1e4,
-  `mean(log10) = 4.55`**, so `bool_stabilize_underdispersion = TRUE` fires and
-  rescales **every** gene's nuisance by `10^-4.55`. Before the fix the cap at
-  ≈266 hid this. On pure Poisson data with the correct mean, `gamma_rate`
-  throws Boost's "no root" (caught; falls to `log_gamma_rate`'s `exp(10)`
-  clamp). That half the fixture's genes look under-dispersed given the fitted
-  mean is itself odd — the fit's `mean_mat` may be off. **Kevin's call.**
-- **Efron's truncated MLE was wrong in the model, not the optimizer.**
-  `theta` was optimized as a free parameter, dropping `p0 <= 1`, the constraint
-  that ties the window count to the null mass; without it `sigma0` is nearly
-  unidentified on a 90% window (2.57 at 200 genes). Now `(delta0, log sigma0,
-  p0)` under `L-BFGS-B` with `p0 ∈ [1e-4, 1]`: 0.967 at 200, 0.983 at 1000
-  (locfdr 0.987). `.multtest_simple` is moment-corrected for truncation
-  (1.001 vs raw 0.79). Both verified across 50 seeds; one non-convergence in
-  50 at N = 1000, reported through `convergence` and treated as a failure.
-- **`.multtest_locfdr` still catches warnings**, and T-MT-03 pins that a
-  200-gene run falls back. locfdr's routine "f(z) misfit" warning fires on
-  large heavy-tailed gene sets while its `mlest` null is still fine, so real
-  datasets may be moved off `locfdr` (this was already true before this
-  session; what is new is that `multtest()` now **warns** every time).
-- **Bessel: no correction** (Kevin, 2026-08-29); `teststat_eSVD =
-  teststat_Welch * sqrt(n/(n-1))` is the contract (T-TSTAT-01a).
-- **`.t_to_gaussian()`** is the one place `Ẑ = Φ⁻¹(F_df(T̂))` is computed, on
-  the log scale mirrored through zero, used by both pipelines.
-- **`bool_diet = TRUE` now keeps the final fit** (`fit_Second`: `x_mat`,
-  `y_mat`, `z_mat`, `nuisance_vec`) and drops only `dat`, `covariates`,
-  `fit_Init`, `fit_First`. It used to drop all three fits, leaving
-  `latest_Fit` dangling. T-GS-11 and the §2.16 padding spec both presume the
-  fit survives. One-line revert if Kevin disagrees.
-- **Three levels share one predicate**, `.which_all_zero()` in `R/utils.R`
-  (`colSums(na.rm = TRUE) == 0`): `eSVD_helper` labels, `eSVD` and
-  `initialize_esvd` refuse. `.reinsert_genes()` pads by **name**, not
-  position, so it does not depend on Seurat's feature order.
-- **Seurat rewrites `gene_1` to `gene-1`.** The fixture's genes are now
-  `gene1`; any name-based comparison between Seurat-derived output and a
-  matrix built outside Seurat has to avoid underscores.
-- `exportPattern` is gone; the public API is exactly the 17 `export()` lines
-  in `NAMESPACE`. Tests reach internals through the namespace, and pass under
-  `R CMD check`.
-- The old `tests/assets/*.RData` fixtures are still used by the twelve legacy
-  test files and are what makes the tarball 14.8 MB.
+  overdispersion `γ_j`. Larger `nuisance_vec` = *less* overdispersion. Stated
+  in `?eSVD`, both `?estimate_nuisance` methods and `?compute_posterior`.
+- **The pipeline is numerically chaotic, and this matters for tests.** A
+  4e-16 change in `z_mat` (switching the reparameterization from `lm()` to
+  an algebraically identical QR solve) flipped whether `locfdr` converges on
+  the 18-gene `F-TINY` fixture, turning eleven silent gene-status tests into
+  warning tests. `.svd_start_vector()` makes identical inputs give identical
+  output; it does not make nearby inputs give nearby output. Any test that
+  compares two runs must go through the same code path or use a tolerance
+  set with this in mind. The tests muffle the `locfdr` fallback warning via
+  `.muffle_locfdr_fallback()` in `helper-fixtures.R`.
+- **`locfdr` needs roughly 40+ genes.** It converges on the 40-gene example
+  chain and fails on 18; `multtest()` warns whenever it falls back.
+- **Collinear covariates are now refused twice**, by name: at
+  `initialize_esvd()` (QR rank of `covariates`) and at
+  `reparameterization_esvd_covariates()`. Before, `lm()` returned `NA`
+  coefficients that silently entered `z_mat` and killed the second
+  `opt_esvd` with "missing value where TRUE/FALSE needed". Consequence:
+  `format_covariates(variables_enumerate_all = ...)` output can no longer be
+  fed to `initialize_esvd(bool_intercept = TRUE)`.
+- **The reparameterization is plain least squares on the design matrix**
+  (`qr.coef` / `qr.fitted`), so covariate names with spaces or parentheses
+  survive; `as.data.frame()` used to `make.names()` them.
+- **`.initialize_coefficient()`'s GLM fallback** (zero or one covariate left
+  after intercept and offsets) now carries the library-size offset. With
+  `Intercept + Log_UMI + CC_1` only, it used to fit intercepts without depth
+  adjustment.
+- **Line-search failures are counted in C++ and warned about once in R.**
+  `constr_newton` returns `linesearch_failed`; `opt_x`/`opt_yz` attach
+  `num_linesearch_failed` as an attribute; `opt_esvd.default` sums and warns.
+  No `Rcpp::warning()` remains in a C++ frame. Never fires on the fixtures.
+- **`gamma_rate`'s bracket fix has a large downstream consequence** (session
+  8; unchanged): Poisson-like genes get enormous rates, so
+  `bool_stabilize_underdispersion` rescales every gene by `10^-mean(log10)`.
+  Kevin's call (Q10 in the readiness doc).
+- **Efron's truncated MLE** is `(delta0, log sigma0, p0)` under `L-BFGS-B`
+  with `p0 ∈ [1e-4, 1]`; `.multtest_simple` is moment-corrected for
+  truncation. `.multtest_locfdr` still catches warnings (Q7).
+- **Bessel: no correction** (Kevin, 2026-08-29).
+- **`.t_to_gaussian()`** is the one place `Ẑ = Φ⁻¹(F_df(T̂))` is computed.
+- **`bool_diet = TRUE` keeps the final fit** (Q5 of session 9; unchanged).
+- **Three levels share `.which_all_zero()`**; `.reinsert_genes()` pads by
+  name. Seurat rewrites `gene_1` to `gene-1`; the examples rename first.
+- **`print()` behind `verbose` stays** (readiness §5.3 resolved as no
+  change): CRAN's reviewer boilerplate explicitly accepts `if(verbose)
+  cat()`, and Kevin's style guide mandates `print(paste0())`.
+- The public API is the 17 `export()` lines in `NAMESPACE`; `opt_x`,
+  `opt_yz`, `data_loader`, `esvd_family` are documented `@keywords internal`.
+- `devtools::document()` (roxygen2 8.1.0 here) rewrites `RoxygenNote:
+  7.3.3` to `Config/roxygen2/version: 8.1.0`; reverted in sessions 9 and 10
+  (Q11 in the readiness doc).
+- `R CMD build` with the vignette needs pandoc; RStudio's copy at
+  `/Applications/RStudio.app/Contents/Resources/app/quarto/bin/tools/aarch64`
+  prepended to `PATH` works. Run with `_R_CHECK_FORCE_SUGGESTS_=false`
+  no longer needed.
 
 ## Open Questions / Next Steps
 
-**From the code review, open (ordered by consequence):**
+**Decisions for Kevin — the full list with context is `CRAN_READINESS.md`
+§0.3 (Q1–Q12).** In order of consequence:
 
-1. **The nuisance blow-up** (Key Methodological Details, third bullet). Is a
-   rate of 6e7 for a gene with true rate 5 a fit problem or a data problem,
-   and should `bool_stabilize_underdispersion` really rescale all genes by
-   `10^-4.55`? Options: cap the MLE at a documented maximum (e.g. `exp(10)`,
-   matching `log_gamma_rate`); or make the stabilization robust (median, or a
-   trimmed mean, of `log10`). **Needs Kevin.**
-2. **`.multtest_locfdr` catching warnings.** Catch only errors, or only the
-   specific "CM estimation failed" warnings, so a large real dataset stays on
-   `locfdr`? T-MT-03 would need to change. **Needs Kevin.**
-3. **Four copies of the case/control-individual derivation** (`eSVD`,
-   `compute_test_statistic.eSVD`, `.compute_df`, `compute_test_per_gene`) with
-   differing error messages. Refactor into one `.split_individuals_by_arm()`.
-   Mechanical; do it.
-4. **Helper memory**: `eSVD_helper` holds a transposed copy of the counts
-   across the whole `eSVD()` call, and `.reinsert_genes` re-allocates every
-   element even when nothing was removed. Efficiency, so deferred by policy;
-   the early return is a two-line fix.
-
-**Decisions for Kevin, from this session:**
-
-5. Keep or revert **`bool_diet` keeping the final fit** (above).
-6. The **non-determinism amplification** — investigate before submission, or
-   accept and document?
-7. `LICENSE` stub says `YEAR: 2026`, `COPYRIGHT HOLDER: Kevin Z. Lin` (the
-   readiness doc suggested 2024; `Authors@R` says "Kevin Z Lin"). Pick one
-   name form for all three places.
-
-**Blocking the package's shape (unchanged):**
-
-8. `Authors@R` roles for Yixuan Qiu and Kathryn Roeder (§2.6).
-9. `asd.Rmd` / `asd-preprocess.Rmd`: vignettes or pkgdown articles? (§2.7)
-   They are what puts `sparseMatrixStats` back in the check output.
-10. The 14.8 MB tarball: shrink or replace `tests/assets/` and port the
-    twelve legacy tests to the built fixtures (UNIT_TEST_PLAN.md §1).
+1. `Authors@R`: add Yixuan Qiu and Kathryn Roeder as `aut`? One spelling of
+   Kevin's name across `DESCRIPTION` / `LICENSE`.
+2. Version: `1.0.2` (set) or `1.1.0`.
+3. Rename `bool_library_includes_interept` / `library_multipler` now or in a
+   later minor version (recommend later, with a deprecation shim).
+4. Confirm ASD tutorials as `vignettes/articles/` pkgdown articles.
+5. Confirm refusing rank-deficient covariates at `initialize_esvd()` (and the
+   `variables_enumerate_all` consequence).
+6. Keep the aggregated line-search warning, or downgrade to `verbose`.
+7. `multtest()`'s fallback warning on < ~40 genes: keep as is?
+8. `generate_null()` gene names `gene_1` vs Seurat's `gene-1`.
+9. Regenerated 400 × 60 legacy fixture vs porting the legacy tests to the
+   built fixtures.
+10. Carried over: nuisance blow-up; `.multtest_locfdr` catching warnings;
+    `bool_diet` keeping the fit; the non-determinism amplification.
 
 **Ready to start, blocked on nothing:**
 
-11. Commit this session's work on `devel` (after Kevin's review).
-12. `CRAN_READINESS.md` pass to absorb sessions 3–9.
-13. `print()`/`cat()` → `message()` package-wide (§5.3), then the §6 verbose
-    tests become `expect_message()`.
-14. State the rate/scale inversion in every nuisance roxygen block (§5.4).
-15. Re-run `R CMD check --as-cran` after the `MASS` removal and quote it.
+11. Commit this session's work on `devel` after review.
+12. Windows / Linux checks (`devtools::check_win_devel()`,
+    `rhub::rhub_check()`) and one ASan/UBSan run.
+13. The nine suggested tests in `CRAN_READINESS.md` §0.4, once the decisions
+    they depend on are made.
+14. Optional: `.split_individuals_by_arm()` refactor (four copies of the
+    case/control derivation) and §1.6 (`.compute_df()` recomputes).

@@ -129,7 +129,7 @@ public:
         m_s(s), m_gammaj(gammaj), m_l2peny(l2peny), m_l2penz(l2penz)
     {}
 
-    double objfn(NumericVector yz)
+    double objfn(NumericVector yz) override
     {
         // Fill in the given vector
         subset_vector_assign(m_YZj, yz, m_YZind);
@@ -138,7 +138,7 @@ public:
             m_distr, m_s, m_gammaj, m_l2peny, m_l2penz);
     }
 
-    NumericVector grad(NumericVector yz)
+    NumericVector grad(NumericVector yz) override
     {
         // Fill in the given vector
         subset_vector_assign(m_YZj, yz, m_YZind);
@@ -147,7 +147,7 @@ public:
             m_distr, m_s, m_gammaj, m_l2peny, m_l2penz);
     }
 
-    NumericMatrix hessian(NumericVector yz)
+    NumericMatrix hessian(NumericVector yz) override
     {
         // Fill in the given vector
         subset_vector_assign(m_YZj, yz, m_YZind);
@@ -156,7 +156,7 @@ public:
             m_distr, m_s, m_gammaj, m_l2peny, m_l2penz);
     }
 
-    List direction(NumericVector yz)
+    List direction(NumericVector yz) override
     {
         // Fill in the given vector
         subset_vector_assign(m_YZj, yz, m_YZind);
@@ -165,7 +165,7 @@ public:
             m_distr, m_s, m_gammaj, m_l2peny, m_l2penz);
     }
 
-    bool feas(NumericVector yz)
+    bool feas(NumericVector yz) override
     {
         // Fill in the given vector
         subset_vector_assign(m_YZj, yz, m_YZind);
@@ -191,6 +191,7 @@ NumericMatrix opt_x(
 
     // Make a copy of the XC0 matrix and transpose it
     MatrixXd XC = init.transpose();
+    int num_linesearch_failed = 0;
 
     // Optimize each column of XC [(k+r) x n]
     for(int i = 0; i < n; i++)
@@ -211,6 +212,8 @@ NumericMatrix opt_x(
         // Extract result
         NumericVector optx = opt["x"];
         std::copy(optx.begin(), optx.end(), XCi.data());
+        if(Rcpp::as<bool>(opt["linesearch_failed"]))
+            num_linesearch_failed++;
 
         if(verbose >= 3)
             Rcpp::Rcout << "==========" << std::endl << std::endl;
@@ -220,12 +223,14 @@ NumericMatrix opt_x(
     if(inplace)
     {
         init.noalias() = XC.transpose();
+        XC0.attr("num_linesearch_failed") = num_linesearch_failed;
         return XC0;
     }
     // Otherwise, create a new matrix
     NumericMatrix res = NumericMatrix(Rcpp::no_init_matrix(n, kr));
     MapMat resm = Rcpp::as<MapMat>(res);
     resm.noalias() = XC.transpose();
+    res.attr("num_linesearch_failed") = num_linesearch_failed;
     return res;
 }
 
@@ -248,6 +253,7 @@ NumericMatrix opt_yz(
 
     // Make a copy of the YZ0 matrix and transpose it
     MatrixXd YZ = init.transpose();
+    int num_linesearch_failed = 0;
 
     // Optimize each row of YZ [(k+r) x p]
     for(int j = 0; j < p; j++)
@@ -269,6 +275,8 @@ NumericMatrix opt_yz(
         // Extract result
         NumericVector optx = opt["x"];
         subset_vector_assign(YZj, optx, YZind);
+        if(Rcpp::as<bool>(opt["linesearch_failed"]))
+            num_linesearch_failed++;
 
         if(verbose >= 3)
             Rcpp::Rcout << "==========" << std::endl << std::endl;
@@ -278,11 +286,13 @@ NumericMatrix opt_yz(
     if(inplace)
     {
         init.noalias() = YZ.transpose();
+        YZ0.attr("num_linesearch_failed") = num_linesearch_failed;
         return YZ0;
     }
     // Otherwise, create a new matrix
     NumericMatrix res = NumericMatrix(Rcpp::no_init_matrix(p, kr));
     MapMat resm = Rcpp::as<MapMat>(res);
     resm.noalias() = YZ.transpose();
+    res.attr("num_linesearch_failed") = num_linesearch_failed;
     return res;
 }

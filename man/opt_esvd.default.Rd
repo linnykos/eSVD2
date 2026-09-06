@@ -46,7 +46,7 @@ variables should have already been split into numerous indicator variables).}
 \code{"neg_binom2"}, or \code{"bernoulli"}. Notably, with exception of
 \code{"neg_binom2"}, all the other families are parameterized such that
 eSVD is fitting the dot product to be the canonical parameter of these
-expoential-family distributions. For \code{"neg_binom2"}, the dot
+exponential-family distributions. For \code{"neg_binom2"}, the dot
 product is the log-mean of the distribution (i.e., similar to the canonical
 parameterization of the Poisson family).}
 
@@ -74,7 +74,7 @@ The default \code{NULL} uses \code{1} for every gene, which is a
 placeholder rather than an estimate; supply your own values for
 the families that use it.}
 
-\item{offset_variables}{A vector of strings depicting which column names in \code{input_obj$covariate}
+\item{offset_variables}{A vector of strings depicting which column names in \code{input_obj$covariates}
 be treated as an offset during the optimization (i.e., their coefficients will not change
 throughout the optimization).}
 
@@ -86,8 +86,10 @@ throughout the optimization).}
 }
 \value{
 a \code{list} with elements \code{x_mat}, \code{y_mat},
-\code{z_mat}, \code{library_multiplier}, \code{loss}, \code{nuisance_vec}
-and \code{param}.
+\code{z_mat}, \code{covariates}, \code{library_multipler}, \code{loss}
+(the objective after every iteration), \code{nuisance_vec} and
+\code{param}. A warning is raised if any row or column update ended in a
+failed line search.
 }
 \description{
 Optimize eSVD for matrices or sparse matrices.

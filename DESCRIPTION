@@ -1,20 +1,18 @@
 Package: eSVD2
-Title: eSVD2 for performing the eSVD-DE for cohort-wide differential expression analysis
-Version: 1.0.1.08
+Title: Cohort-Wide Differential Expression for Single-Cell RNA-Seq via
+    'eSVD-DE'
+Version: 1.0.2
 Authors@R: person("Kevin Z", "Lin", email = "kzlin@uw.edu", role = c("aut", "cre"))
-Description: This package is for the eSVD-DE, a way to test for differential
-    expression for single-cell RNA-seq data when many donors/individuals are
-    sequenced, and you wish to test for differential expression at the
-    individual-level (i.e., among individuals), not at cell-level.
-    Specifically, this method uses the eSVD matrix factorization to pool
-    information among genes together, and then carefully adjusts the denoised
-    gene expression to not inflate the Type-1 error. The eSVD matrix
-    factorization (which is the backbone of the eSVD-DE method) assumes that
-    each row and column of a matrix is associated with a low-dimensional
-    vector, and eSVD estimates an embedding for each cell with respect to a
-    hierarchical model where the inner product between the row's and column's
-    latent vectors is the natural parameter of a one-parameter exponential
-    family random variable.
+Description: Tests for differential expression between case and control
+    individuals in single-cell RNA-seq cohorts, where the unit of inference
+    is the individual (donor) rather than the cell. A low-rank exponential
+    family embedding ('eSVD') pools information across genes to denoise each
+    cell's expression, a Gamma-Poisson posterior then re-weights the denoised
+    values against the covariate-adjusted sequencing depth so that the
+    Type-1 error is not inflated, and a Welch statistic on the
+    per-individual posterior means is calibrated with an empirical null.
+    The method is described in Lin, Qiu and Roeder (2024)
+    <doi:10.1186/s12859-024-05724-7>.
 Depends:
     R (>= 3.5.0)
 License: MIT + file LICENSE
@@ -31,11 +29,9 @@ Imports:
     stats,
     utils
 Suggests:
-    devtools,
-    EnhancedVolcano,
     knitr,
-    npregfast,
     numDeriv,
+    rmarkdown,
     Seurat,
     SeuratObject,
     testthat,
@@ -44,5 +40,6 @@ LinkingTo:
     Rcpp, RcppEigen, BH
 VignetteBuilder: knitr
 NeedsCompilation: yes
-URL: https://linnykos.github.io/eSVD2/
+URL: https://linnykos.github.io/eSVD2/, https://github.com/linnykos/eSVD2
+BugReports: https://github.com/linnykos/eSVD2/issues
 RoxygenNote: 7.3.3

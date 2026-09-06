@@ -30,11 +30,16 @@ test_that("estimate_nuisance.default returns finite positive values when mu cont
   storage.mode(dat) <- "double"
   colnames(dat) <- paste0("gene", seq_len(p))
 
-  res <- estimate_nuisance.default(
-    input_obj   = dat,
-    mean_mat    = mean_mat,
-    library_mat = library_mat,
-    verbose     = 0
+  # The `Inf` column cannot be estimated on either route, so it falls to
+  # `min_val` and the function warns about it; that warning is the contract.
+  expect_warning(
+    res <- estimate_nuisance.default(
+      input_obj   = dat,
+      mean_mat    = mean_mat,
+      library_mat = library_mat,
+      verbose     = 0
+    ),
+    "nuisance estimation failed"
   )
 
   expect_true(length(res) == p)

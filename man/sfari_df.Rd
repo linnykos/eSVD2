@@ -21,7 +21,7 @@ A data frame with 1176 rows (genes) and 10 columns:
 }
 }
 \source{
-<https://www.science.org/doi/10.1126/science.aav8130>
+<https://gene.sfari.org/database/human-gene/>
 }
 \usage{
 sfari_df

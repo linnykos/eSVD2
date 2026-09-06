@@ -25,3 +25,13 @@ A list of: \code{pvalue} for the p-value,
 \description{
 Perform a Fisher's exact test. This formula is from https://www.pathwaycommons.org/guide/primers/statistics/fishers_exact_test/
 }
+\examples{
+all_genes <- paste0("gene", 1:1000)
+set1_genes <- paste0("gene", 1:50)
+set2_genes <- paste0("gene", c(1:20, 501:530))
+res <- fisher_test(set1_genes = set1_genes,
+                   set2_genes = set2_genes,
+                   all_genes = all_genes)
+res$pvalue
+res$set_overlap_len
+}

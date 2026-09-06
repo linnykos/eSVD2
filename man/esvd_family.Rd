@@ -2,16 +2,23 @@
 % Please edit documentation in R/esvd_family.R
 \name{esvd_family}
 \alias{esvd_family}
-\title{Internal Constructor for distribution family}
+\title{Internal constructor for a distribution family}
 \usage{
 esvd_family(family)
 }
 \arguments{
-\item{family}{string}
+\item{family}{One of \code{"gaussian"}, \code{"curved_gaussian"},
+\code{"exponential"}, \code{"poisson"}, \code{"neg_binom"},
+\code{"neg_binom2"} or \code{"bernoulli"}.}
 }
 \value{
-an object with conversion functions
+An object of class \code{esvd_family}: a list with \code{name},
+\code{domain} (the open interval of admissible natural parameters),
+\code{feas_always}, the external pointer \code{internal} used by the C++
+objective, and the functions \code{feasibility}, \code{dat_to_nat} and
+\code{nat_to_canon}.
 }
 \description{
-Internal Constructor for distribution family
+Internal constructor for a distribution family
 }
+\keyword{internal}

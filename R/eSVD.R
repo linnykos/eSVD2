@@ -94,6 +94,34 @@
 #' \code{nuisance_vec}), plus \code{dat}, \code{covariates}, the earlier fits
 #' and the posterior matrices when \code{bool_diet = FALSE}.
 #' \code{report_results} turns it into a data frame.
+#' @examples
+#' \donttest{
+#' if(requireNamespace("SeuratObject", quietly = TRUE)){
+#'   set.seed(10)
+#'   sim <- generate_null(cell_per_person = 15, num_genes = 40,
+#'                        num_individuals = 8)
+#'   meta_df <- data.frame(sim$covariates[, c("CC", "Sex", "Age")])
+#'   meta_df$Sex <- factor(meta_df$Sex)
+#'   meta_df$Individual <- sim$metadata_individual
+#'   rownames(meta_df) <- rownames(sim$obs_mat)
+#'   # Seurat rewrites "gene_1" as "gene-1" (with a warning); rename first
+#'   count_mat <- Matrix::t(sim$obs_mat)
+#'   rownames(count_mat) <- gsub("_", "", rownames(count_mat))
+#'   seurat_obj <- SeuratObject::CreateSeuratObject(counts = count_mat,
+#'                                                  meta.data = meta_df)
+#'
+#'   esvd_obj <- eSVD(batch_var_prefix = NULL,
+#'                    case_control_levels = c("0", "1"),
+#'                    case_control_var = "CC",
+#'                    categorical_vars = "Sex",
+#'                    id_var = "Individual",
+#'                    numerical_vars = "Age",
+#'                    seurat_obj = seurat_obj,
+#'                    k = 2,
+#'                    max_iter = 5)
+#'   utils::head(report_results(esvd_obj))
+#' }
+#' }
 #' @export
 eSVD <- function(batch_var_prefix, # a variable inside categorical_vars. Can be NULL
                  case_control_levels, # Control and then Case
@@ -202,8 +230,11 @@ eSVD <- function(batch_var_prefix, # a variable inside categorical_vars. Can be 
   }
 
   if(length(categorical_vars) >= 1){
+    # `unique()` rather than `levels(droplevels())`: a categorical variable
+    # stored as character or numeric (0/1) is converted to a factor below,
+    # and `droplevels()` on a non-factor is an obscure error.
     categorical_vars_subset <- categorical_vars[sapply(categorical_vars, function(x){
-      length(levels(droplevels(seurat_obj@meta.data[,x]))) > 1
+      length(unique(seurat_obj@meta.data[,x])) > 1
     })]
   } else {
     categorical_vars_subset <- NULL
@@ -326,7 +357,9 @@ eSVD <- function(batch_var_prefix, # a variable inside categorical_vars. Can be 
   }
 
   if(is.null(alpha_max)){
-    alpha_max <- 2*max(eSVD_obj$dat@x)
+    # `max()` rather than `max(dat@x)`: the count layer is not guaranteed to
+    # be a dgCMatrix.
+    alpha_max <- 2 * max(eSVD_obj$dat)
     stopifnot(alpha_max > 0)
   }
 

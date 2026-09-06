@@ -155,3 +155,32 @@ difference in mean expression between the case and control individuals,
 tested with a Welch statistic on the per-individual posterior means. See
 Lin, Qiu and Roeder (2024) \doi{10.1186/s12859-024-05724-7}.
 }
+\examples{
+\donttest{
+if(requireNamespace("SeuratObject", quietly = TRUE)){
+  set.seed(10)
+  sim <- generate_null(cell_per_person = 15, num_genes = 40,
+                       num_individuals = 8)
+  meta_df <- data.frame(sim$covariates[, c("CC", "Sex", "Age")])
+  meta_df$Sex <- factor(meta_df$Sex)
+  meta_df$Individual <- sim$metadata_individual
+  rownames(meta_df) <- rownames(sim$obs_mat)
+  # Seurat rewrites "gene_1" as "gene-1" (with a warning); rename first
+  count_mat <- Matrix::t(sim$obs_mat)
+  rownames(count_mat) <- gsub("_", "", rownames(count_mat))
+  seurat_obj <- SeuratObject::CreateSeuratObject(counts = count_mat,
+                                                 meta.data = meta_df)
+
+  esvd_obj <- eSVD(batch_var_prefix = NULL,
+                   case_control_levels = c("0", "1"),
+                   case_control_var = "CC",
+                   categorical_vars = "Sex",
+                   id_var = "Individual",
+                   numerical_vars = "Age",
+                   seurat_obj = seurat_obj,
+                   k = 2,
+                   max_iter = 5)
+  utils::head(report_results(esvd_obj))
+}
+}
+}

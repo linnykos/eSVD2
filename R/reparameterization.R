@@ -1,4 +1,4 @@
-.identification <- function(cov_x, cov_y, check = F, tol = 1e-6){
+.identification <- function(cov_x, cov_y, check = FALSE, tol = 1e-6){
   stopifnot(all(dim(cov_x) == dim(cov_y)), nrow(cov_x) == ncol(cov_x))
   if(nrow(cov_x) == 1){
     return(matrix((as.numeric(cov_y)/as.numeric(cov_x))^(1/4), 1, 1))
@@ -10,8 +10,8 @@
   Vx <- eigen_x$vectors
   Vy <- eigen_y$vectors
 
-  if(any(eigen_x$values <= tol) | any(eigen_y$values <= tol))
-    warning("Detecting rank defficiency in reparameterization step")
+  if(any(eigen_x$values <= tol) || any(eigen_y$values <= tol))
+    warning("Detecting rank deficiency in reparameterization step")
 
   # Proceed after the warning (question Q-REP-1). An eigenvalue at or below
   # `tol` is floored at `tol` rather than inverted: `Dx^(-1/2)` of an exact
@@ -63,8 +63,6 @@
 
 #' Function to reparameterize two matrices
 #'
-#' test
-#'
 #' Designed to output matrices of the same dimension as \code{x_mat}
 #' and \code{y_mat}, but linearly transformed so \code{x_mat \%*\% t(y_mat)}
 #' is preserved but either \code{x_mat \%*\% t(x_mat)} is diagonal and equal to
@@ -76,7 +74,8 @@
 #' @param y_mat matrix of dimension \code{p} by \code{k}
 #' @param equal_covariance boolean
 #'
-#' @return list of two matrices
+#' @return list of two matrices, \code{x_mat} and \code{y_mat}
+#' @noRd
 .reparameterize <- function(x_mat, y_mat, equal_covariance){
   stopifnot(ncol(x_mat) == ncol(y_mat))
   n <- nrow(x_mat); p <- nrow(y_mat)
@@ -94,10 +93,10 @@
   stopifnot(k <= min(dim(mat)))
 
   svd_res <- .svd_safe(mat = mat,
-                       check_stability = T,
+                       check_stability = TRUE,
                        K = k,
                        mean_vec = NULL,
-                       rescale = F,
+                       rescale = FALSE,
                        scale_max = NULL,
                        sd_vec = NULL)
   x_mat <- .mult_mat_vec(svd_res$u, sqrt(svd_res$d))
@@ -115,6 +114,23 @@
 #' @param verbose             Integer.
 #'
 #' @return \code{eSVD} object after adjusting the fit in \code{fit_name}.
+#' @examples
+#' set.seed(10)
+#' sim <- generate_null(cell_per_person = 15, num_genes = 40,
+#'                      num_individuals = 8)
+#' esvd_obj <- initialize_esvd(dat = sim$obs_mat,
+#'                             covariates = sim$covariates,
+#'                             metadata_individual = sim$metadata_individual,
+#'                             case_control_variable = "CC",
+#'                             bool_intercept = TRUE,
+#'                             k = 2,
+#'                             lambda = 0.1)
+#' esvd_obj <- reparameterization_esvd_covariates(input_obj = esvd_obj,
+#'                                                fit_name = "fit_Init",
+#'                                                omitted_variables = "Log_UMI")
+#' # x_mat is now orthogonal to the retained covariates
+#' max(abs(crossprod(esvd_obj$fit_Init$x_mat,
+#'                   esvd_obj$covariates[, "Sex"])))
 #' @export
 reparameterization_esvd_covariates <- function(input_obj,
                                                fit_name,
@@ -136,27 +152,44 @@ reparameterization_esvd_covariates <- function(input_obj,
 
   covariate_mat <- input_obj$covariates
   stopifnot("Intercept" %in% colnames(covariate_mat))
-  covariate_mat <- covariate_mat[,which(!colnames(covariate_mat) %in% omitted_variables),drop=F]
-  covariate_mat2 <- covariate_mat[,which(colnames(covariate_mat) != "Intercept"),drop=F]
+  covariate_mat <- covariate_mat[,which(!colnames(covariate_mat) %in% omitted_variables),drop = FALSE]
 
-  for(ell in 1:k){
-    tmp_df <- cbind(x_mat[,ell], covariate_mat2)
-    colnames(tmp_df)[1] <- "x"
-    tmp_df <- as.data.frame(tmp_df)
-
-    lm_res <- stats::lm(x ~ . , data = tmp_df)
-    coef_vec <- stats::coef(lm_res)
-    names(coef_vec)[1] <- "Intercept"
-    if(verbose > 0) print(paste0(ell, ": R2 of ", round(summary(lm_res)$r.squared, 2)))
-
-    for(j in 1:p){
-      z_mat[j,names(coef_vec)] <- z_mat[j,names(coef_vec)] + coef_vec*y_mat[j,ell]
+  # Each latent factor is regressed on the retained covariates (intercept
+  # included) and replaced by its residual; the fitted part is folded into
+  # the covariate coefficients so that x_mat %*% t(y_mat) + C %*% t(z_mat)
+  # is unchanged. This is plain least squares on the design matrix. It used
+  # to go through `stats::lm(x ~ ., data = as.data.frame(...))`, which
+  # (a) rewrote non-syntactic covariate names such as "Diagnosis_ASD (severe)"
+  # via make.names(), so `z_mat[, names(coef)]` was a subscript error, and
+  # (b) returned NA coefficients for aliased columns, which then propagated
+  # silently into z_mat and every posterior (CRAN_READINESS.md 1.3).
+  qr_res <- qr(covariate_mat)
+  if(qr_res$rank < ncol(covariate_mat)){
+    aliased_vec <- colnames(covariate_mat)[qr_res$pivot[-seq_len(qr_res$rank)]]
+    stop("the covariates retained for reparameterization are collinear: `",
+         paste0(aliased_vec, collapse = "`, `"),
+         "` can be written as a combination of the others. Remove one ",
+         "variable from each collinear set (or name it in ",
+         "`omitted_variables`)")
+  }
+  coef_mat <- qr.coef(qr_res, x_mat)         # ncol(covariate_mat) x k
+  rownames(coef_mat) <- colnames(covariate_mat)
+  stopifnot(all(is.finite(coef_mat)))
+  fitted_mat <- qr.fitted(qr_res, x_mat)
+  if(verbose > 0){
+    r2_vec <- 1 - colSums((x_mat - fitted_mat)^2) /
+      colSums(sweep(x_mat, 2, colMeans(x_mat))^2)
+    for(ell in seq_len(k)){
+      print(paste0(ell, ": R2 of ", round(r2_vec[ell], 2)))
     }
-
-    x_mat[,ell] <- stats::residuals(lm_res)
   }
 
-  res <- .reparameterize(x_mat, y_mat, equal_covariance = T)
+  # z_mat[, retained] += y_mat %*% t(coef_mat), matched by name.
+  z_mat[, rownames(coef_mat)] <- z_mat[, rownames(coef_mat), drop = FALSE] +
+    tcrossprod(y_mat, coef_mat)
+  x_mat <- x_mat - fitted_mat
+
+  res <- .reparameterize(x_mat, y_mat, equal_covariance = TRUE)
   x_mat <- res$x_mat; y_mat <- res$y_mat
 
   input_obj[[fit_name]]$x_mat <- x_mat
@@ -294,14 +327,14 @@ reparameterization_esvd_covariates <- function(input_obj,
                         center = mean_vec,
                         v = start_vec)
 
-    if(check_stability & K > 5) {
+    if(check_stability && K > 5) {
       tmp2 <- irlba::irlba(A = mat,
                            nv = 5,
                            scale = sd_vec,
                            center = mean_vec,
                            v = start_vec)
       ratio_vec <- tmp2$d/tmp$d[1:5]
-      if(any(ratio_vec > 2) | any(ratio_vec < 1/2)) warning("irlba is potentially unstable")
+      if(any(ratio_vec > 2) || any(ratio_vec < 1/2)) warning("irlba is potentially unstable")
     }
 
     return(tmp)
@@ -316,10 +349,10 @@ reparameterization_esvd_covariates <- function(input_obj,
 
     tmp <- irlba::irlba(A = mat, nv = K, v = start_vec)
 
-    if(check_stability & K > 5) {
+    if(check_stability && K > 5) {
       tmp2 <- irlba::irlba(A = mat, nv = 5, v = start_vec)
       ratio_vec <- tmp2$d/tmp$d[1:5]
-      if(any(ratio_vec > 2) | any(ratio_vec < 1/2)) warning("irlba is potentially unstable")
+      if(any(ratio_vec > 2) || any(ratio_vec < 1/2)) warning("irlba is potentially unstable")
     }
 
     return(tmp)
@@ -350,10 +383,10 @@ reparameterization_esvd_covariates <- function(input_obj,
   svds_opts <- list(initvec = .svd_start_vector(min(dim(mat))))
   tmp <- RSpectra::svds(A = mat, k = K, opts = svds_opts)
 
-  if(check_stability & K > 5) {
+  if(check_stability && K > 5) {
     tmp2 <- RSpectra::svds(A = mat, k = 5, opts = svds_opts)
     ratio_vec <- tmp2$d/tmp$d[1:5]
-    if(any(ratio_vec > 2) | any(ratio_vec < 1/2)) warning("RSpectra is potentially unstable")
+    if(any(ratio_vec > 2) || any(ratio_vec < 1/2)) warning("RSpectra is potentially unstable")
   }
 
   tmp

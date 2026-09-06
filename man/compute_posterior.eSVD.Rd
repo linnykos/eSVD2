@@ -7,10 +7,10 @@
 \method{compute_posterior}{eSVD}(
   input_obj,
   alpha_max = 1000,
-  bool_adjust_covariates = F,
-  bool_covariates_as_library = T,
-  bool_return_components = F,
-  bool_stabilize_underdispersion = T,
+  bool_adjust_covariates = FALSE,
+  bool_covariates_as_library = TRUE,
+  bool_return_components = FALSE,
+  bool_stabilize_underdispersion = TRUE,
   library_min = 0.1,
   nuisance_lower_quantile = 0.01,
   pseudocount = 0,
@@ -18,7 +18,7 @@
 )
 }
 \arguments{
-\item{input_obj}{\code{eSVD} object outputed from \code{opt_esvd.eSVD}.}
+\item{input_obj}{\code{eSVD} object output from \code{opt_esvd.eSVD}.}
 
 \item{alpha_max}{Maximum value of numerator when computing posterior, default is \code{1e3}.}
 
@@ -27,9 +27,15 @@ This parameter is experimental, and we have not yet encountered a scenario where
 
 \item{bool_covariates_as_library}{Boolean to include the donor covariates effects in the adjusted library size, default is \code{TRUE}}
 
-\item{bool_return_components}{Boolean to return the numerator and denominator of the posterior terms as well (which will themselves by matrices that are cell-by-gene matrices), default is \code{FALSE}}
+\item{bool_return_components}{Boolean to return the numerator and denominator of the posterior terms as well (themselves cell-by-gene matrices), default is \code{FALSE}}
 
-\item{bool_stabilize_underdispersion}{Boolean to stabilize the over-dispersion parameter, specifically to rescale all the over-dispersions the global mean over-disperion is less than 1, default is \code{TRUE}}
+\item{bool_stabilize_underdispersion}{Boolean, default \code{TRUE}. \code{nuisance_vec}
+holds Gamma \emph{rates}, so a geometric mean above 1
+means the genes look under-dispersed on average. When
+that happens (\code{mean(log10(nuisance_vec)) > 0}), every
+gene's rate is divided by the geometric mean so that
+\code{mean(log10(nuisance_vec))} becomes 0; otherwise the
+rates are left alone}
 
 \item{library_min}{All covariate-adjusted library size smaller than this value are set to this value, default is 0.1.}
 
@@ -47,4 +53,31 @@ and \code{posterior_var_mat} appended to the list in
 }
 \description{
 The posterior is computed based on whatever \code{input_obj$latest_Fit} is set to.
+}
+\examples{
+set.seed(10)
+sim <- generate_null(cell_per_person = 15, num_genes = 40,
+                     num_individuals = 8)
+esvd_obj <- initialize_esvd(dat = sim$obs_mat,
+                            covariates = sim$covariates,
+                            metadata_individual = sim$metadata_individual,
+                            case_control_variable = "CC",
+                            bool_intercept = TRUE,
+                            k = 2,
+                            lambda = 0.1)
+esvd_obj <- reparameterization_esvd_covariates(input_obj = esvd_obj,
+                                               fit_name = "fit_Init",
+                                               omitted_variables = "Log_UMI")
+esvd_obj <- opt_esvd(input_obj = esvd_obj,
+                     max_iter = 5,
+                     offset_variables = setdiff(colnames(esvd_obj$covariates), "CC"),
+                     fit_name = "fit_First",
+                     fit_previous = "fit_Init")
+esvd_obj <- reparameterization_esvd_covariates(input_obj = esvd_obj,
+                                               fit_name = "fit_First",
+                                               omitted_variables = "Log_UMI")
+esvd_obj <- estimate_nuisance(input_obj = esvd_obj)
+esvd_obj <- compute_posterior(input_obj = esvd_obj,
+                              alpha_max = 2 * max(sim$obs_mat))
+dim(esvd_obj$fit_First$posterior_mean_mat)
 }

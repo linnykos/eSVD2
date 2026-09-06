@@ -94,11 +94,18 @@
 
 
 
-#' Internal Constructor for distribution family
+#' Internal constructor for a distribution family
 #'
-#' @param family string
+#' @param family One of \code{"gaussian"}, \code{"curved_gaussian"},
+#'               \code{"exponential"}, \code{"poisson"}, \code{"neg_binom"},
+#'               \code{"neg_binom2"} or \code{"bernoulli"}.
 #'
-#' @return an object with conversion functions
+#' @returns An object of class \code{esvd_family}: a list with \code{name},
+#' \code{domain} (the open interval of admissible natural parameters),
+#' \code{feas_always}, the external pointer \code{internal} used by the C++
+#' objective, and the functions \code{feasibility}, \code{dat_to_nat} and
+#' \code{nat_to_canon}.
+#' @keywords internal
 esvd_family <- function(family)
 {
   family <- as.character(family)

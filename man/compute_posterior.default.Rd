@@ -12,11 +12,11 @@
   library_size_variable,
   nuisance_vec,
   alpha_max = 1000,
-  bool_adjust_covariates = F,
-  bool_covariates_as_library = T,
-  bool_library_includes_interept = T,
-  bool_return_components = F,
-  bool_stabilize_underdispersion = T,
+  bool_adjust_covariates = FALSE,
+  bool_covariates_as_library = TRUE,
+  bool_library_includes_interept = TRUE,
+  bool_return_components = FALSE,
+  bool_stabilize_underdispersion = TRUE,
   library_min = 0.1,
   nuisance_lower_quantile = 0.01,
   pseudocount = 0,
@@ -43,7 +43,10 @@ variables should have already been split into numerous indicator variables).}
 \item{library_size_variable}{A string of the variable name (which must be in \code{covariates}) of which variable denotes the sequenced (i.e., observed) library size.}
 
 \item{nuisance_vec}{Vector of non-negative numerics of length \code{ncol(input_obj)}, such as
-the output of \code{estimate_nuisance.default}.}
+the output of \code{estimate_nuisance.default}. These are Gamma
+\emph{rates} \eqn{\beta_j = 1/\gamma_j}: the posterior mean is
+\eqn{(A_{ji} + \mu_{ji}\beta_j)/(\ell_{ji} + \beta_j)}, so a larger
+value pulls the posterior harder towards the fitted mean.}
 
 \item{alpha_max}{Maximum value of numerator when computing posterior, default is \code{1e3}.}
 
@@ -54,9 +57,15 @@ This parameter is experimental, and we have not yet encountered a scenario where
 
 \item{bool_library_includes_interept}{Boolean if the intercept term from the eSVD matrix factorization should be included in the calculation for the covariate-adjusted library size, default is \code{TRUE}.}
 
-\item{bool_return_components}{Boolean to return the numerator and denominator of the posterior terms as well (which will themselves by matrices that are cell-by-gene matrices), default is \code{FALSE}.}
+\item{bool_return_components}{Boolean to return the numerator and denominator of the posterior terms as well (themselves cell-by-gene matrices), default is \code{FALSE}.}
 
-\item{bool_stabilize_underdispersion}{Boolean to stabilize the over-dispersion parameter, specifically to rescale all the over-dispersions the global mean over-disperion is less than 1, default is \code{TRUE}.}
+\item{bool_stabilize_underdispersion}{Boolean, default \code{TRUE}. \code{nuisance_vec}
+holds Gamma \emph{rates}, so a geometric mean above 1
+means the genes look under-dispersed on average. When
+that happens (\code{mean(log10(nuisance_vec)) > 0}), every
+gene's rate is divided by the geometric mean so that
+\code{mean(log10(nuisance_vec))} becomes 0; otherwise the
+rates are left alone.}
 
 \item{library_min}{All covariate-adjusted library size smaller than this value are set to this value, default is 0.1.}
 

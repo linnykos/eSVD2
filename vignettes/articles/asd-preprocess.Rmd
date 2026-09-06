@@ -5,10 +5,6 @@ date: "2024-06-16"
 output: 
   rmarkdown::html_vignette:
     df_print: "kable"
-vignette: >
-  %\VignetteIndexEntry{Neuron preprocessing for eSVD-DE tutorial}
-  %\VignetteEngine{knitr::rmarkdown}
-  %\VignetteEncoding{UTF-8}
 ---
 
 ```{r setup, include=FALSE}
@@ -38,7 +34,7 @@ library(sparseMatrixStats)
 
 set.seed(10)
 date_of_run <- Sys.time()
-session_info <- devtools::session_info()
+session_info <- sessionInfo()
 ```
 
 # Reading in the data
@@ -178,7 +174,7 @@ p1 + p2
 ```
 
 ```{r, out.width = "800px", fig.align="center", echo = FALSE, fig.cap=c("UMAP of the L2/3 neurons")}
-knitr::include_graphics("https://github.com/linnykos/eSVD2/blob/master/vignettes/asd-umap.png?raw=true")
+knitr::include_graphics("asd-umap.png")
 ```
 
 # Setup
@@ -186,6 +182,6 @@ knitr::include_graphics("https://github.com/linnykos/eSVD2/blob/master/vignettes
 The following shows the suggested package versions that the developer (GitHub username: linnykos) used when developing the eSVD2 package.
 
 ```{r}
-devtools::session_info()
+sessionInfo()
 ```
 

@@ -33,8 +33,16 @@ It is only required if
 matrix, useful for only \code{family = "curved_gaussian"}.}
 }
 \value{
-The generated data matrix
+The generated data matrix, of the same dimension as \code{nat_mat}
 }
 \description{
 Generate data
+}
+\examples{
+set.seed(10)
+x_mat <- matrix(stats::rnorm(20 * 2), nrow = 20, ncol = 2)
+y_mat <- matrix(stats::rnorm(10 * 2), nrow = 10, ncol = 2)
+nat_mat <- tcrossprod(x_mat, y_mat)
+dat <- generate_data(nat_mat = nat_mat, family = "poisson")
+dim(dat)
 }

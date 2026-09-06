@@ -25,7 +25,25 @@
 #' @param variables_enumerate_all     If not \code{NULL}, this allows you to control specifically which \code{factor} variables
 #'                                    in \code{covariate_df} you would like to split into indicators. By default, this is \code{NULL}, meaning all the \code{factor} variables are split into indicators
 #'
-#' @return a \code{matrix} with the same number of rows as \code{dat}
+#' @return a \code{matrix} with the same number of rows as \code{dat}, whose
+#' first two columns are \code{"Intercept"} and \code{"Log_UMI"}, followed by
+#' the numerical variables and then one indicator column
+#' \code{"<variable>_<level>"} per retained factor level.
+#' @examples
+#' set.seed(10)
+#' dat <- matrix(stats::rpois(60 * 5, lambda = 3), nrow = 60, ncol = 5)
+#' dimnames(dat) <- list(paste0("cell", 1:60), paste0("gene", 1:5))
+#' covariate_df <- data.frame(
+#'   CC = factor(rep(c("control", "case"), each = 30),
+#'               levels = c("control", "case")),
+#'   Sex = factor(rep(c("F", "M"), times = 30)),
+#'   Age = stats::rnorm(60, mean = 40, sd = 10)
+#' )
+#' covariates <- format_covariates(dat = dat,
+#'                                 covariate_df = covariate_df,
+#'                                 rescale_numeric_variables = "Age")
+#' colnames(covariates)
+#' utils::head(covariates, 3)
 #' @export
 format_covariates <- function(dat,
                               covariate_df,
@@ -41,14 +59,14 @@ format_covariates <- function(dat,
 
   numeric_vec <- setdiff(colnames(covariate_df), factor_vec)
   if(length(numeric_vec) > 0){
-    covariate_df2 <- covariate_df[,numeric_vec,drop = F]
+    covariate_df2 <- covariate_df[,numeric_vec,drop = FALSE]
     colnames(covariate_df2) <- numeric_vec
 
     if(!all(is.null(rescale_numeric_variables))){
       stopifnot(all(rescale_numeric_variables %in% numeric_vec))
 
       for(var in rescale_numeric_variables){
-        covariate_df2[,var] <- scale(covariate_df[,var], center = bool_center, scale = T)
+        covariate_df2[,var] <- scale(covariate_df[,var], center = bool_center, scale = TRUE)
       }
     }
   } else {

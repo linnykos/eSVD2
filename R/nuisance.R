@@ -12,9 +12,13 @@ estimate_nuisance <- function(input_obj, ...) {UseMethod("estimate_nuisance")}
 #' Estimate nuisance values for eSVD objects (i.e., over-dispersion)
 #'
 #' Assumes a Gamma-Poisson model where the mean and variance are proportionally
-#' related.
+#' related: \eqn{\lambda_{ji} \sim \mathrm{Gamma}(\mathrm{mean} = \mu_{ji},
+#' \mathrm{var} = \gamma_j \mu_{ji})}. The estimated \code{nuisance_vec} is
+#' the Gamma \emph{rate} \eqn{\beta_j = 1/\gamma_j}, the reciprocal of the
+#' over-dispersion \eqn{\gamma_j} in Lin, Qiu and Roeder (2024), so a
+#' \strong{larger} value means \strong{less} over-dispersion.
 #'
-#' @param input_obj                       \code{eSVD} object outputed from \code{opt_esvd.eSVD}.
+#' @param input_obj                       \code{eSVD} object output from \code{opt_esvd.eSVD}.
 #'                                        Specifically, the nuisance parameters will be estimated
 #'                                        based on the fit in \code{input_obj[[input_obj[["latest_Fit"]]]]}.
 #' @param bool_covariates_as_library      Boolean to adjust the numerator in the posterior by the donor covariates, default is \code{FALSE}.
@@ -27,11 +31,35 @@ estimate_nuisance <- function(input_obj, ...) {UseMethod("estimate_nuisance")}
 #'
 #' @return \code{eSVD} object with \code{nuisance_vec} appended to the list in
 #' \code{input_obj[[input_obj[["latest_Fit"]]]]}.
+#' @examples
+#' set.seed(10)
+#' sim <- generate_null(cell_per_person = 15, num_genes = 40,
+#'                      num_individuals = 8)
+#' esvd_obj <- initialize_esvd(dat = sim$obs_mat,
+#'                             covariates = sim$covariates,
+#'                             metadata_individual = sim$metadata_individual,
+#'                             case_control_variable = "CC",
+#'                             bool_intercept = TRUE,
+#'                             k = 2,
+#'                             lambda = 0.1)
+#' esvd_obj <- reparameterization_esvd_covariates(input_obj = esvd_obj,
+#'                                                fit_name = "fit_Init",
+#'                                                omitted_variables = "Log_UMI")
+#' esvd_obj <- opt_esvd(input_obj = esvd_obj,
+#'                      max_iter = 5,
+#'                      offset_variables = setdiff(colnames(esvd_obj$covariates), "CC"),
+#'                      fit_name = "fit_First",
+#'                      fit_previous = "fit_Init")
+#' esvd_obj <- reparameterization_esvd_covariates(input_obj = esvd_obj,
+#'                                                fit_name = "fit_First",
+#'                                                omitted_variables = "Log_UMI")
+#' esvd_obj <- estimate_nuisance(input_obj = esvd_obj)
+#' summary(esvd_obj$fit_First$nuisance_vec)
 #' @export
 estimate_nuisance.eSVD <- function(input_obj,
-                                   bool_covariates_as_library = F,
-                                   bool_library_includes_interept = T,
-                                   bool_use_log = F,
+                                   bool_covariates_as_library = FALSE,
+                                   bool_library_includes_interept = TRUE,
+                                   bool_use_log = FALSE,
                                    min_val =  1e-4,
                                    verbose = 0, ...){
   stopifnot(inherits(input_obj, "eSVD"), "latest_Fit" %in% names(input_obj),
@@ -87,6 +115,13 @@ estimate_nuisance.eSVD <- function(input_obj,
 
 #' Estimate nuisance values for matrix or sparse matrices.
 #'
+#' Each gene's value is the maximum-likelihood Gamma \emph{rate}
+#' \eqn{\beta_j = 1/\gamma_j} under \eqn{A_{ji} \mid \lambda_{ji} \sim
+#' \mathrm{Poisson}(\ell_{ji} \lambda_{ji})}, \eqn{\lambda_{ji} \sim
+#' \mathrm{Gamma}(\mu_{ji} \beta_j, \beta_j)}, with \eqn{\mu} from
+#' \code{mean_mat} and \eqn{\ell} from \code{library_mat}. Larger values
+#' mean less over-dispersion.
+#'
 #' @param input_obj    Dataset (either \code{matrix} or \code{dgCMatrix}) where the \eqn{n} rows represent cells
 #'                     and \eqn{p} columns represent genes.
 #'                     The rows and columns of the matrix should be named.
@@ -99,13 +134,14 @@ estimate_nuisance.eSVD <- function(input_obj,
 #' @param verbose      Integer.
 #' @param ...          Additional parameters.
 #'
-#' @return Vector of length \eqn{p}. A gene whose estimation fails on both
+#' @return Numeric vector of length \eqn{p} (named by \code{colnames(input_obj)}
+#' when present) of Gamma rates. A gene whose estimation fails on both
 #' routes gets \code{min_val}, and a warning reports how many genes did.
 #' @export
 estimate_nuisance.default <- function(input_obj,
                                       mean_mat,
                                       library_mat,
-                                      bool_use_log = F,
+                                      bool_use_log = FALSE,
                                       min_val =  1e-4,
                                       verbose = 0, ...){
   res <- .estimate_nuisance_matrix(dat = input_obj,

@@ -12,6 +12,10 @@
 #' @param inplace Whether the input XC_init will be modified and returned
 #' @param ...     Additional parameters
 #'
+#' @returns The optimized `[X C]` matrix, n by (k + r), with the C columns
+#' unchanged. It carries an integer attribute `num_linesearch_failed`, the
+#' number of rows whose Newton line search found no descent step.
+#' @keywords internal
 opt_x <- function(XC_init, YZ, k, loader, family, s, gamma, l2penx,
                   verbose = 0, inplace = FALSE, ...)
 {
@@ -32,9 +36,14 @@ opt_x <- function(XC_init, YZ, k, loader, family, s, gamma, l2penx,
 #' @param l2peny     The l2 penalty parameter for Y, a scalar
 #' @param l2penz     The l2 penalty parameter for Z, a scalar
 #' @param verbose    Verbosity parameter
-#' @param inplace    Whether the input XC_init will be modified and returned
+#' @param inplace    Whether the input YZ_init will be modified and returned
 #' @param ...     Additional parameters
 #'
+#' @returns The optimized `[Y Z]` matrix, p by (k + r), with the columns in
+#' `fixed_cols` unchanged. It carries an integer attribute
+#' `num_linesearch_failed`, the number of columns whose Newton line search
+#' found no descent step.
+#' @keywords internal
 opt_yz <- function(YZ_init, XC, k, fixed_cols, loader, family, s, gamma,
                    l2peny, l2penz, verbose = 0, inplace = FALSE, ...)
 {
@@ -75,6 +84,8 @@ opt_yz <- function(YZ_init, XC, k, fixed_cols, loader, family, s, gamma,
       z_mat <- z_init
     }
   }
+
+  z_mat
 }
 
 # Set row and column names of output matrices

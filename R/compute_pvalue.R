@@ -2,7 +2,7 @@
 #'
 #' This is an intermediary function used in \code{compute_pvalue}
 #'
-#' @param input_obj \code{eSVD} object outputed from \code{compute_test_statistic}.
+#' @param input_obj \code{eSVD} object output from \code{compute_test_statistic}.
 #' @param min_cells_per_individual Minimum number of cells an individual must
 #'                                 contribute; see \code{compute_test_statistic}.
 #'
@@ -23,7 +23,7 @@
             all(!is.null(input_obj[["individual"]])) && all(is.factor(input_obj[["individual"]])) && length(input_obj[["individual"]]) == nrow(input_obj[["dat"]]))
 
   cc_vec <- input_obj[["case_control"]]
-  cc_levels <- sort(unique(cc_vec), decreasing = F)
+  cc_levels <- sort(unique(cc_vec), decreasing = FALSE)
   stopifnot(length(cc_levels) == 2)
   control_idx <- which(cc_vec == cc_levels[1])
   case_idx <- which(cc_vec == cc_levels[2])
@@ -56,15 +56,15 @@
 
   case_row_idx <- 1:length(case_individuals)
   control_row_idx <- (length(case_individuals)+1):nrow(avg_posterior_mean_mat)
-  case_gaussian_mean <- Matrix::colMeans(avg_posterior_mean_mat[case_row_idx,,drop = F])
-  control_gaussian_mean <- Matrix::colMeans(avg_posterior_mean_mat[control_row_idx,,drop = F])
+  case_gaussian_mean <- Matrix::colMeans(avg_posterior_mean_mat[case_row_idx,,drop = FALSE])
+  control_gaussian_mean <- Matrix::colMeans(avg_posterior_mean_mat[control_row_idx,,drop = FALSE])
   case_gaussian_var <- .compute_mixture_gaussian_variance(
-    avg_posterior_mean_mat = avg_posterior_mean_mat[case_row_idx,,drop = F],
-    avg_posterior_var_mat = avg_posterior_var_mat[case_row_idx,,drop = F]
+    avg_posterior_mean_mat = avg_posterior_mean_mat[case_row_idx,,drop = FALSE],
+    avg_posterior_var_mat = avg_posterior_var_mat[case_row_idx,,drop = FALSE]
   )
   control_gaussian_var <- .compute_mixture_gaussian_variance(
-    avg_posterior_mean_mat = avg_posterior_mean_mat[control_row_idx,,drop = F],
-    avg_posterior_var_mat = avg_posterior_var_mat[control_row_idx,,drop = F]
+    avg_posterior_mean_mat = avg_posterior_mean_mat[control_row_idx,,drop = FALSE],
+    avg_posterior_var_mat = avg_posterior_var_mat[control_row_idx,,drop = FALSE]
   )
 
   n1 <- length(case_individuals)
@@ -111,7 +111,7 @@
 #' empirical null with \code{multtest}, and returns two-sided p-values on the
 #' \eqn{-\log_{10}} scale with Benjamini-Hochberg adjustment.
 #'
-#' @param input_obj   \code{eSVD} object outputed from \code{compute_test_statistic}.
+#' @param input_obj   \code{eSVD} object output from \code{compute_test_statistic}.
 #' @param min_cells_per_individual  Minimum number of cells an individual must
 #'                    contribute; see \code{compute_test_statistic}.
 #' @param verbose     Integer.
@@ -122,6 +122,35 @@
 #' \code{log10pvalue} (\eqn{-\log_{10}} of the two-sided p-value),
 #' \code{method} (which empirical-null estimator ran; see \code{multtest}),
 #' \code{null_mean} and \code{null_sd}.
+#' @examples
+#' set.seed(10)
+#' sim <- generate_null(cell_per_person = 15, num_genes = 40,
+#'                      num_individuals = 8)
+#' esvd_obj <- initialize_esvd(dat = sim$obs_mat,
+#'                             covariates = sim$covariates,
+#'                             metadata_individual = sim$metadata_individual,
+#'                             case_control_variable = "CC",
+#'                             bool_intercept = TRUE,
+#'                             k = 2,
+#'                             lambda = 0.1)
+#' esvd_obj <- reparameterization_esvd_covariates(input_obj = esvd_obj,
+#'                                                fit_name = "fit_Init",
+#'                                                omitted_variables = "Log_UMI")
+#' esvd_obj <- opt_esvd(input_obj = esvd_obj,
+#'                      max_iter = 5,
+#'                      offset_variables = setdiff(colnames(esvd_obj$covariates), "CC"),
+#'                      fit_name = "fit_First",
+#'                      fit_previous = "fit_Init")
+#' esvd_obj <- reparameterization_esvd_covariates(input_obj = esvd_obj,
+#'                                                fit_name = "fit_First",
+#'                                                omitted_variables = "Log_UMI")
+#' esvd_obj <- estimate_nuisance(input_obj = esvd_obj)
+#' esvd_obj <- compute_posterior(input_obj = esvd_obj,
+#'                               alpha_max = 2 * max(sim$obs_mat))
+#' esvd_obj <- compute_test_statistic(input_obj = esvd_obj)
+#' esvd_obj <- compute_pvalue(input_obj = esvd_obj)
+#' esvd_obj$pvalue_list$method
+#' utils::head(esvd_obj$pvalue_list$fdr_vec)
 #' @export
 compute_pvalue <- function(input_obj,
                            min_cells_per_individual = 3,

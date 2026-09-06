@@ -8,7 +8,7 @@ initialize_esvd(
   dat,
   covariates,
   metadata_individual,
-  bool_intercept = F,
+  bool_intercept = FALSE,
   case_control_variable = NULL,
   k = 30,
   lambda = 0.01,
@@ -55,11 +55,30 @@ By default, this is set to \code{NULL} since the code will extract this informat
 }
 \value{
 \code{eSVD} object with elements \code{dat}, \code{covariates},
-\code{initial_Reg} and \code{param}
+\code{param}, \code{fit_Init} (an \code{eSVD_Fit} with \code{x_mat},
+\code{y_mat}, \code{z_mat}), \code{latest_Fit} (\code{"fit_Init"}),
+\code{case_control} and \code{individual}
 }
 \description{
 For each gene, this function estimates two ridge-regression penalized GLMs (using the
 Poisson model) -- one using the \code{case_control_variable} and one without, and
 both sets of coefficients as well as the p-value (according to a deviance test) is returned.
 This p-value is on the log10-scale.
+}
+\examples{
+set.seed(10)
+sim <- generate_null(cell_per_person = 15, num_genes = 40,
+                     num_individuals = 8)
+esvd_obj <- initialize_esvd(dat = sim$obs_mat,
+                            covariates = sim$covariates,
+                            metadata_individual = sim$metadata_individual,
+                            case_control_variable = "CC",
+                            bool_intercept = TRUE,
+                            k = 2,
+                            lambda = 0.1)
+esvd_obj <- reparameterization_esvd_covariates(input_obj = esvd_obj,
+                                               fit_name = "fit_Init",
+                                               omitted_variables = "Log_UMI")
+names(esvd_obj)
+dim(esvd_obj$fit_Init$x_mat)
 }

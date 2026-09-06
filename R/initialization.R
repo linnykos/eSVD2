@@ -30,12 +30,30 @@
 #' @param verbose                  Integer
 #'
 #' @return \code{eSVD} object with elements \code{dat}, \code{covariates},
-#' \code{initial_Reg} and \code{param}
+#' \code{param}, \code{fit_Init} (an \code{eSVD_Fit} with \code{x_mat},
+#' \code{y_mat}, \code{z_mat}), \code{latest_Fit} (\code{"fit_Init"}),
+#' \code{case_control} and \code{individual}
+#' @examples
+#' set.seed(10)
+#' sim <- generate_null(cell_per_person = 15, num_genes = 40,
+#'                      num_individuals = 8)
+#' esvd_obj <- initialize_esvd(dat = sim$obs_mat,
+#'                             covariates = sim$covariates,
+#'                             metadata_individual = sim$metadata_individual,
+#'                             case_control_variable = "CC",
+#'                             bool_intercept = TRUE,
+#'                             k = 2,
+#'                             lambda = 0.1)
+#' esvd_obj <- reparameterization_esvd_covariates(input_obj = esvd_obj,
+#'                                                fit_name = "fit_Init",
+#'                                                omitted_variables = "Log_UMI")
+#' names(esvd_obj)
+#' dim(esvd_obj$fit_Init$x_mat)
 #' @export
 initialize_esvd <- function(dat,
                             covariates,
                             metadata_individual,
-                            bool_intercept = F,
+                            bool_intercept = FALSE,
                             case_control_variable = NULL,
                             k = 30,
                             lambda = 0.01,
@@ -60,6 +78,22 @@ initialize_esvd <- function(dat,
               (all(offset_variables %in% colnames(covariates)) && !"Intercept" %in% offset_variables))
 
   n <- nrow(dat); p <- ncol(dat)
+  if(anyNA(covariates) || any(!is.finite(covariates))){
+    stop("`covariates` contains NA or non-finite entries")
+  }
+  qr_res <- qr(covariates)
+  if(qr_res$rank < ncol(covariates)){
+    # A rank-deficient design is fit by glmnet's ridge without complaint,
+    # but the reparameterization step cannot regress on it, and the paper
+    # warns that including every individual's indicator makes the design
+    # collinear with the intercept. Refuse it here with the column names.
+    aliased_vec <- colnames(covariates)[qr_res$pivot[-seq_len(qr_res$rank)]]
+    stop("`covariates` is rank deficient (rank ", qr_res$rank, " for ",
+         ncol(covariates), " columns): `", paste0(aliased_vec, collapse = "`, `"),
+         "` can be written as a combination of the other columns. Remove ",
+         "one variable from each collinear set. Including an indicator for ",
+         "every individual, or for every level of a factor, causes this")
+  }
   # NAs are zeroed on both storage types. The sparse branch used to be
   # skipped, and a single NA in a dgCMatrix then errored inside glmnet.
   if(is.matrix(dat)){
@@ -111,7 +145,7 @@ initialize_esvd <- function(dat,
 
   eSVD_obj[["latest_Fit"]] <- "fit_Init"
 
-  if(all(is.null(metadata_case_control)) & !is.null(case_control_variable)){
+  if(all(is.null(metadata_case_control)) && !is.null(case_control_variable)){
     metadata_case_control <- covariates[,case_control_variable]
   }
   eSVD_obj[["case_control"]] <- metadata_case_control
@@ -129,10 +163,10 @@ initialize_esvd <- function(dat,
                                     offset_variables,
                                     verbose = 0){
   n <- nrow(dat); p <- ncol(dat)
-  covariates_tmp <- covariates[,which(colnames(covariates) != "Intercept"), drop = F]
+  covariates_tmp <- covariates[,which(colnames(covariates) != "Intercept"), drop = FALSE]
   if(!is.null(offset_variables)){
     covariates_tmp <- covariates_tmp[,which(!colnames(covariates_tmp) %in% offset_variables), drop=F]
-    offset_vec <- Matrix::rowSums(covariates[,offset_variables,drop = F])
+    offset_vec <- Matrix::rowSums(covariates[,offset_variables,drop = FALSE])
   } else {
     offset_vec <- NULL
   }
@@ -141,7 +175,7 @@ initialize_esvd <- function(dat,
   colnames(z_mat) <- colnames(covariates)
   rownames(z_mat) <- colnames(dat)
 
-  for(j in 1:p){
+  for(j in seq_len(p)){
     if(verbose == 1 && p >= 10 && j %% floor(p/10) == 0) cat('*')
     if(verbose >= 2) print(paste0("Working on variable ", j , " of ", p))
 
@@ -151,7 +185,7 @@ initialize_esvd <- function(dat,
                                 family = "poisson",
                                 offset = offset_vec,
                                 alpha = 0,
-                                standardize = F,
+                                standardize = FALSE,
                                 intercept = bool_intercept,
                                 lambda = exp(seq(log(1e4), log(lambda), length.out = 100)))
 
@@ -161,20 +195,37 @@ initialize_esvd <- function(dat,
         z_mat[j, c("Intercept", colnames(covariates_tmp))] <- c(0, glm_fit$beta[,ncol(glm_fit$beta)])
       }
     } else {
-      # Handle corner case when there are no covariates to adjust for
+      # `glmnet` needs at least two predictor columns, so with zero or one
+      # covariate left to estimate the fit is an unpenalized `stats::glm`.
+      # The offset (the library size) has to be carried into this branch
+      # too: it used to be dropped here, so a design with only the
+      # case-control indicator initialized every gene's intercept without
+      # adjusting for sequencing depth.
+      y_vec <- as.numeric(dat[,j])
+      glm_offset_vec <- if(is.null(offset_vec)) rep(0, n) else offset_vec
 
-      df <- as.data.frame(cbind(
-        as.numeric(dat[,j]), covariates_tmp
-      ))
-      colnames(df) <- "y"
-
-      if(bool_intercept){
-        glm_fit <- stats::glm(y ~ ., data = df, family = stats::poisson)
-        z_mat[j, c("Intercept", colnames(covariates_tmp))] <- stats::coef(glm_fit)
+      if(ncol(covariates_tmp) == 1){
+        x_vec <- covariates_tmp[,1]
+        if(bool_intercept){
+          glm_fit <- stats::glm(y_vec ~ x_vec + offset(glm_offset_vec),
+                                family = stats::poisson)
+          coef_vec <- stats::coef(glm_fit)
+        } else {
+          glm_fit <- stats::glm(y_vec ~ 0 + x_vec + offset(glm_offset_vec),
+                                family = stats::poisson)
+          coef_vec <- c(0, stats::coef(glm_fit))
+        }
       } else {
-        glm_fit <- stats::glm(y ~ . - 1, data = df, family = stats::poisson)
-        z_mat[j, c("Intercept", colnames(covariates_tmp))] <- c(0, stats::coef(glm_fit))
+        # Nothing to estimate beyond the intercept.
+        if(bool_intercept){
+          glm_fit <- stats::glm(y_vec ~ 1 + offset(glm_offset_vec),
+                                family = stats::poisson)
+          coef_vec <- stats::coef(glm_fit)
+        } else {
+          coef_vec <- 0
+        }
       }
+      z_mat[j, c("Intercept", colnames(covariates_tmp))] <- unname(coef_vec)
     }
   }
 
@@ -190,10 +241,10 @@ initialize_esvd <- function(dat,
   residual_mat <- dat_transform - nat_mat
 
   svd_res <- .svd_safe(mat = residual_mat,
-                       check_stability = T,
+                       check_stability = TRUE,
                        K = k,
                        mean_vec = NULL,
-                       rescale = F,
+                       rescale = FALSE,
                        scale_max = NULL,
                        sd_vec = NULL)
   x_mat <- .mult_mat_vec(svd_res$u, sqrt(svd_res$d))

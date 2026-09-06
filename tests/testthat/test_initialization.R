@@ -6,6 +6,11 @@ test_that("initialize_esvd works", {
   # load("tests/assets/synthetic_data.RData")
   load("../assets/synthetic_data.RData")
 
+  # The fixture's `covariates` carries one indicator per individual, which is
+  # collinear with the intercept (and with case_control_1); the initializer
+  # now refuses that design by name, as tests/assets/data_generation.R and
+  # `eSVD()` both drop those columns before fitting.
+  covariates <- covariates[, -grep("individual", colnames(covariates))]
   res <- initialize_esvd(dat = dat,
                          covariates = covariates,
                          metadata_individual = metadata[,"individual"],

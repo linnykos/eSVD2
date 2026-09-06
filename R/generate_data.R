@@ -15,7 +15,14 @@
 #' @param tol                 Small positive value to determine the smallest possible value in the output
 #'                            matrix, useful for only \code{family = "curved_gaussian"}.
 #'
-#' @return The generated data matrix
+#' @return The generated data matrix, of the same dimension as \code{nat_mat}
+#' @examples
+#' set.seed(10)
+#' x_mat <- matrix(stats::rnorm(20 * 2), nrow = 20, ncol = 2)
+#' y_mat <- matrix(stats::rnorm(10 * 2), nrow = 10, ncol = 2)
+#' nat_mat <- tcrossprod(x_mat, y_mat)
+#' dat <- generate_data(nat_mat = nat_mat, family = "poisson")
+#' dim(dat)
 #' @export
 generate_data <- function(nat_mat,
                           family,

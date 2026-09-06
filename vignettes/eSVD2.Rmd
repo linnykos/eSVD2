@@ -22,7 +22,7 @@ comment = "#>"
 
 The simulations here are meant to be portable, toy-examples of eSVD2, with the intent to demonstrate that an installation of eSVD2 was successful.
 
-A successful installation of `eSVD2` is required for this. See the last section of this README of all the system/package dependencies used when creating these simulations. Both simulations should complete in less than 2 minutes.
+A successful installation of `eSVD2` is required for this. See the last section of this vignette for the session information used when it was rendered. The whole vignette should complete in less than 2 minutes.
 
 # Overview
 
@@ -34,7 +34,8 @@ Broadly speaking, eSVD-DE (the name of the method, which is implemented in the `
 
 ```{r, message = FALSE}
 library(eSVD2)
-library(Seurat)
+# Seurat is only used for the UMAP below; every eSVD2 step runs without it.
+has_seurat <- requireNamespace("Seurat", quietly = TRUE)
 ```
 
 
@@ -50,9 +51,9 @@ metadata_individual <- res$metadata_individual
 obs_mat <- res$obs_mat
 ```
 
-If you have Seurat also installed, you can run the following lines as well,
+If you have Seurat also installed, you can run the following lines as well (the chunk is skipped otherwise),
 
-```{r, warning = FALSE, message = FALSE, fig.width = 6, fig.height = 6}
+```{r, eval = has_seurat, warning = FALSE, message = FALSE, fig.width = 6, fig.height = 6}
 set.seed(10)
 meta_data <- data.frame(covariates[, c("CC", "Sex", "Age")])
 meta_data$Individual <- metadata_individual
@@ -60,7 +61,7 @@ seurat_obj <- Seurat::CreateSeuratObject(counts = Matrix::t(obs_mat), meta.data 
 Seurat::VariableFeatures(seurat_obj) <- rownames(seurat_obj)
 seurat_obj <- Seurat::NormalizeData(seurat_obj)
 seurat_obj <- Seurat::ScaleData(seurat_obj)
-seurat_obj <- Seurat::RunPCA(seurat_obj, verbose = F)
+seurat_obj <- Seurat::RunPCA(seurat_obj, verbose = FALSE)
 seurat_obj <- Seurat::RunUMAP(seurat_obj, dims = 1:5)
 
 Seurat::DimPlot(seurat_obj, reduction = "umap", group.by = "CC")
@@ -83,7 +84,7 @@ eSVD_obj <- eSVD2::initialize_esvd(
   covariates = covariates,
   metadata_individual = metadata_individual,
   case_control_variable = "CC",
-  bool_intercept = T,
+  bool_intercept = TRUE,
   k = 5,
   lambda = 0.1,
   verbose = 0
@@ -222,8 +223,8 @@ graphics::lines(
 
 # Setup
 
-The following shows the suggested package versions that the developer (GitHub username: linnykos) used when developing the eSVD2 package.
+The session information when this vignette was rendered.
 
 ```{r}
-devtools::session_info()
+sessionInfo()
 ```
