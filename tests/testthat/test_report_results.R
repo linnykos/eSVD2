@@ -23,6 +23,6 @@ test_that("report_results works", {
 
   expect_true(sum(abs(stats::p.adjust(res$pvalue, method = "BH") - res$pvalue_adj)) <= 1e-6)
   expect_true(is.data.frame(res))
-  expect_true(all(sort(names(res)) == c("genes", "log10pvalue", "logFC", "pvalue", "pvalue_adj")))
+  expect_true(all(sort(names(res)) == c("genes", "log10pvalue", "logFC", "logFC_se", "pvalue", "pvalue_adj")))
 
 })

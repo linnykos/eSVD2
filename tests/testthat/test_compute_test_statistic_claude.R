@@ -113,24 +113,33 @@ test_that("T-TSTAT-06: permuting rows and individual_vec together changes nothin
   case_individuals <- paste0("indiv_", 1:3)
   control_individuals <- paste0("indiv_", 4:6)
 
-  res_original <- compute_test_statistic(
-    input_obj = posterior_mean_mat,
-    posterior_var_mat = posterior_var_mat,
-    case_individuals = case_individuals,
-    control_individuals = control_individuals,
-    individual_vec = individual_vec,
-    verbose = 0
+  # The matrix is mean-zero Gaussian, so some arm means are negative. That is
+  # fine for the statistic and undefined for a log fold change, which since
+  # version 1.1.0 is returned as NA with a warning (T-LFC-08).
+  expect_warning(
+    res_original <- compute_test_statistic(
+      input_obj = posterior_mean_mat,
+      posterior_var_mat = posterior_var_mat,
+      case_individuals = case_individuals,
+      control_individuals = control_individuals,
+      individual_vec = individual_vec,
+      verbose = 0
+    ),
+    regexp = "not positive"
   )
 
   set.seed(20)
   permutation_idx <- sample(n)
-  res_permuted <- compute_test_statistic(
-    input_obj = posterior_mean_mat[permutation_idx, , drop = FALSE],
-    posterior_var_mat = posterior_var_mat[permutation_idx, , drop = FALSE],
-    case_individuals = case_individuals,
-    control_individuals = control_individuals,
-    individual_vec = individual_vec[permutation_idx],
-    verbose = 0
+  expect_warning(
+    res_permuted <- compute_test_statistic(
+      input_obj = posterior_mean_mat[permutation_idx, , drop = FALSE],
+      posterior_var_mat = posterior_var_mat[permutation_idx, , drop = FALSE],
+      case_individuals = case_individuals,
+      control_individuals = control_individuals,
+      individual_vec = individual_vec[permutation_idx],
+      verbose = 0
+    ),
+    regexp = "not positive"
   )
 
   # Exchangeability. Catches any accidental positional (rather than name-based)

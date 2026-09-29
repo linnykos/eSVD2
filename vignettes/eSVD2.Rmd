@@ -221,6 +221,16 @@ graphics::lines(
 )
 ```
 
+* **Step 7 (Reporting the results):**
+The function `eSVD2::report_results()` collects the results into a data frame with one row per gene. The column `logFC` is the log2 fold change between the case and the control individuals, and `logFC_se` is its standard error, also on the log2 scale. Both are computed during Step 5 and are stored in `eSVD_obj$log2fc_vec` and `eSVD_obj$log2fc_se_vec`.
+
+```{r}
+result_df <- eSVD2::report_results(eSVD_obj)
+utils::head(result_df[order(result_df$log10pvalue, decreasing = TRUE), ])
+```
+
+The standard error is divided by the number of individuals in each arm and not by the number of cells, so it is on the same footing as the standard error from a pseudobulk analysis. Multiply `logFC` and `logFC_se` by `log(2)` to move both to the natural-log scale. Note that `logFC / logFC_se` is not the statistic behind the p-value, which is computed on the linear scale and calibrated with an empirical null. See `?eSVD2::compute_log_fold_change` for what the standard error does and does not account for.
+
 # Setup
 
 The session information when this vignette was rendered.

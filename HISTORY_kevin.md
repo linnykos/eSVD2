@@ -676,3 +676,102 @@ would write first.
   stage not covered by an equivalence test); all ten fixed before finishing.
 - Open: the skill edits are uncommitted in `claude_skills`; Kevin reviews
   and commits there.
+
+### [2026-09-28] (Session 12 — log2 fold change and its standard error; version 1.1.0)
+- Kevin asked for the fitted model to report a log fold change and its SE,
+  specifically proposal 2 of the Was2CoDE wiki page `code-esvd2.md` (the
+  log2-scale delta-method SE), folded into the ordinary output, with tests he
+  will vet himself. Not wanted: the model-coefficient SE, and the bootstrap
+  as a feature (it is a test oracle only).
+- Found at startup: sessions 9-11's work is committed (`a95e533`), the tree
+  was clean, and the suite baseline is 688 pass / 0 fail / 0 skip, not the
+  687 / 1 skip the state file recorded.
+- Decisions, approved by Kevin as a plan-mode plan (D1-D7): the SE uses the
+  mixture variance the Welch statistic uses, not the variance of individual
+  means alone; names `log2fc_vec` / `log2fc_se_vec` / `logFC_se`; a
+  non-positive arm mean gives `NA` plus a warning; an object saved before
+  1.1.0 is refused by `compute_log_fold_change()` but still reported by
+  `report_results()` with `logFC_se = NA`; version 1.1.0.
+- Rationale for storing `case_var` / `control_var` rather than recomputing:
+  a `bool_diet = TRUE` object has dropped `dat` and the posterior matrices,
+  so nothing is left to recompute from. For the same reason
+  `compute_test_per_gene()` now records the arms' individuals in `param`,
+  which only the matrix path did.
+- Finding: the within term (average per-cell posterior variance, undivided
+  by cells) is a median 98% of `log2fc_se^2` on F-SMALL and 95% on
+  `generate_null()`; the SE is 7.8 and 4.3 times the SD of a fit-fixed
+  bootstrap over individuals.
+- Finding: against 30 *refitted* `generate_null()` cohorts the SE is about
+  right on genes with an ordinary nuisance estimate (394 gene-cohorts:
+  calibration ratio 0.774, coverage of +/- 2 SE 0.959). So the within term is
+  what accounts for the fit's uncertainty, even though it is not a
+  donor-sampling variance.
+- Finding: on genes whose nuisance estimate diverges (56 gene-cohorts, rate
+  near 1e7 against true rates of 0.1 to 10) the SE is anti-conservative:
+  calibration ratio 1.538, coverage 0.357. On F-SMALL 7 of 40 genes diverge
+  and 5 of them miss their truth by more than 3 SE (planted gene 2 by 12.5).
+  This is the measured consequence of Q10.
+- Finding: the delta method understates the between-individual SD by up to
+  20% at a between-individual CV near 1 with 4 individuals per arm; within
+  CV <= 0.2 the bootstrap / delta ratio is 0.98 to 1.03.
+- Finding: the depth adjustment biases every fold change when DE genes are a
+  large share of the counts (F-SMALL: null genes at a median of -0.21).
+- Finding: `generate_null()`'s "null_large_var" genes have a true log2 fold
+  change of 0.40 for a ratio of arithmetic means; they are null only for a
+  difference of mean logs.
+- Open, not investigated: the Welch statistic is also a contrast of
+  arithmetic means, so those genes are not null for eSVD2's own test either,
+  yet T-PROP-06 counts genes 11 onward as null when it checks that p-values
+  are uniform. Whether that test passes because the effect is small beside
+  the SE or because the empirical null absorbs it has not been checked.
+- Three corrections to my own tests after their first run, all disclosed in
+  `UNIT_TEST_PLAN.md` section 2.18: T-LFC-15's tolerance was applied outside
+  the CV regime it was derived for, and its "SE never below the bootstrap"
+  assertion was not a property of the statistic; T-LFC-16 failed on the one
+  planted gene with a diverged nuisance and now restricts its 3-SE assertion
+  to not-diverged genes; T-LFC-18 was added for the mechanism. A first
+  attempt to fix T-LFC-16 by "composition-correcting" the truth was wrong
+  (it assumed a `Log_UMI` coefficient of 1; `generate_null()` fits 0.24) and
+  was dropped for the generator's own truth.
+- T-LFC-02 passed before any implementation existed, because
+  `expect_equal(NULL, NULL)` succeeds; every section-A call now goes through
+  a helper that checks the fields' lengths.
+- Teeth: ten deliberate breakages in a scratch copy, each caught by at least
+  one test (table in section 2.18).
+- Two existing test files were edited, one more than the plan said:
+  `test_report_results.R:26` (the pinned column set) and T-TSTAT-06 in
+  `test_compute_test_statistic_claude.R`, whose mean-zero Gaussian fixture
+  now triggers the D4 warning and asserts it.
+- Comparison script `additional_context/lfc-se-comparison_2026-09-28_claude.R`
+  (one cohort, 10 vs 10 individuals, 100 genes): fold changes agree with
+  DESeq2 / dreamlet / NEBULA at Spearman 0.965 to 0.978; eSVD2's SE is a
+  median 1.81 / 1.87 / 2.05 times theirs; calibration ratio 0.41 for eSVD2
+  against 0.87 / 0.94 / 0.80.
+- `NEWS.md`: the 1.0.2 section is relabelled "Development version, not
+  released", since "First CRAN submission" now belongs to 1.1.0.
+- Open: Q-LFC-1 (what to do about the diverged-nuisance SE), Q-LFC-2 (the
+  warning from the matrix method), Q-LFC-3 (names).
+- `/code-review` on the diff returned nine findings; seven were fixed.
+  Fixed: `report_results()` recomputed `logFC` from the arm means, so it
+  could show `Inf` beside an `NA` SE; the arm sizes in `param` went stale on
+  a rerun because `.combine_two_named_lists()` never overwrites; an invalid
+  gene got an SE of `NaN` rather than `NA` (inputs were blanked, not
+  outputs); a single `NA` input exempted a gene from validation; T-LFC-15
+  and -16 put thresholds on a chaotic fit without `skip_on_cran()`; the ASD
+  article read `log2fc_vec`, which a pre-1.1.0 saved object lacks (reverted
+  to the expression that works on every object); README still said 1.0.2.
+  Not fixed, by decision: the warning from the matrix method (that is
+  Q-LFC-2), and `.compute_df()` recomputing the variances (the optional
+  refactor).
+- T-LFC-08b and T-LFC-19 were added and T-LFC-12 extended for the review's
+  findings. Teeth were re-run on the final code with 14 breakages.
+- Result: suite 996 pass / 0 fail / 0 warnings / 0 skip under
+  `NOT_CRAN=true` (688 before); `R CMD build` + `R CMD check --as-cran` on
+  `eSVD2_1.1.0.tar.gz` gives `Status: 2 NOTEs` (`New submission`; HTML Tidy
+  not recent enough on this machine), tests OK, examples OK, vignette
+  rebuilt OK, tarball 1,044,809 bytes.
+- `devtools::document()` again rewrote `RoxygenNote: 7.3.3` to
+  `Config/roxygen2/version: 8.1.0`; reverted each time (Q11).
+- Open: whether `param` going stale on a rerun should be fixed for every
+  stage in `.combine_two_named_lists()`.
+- Nothing committed; session 12 is uncommitted on `devel`.

@@ -17,8 +17,15 @@ compute_test_statistic <- function(input_obj, ...) {UseMethod("compute_test_stat
 #' @param verbose               Integer.
 #' @param ...                   Additional parameters.
 #'
-#' @return \code{eSVD} object with added elements \code{teststat_vec},
-#' \code{case_mean} and \code{control_mean}, one entry per gene
+#' @return \code{eSVD} object with added elements, each a named numeric
+#' vector with one entry per gene: \code{teststat_vec} (the Welch statistic),
+#' \code{case_mean} and \code{control_mean} (the mean over the individuals of
+#' each arm of their mean posterior expression), \code{case_var} and
+#' \code{control_var} (the variance of each arm, the two quantities the
+#' statistic divides by), and \code{log2fc_vec} and \code{log2fc_se_vec} (the
+#' log2 fold change and its standard error; see
+#' \code{compute_log_fold_change}). The individuals of each arm are recorded
+#' in \code{param}.
 #' @examples
 #' set.seed(10)
 #' sim <- generate_null(cell_per_person = 15, num_genes = 40,
@@ -77,6 +84,10 @@ compute_test_statistic.eSVD <- function(input_obj,
   param <- .format_param_test_statistic(case_individuals = case_individuals,
                                         control_individuals = control_individuals)
   input_obj$param <- .combine_two_named_lists(input_obj$param, param)
+  # `.combine_two_named_lists` keeps an entry that is already there, so a
+  # rerun on a changed cohort would leave the previous individuals in place
+  # and `compute_log_fold_change` would divide by the wrong number of them.
+  input_obj$param[names(param)] <- param
 
   latest_Fit <- .get_object(eSVD_obj = input_obj, what_obj = "latest_Fit", which_fit = NULL)
   posterior_mean_mat <- .get_object(eSVD_obj = input_obj, what_obj = "posterior_mean_mat", which_fit = latest_Fit)
@@ -95,6 +106,10 @@ compute_test_statistic.eSVD <- function(input_obj,
   input_obj[["teststat_vec"]] <- res$teststat_vec
   input_obj[["case_mean"]] <- res$case_mean
   input_obj[["control_mean"]] <- res$control_mean
+  input_obj[["case_var"]] <- res$case_var
+  input_obj[["control_var"]] <- res$control_var
+  input_obj[["log2fc_vec"]] <- res$log2fc_vec
+  input_obj[["log2fc_se_vec"]] <- res$log2fc_se_vec
   input_obj
 }
 
@@ -120,7 +135,18 @@ compute_test_statistic.eSVD <- function(input_obj,
 #' @param verbose              Integer.
 #' @param ...                  Additional parameters.
 #'
-#' @return A vector of test statistics of length \code{ncol(input_obj)}
+#' @return A list of named numeric vectors, each of length
+#' \code{ncol(input_obj)} and carrying \code{colnames(input_obj)}:
+#' \code{teststat_vec}, \code{case_mean}, \code{control_mean},
+#' \code{case_var}, \code{control_var}, \code{log2fc_se_vec} and
+#' \code{log2fc_vec}. The two variances are those of the mixture over
+#' individuals that summarizes each arm, \eqn{\mathrm{mean}_i(\bar V_i) +
+#' \mathrm{var}_i(m_i)}, where \eqn{m_i} and \eqn{\bar V_i} are individual
+#' \eqn{i}'s average posterior mean and variance and the variance over
+#' individuals divides by their number, with no Bessel correction. The
+#' statistic is \code{(case_mean - control_mean) / sqrt(case_var / n1 +
+#' control_var / n0)} for \code{n1} case and \code{n0} control individuals.
+#' See \code{compute_log_fold_change} for the last two.
 #' @export
 compute_test_statistic.default <- function(input_obj,
                                            posterior_var_mat,
@@ -175,9 +201,20 @@ compute_test_statistic.default <- function(input_obj,
     (sqrt(case_gaussian_var/n1 + control_gaussian_var/n2))
   names(teststat_vec) <- colnames(posterior_mean_mat)
 
+  lfc_res <- .compute_log2_fold_change(case_mean = case_gaussian_mean,
+                                       control_mean = control_gaussian_mean,
+                                       case_var = case_gaussian_var,
+                                       control_var = control_gaussian_var,
+                                       num_case = n1,
+                                       num_control = n2)
+
   list(teststat_vec = teststat_vec,
        case_mean = case_gaussian_mean,
-       control_mean = control_gaussian_mean)
+       control_mean = control_gaussian_mean,
+       case_var = case_gaussian_var,
+       control_var = control_gaussian_var,
+       log2fc_se_vec = lfc_res$log2fc_se_vec,
+       log2fc_vec = lfc_res$log2fc_vec)
 }
 
 .determine_individual_indices <- function(case_individuals,

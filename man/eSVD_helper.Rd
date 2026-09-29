@@ -102,7 +102,8 @@ real dataset needs and \code{eSVD} itself refuses to perform:
 their original order, with levels \code{"analyzed"} (1) and
 \code{"all_zero"} (2). An \code{all_zero} gene comes back with \code{NA}
 in every per-gene estimate (\code{teststat_vec}, \code{case_mean},
-\code{control_mean}, \code{pvalue_list$df_vec},
+\code{control_mean}, \code{case_var}, \code{control_var},
+\code{log2fc_vec}, \code{log2fc_se_vec}, \code{pvalue_list$df_vec},
 \code{pvalue_list$gaussian_teststat}, and the rows of \code{y_mat},
 \code{z_mat} and \code{nuisance_vec} in the final fit), a
 \code{pvalue_list$log10pvalue} of \code{0} (that is, a p-value of 1) and a

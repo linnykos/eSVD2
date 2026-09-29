@@ -20,36 +20,89 @@ Resolves the location names declared in the master `CLAUDE.md` → *External Loc
 
 Name the machine specifically enough that another collaborator can tell whether it is reachable to them. **A missing row means unknown; only an explicit *(not present)* row means known-absent.**
 
-## Project Status (as of 2026-09-06)
+## Project Status (as of 2026-09-28)
 
 **Goal: get `eSVD2` onto CRAN.** Correctness first; efficiency is explicitly out
 of scope for now.
 
-Ten package sessions in (session 11 on 2026-09-06 changed nothing here; it
-wrote the vetting lessons into the shared `vet-r-package` skill). **The package now passes `R CMD check --as-cran` with the
-vignette built: `Status: 2 NOTEs`** (`New submission`, and a missing HTML
-Tidy on this machine), tarball **1.0 MB**, suite **687 pass / 0 fail /
-0 warnings / 1 skip** in 20 s. Session 9's commit `b36376c` is the last
-commit; **this session's work is uncommitted** — 45 modified/renamed files
-plus `NEWS.md`, `cran-comments.md`, two new test files. Review, then commit
-on `devel`.
+**Version is now `1.1.0`** (session 12). It adds the log2 fold change and its
+standard error to the ordinary output: `log2fc_vec`, `log2fc_se_vec`,
+`case_var`, `control_var` on the `eSVD` object from both test paths, a
+`logFC_se` column in `report_results()`, and the exported
+`compute_log_fold_change()`. The statistic is proposal 2 of the Was2CoDE
+wiki page `code-esvd2.md`. **Session 12's work is uncommitted on `devel`**
+(sessions 1-11 are committed, last commit `a95e533`); Kevin vets the tests,
+then commits.
 
-**Read `additional_context/CRAN_READINESS.md` §0 first.** It is rewritten
-each session and holds: what changed (§0.1, nine new correctness fixes N1–N9
-plus packaging), the state of every audit item (§0.2), **twelve questions
-for Kevin** (§0.3) and nine suggested tests (§0.4). The §1–§5 audit below it
-is the frozen 2026-08-27 text. `TEST_RUN_REPORT.md` Part 7 and
-`UNIT_TEST_PLAN.md` are unchanged.
+**`R CMD check --as-cran` on the 1.1.0 tarball: `Status: 2 NOTEs`**
+(`New submission`, and a missing HTML Tidy on this machine), the same two as
+before, with the vignette built and tarball 1.0 MB. Suite under
+`NOT_CRAN=true`: **996 pass / 0 fail / 0 warnings / 0 skip** in 41 s across
+30 files, up from 688. Three of the new tests (T-LFC-15, -16, -17) are
+`skip_on_cran()`, so a bare `R CMD check` does not run them.
+
+**Read `additional_context/UNIT_TEST_PLAN.md` section 2.18 first** for the
+new feature: the 18 tests (T-LFC-01 to -18) with their oracles, the ten
+breakages they were shown to catch, the five findings, the three corrections
+made to the tests after their first run, and Q-LFC-1 to -3.
+`additional_context/CRAN_READINESS.md` section 0 is still the session-10 text
+and does not mention 1.1.0.
 
 **What still stands between the package and a submission** is decisions,
-not code: `Authors@R` for Yixuan Qiu and Kathryn Roeder; version `1.0.2` vs
-`1.1.0`; whether to keep the misspelled argument names; confirming the ASD
-tutorials as pkgdown articles; confirming the new rank-deficiency refusal;
-then a Windows/Linux check (`devtools::check_win_devel()`, rhub) and one
-sanitizer run.
+not code: the three Q-LFC questions; `Authors@R` for Yixuan Qiu and Kathryn
+Roeder; whether to keep the misspelled argument names; confirming the ASD
+tutorials as pkgdown articles; confirming the rank-deficiency refusal; then a
+Windows/Linux check (`devtools::check_win_devel()`, rhub) and one sanitizer
+run.
 
 ## Key Methodological Details
 
+- **The log2 SE is `(1/ln 2) * sqrt(case_var/(n1*case_mean^2) +
+  control_var/(n0*control_mean^2))`**, `n` counting individuals, the
+  variances being the mixture variances the Welch statistic divides by (no
+  Bessel). `.compute_log2_fold_change()` is the only place the formula lives.
+- **The within term is most of that SE** (median 98% of `log2fc_se^2` on
+  F-SMALL, 95% on `generate_null()`), so the SE is 4 to 8 times the SD of a
+  fit-fixed bootstrap over individuals. Against cohorts that are *refitted*
+  it is about right: calibration ratio 0.77, coverage of +/- 2 SE 0.96, on
+  genes with an ordinary nuisance estimate. Refitting moves the fold change
+  far more than resampling individuals does.
+- **Where the nuisance estimate diverges the SE is anti-conservative.** About
+  12% of genes on the toy cohorts get a rate near 1e7 (true rates 0.1 to 10);
+  the posterior collapses onto the fit, the within term vanishes, coverage
+  falls to 0.36, and the Welch statistic is in the tens. This is Q10's
+  downstream face. The diverged genes also inflate the geometric mean that
+  `bool_stabilize_underdispersion` divides every gene's rate by.
+- **The depth adjustment shifts every fold change.** `Log_UMI` is the log of
+  the observed total, which moves with the DE genes: on F-SMALL five planted
+  genes raise a case cell's total by 2^0.23 and the 35 null genes come out at
+  a median of -0.21. A test's truth must be the generator's `nat_mat` ratio,
+  and a 3-SE tolerance hides this bias.
+- **`generate_null()`'s "null_large_var" genes are not null for a ratio of
+  means.** The arms share a log-scale mean but differ in within-individual SD
+  (0.1 vs 0.75), so the ratio of arithmetic means is exp(0.276), log2FC 0.40.
+  Only the "null_interleaved" genes (even positions from 12) have truth 0.
+  The Welch statistic is a contrast of arithmetic means too, so T-PROP-06,
+  which treats genes 11 onward as null, is counting non-null genes as null
+  (not yet investigated).
+- **Against DESeq2 / dreamlet / NEBULA** on one simulated cohort (10 vs 10
+  individuals, 100 genes): fold changes agree at Spearman 0.97 to 0.98; the
+  eSVD2 SE is a median 1.8 to 2.1 times theirs and its rank correlation with
+  theirs is 0.69 to 0.71 (theirs with each other: 0.97 to 0.99).
+- **`compute_test_statistic.default()` warns on a non-positive arm mean**
+  (fold change `NA`). Mean-zero Gaussian matrices, which several older tests
+  use, trigger it; T-TSTAT-06 now asserts it.
+- **`expect_equal(NULL, NULL)` passes**, so a test of a field that does not
+  exist yet is green. The new test file guards every section-A call with a
+  length check for this reason.
+- **`.combine_two_named_lists()` never overwrites an existing entry**
+  (T-UTIL-03 pins it), so `param` goes stale when any stage is rerun with
+  different settings. The two test functions now overwrite their own two
+  entries (`test_case_individuals`, `test_control_individuals`), because the
+  SE divides by their lengths. Every other stage's `param` entries still go
+  stale on a rerun.
+- **`report_results()` reads `logFC` from `log2fc_vec`** and recomputes it
+  from the arm means only for an object built before 1.1.0.
 - **`nuisance_vec` is the Gamma *rate* `β = 1/γ`**, the reciprocal of the paper's
   overdispersion `γ_j`. Larger `nuisance_vec` = *less* overdispersion. Stated
   in `?eSVD`, both `?estimate_nuisance` methods and `?compute_posterior`.
@@ -109,31 +162,50 @@ sanitizer run.
 
 ## Open Questions / Next Steps
 
-**Decisions for Kevin — the full list with context is `CRAN_READINESS.md`
-§0.3 (Q1–Q12).** In order of consequence:
+**Decisions for Kevin, newest first.** Q-LFC-1 to -3 are in
+`UNIT_TEST_PLAN.md` section 2.18; Q1-Q12 are in `CRAN_READINESS.md` section
+0.3.
 
-1. `Authors@R`: add Yixuan Qiu and Kathryn Roeder as `aut`? One spelling of
+1. **Q-LFC-1**: the SE is unreliable where the nuisance estimate diverges.
+   Document only (done), repair the divergence upstream (Q10), or flag such
+   genes in `report_results()`.
+2. **Q-LFC-2**: keep the warning from `compute_test_statistic.default()` on a
+   non-positive arm mean, or return `NA` silently from the matrix method.
+3. **Q-LFC-3**: the names `log2fc_vec` / `log2fc_se_vec` and `logFC_se`.
+4. Is the mixture variance (per-cell posterior variance undivided by cells per
+   individual) the intended variance for a reported SE? It is what the test
+   uses and what the wiki's proposal 2 specifies; the alternative is the
+   variance of the individual means alone.
+5. `Authors@R`: add Yixuan Qiu and Kathryn Roeder as `aut`? One spelling of
    Kevin's name across `DESCRIPTION` / `LICENSE`.
-2. Version: `1.0.2` (set) or `1.1.0`.
-3. Rename `bool_library_includes_interept` / `library_multipler` now or in a
+6. Rename `bool_library_includes_interept` / `library_multipler` now or in a
    later minor version (recommend later, with a deprecation shim).
-4. Confirm ASD tutorials as `vignettes/articles/` pkgdown articles.
-5. Confirm refusing rank-deficient covariates at `initialize_esvd()` (and the
+7. Confirm ASD tutorials as `vignettes/articles/` pkgdown articles.
+8. Confirm refusing rank-deficient covariates at `initialize_esvd()` (and the
    `variables_enumerate_all` consequence).
-6. Keep the aggregated line-search warning, or downgrade to `verbose`.
-7. `multtest()`'s fallback warning on < ~40 genes: keep as is?
-8. `generate_null()` gene names `gene_1` vs Seurat's `gene-1`.
-9. Regenerated 400 × 60 legacy fixture vs porting the legacy tests to the
-   built fixtures.
-10. Carried over: nuisance blow-up; `.multtest_locfdr` catching warnings;
-    `bool_diet` keeping the fit; the non-determinism amplification.
+9. Keep the aggregated line-search warning, or downgrade to `verbose`.
+10. `multtest()`'s fallback warning on < ~40 genes: keep as is?
+11. `generate_null()` gene names `gene_1` vs Seurat's `gene-1`.
+12. Regenerated 400 x 60 legacy fixture vs porting the legacy tests to the
+    built fixtures.
+13. `param` going stale on a rerun of `opt_esvd`, `estimate_nuisance` or
+    `compute_posterior` (see Key Methodological Details): fix in
+    `.combine_two_named_lists()`, or leave?
+14. T-PROP-06 counts `generate_null()`'s "null_large_var" genes as null;
+    they are not. Investigate whether the test still means what it says.
+15. Carried over: nuisance blow-up (now with a measured consequence, item 1);
+    `.multtest_locfdr` catching warnings; `bool_diet` keeping the fit; the
+    non-determinism amplification.
 
 **Ready to start, blocked on nothing:**
 
-11. Commit this session's work on `devel` after review.
-12. Windows / Linux checks (`devtools::check_win_devel()`,
+16. Vet `tests/testthat/test_compute_log_fold_change_claude.R`, then commit
+    session 12 on `devel`.
+17. Windows / Linux checks (`devtools::check_win_devel()`,
     `rhub::rhub_check()`) and one ASan/UBSan run.
-13. The nine suggested tests in `CRAN_READINESS.md` §0.4, once the decisions
-    they depend on are made.
-14. Optional: `.split_individuals_by_arm()` refactor (four copies of the
-    case/control derivation) and §1.6 (`.compute_df()` recomputes).
+18. The nine suggested tests in `CRAN_READINESS.md` section 0.4, once the
+    decisions they depend on are made.
+19. Rebuild the pkgdown site (`docs/`) so it lists `compute_log_fold_change`.
+20. Optional: `.compute_df()` could now read the stored `case_var` /
+    `control_var` instead of recomputing them; `.split_individuals_by_arm()`
+    refactor (four copies of the case/control derivation).

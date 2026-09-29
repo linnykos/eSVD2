@@ -1,7 +1,7 @@
 Package: eSVD2
 Title: Cohort-Wide Differential Expression for Single-Cell RNA-Seq via
     'eSVD-DE'
-Version: 1.0.2
+Version: 1.1.0
 Authors@R: person("Kevin Z", "Lin", email = "kzlin@uw.edu", role = c("aut", "cre"))
 Description: Tests for differential expression between case and control
     individuals in single-cell RNA-seq cohorts, where the unit of inference

@@ -856,6 +856,146 @@ rather than reusing `F-TINY`.
 
 ---
 
+### 2.18 Log2 fold change and its standard error — `test_compute_log_fold_change_claude.R` **[new file, new feature]**
+
+Added 2026-09-28 with eSVD2 1.1.0. Unlike the rest of this plan, this section
+was written *with* the tests, not before them: Kevin asked for the feature and
+the tests together and approved the list below as a plan-mode plan. All 20
+(T-LFC-01 to -19, with -08b) are implemented and green (306 expectations). The statistic is
+
+```
+log2fc    = log2(case_mean / control_mean)
+log2fc_se = (1 / ln 2) * sqrt(case_var / (n1 * case_mean^2) + control_var / (n0 * control_mean^2))
+```
+
+with `n1`, `n0` the number of *individuals* and `case_var`, `control_var` the
+mixture variances the Welch statistic already divides by.
+
+**Fixtures**, all built in the test file: a hand-built pair of posterior
+matrices (3 case / 5 control individuals, unequal cells, shuffled rows); a
+donor-level pair (identical cells, zero posterior variance); F-SMALL fitted
+through both `opt_esvd` rounds; `generate_null()` cohorts (8 individuals, 20
+cells each, 40 genes) fitted the same way.
+
+**A. The formula**
+
+| ID | Assert | Oracle | Why |
+|---|---|---|---|
+| T-LFC-01 | the four new vectors equal an explicit per-individual loop; `log2fc_se_vec * log(2)` is the natural-log SE | [oracle] independent loop, centred variance, no averaging matrix | the headline numbers, and the scale |
+| T-LFC-02 | SE equals `sqrt(g' Σ g)` with `g` from `numDeriv::grad` of `log2(a/b)` | [oracle] numerical delta method | an algebra slip in the closed form cannot also be in a numerical gradient |
+| T-LFC-03 | on donor-level data `case_var = (n-1)/n * stats::var(.)`, the log2 SE is the textbook form, and with equal arms the linear SE is `stats::t.test()$stderr * sqrt((n-1)/n)` | [oracle] `stats::var`, `stats::t.test` | the only external oracle; pins the no-Bessel decision for the SE as T-TSTAT-01a does for the statistic |
+| T-LFC-04 | `(case_mean - control_mean) / sqrt(case_var/n1 + control_var/n0)` equals `teststat_vec` | [invariant] | the stored variances are the ones the statistic used |
+| T-LFC-05 | swapping arms negates `log2fc_vec`, keeps the SE, swaps the variances | [invariant] | |
+| T-LFC-06 | means × c and variances × c² leave both unchanged, c from 0.01 to 100 | [invariant] | a log ratio has no units; catches an unsquared mean |
+| T-LFC-07 | k× the cells leaves the SE unchanged; k× the individuals divides it by `sqrt(k)` | [invariant] | the unit of replication is the individual; a cell-level SE fails the first half |
+| T-LFC-08 | a non-positive arm mean gives `NA` in both, one warning, other genes untouched | decision D4 | `log2()` would return `NaN` / `-Inf` silently |
+| T-LFC-08b | at the helper: a `NaN` variance, a negative mean beside an `NA` variance, a negative variance, one `NA` among valid inputs, a zero mean and an infinite mean all give `NA_real_` in both outputs (never `NaN` or `Inf`) under one warning counting 6; a gene whose four inputs are all `NA` is silent | decision D4 | added after code review, which found an SE of `NaN` and a guard skipped by a single `NA` |
+| T-LFC-09 | every new vector is a plain named numeric vector carrying the gene names | [invariant] | |
+
+**B. The plumbing**
+
+| ID | Assert | Oracle | Why |
+|---|---|---|---|
+| T-LFC-10 | `compute_test_per_gene` matches the matrix path on the four vectors (1e-8) and records the individuals in `param` | [oracle] the other implementation | two implementations, one oracle for free |
+| T-LFC-11 | `compute_log_fold_change()` matches a recomputation from the posterior matrices via `rowsum()`; idempotent | [oracle] | |
+| T-LFC-12 | `report_results()` has `logFC_se` directly after `logFC`, equal to the stored vectors, finite and positive; a gene blanked in the stored vectors is `NA` in both columns | [oracle] | the numbers the user reads; `logFC` is read from the object and not recomputed |
+| T-LFC-13 | both `bool_diet` paths of `eSVD()` agree; `compute_log_fold_change()` works on a diet object; `eSVD_helper()` gives `NA` at exactly the all-zero genes (positions 3 and 12) | [invariant] | reinsertion by position, and the reason the variances are stored |
+| T-LFC-14 | an object without `case_var` is refused by `compute_log_fold_change()` by name; `report_results()` returns `logFC_se = NA` with a warning | decision D5 | objects saved before 1.1.0 |
+| T-LFC-19 | after a stale `param` is planted, `compute_test_statistic()` and `compute_test_per_gene()` both refresh the recorded individuals, and `compute_log_fold_change()` then reproduces the SE | [invariant] | added after code review: `.combine_two_named_lists` never overwrites, so a rerun on a changed cohort left the old individuals and the SE was divided by the wrong number |
+
+**C. Does it behave as a standard error**
+
+| ID | Assert | Oracle | Why |
+|---|---|---|---|
+| T-LFC-15 | the between-individual part of the SE matches a bootstrap over individuals (B = 2000, fit held fixed) within 10%, on the genes with between-individual CV ≤ 0.2. `skip_on_cran()` | [oracle] bootstrap | the linearization and the 1/n scaling, at 4 individuals per arm |
+| T-LFC-16 | planted genes have the right sign; on genes whose nuisance estimate has not diverged, the generator's truth is within 3 SE. `skip_on_cran()` | [oracle] generator truth from `nat_mat` | recovery |
+| T-LFC-17 | over 30 refitted `generate_null()` cohorts, on the exactly-null genes: `sqrt(mean(log2fc²) / mean(se²)) ≤ 1.2` and ±2 SE covers 0 at ≥ 0.831, for all genes and for the not-diverged genes. `skip_on_cran()` | [oracle] repeated sampling | the only test that does not hold the fit fixed |
+| T-LFC-18 | setting every nuisance rate to 1e6 shrinks the within part of the SE by more than 100× and leaves the SE equal to its between part | [invariant] posterior variance is `mu / r` for large `r` | the mechanism behind the restriction in T-LFC-16 and -17 |
+
+**Teeth.** Fourteen deliberate breakages were applied one at a time in a
+scratch copy of the final code; every one turned at least one test red.
+
+| Breakage | Tests that go red |
+|---|---|
+| drop `1 / ln 2` from the SE | 01 02 03 08b 11 15 17 18 |
+| divide by cells, not individuals | 01 02 03 07 10 11 13 15 16 17 18 19 |
+| means not squared | 01 02 03 06 08b 11 15 18 |
+| arm means swapped in the SE | 01 02 03 11 15 18 |
+| natural-log fold change | 01 08b 11 |
+| per-gene path stores the wrong variance | 10 13 19 |
+| reinsertion does not pad the new vectors | 13 |
+| no guard on invalid genes | 08 08b |
+| Bessel-corrected variance | 01 03 07 10 11 13 15 19 |
+| `report_results()` reports the natural-log SE | 12 |
+| `report_results()` recomputes `logFC` from the arm means | 12 |
+| a single `NA` input counts as padded | 08b |
+| recorded individuals not refreshed, matrix path | 19 |
+| recorded individuals not refreshed, per-gene path | 19 |
+
+T-LFC-04, -05, -09 and -14 were not turned red by any of the fourteen; they
+guard properties none of these breakages touches (the stored variances being
+the statistic's, the arm swap, the names, the pre-1.1.0 object).
+
+**What section C found.** These are properties of the statistic, measured on
+the toy cohorts, and they are why two of the tests are narrower than first
+planned.
+
+1. *The within term is most of the SE*: a median of 98% of `log2fc_se²` on
+   F-SMALL and 95% on `generate_null()`. The SE is a median of 7.8 and 4.3
+   times the fit-fixed bootstrap SD.
+2. *Against refitting it is about right.* Over 30 refitted cohorts, on the 88%
+   of genes with an ordinary nuisance estimate: calibration ratio 0.774,
+   coverage of ±2 SE 0.959.
+3. *Where the nuisance estimate diverges the SE is anti-conservative.* On the
+   other 12% (estimated rate near 1e7, true rates 0.1 to 10): calibration
+   ratio 1.538, coverage 0.357. On F-SMALL, 5 of the 7 such genes miss their
+   truth by more than 3 SE, the planted gene 2 by 12.5. This is the
+   downstream face of Q10 in `CRAN_READINESS.md` (the nuisance blow-up).
+4. *The delta method understates the between part at high CV*: by up to 20%
+   at a between-individual CV near 1 with 4 individuals per arm. Inside
+   CV ≤ 0.2 the bootstrap / delta ratio is 0.98 to 1.03.
+5. *The depth adjustment shifts every fold change.* On F-SMALL the 35 null
+   genes have a median estimate of −0.21: the five planted genes raise a case
+   cell's total count by 2^0.23. Standard errors of 0.3 to 0.6 hide it.
+
+**Corrections made to the tests after their first run**, recorded because a
+test changed after it failed deserves a second look:
+
+- T-LFC-15 first applied its 10% tolerance to every gene. The tolerance had
+  been derived for CV ≤ 0.2 and is now asserted there. Its second assertion,
+  "the reported SE is never below the bootstrap SD", was removed: it is not a
+  property of the statistic (finding 4 with a vanishing within term), and
+  passed only through its 5% allowance.
+- T-LFC-16 first failed on one gene, the planted gene 2 of F-SMALL, whose
+  nuisance estimate had diverged (finding 3). The 3-SE assertion is now made
+  on the genes whose estimate has not diverged. The sign assertion is made on
+  every planted gene.
+- T-LFC-18 was added, to state the mechanism as a property of the model.
+- After `/code-review` of the diff: T-LFC-08b and T-LFC-19 were added and
+  T-LFC-12 extended, each for a defect the review found in the first draft
+  of the code (see their *Why*); T-LFC-15 and T-LFC-16 were marked
+  `skip_on_cran()`, because they put thresholds on the output of an iterative
+  fit that is known to amplify last-digit differences. **Three of the tests
+  that say most about the SE (15, 16, 17) therefore run only with
+  `NOT_CRAN=true`**, which `devtools::test()` sets and a bare `R CMD check`
+  does not.
+
+**Questions for Kevin.**
+
+- **Q-LFC-1.** Finding 3: leave the SE as it is and document it (done in
+  `?compute_log_fold_change`), or act on it? Options: repair the nuisance
+  divergence upstream (Q10), which removes the cause; or flag such genes in
+  `report_results()`.
+- **Q-LFC-2.** Decision D4 makes `compute_test_statistic.default()` warn on a
+  non-positive arm mean. One existing test, T-TSTAT-06, feeds it mean-zero
+  Gaussian matrices and now asserts that warning. Keep the warning, or return
+  `NA` silently from the matrix method?
+- **Q-LFC-3.** Names: `log2fc_vec` / `log2fc_se_vec` on the object, `logFC` /
+  `logFC_se` in `report_results()`.
+
+The comparison against DESeq2, dreamlet and NEBULA is
+`lfc-se-comparison_2026-09-28_claude.R` in this folder. It is not a test.
+
 ## 3. C++ backend tests
 
 Restricting to correctness. Everything here is driven from R through the

@@ -13,11 +13,18 @@ report_results(input_obj)
 a data frame with one row per gene (in the order of
 \code{input_obj$teststat_vec}) and columns \code{genes}, \code{logFC}
 (\eqn{\log_2} of the case-to-control ratio of posterior means),
+\code{logFC_se} (the standard error of \code{logFC}, also on the
+\eqn{\log_2} scale; see \code{compute_log_fold_change} for what it is a
+standard error of and how it compares with those of 'DESeq2', 'dreamlet'
+and 'NEBULA'),
 \code{log10pvalue} (\eqn{-\log_{10}} of the two-sided p-value),
 \code{pvalue} and \code{pvalue_adj} (Benjamini-Hochberg). \code{pvalue}
 underflows to \code{0} for any gene with \code{log10pvalue} above about
 308, so genes should be ranked by \code{log10pvalue}, which keeps the
-distinction.
+distinction. \code{logFC / logFC_se} is not the statistic behind
+\code{pvalue}, which is computed on the linear scale and calibrated with
+an empirical null. \code{logFC_se} is \code{NA}, with a warning, for an
+object built before version 1.1.0, which does not store it.
 }
 \description{
 Report the DE results from eSVD

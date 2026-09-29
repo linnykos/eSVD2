@@ -52,10 +52,16 @@ The input \code{eSVD} object with:
     \item \code{teststat_vec}  — Welch t-statistics (length p).
     \item \code{case_mean}    — case Gaussian means per gene.
     \item \code{control_mean} — control Gaussian means per gene.
+    \item \code{case_var}, \code{control_var} — the variance of each arm,
+          the two quantities the statistic divides by.
+    \item \code{log2fc_vec}, \code{log2fc_se_vec} — the log2 fold change
+          and its standard error; see \code{compute_log_fold_change}.
     \item \code{pvalue_list}  — list with \code{df_vec}, \code{fdr_vec},
           \code{gaussian_teststat}, \code{log10pvalue}, \code{method},
           \code{null_mean}, \code{null_sd}; see \code{compute_pvalue}.
   }
+The individuals of each arm are recorded in \code{param}, as
+\code{compute_test_statistic} does.
 }
 \description{
 This function reproduces the behavior of

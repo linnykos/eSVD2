@@ -44,7 +44,18 @@ statistic. Set to \code{0} to disable the check.}
 \item{...}{Additional parameters.}
 }
 \value{
-A vector of test statistics of length \code{ncol(input_obj)}
+A list of named numeric vectors, each of length
+\code{ncol(input_obj)} and carrying \code{colnames(input_obj)}:
+\code{teststat_vec}, \code{case_mean}, \code{control_mean},
+\code{case_var}, \code{control_var}, \code{log2fc_se_vec} and
+\code{log2fc_vec}. The two variances are those of the mixture over
+individuals that summarizes each arm, \eqn{\mathrm{mean}_i(\bar V_i) +
+\mathrm{var}_i(m_i)}, where \eqn{m_i} and \eqn{\bar V_i} are individual
+\eqn{i}'s average posterior mean and variance and the variance over
+individuals divides by their number, with no Bessel correction. The
+statistic is \code{(case_mean - control_mean) / sqrt(case_var / n1 +
+control_var / n0)} for \code{n1} case and \code{n0} control individuals.
+See \code{compute_log_fold_change} for the last two.
 }
 \description{
 Compute test statistics for matrices

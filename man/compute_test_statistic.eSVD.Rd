@@ -22,8 +22,15 @@ contribute; see \code{compute_test_statistic.default}.}
 \item{...}{Additional parameters.}
 }
 \value{
-\code{eSVD} object with added elements \code{teststat_vec},
-\code{case_mean} and \code{control_mean}, one entry per gene
+\code{eSVD} object with added elements, each a named numeric
+vector with one entry per gene: \code{teststat_vec} (the Welch statistic),
+\code{case_mean} and \code{control_mean} (the mean over the individuals of
+each arm of their mean posterior expression), \code{case_var} and
+\code{control_var} (the variance of each arm, the two quantities the
+statistic divides by), and \code{log2fc_vec} and \code{log2fc_se_vec} (the
+log2 fold change and its standard error; see
+\code{compute_log_fold_change}). The individuals of each arm are recorded
+in \code{param}.
 }
 \description{
 Compute test statistics for eSVD object

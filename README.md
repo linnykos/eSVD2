@@ -6,7 +6,7 @@ output: github_document
 
 This repository contains the `eSVD2` R package, which implements eSVD-DE, the method of the paper "eSVD-DE: cohort-wide differential expression in single-cell RNA-seq data using exponential-family embeddings" (Lin, Qiu and Roeder, *BMC Bioinformatics*, 2024). See the companion repository https://github.com/linnykos/eSVD2_examples for all the analyses performed in the paper. (Note, the original analysis was performed on eSVD2 version 0.0.0.0071, and we are working to make the code in https://github.com/linnykos/eSVD2_examples compatible with the latest version of eSVD2.)
 
-The current version is `1.0.2`; see `NEWS.md` for what changed. This code was developed and tested primarily on R 4.3 and 4.5 on a 2023 Macbook Pro (macOS Sonoma 14.2.1) equipped with Apple M2 Max processor (32 Gb RAM).
+The current version is `1.1.0`; see `NEWS.md` for what changed. This code was developed and tested primarily on R 4.3 and 4.5 on a 2023 Macbook Pro (macOS Sonoma 14.2.1) equipped with Apple M2 Max processor (32 Gb RAM).
 
 <!-- badges: start -->
 [![DOI:10.1186/s12859-024-05724-7](https://img.shields.io/badge/doi-10.1186/s12859--024--05724--7-firebrick.svg)](https://doi.org/10.1186/s12859-024-05724-7)
@@ -56,7 +56,7 @@ See https://linnykos.github.io/eSVD2/articles/eSVD2.html for the small demo on h
 
 # Setup
 
-The following shows the package versions that the developer (GitHub username: linnykos) used when developing version 1.0.0 of the eSVD2 package in June 2024; version 1.0.2 has since been checked under R 4.5.1.
+The following shows the package versions that the developer (GitHub username: linnykos) used when developing version 1.0.0 of the eSVD2 package in June 2024; version 1.1.0 has since been checked under R 4.5.1.
 
 ```R
 > devtools::session_info()

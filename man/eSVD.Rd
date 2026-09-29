@@ -115,7 +115,10 @@ error. \code{0} disables the check. See
 }
 \value{
 An \code{eSVD} object with elements \code{teststat_vec},
-\code{case_mean}, \code{control_mean}, \code{pvalue_list} (see
+\code{case_mean}, \code{control_mean}, \code{case_var},
+\code{control_var}, \code{log2fc_vec} and \code{log2fc_se_vec} (the log2
+fold change and its standard error; see \code{compute_log_fold_change}),
+\code{pvalue_list} (see
 \code{compute_pvalue}), \code{param}, \code{case_control},
 \code{individual}, \code{latest_Fit} and the fit it names (an
 \code{eSVD_Fit} with \code{x_mat}, \code{y_mat}, \code{z_mat},

@@ -29,10 +29,16 @@
 #'     \item \code{teststat_vec}  — Welch t-statistics (length p).
 #'     \item \code{case_mean}    — case Gaussian means per gene.
 #'     \item \code{control_mean} — control Gaussian means per gene.
+#'     \item \code{case_var}, \code{control_var} — the variance of each arm,
+#'           the two quantities the statistic divides by.
+#'     \item \code{log2fc_vec}, \code{log2fc_se_vec} — the log2 fold change
+#'           and its standard error; see \code{compute_log_fold_change}.
 #'     \item \code{pvalue_list}  — list with \code{df_vec}, \code{fdr_vec},
 #'           \code{gaussian_teststat}, \code{log10pvalue}, \code{method},
 #'           \code{null_mean}, \code{null_sd}; see \code{compute_pvalue}.
 #'   }
+#' The individuals of each arm are recorded in \code{param}, as
+#' \code{compute_test_statistic} does.
 #' @examples
 #' set.seed(10)
 #' sim <- generate_null(cell_per_person = 15, num_genes = 40,
@@ -127,6 +133,16 @@ compute_test_per_gene <- function(input_obj,
                             individual_vec = individual_vec,
                             min_cells_per_individual = min_cells_per_individual)
 
+  # Recorded as `compute_test_statistic.eSVD` records them, so that the number
+  # of individuals in each arm survives on an object whose `dat` is dropped.
+  param <- .format_param_test_statistic(case_individuals = case_individuals,
+                                        control_individuals = control_individuals)
+  input_obj$param <- .combine_two_named_lists(input_obj$param, param)
+  # `.combine_two_named_lists` keeps an entry that is already there, so a
+  # rerun on a changed cohort would leave the previous individuals in place
+  # and `compute_log_fold_change` would divide by the wrong number of them.
+  input_obj$param[names(param)] <- param
+
   tmp_idx   <- .determine_individual_indices(
     case_individuals    = case_individuals,
     control_individuals = control_individuals,
@@ -220,11 +236,15 @@ compute_test_per_gene <- function(input_obj,
   teststat_vec   <- numeric(p)
   case_mean_vec  <- numeric(p)
   control_mean_vec <- numeric(p)
+  case_var_vec   <- numeric(p)
+  control_var_vec <- numeric(p)
   df_vec         <- numeric(p)
 
   names(teststat_vec)    <- gn
   names(case_mean_vec)   <- gn
   names(control_mean_vec) <- gn
+  names(case_var_vec)    <- gn
+  names(control_var_vec) <- gn
   names(df_vec)          <- gn
 
   x_mat <- esvd_res$x_mat
@@ -337,7 +357,19 @@ compute_test_per_gene <- function(input_obj,
     df_vec[j]            <- df_j
     case_mean_vec[j]     <- case_gaussian_mean
     control_mean_vec[j]  <- control_gaussian_mean
+    case_var_vec[j]      <- case_gaussian_var
+    control_var_vec[j]   <- control_gaussian_var
   }
+
+  # The same helper as `compute_test_statistic.default`, so the two paths
+  # cannot drift.
+  if(verbose > 0) print("Computing the log2 fold change")
+  lfc_res <- .compute_log2_fold_change(case_mean = case_mean_vec,
+                                       control_mean = control_mean_vec,
+                                       case_var = case_var_vec,
+                                       control_var = control_var_vec,
+                                       num_case = n1,
+                                       num_control = n2)
 
   ## ------------------------------------------------------------
   ## 4. Convert t + df to Gaussian test stats and empirical-null p-values
@@ -379,6 +411,10 @@ compute_test_per_gene <- function(input_obj,
   input_obj[["teststat_vec"]]  <- teststat_vec
   input_obj[["case_mean"]]     <- case_mean_vec
   input_obj[["control_mean"]]  <- control_mean_vec
+  input_obj[["case_var"]]      <- case_var_vec
+  input_obj[["control_var"]]   <- control_var_vec
+  input_obj[["log2fc_vec"]]    <- lfc_res$log2fc_vec
+  input_obj[["log2fc_se_vec"]] <- lfc_res$log2fc_se_vec
   input_obj[["pvalue_list"]]   <- pvalue_list
 
   # NOTE: we *deliberately* do NOT create / store posterior_mean_mat or posterior_var_mat

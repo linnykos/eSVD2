@@ -257,7 +257,7 @@ save(eSVD_obj, session_info, date_of_run,
 ```
 
 # Plotting the p-values
-To visualize the p-values, we can plot a volcano plot where the x-axis is our estimated log fold change (based on the global case donor mean, where each donor's specific mean is first computed, minus the global control donor mean) and the y-axis the negative log 10 p-value. The dotted horizontal line denotes the FDR cutoff.
+To visualize the p-values, we can plot a volcano plot where the x-axis is our estimated log2 fold change (the global case donor mean, where each donor's specific mean is first computed, over the global control donor mean; from version 1.1.0 this is also stored in `eSVD_obj$log2fc_vec`, with its standard error in `eSVD_obj$log2fc_se_vec`) and the y-axis the negative log 10 p-value. The dotted horizontal line denotes the FDR cutoff.
 
 To give this volcano plot some biological interpretation, we show where the genes found in Gandal et al. (see  [https://www.nature.com/articles/s41586-022-05377-7](https://www.nature.com/articles/s41586-022-05377-7)) on the volcano plot as well. That study was based on the bulk sequencing of brain regions, where possibly many cell types are involved in the DEG analysis. Nonetheless, we would expect a good number of DEGs from Gandal et al. to be highly significant in our analysis, which is what our volcano plot shows.
 

@@ -5,11 +5,18 @@
 #' @returns a data frame with one row per gene (in the order of
 #' \code{input_obj$teststat_vec}) and columns \code{genes}, \code{logFC}
 #' (\eqn{\log_2} of the case-to-control ratio of posterior means),
+#' \code{logFC_se} (the standard error of \code{logFC}, also on the
+#' \eqn{\log_2} scale; see \code{compute_log_fold_change} for what it is a
+#' standard error of and how it compares with those of 'DESeq2', 'dreamlet'
+#' and 'NEBULA'),
 #' \code{log10pvalue} (\eqn{-\log_{10}} of the two-sided p-value),
 #' \code{pvalue} and \code{pvalue_adj} (Benjamini-Hochberg). \code{pvalue}
 #' underflows to \code{0} for any gene with \code{log10pvalue} above about
 #' 308, so genes should be ranked by \code{log10pvalue}, which keeps the
-#' distinction.
+#' distinction. \code{logFC / logFC_se} is not the statistic behind
+#' \code{pvalue}, which is computed on the linear scale and calibrated with
+#' an empirical null. \code{logFC_se} is \code{NA}, with a warning, for an
+#' object built before version 1.1.0, which does not store it.
 #' @examples
 #' set.seed(10)
 #' sim <- generate_null(cell_per_person = 15, num_genes = 40,
@@ -45,11 +52,32 @@ report_results <- function(input_obj){
     log10pvalue <- input_obj$pvalue_list$log10pvalue
     pvalue <- 10^(-log10pvalue)
     pvalue_adj <- input_obj$pvalue_list$fdr_vec
-    logFC <- log2(input_obj$case_mean / input_obj$control_mean)
     genes <- names(input_obj$teststat_vec)
+
+    if(all(c("log2fc_vec", "log2fc_se_vec") %in% names(input_obj))){
+      # Both are read from the object, so the two columns always describe
+      # the same genes in the same way (NA together, never Inf beside NA).
+      logFC <- input_obj[["log2fc_vec"]]
+      logFC_se <- input_obj[["log2fc_se_vec"]]
+      # The columns are joined to the others by position.
+      stopifnot(length(logFC) == length(genes),
+                length(logFC_se) == length(genes),
+                identical(names(logFC), genes),
+                identical(names(logFC_se), genes))
+    } else {
+      # An object saved by a version before 1.1.0 has the arm means and no
+      # standard error. It still gets its data frame, with the column present
+      # and empty, so code that reads the other columns keeps working.
+      warning("`input_obj` has no `log2fc_vec` and `log2fc_se_vec`, so ",
+              "`logFC_se` is NA. The object was built before eSVD2 1.1.0; ",
+              "see `compute_log_fold_change`")
+      logFC <- log2(input_obj$case_mean / input_obj$control_mean)
+      logFC_se <- rep(NA_real_, length(logFC))
+    }
 
     df <- data.frame(genes = genes,
                      logFC = unname(logFC),
+                     logFC_se = unname(logFC_se),
                      log10pvalue = unname(log10pvalue),
                      pvalue = unname(pvalue),
                      pvalue_adj = unname(pvalue_adj))
