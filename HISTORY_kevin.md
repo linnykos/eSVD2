@@ -775,3 +775,54 @@ would write first.
 - Open: whether `param` going stale on a rerun should be fixed for every
   stage in `.combine_two_named_lists()`.
 - Nothing committed; session 12 is uncommitted on `devel`.
+
+### [2026-09-29] (Session 13 — master (3d5f7bf) vs devel (1.1.0) comparison on simulated data)
+- Built `additional_context/version_comparison/`: private libraries for both versions, six simulated regimes x 10 replicates (300 genes, 20 individuals x 30 cells), 12 corner cases, and a knitted report `version_comparison_claude.html`; `run_all_claude.sh` takes 385 s end to end.
+- Both versions are driven by one script, because the step-by-step API has identical names and arguments; `eSVD()` was not used since it needs Seurat.
+- Folder `output/` rather than `results/`, because the repo's `.gitignore` ignores every `results/`; `lib/` and `data/` are gitignored as regenerable.
+- The `devel_swap` ablation (devel code, master's nuisance rates) reproduced master's Welch statistics on all 60 data sets, attributing the whole ordinary-data difference to the `gamma_rate` change.
+- Finding: logFC unchanged (r >= 0.998); devel's null false discoveries at FDR 0.05 rise from 0.2 to 2.7 per 300 genes, and to 63 in the near-Poisson regime (type-I 0.28 at p < 0.05).
+- Finding: master's nuisance estimates have Spearman about 0 with the truth; devel's about 0.6, but biased upward two- to threefold and divergent on some genes.
+- Finding: the corner-case fixes behave as NEWS says (collinear/confounded covariates, all-zero genes, one-individual arms, too-few-cell individuals now refused early by name); master silently called 30/30 genes significant on a 30-gene cohort.
+- Finding: NEWS's sparse-NA zeroing is unreachable through `format_covariates()`, which already puts NA in `Log_UMI`.
+- Finding: determinism was not a practical issue in master (1e-11 difference across seeds); devel is bit-identical.
+- Finding: the logFC SE covers truth at >= nominal for ordinary-rate genes except in `strong_de` (0.84, the Log_UMI depth bias); coverage collapses (0-0.47) for diverged-rate genes.
+- Open: what to do about `gamma_rate` (Q10), now the top decision before CRAN.
+
+### [2026-09-29] (Session 14 — brainstorm on the inflated p-values from the uncapped nuisance rate)
+- Wrote `additional_context/OVERDISPERSION_BRAINSTORM.md` (eleven ideas, each with a go/no-go result or task) at Kevin's request that it live in `additional_context/`; `brainstorming_kevin.md` holds only a pointer to it.
+- Built `additional_context/overdispersion_brainstorm/`: devel is fitted once per data set and cached, and each candidate only overwrites `nuisance_vec` before `compute_posterior()`, so 18 candidates on 90 data sets take about 15 s.
+- Added three regimes (`weak_de`, `low_count`, `wide_rate`) because the six of session 13 find every DE gene under every candidate and cannot separate them on power.
+- Finding: master's rate is `min(MLE, max_i s_ji)`, and 78% to 100% of genes are at that cap in the model-generated regimes.
+- Finding: devel's "two- to threefold overestimate" (session 13) was a units mismatch between the generator's rate and the fit's; unit-free, the excess is 4% to 16%.
+- Finding: a diverged rate is the boundary of the likelihood (Poisson at least as likely as any finite rate; Pearson statistic 0.95 to 0.99), matching the 49.9% divergence of `lause-2021` in the overdispersion wiki.
+- Finding: the true rates give 5.7 false discoveries per 300 genes when they span 0.5 to 200, so the test is calibrated by bounding the spread of the rates and not by estimating them better.
+- Finding: capping at `c * median_i s_ji` is flat in false discoveries for c from 1 to 10; empirical-Bayes shrinkage and a 90% profile-likelihood lower bound perform the same.
+- Finding: a Welch variance between individuals only has null SD 1.5 under the theoretical null and loses most power under the empirical null; rescaling the statistic within tenths of the rate is worse than not rescaling.
+- Decision: the cap was prototyped in R after `gamma_rate`, not in C++, so that `gamma_rate` stays an MLE and T-CPP-GAM-05 keeps its meaning.
+- The first version of the empirical-Bayes prior centred on the median over all genes, which is infinite once half the genes are at the boundary; it now uses the interior genes, which biases the centre low in near-Poisson data.
+- Added location `OVERDISPERSION_WIKI` (read only from this project) to the master `CLAUDE.md` and its path to `CLAUDE_kevin.md`.
+- `.gitignore` now excludes the brainstorm's `data/`, `cache/` (258 MB), `output/genes.csv` and `output/gene_summaries.csv`; the summary tables and logs stay tracked.
+- Open: which route to take (Q10); the real-data check (Idea 11) has not been run because no `PAPER_DATA` path is recorded.
+- Nothing in `R/`, `src/` or `tests/` was changed, so no `R CMD check` was run this session.
+- Follow-up in the same session, prompted by Kevin asking how the empirical-Bayes idea was implemented: measured what the prototype did, and added `06_more_cells_claude.R` (three regimes at 150 cells per individual).
+- Finding: at 600 cells the MAP rate is a soft cap near 10 times the library size (prior variance 0.25 against a sampling variance of 0.096), which is why it matched the hard cap.
+- Finding: at 3000 cells with true rates of 0.5 to 200, shrinkage leaves 6.2 false discoveries against the cap's 3.0, so Ideas 3 and 4 were downgraded from "go" to "go only with a cap" in the brainstorm.
+- Finding: at 3000 cells with true rates of 2 to 8, no gene is at the boundary and the uncapped MLE is calibrated.
+- The prototype differs from DESeq2's design in four ways: no trend in expression (the centre is one unit-free constant), no Cox-Reid term, a Wald-type sampling variance in place of the trigamma formula, and no rule exempting outlying genes.
+- Second follow-up, on Kevin's question of why the prototype departs from DESeq2 and his criterion that the estimate must improve on master: added `07_deseq2_variants_claude.R` and section 3.5 of the brainstorm.
+- Finding: scored as estimates, the cap at 10 and the shrinkage put 95% and 99% of genes within twofold of the truth against master's 60%; in near-Poisson data nothing does.
+- Finding: a fitted trend centre and DESeq2's trigamma sampling variance leave false discoveries unchanged; the simulations have no trend by construction, so whether one exists in real data is open (Idea 11).
+- Finding: shrinkage followed by the cap gives exactly the cap's results at 3000 cells in `wide_rate`.
+- Open: Kevin's criterion has two parts that can disagree (accuracy of the rate, calibration of the test); the cap satisfies both, the shrinkage alone only the first at 3000 cells.
+- Decision (Kevin): the fix is the cap at 10 times the gene's median library size; it is not to be implemented in `R/` until he has read a report explaining it.
+- Wrote and knitted `additional_context/overdispersion_brainstorm/overdispersion_cap_claude.Rmd`: takeaway, formulas, what master and devel each do, the change, the comparison with master, five nuances, recommendation; citations are quotations as the overdispersion wiki's footnotes record them, not rechecked against the PDFs.
+- The report reads only small tracked tables (`output/report_*.csv`, made by `08_report_tables_claude.R`), because the per-gene tables it would otherwise need are gitignored.
+- Added the `trend` regime (`helpers_simulate_claude.R`), a copy of the version comparison's generator with the rate set by DESeq2's parametric trend; the copy was made so that the session-13 helper and its seeds stay untouched.
+- Ran master itself on the four added regimes (`01b_run_master_claude.R`), so "master" in the report is never the legacy cap standing in for it; the two agree.
+- Finding: in `trend` the cap beats master on false discoveries (1.0 against 2.3) and true discoveries (21.7 against 20.7), and a cap as tight as master's is worse there (2.8 to 3.5 false discoveries at c of 2 and 1).
+- Finding: the boundary condition is `D = sum [(A - m)^2 - A] / mu <= 0`, from the first-order expansion of the log-likelihood around Poisson; it matches devel's output for 11,997 of 12,000 genes.
+- Correction: the claim that the true rates do not calibrate the test held only for genes with a true rate above about 30 times the library size; it had been drawn from `wide_rate` alone.
+- Correction: the claim that `bool_stabilize_underdispersion` rescales in every regime was unchecked and wrong for `generate_null()` (and for `low_count` under master).
+- Reference DOIs in the report were checked against Crossref; the one for Dai, Bao and Bao recalled from memory was wrong and was replaced by 10.1016/j.spl.2012.08.017.
+- Open: shrinkage toward a fitted trend at 3000 cells and with a cap as backstop; master at 3000 cells; one real data set.

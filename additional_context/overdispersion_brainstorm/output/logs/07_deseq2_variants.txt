@@ -1,0 +1,84 @@
+[1] "spearman"
+                   null baseline weak_de low_count wide_rate trend near_poisson
+master             0.05     0.08    0.02      0.02      0.46 -0.02        -0.01
+cap_max_s          0.05     0.08    0.02      0.02      0.46 -0.02        -0.01
+mle                0.77     0.77    0.78      0.64      0.88  0.84         0.08
+cap_10s            0.77     0.77    0.78      0.64      0.86  0.82         0.03
+eb_map             0.77     0.77    0.78      0.65      0.88  0.83         0.08
+eb_trend           0.77     0.77    0.78      0.64      0.88  0.95         0.07
+eb_trigamma        0.77     0.77    0.78      0.65      0.88  0.84         0.08
+eb_trend_trigamma  0.77     0.77    0.78      0.64      0.88  0.95         0.08
+profile_lower_90   0.77     0.77    0.78      0.64      0.88  0.81         0.08
+common_unit       -0.02    -0.03    0.00     -0.03     -0.03  0.00         0.00
+[1] "median_ratio"
+                  null baseline weak_de low_count wide_rate trend near_poisson
+master            0.57     0.57    0.55      0.59      0.22  0.27         0.01
+cap_max_s         0.58     0.57    0.55      0.59      0.22  0.27         0.01
+mle               1.14     1.13    1.13      1.41      1.12  1.21         2.08
+cap_10s           1.14     1.13    1.13      1.35      0.78  0.87         0.04
+eb_map            1.09     1.09    1.08      1.31      0.93  1.00         0.12
+eb_trend          1.10     1.10    1.08      1.32      0.93  1.10         0.12
+eb_trigamma       1.09     1.10    1.08      1.32      0.94  1.02         0.13
+eb_trend_trigamma 1.10     1.10    1.08      1.33      0.94  1.10         0.13
+profile_lower_90  0.72     0.73    0.72      0.73      0.56  0.62         0.05
+common_unit       1.10     1.12    1.10      1.34      0.68  0.87         0.11
+[1] "median_abs_log_error"
+                  null baseline weak_de low_count wide_rate trend near_poisson
+master            0.56     0.56    0.60      0.54      1.50  1.30         4.62
+cap_max_s         0.56     0.56    0.60      0.54      1.50  1.30         4.61
+mle               0.23     0.23    0.23      0.39      0.43  0.38         3.84
+cap_10s           0.23     0.23    0.23      0.35      0.44  0.34         3.17
+eb_map            0.18     0.18    0.18      0.29      0.37  0.30         2.12
+eb_trend          0.18     0.18    0.18      0.30      0.37  0.21         2.11
+eb_trigamma       0.18     0.18    0.18      0.31      0.37  0.30         2.05
+eb_trend_trigamma 0.19     0.18    0.18      0.32      0.37  0.21         2.05
+profile_lower_90  0.33     0.32    0.34      0.36      0.59  0.49         3.07
+common_unit       0.34     0.34    0.35      0.36      1.45  0.82         2.20
+[1] "frac_within_2fold"
+                  null baseline weak_de low_count wide_rate trend near_poisson
+master            0.60     0.59    0.56      0.60      0.36  0.33         0.00
+cap_max_s         0.60     0.59    0.56      0.60      0.36  0.33         0.00
+mle               0.89     0.89    0.89      0.72      0.60  0.69         0.07
+cap_10s           0.96     0.95    0.95      0.84      0.60  0.75         0.00
+eb_map            0.99     0.99    0.99      0.89      0.68  0.85         0.05
+eb_trend          0.99     0.99    0.99      0.89      0.68  0.97         0.05
+eb_trigamma       0.98     0.99    0.99      0.88      0.68  0.85         0.07
+eb_trend_trigamma 0.99     0.99    0.99      0.87      0.68  0.97         0.08
+profile_lower_90  0.91     0.91    0.91      0.83      0.53  0.63         0.00
+common_unit       0.93     0.94    0.93      0.79      0.25  0.42         0.03
+[1] "fp"
+                  null baseline weak_de low_count wide_rate trend near_poisson generate_null
+eb_map             0.2      1.8     1.2       0.3       1.7   1.0          1.9           0.3
+eb_trend           0.2      1.8     1.1       0.3       1.7   1.6          1.9           0.3
+eb_trigamma        0.2      1.8     1.1       0.5       1.7   1.0          1.9           0.3
+eb_trend_trigamma  0.2      1.8     1.1       0.6       1.7   1.6          2.0           0.3
+[1] "fp_se"
+                   null baseline weak_de low_count wide_rate trend near_poisson generate_null
+eb_map            0.133    0.467   0.416     0.153     0.423 0.258        0.795         0.153
+eb_trend          0.133    0.467   0.433     0.153     0.423 0.600        0.795         0.153
+eb_trigamma       0.133    0.467   0.407     0.224     0.423 0.258        0.706         0.153
+eb_trend_trigamma 0.133    0.467   0.407     0.267     0.423 0.600        0.683         0.153
+[1] "tp"
+                  null baseline weak_de low_count wide_rate trend near_poisson generate_null
+eb_map               0       15    17.4      11.2      17.9  22.7           15           8.2
+eb_trend             0       15    17.3      11.3      17.9  24.3           15           8.2
+eb_trigamma          0       15    17.4      11.4      17.9  23.0           15           8.2
+eb_trend_trigamma    0       15    17.3      11.3      17.9  24.3           15           8.2
+[1] "prior_var"
+                   null baseline weak_de low_count wide_rate trend near_poisson generate_null
+eb_map            0.251    0.250   0.263     0.250     2.755 0.952        0.250         6.197
+eb_trend          0.252    0.250   0.263     0.250     2.768 0.250        0.250         6.815
+eb_trigamma       0.282    0.272   0.295     0.344     2.943 1.187        0.669         6.221
+eb_trend_trigamma 0.282    0.267   0.292     0.362     2.956 0.287        0.662         6.839
+[1] "sampling_var"
+                   null baseline weak_de low_count wide_rate trend near_poisson generate_null
+eb_map            0.097    0.095   0.096     0.224     0.191 0.238        2.116         0.027
+eb_trend          0.097    0.095   0.096     0.224     0.191 0.238        2.116         0.027
+eb_trigamma       0.003    0.003   0.003     0.003     0.003 0.003        0.003         0.003
+eb_trend_trigamma 0.003    0.003   0.003     0.003     0.003 0.003        0.003         0.003
+[1] "slope"
+                   null baseline weak_de low_count wide_rate  trend near_poisson generate_null
+eb_map            0.000    0.000   0.000       0.0     0.000  0.000        0.000         0.000
+eb_trend          0.013   -0.043   0.008      -0.1    -0.019 -0.759       -0.092        -0.283
+eb_trigamma       0.000    0.000   0.000       0.0     0.000  0.000        0.000         0.000
+eb_trend_trigamma 0.013   -0.043   0.008      -0.1    -0.019 -0.759       -0.092        -0.283

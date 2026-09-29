@@ -57,7 +57,7 @@ Paths below are relative to this file's directory and are the same for everyone.
 | `data/` | Shipped reference gene lists (`gandal_df`, `housekeeping_df`, `sfari_df`, `velmeshev_gene_df`). |
 | `tests/testthat/` | testthat suite. Fixtures live in `tests/assets/` and are loaded with `load("../assets/...")`. |
 | `vignettes/` | `eSVD2.Rmd` (self-contained toy runs), `asd.Rmd` / `asd-preprocess.Rmd` (need external downloads; heavy chunks are `eval = FALSE`). |
-| `additional_context/` | Reference PDFs + `summary.md` index + `CRAN_READINESS.md` (audit) + `UNIT_TEST_PLAN.md` (proposed test suite). **Excluded from the CRAN tarball** via `.Rbuildignore`. |
+| `additional_context/` | Reference PDFs + `summary.md` index + `CRAN_READINESS.md` (audit) + `UNIT_TEST_PLAN.md` (proposed test suite) + `OVERDISPERSION_BRAINSTORM.md` (options for bounding the nuisance rate) + `version_comparison/` and `overdispersion_brainstorm/` (simulation scripts and their summary tables). **Excluded from the CRAN tarball** via `.Rbuildignore`. |
 | `oldcode/` | Superseded code, kept for reference; `.Rbuildignore`d. |
 
 **`.gitignore` vs `.Rbuildignore`.** These are deliberately different.
@@ -82,6 +82,7 @@ Hostnames and URIs that are the same for everyone are fine here.
 |---|---|---|
 | `EXAMPLES_REPO` | Clone of <https://github.com/linnykos/eSVD2_examples> — all analyses reported in the paper. Not required to develop the package. | per-person copy |
 | `PAPER_DATA` | Downloaded public datasets used by the vignettes and the paper (Adams GSE136831, Habermann GSE135893, Smillie, Velmeshev). Large; never tracked in git. | per-person copy |
+| `OVERDISPERSION_WIKI` | Wiki on estimating overdispersion from single-cell data (estimators, count models, packages; about 100 pages with cited sources). Consulted for `additional_context/OVERDISPERSION_BRAINSTORM.md`. Belongs to another collaboration: **read only from this project.** | shared storage |
 | `WAS2CODE_REPO` | Clone of the Was2CODE project (Tati collaboration). Source of `R/esvd_helper.R`, the cohort-filtering wrapper being imported into `eSVD2` as §2.17 of `UNIT_TEST_PLAN.md`. Not required to develop the package once the file is imported. | per-person copy |
 
 Git remote (same for everyone): `https://github.com/linnykos/eSVD2.git`.

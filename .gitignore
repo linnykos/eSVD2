@@ -91,3 +91,17 @@ env/
 *.fdb_latexmk
 *.bbl
 *.blg
+
+# --- version comparison (additional_context/version_comparison) ---
+# Private libraries and simulated inputs; both are rebuilt by run_all_claude.sh.
+additional_context/version_comparison/lib/
+additional_context/version_comparison/data/
+
+# --- overdispersion brainstorm (additional_context/overdispersion_brainstorm) ---
+# Simulated inputs, cached fits and the per-gene table; all are rebuilt by
+# run_all_claude.sh. The summary_*.csv tables and logs stay tracked.
+additional_context/overdispersion_brainstorm/data/
+additional_context/overdispersion_brainstorm/cache/
+additional_context/overdispersion_brainstorm/output/genes.csv
+additional_context/overdispersion_brainstorm/output/gene_summaries.csv
+additional_context/overdispersion_brainstorm/output/master_extra_genes.csv

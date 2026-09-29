@@ -1,0 +1,8 @@
+"regime","rate_bin","num_null_genes","num_false_discoveries","frac_false_discoveries","sd_gaussian_teststat"
+"trend","below 10",1509,3,0.0019881,0.34892
+"trend","10 to 30",1050,4,0.0038095,0.3828
+"trend","30 to 100",141,8,0.056738,0.50897
+"wide_rate","below 10",1346,0,0,0.29728
+"wide_rate","10 to 30",508,2,0.003937,0.36745
+"wide_rate","30 to 100",527,17,0.032258,0.5032
+"wide_rate","above 100",319,38,0.11912,0.69672

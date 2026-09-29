@@ -1,0 +1,1364 @@
+---
+title: "The nuisance rate in eSVD2: what `master` did, what `devel` does, and the proposed cap"
+author: "Drafted by Claude for Kevin Z. Lin"
+date: "2026-09-29"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 3
+    number_sections: true
+    theme: flatly
+    highlight: tango
+    code_folding: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE,
+                      fig.align = "center")
+```
+
+```{r libraries}
+library(ggplot2)
+```
+
+```{r read_data}
+out_dir <- "output"
+.read <- function(file_name){
+  utils::read.csv(file.path(out_dir, file_name))
+}
+
+discovery_df <- .read("summary_discovery.csv")
+boundary_df <- .read("summary_boundary.csv")
+accuracy_df <- .read("summary_accuracy.csv")
+sweep_df <- .read("summary_cap_sweep.csv")
+more_cells_df <- .read("summary_more_cells.csv")
+variant_df <- .read("summary_deseq2_variants.csv")
+null_scale_df <- .read("summary_null_scale.csv")
+profile_df <- .read("report_profile_curves.csv")
+rate_df <- .read("report_rates.csv")
+pearson_df <- .read("report_pearson.csv")
+by_rep_df <- .read("report_discovery_by_rep.csv")
+qq_df <- .read("report_null_qq.csv")
+rescale_df <- .read("report_rescaling.csv")
+trend_third_df <- .read("report_trend_by_third.csv")
+oracle_rate_df <- .read("report_oracle_by_rate.csv")
+
+# The three versions this report is about, under the names the scripts use.
+method_label_vec <- c(master = "master", mle = "devel", cap_10s = "10x cap")
+method_col_vec <- c(master = "#2a78d6", devel = "#eb6834", `10x cap` = "#1baf7a")
+.label_method <- function(candidate_vec){
+  factor(method_label_vec[candidate_vec], levels = method_label_vec)
+}
+
+regime_vec <- c("null", "baseline", "weak_de", "low_count", "wide_rate",
+                "trend", "near_poisson", "generate_null")
+
+# One number out of a summary table, for the prose.
+.get <- function(df, candidate, regime, column){
+  val <- df[df$candidate == candidate & df$regime == regime, column]
+  stopifnot(length(val) == 1)
+  val
+}
+.fmt <- function(x, digits = 1){
+  formatC(x, format = "f", digits = digits)
+}
+
+theme_set(theme_bw(base_size = 11))
+theme_update(panel.grid.minor = element_blank(),
+             strip.background = element_rect(fill = "#f1f0ec", colour = NA),
+             legend.position = "bottom")
+```
+
+# Overview
+
+This report explains one decision for `eSVD2` 1.1.0: how to bound the per-gene
+nuisance rate that `estimate_nuisance()` returns. It builds on the comparison
+of `master` with `devel` (`../version_comparison/version_comparison_claude.html`)
+and on the brainstorm (`../OVERDISPERSION_BRAINSTORM.md`). The method is
+eSVD-DE (Lin, Qiu and Roeder 2024). The citations marked **wiki** are pages of
+the overdispersion wiki (location `OVERDISPERSION_WIKI`); each names the paper
+and the place in it that the wiki records.
+
+**Nothing in `R/`, `src/` or `tests/` has been changed.** The cap below exists
+only in the scripts of this folder.
+
+## The short takeaway
+
+1. **`master` did not estimate the rate for most genes.** Its search stopped
+   at the gene's largest library size and returned that bound as the answer.
+   In the simulated regimes
+   `r round(100 * min(boundary_df$frac_at_legacy_cap[boundary_df$regime != "generate_null"]))`%
+   to `r round(100 * max(boundary_df$frac_at_legacy_cap))`% of genes sat at
+   the bound.
+2. **`devel` removed the bound and returns the maximum-likelihood rate.** For
+   most genes that estimate is accurate. For some genes the likelihood has no
+   finite maximum, the rate runs to about $10^7$, the posterior collapses onto
+   the fitted mean, and the test statistic inflates. Under the global null
+   this gives `r .fmt(.get(discovery_df, "mle", "null", "fp"))` false
+   discoveries per data set against `master`'s
+   `r .fmt(.get(discovery_df, "master", "null", "fp"))`.
+3. **The proposal is `devel`'s estimate, capped at 10 times the gene's median
+   library size**: $\hat\beta_j^{\text{cap}} = \min\{\hat\beta_j^{\text{MLE}},\; 10 \cdot \text{median}_i\, s_{ji}\}$.
+   In ordinary data about
+   `r round(100 * .get(sweep_df, "cap_10", "baseline", "frac_capped"))`% of
+   genes are capped; the rest keep their own estimate.
+4. **It improves on `master` in two senses.** As an *estimate*, the capped
+   rate is within twofold of the truth for
+   `r round(100 * .get(accuracy_df, "cap_10s", "baseline", "frac_within_2fold"))`%
+   of genes against `master`'s
+   `r round(100 * .get(accuracy_df, "master", "baseline", "frac_within_2fold"))`%.
+   As an input to the *test*, it gives the same false discoveries as `master`
+   when the rate is unrelated to expression, and fewer false discoveries with
+   more true discoveries when the rate depends on expression
+   (`r .fmt(.get(discovery_df, "cap_10s", "trend", "fp"))` and
+   `r .fmt(.get(discovery_df, "cap_10s", "trend", "tp"))` against
+   `r .fmt(.get(discovery_df, "master", "trend", "fp"))` and
+   `r .fmt(.get(discovery_df, "master", "trend", "tp"))`).
+5. **It is not an improvement everywhere.** In nearly Poisson data no method
+   estimates the rate. Genes whose true rate is above the cap are treated as
+   more overdispersed than they are, which costs power on those genes.
+6. **The cap is a device for calibrating this test, not a statement about
+   biology.** A cap at the level of technical noise reported in the literature
+   would be 5 to 10 times looser, and it does not calibrate the test.
+
+All results are from simulation. No real data set has been run.
+
+## Plan of the report
+
+| Section | Question | Main evidence |
+|---|---|---|
+| 2 | What is the rate, and what does it do downstream? | formulas |
+| 3 | What did `master` do? | likelihood curves; fraction of genes at the bound |
+| 4 | What does `devel` do, and why does it inflate the test? | the boundary of the likelihood; the null scale of the statistic |
+| 5 | What is the proposed change, and why 10? | sweep of the cap |
+| 6 | In what sense is it an improvement over `master`? | accuracy of the estimate; false and true discoveries |
+| 7 | The nuances | units; large true rates; more cells; a real trend; the rescaling |
+| 8 | Recommendation | |
+
+## How the numbers were produced
+
+Every regime has 20 individuals (10 case, 10 control), 30 cells each, 300
+genes and 10 replicates, drawn from the eSVD model unless stated. `devel` is
+fitted once per data set. Each version of the rate is then written over
+`nuisance_vec`, and `compute_posterior()`, `compute_test_statistic()` and
+`compute_pvalue()` are rerun. `master` is `master`'s own output (commit
+`3d5f7bf`, run in a separate process), fed through the same three steps.
+
+| Regime | True rate $\beta_j$ (generator's units) | DE genes | What it probes |
+|---|---|---|---|
+| `null` | 2 to 8 | 0 | calibration |
+| `baseline` | 2 to 8 | 15, effect 0.8 | ordinary data |
+| `weak_de` | 2 to 8 | 30, effect ±0.3 | power |
+| `low_count` | 2 to 8 | 30, effect ±0.6 | mean counts of 0.1 to 0.6 |
+| `wide_rate` | 0.5 to 200, unrelated to expression | 30, effect ±0.3 | very different rates between genes |
+| `trend` | follows expression (section 7.4) | 30, effect ±0.5 | a real relation between overdispersion and expression |
+| `near_poisson` | 50 to 1000 | 15, effect 0.8 | almost no overdispersion |
+| `generate_null` | the package's `generate_null()` | 10 | a generator not from the eSVD model |
+
+`run_all_claude.sh` reruns everything, including this report, in about 4
+minutes.
+
+# The rate, and what it does downstream
+
+## The model
+
+For gene $j$ in cell $i$, with fitted mean $\mu_{ji}$ and fitted
+covariate-adjusted library size $s_{ji}$,
+
+$$
+A_{ji} \mid \lambda_{ji} \sim \text{Poisson}(s_{ji}\,\lambda_{ji}),
+\qquad
+\lambda_{ji} \sim \text{Gamma}(\text{shape} = \mu_{ji}\beta_j,\ \text{rate} = \beta_j).
+$$
+
+So $\mathbb{E}\,\lambda_{ji} = \mu_{ji}$ and
+$\text{Var}\,\lambda_{ji} = \mu_{ji}/\beta_j$. The package stores the **rate**
+$\beta_j$ in `nuisance_vec`. It is the reciprocal of the paper's
+overdispersion $\gamma_j$. **A large $\beta_j$ means little overdispersion,
+and $\beta_j \to \infty$ is a Poisson gene.**
+
+Integrating out $\lambda$, the count is negative binomial with mean
+$m_{ji} = \mu_{ji} s_{ji}$ and
+
+$$
+\text{Var}(A_{ji}) = m_{ji}\left(1 + \frac{s_{ji}}{\beta_j}\right).
+$$
+
+Three things follow from this one line.
+
+* **The Fano factor is $1 + s_{ji}/\beta_j$.** The excess over Poisson is the
+  ratio of the library size to the rate.
+* **$\beta_j$ has the units of $s_{ji}$.** The two enter the likelihood only
+  through $s_{ji} + \beta_j$. A rate means nothing until it is compared with
+  the gene's library size, so this report uses the **unit-free rate**
+  $b_j = \beta_j / \text{median}_i\, s_{ji}$ throughout. A unit-free rate of 10
+  is a Fano factor of about 1.1.
+* **In the usual form $\text{Var} = m + m^2/\theta$, the size is
+  $\theta_{ji} = \mu_{ji}\beta_j$.** This is the translation to the
+  parameterization of DESeq2, sctransform and the papers cited below (wiki:
+  `dispersion-parameterizations`, whose canonical form is
+  $\text{Var}(Y) = \mu + \alpha\mu^2$ with $\alpha = 1/\theta$).
+
+## The estimate
+
+`gamma_rate()` maximizes, for each gene separately and with $\mu$ and $s$
+fixed at their fitted values,
+
+$$
+\ell_j(\beta) = \sum_i \Big[ \log\Gamma(\mu_{ji}\beta + A_{ji}) - \log\Gamma(\mu_{ji}\beta)
++ \mu_{ji}\beta\,\log\frac{\beta}{s_{ji}+\beta} - A_{ji}\log(s_{ji}+\beta) \Big] + \text{const}.
+$$
+
+As $\beta \to \infty$ this tends to the Poisson log-likelihood
+$\sum_i [A_{ji}\log\mu_{ji} - \mu_{ji}s_{ji}] + \text{const}$. **The
+likelihood always has a finite limit on the right.** Whether it rises above
+that limit somewhere to the left decides whether a finite maximizer exists.
+
+## What the rate does downstream
+
+The posterior of $\lambda_{ji}$ is
+$\text{Gamma}(A_{ji} + \mu_{ji}\beta_j,\ s_{ji} + \beta_j)$, with
+
+$$
+\mathbb{E}[\lambda_{ji} \mid A_{ji}] = (1 - w_{ji})\,\frac{A_{ji}}{s_{ji}} + w_{ji}\,\mu_{ji},
+\qquad
+w_{ji} = \frac{\beta_j}{s_{ji} + \beta_j},
+\qquad
+\text{Var}[\lambda_{ji} \mid A_{ji}] = \frac{A_{ji} + \mu_{ji}\beta_j}{(s_{ji} + \beta_j)^2}.
+$$
+
+**The rate is the weight of the fit against the data.** The test then
+averages within individuals ($m_{\text{ind}}$ for the posterior means,
+$\bar V_{\text{ind}}$ for the posterior variances) and forms, per arm,
+
+$$
+v = \text{mean}_{\text{ind}}(\bar V_{\text{ind}}) + \text{var}_{\text{ind}}(m_{\text{ind}}),
+\qquad
+T_j = \frac{\bar m_{\text{case}} - \bar m_{\text{control}}}{\sqrt{v_{\text{case}}/n_1 + v_{\text{control}}/n_0}}.
+$$
+
+The first term of $v$ is 95% to 98% of it (`CLAUDE_kevin.md`). For large
+$\beta_j$ it behaves like $\mu/\beta_j$ and vanishes, while the numerator, a
+difference of fitted means that contain the fitted case-control coefficient,
+does not.
+
+```{r fig_posterior, fig.width=8, fig.height=3.6}
+b_vec <- 10^seq(-2, 7, length.out = 300)
+# One cell with A = mu * s, so that the posterior mean is mu whatever b is.
+curve_df <- rbind(
+  data.frame(b = b_vec,
+             value = b_vec / (1 + b_vec),
+             quantity = "Weight on the fitted mean, w"),
+  data.frame(b = b_vec,
+             value = 1 / sqrt(1 + b_vec),
+             quantity = "Posterior SD, relative to b = 0")
+)
+curve_df$quantity <- factor(curve_df$quantity,
+                            levels = c("Weight on the fitted mean, w",
+                                       "Posterior SD, relative to b = 0"))
+mark_df <- data.frame(b = c(2.5, 10, 1e7),
+                      version = factor(c("master", "10x cap", "devel"),
+                                       levels = names(method_col_vec)))
+
+plot1 <- ggplot2::ggplot(curve_df, ggplot2::aes(x = b, y = value))
+plot1 <- plot1 + ggplot2::geom_vline(data = mark_df,
+                                     ggplot2::aes(xintercept = b,
+                                                  colour = version),
+                                     linewidth = 0.8, linetype = "dashed")
+plot1 <- plot1 + ggplot2::geom_line(colour = "#0b0b0b", linewidth = 0.8)
+plot1 <- plot1 + ggplot2::facet_wrap(~ quantity, nrow = 1)
+plot1 <- plot1 + ggplot2::scale_x_log10(breaks = 10^c(-2, 0, 2, 4, 6),
+                                        labels = c("0.01", "1", "100", "1e4",
+                                                   "1e6"))
+plot1 <- plot1 + ggplot2::scale_colour_manual(values = method_col_vec,
+                                              name = "Largest unit-free rate a gene can get")
+plot1 <- plot1 + ggplot2::labs(x = "Unit-free rate b (log scale)", y = NULL,
+                               title = "A large rate puts all the weight on the fit and removes the posterior variance",
+                               subtitle = "master's bound is near 2.5 for a typical gene; devel's boundary genes are near 1e7")
+plot(plot1)
+```
+
+## The rescaling that follows
+
+Before the posterior is computed, `compute_posterior()` applies
+`bool_stabilize_underdispersion`: **if the geometric mean of the rates
+exceeds 1, every rate is divided by it.** When that happens only the rates
+*relative to each other* reach the posterior. Section 7.5 shows where it
+happens and what it does to `devel`'s rates.
+
+## The three versions side by side
+
+| | `master` (`3d5f7bf`) | `devel` (1.1.0) | Proposed |
+|---|---|---|---|
+| Search for the root of $\ell_j'$ | Newton inside $[10^{-6},\ \max_i s_{ji}]$ | bracket grown by doubling until $\ell_j' \le 0$ | as `devel` |
+| Returned when the root is above the bracket | the bracket's end, $\max_i s_{ji}$ | the root | the root |
+| Returned when there is no finite root | the bracket's end | about $10^7$ | $10 \cdot \text{median}_i\, s_{ji}$ |
+| In one line | $\min\{\hat\beta^{\text{MLE}},\ \max_i s_{ji}\}$ | $\hat\beta^{\text{MLE}}$ | $\min\{\hat\beta^{\text{MLE}},\ 10\cdot\text{median}_i\, s_{ji}\}$ |
+| Where | `src/gamma_rate.cpp` | `src/gamma_rate.cpp` | R, after `gamma_rate()` |
+
+# What `master` did
+
+## Four genes
+
+The curves below are the log-likelihood of four genes of one `baseline` data
+set, each minus its own maximum. The dashed lines are what each version
+returns or allows.
+
+```{r fig_profile, fig.width=10, fig.height=4}
+example_levels <- c("strongly overdispersed", "typical",
+                    "weakly overdispersed", "at the boundary")
+profile_df$example <- factor(profile_df$example, levels = example_levels)
+gene_df <- unique(profile_df[, c("example", "rate_mle", "legacy_cap",
+                                 "proposed_cap")])
+marker_df <- rbind(
+  data.frame(example = gene_df$example, rate = gene_df$legacy_cap,
+             marker = "master: end of the search"),
+  data.frame(example = gene_df$example, rate = gene_df$rate_mle,
+             marker = "devel: the estimate"),
+  data.frame(example = gene_df$example, rate = gene_df$proposed_cap,
+             marker = "proposed cap")
+)
+marker_levels <- c("master: end of the search", "devel: the estimate",
+                   "proposed cap")
+marker_df$marker <- factor(marker_df$marker, levels = marker_levels)
+marker_col_vec <- stats::setNames(as.character(method_col_vec), marker_levels)
+
+plot1 <- ggplot2::ggplot(profile_df, ggplot2::aes(x = rate, y = loglik_drop))
+plot1 <- plot1 + ggplot2::geom_hline(yintercept = -stats::qchisq(0.95, df = 1) / 2,
+                                     colour = "#c3c2b7", linewidth = 0.4)
+plot1 <- plot1 + ggplot2::geom_vline(data = marker_df,
+                                     ggplot2::aes(xintercept = rate,
+                                                  colour = marker),
+                                     linewidth = 0.8, linetype = "dashed")
+plot1 <- plot1 + ggplot2::geom_line(colour = "#0b0b0b", linewidth = 0.8)
+plot1 <- plot1 + ggplot2::facet_wrap(~ example, nrow = 1)
+plot1 <- plot1 + ggplot2::scale_x_log10(breaks = 10^c(0, 2, 4, 6),
+                                        labels = c("1", "100", "1e4", "1e6"))
+plot1 <- plot1 + ggplot2::coord_cartesian(ylim = c(-10, 0.3))
+plot1 <- plot1 + ggplot2::scale_colour_manual(values = marker_col_vec,
+                                              name = NULL)
+plot1 <- plot1 + ggplot2::labs(x = "Rate (log scale)",
+                               y = "Log-likelihood minus its maximum",
+                               title = "master's search ends to the left of the maximum for three of these four genes",
+                               subtitle = "Grey line: 1.92 below the maximum, the edge of a 95% likelihood interval")
+plot(plot1)
+```
+
+```{r table_examples}
+example_df <- unique(profile_df[, c("example", "rate_mle", "legacy_cap",
+                                    "proposed_cap", "rate_true_fit_units",
+                                    "pearson")])
+example_df$master_returns <- pmin(example_df$rate_mle, example_df$legacy_cap)
+example_df$proposed_returns <- pmin(example_df$rate_mle,
+                                    example_df$proposed_cap)
+knitr::kable(example_df[, c("example", "rate_true_fit_units",
+                            "master_returns", "rate_mle",
+                            "proposed_returns", "pearson")],
+             digits = c(0, 1, 1, 1, 1, 2), row.names = FALSE,
+             col.names = c("Gene", "True rate (fit's units)",
+                           "master returns", "devel returns",
+                           "Proposed returns", "Pearson statistic"),
+             caption = "The same four genes. The Pearson statistic is the mean of (count - fitted)^2 / fitted; below 1 means the residuals are less variable than Poisson.")
+```
+
+Reading the four panels:
+
+* **Strongly overdispersed.** The maximum is sharp and lies inside `master`'s
+  search. All three versions return it.
+* **Typical and weakly overdispersed.** The maximum exists, but to the right
+  of `master`'s search. `master` returns the end of its search. `devel` and
+  the proposal return the maximum when it is below the cap, and the cap
+  otherwise.
+* **At the boundary.** The curve rises all the way to the right and flattens.
+  There is no finite maximum. `devel` returns a number near $10^7$, which is
+  where its solver stops, and the likelihood is flat for four orders of
+  magnitude to the left of it.
+
+## How many genes sat at `master`'s bound
+
+```{r table_legacy_cap}
+cap_df <- boundary_df[match(regime_vec, boundary_df$regime),
+                      c("regime", "frac_at_legacy_cap")]
+cap_df$master_spearman <- sapply(cap_df$regime, function(regime){
+  val <- accuracy_df$spearman[accuracy_df$candidate == "master" &
+                                accuracy_df$regime == regime]
+  if(length(val) == 0) return(NA)
+  val
+})
+knitr::kable(cap_df, digits = 2, row.names = FALSE,
+             col.names = c("Regime",
+                           "Genes whose devel estimate is above master's bound",
+                           "Spearman of master's rate with the truth"),
+             caption = "generate_null() has no per-gene truth in the model's terms, hence the NA.")
+```
+
+**For about nine genes in ten, `master`'s rate was the gene's largest library
+size.** That is why its rates do not rank the genes by their true
+overdispersion. The bound also made every gene look more overdispersed than
+it is: `master`'s rates are a median of
+`r .fmt(.get(accuracy_df, "master", "baseline", "median_ratio"), 2)` times the
+truth in `baseline`.
+
+This bound was what kept `master`'s test calibrated. Applying it to `devel`'s
+estimate, `pmin(devel, max library size)`, reproduces `master`'s rates to a
+median of 0.1% and its Welch statistics to within 0.025.
+
+# What `devel` does
+
+## The estimate is good for most genes, and infinite for some
+
+```{r fig_rates, fig.width=10, fig.height=7}
+plot_df <- rate_df[rate_df$regime %in% c("baseline", "trend", "wide_rate",
+                                         "near_poisson"), ]
+plot_df$method <- .label_method(plot_df$candidate)
+plot_df$regime <- factor(plot_df$regime,
+                         levels = c("baseline", "trend", "wide_rate",
+                                    "near_poisson"))
+clip_val <- 3000
+plot_df$clipped <- ifelse(plot_df$rate_unit_free > clip_val,
+                          "above 3000 (drawn at 3000)", "as estimated")
+plot_df$rate_plot <- pmin(plot_df$rate_unit_free, clip_val)
+
+plot1 <- ggplot2::ggplot(plot_df, ggplot2::aes(x = nuisance_true,
+                                               y = rate_plot))
+plot1 <- plot1 + ggplot2::geom_abline(slope = 1, intercept = 0,
+                                      colour = "#52514e", linewidth = 0.5,
+                                      linetype = "dashed")
+plot1 <- plot1 + ggplot2::geom_point(ggplot2::aes(colour = method,
+                                                  shape = clipped),
+                                     size = 0.9, alpha = 0.45)
+plot1 <- plot1 + ggplot2::facet_grid(method ~ regime, scales = "free_x")
+plot1 <- plot1 + ggplot2::scale_x_log10()
+plot1 <- plot1 + ggplot2::scale_y_log10()
+plot1 <- plot1 + ggplot2::scale_colour_manual(values = method_col_vec,
+                                              guide = "none")
+plot1 <- plot1 + ggplot2::scale_shape_manual(values = c(`as estimated` = 16,
+                                                        `above 3000 (drawn at 3000)` = 4),
+                                             name = NULL)
+plot1 <- plot1 + ggplot2::labs(x = "True rate (log scale)",
+                               y = "Estimated unit-free rate (log scale)",
+                               title = "master is flat in the truth; devel follows it but some genes run off; the cap keeps devel and stops at 10",
+                               subtitle = "Three replicates per regime. Dashed line is y = x.")
+plot(plot1)
+```
+
+```{r table_boundary}
+frac_df <- boundary_df[match(setdiff(regime_vec, "generate_null"),
+                             boundary_df$regime),
+                       c("regime", "frac_boundary", "pearson_boundary",
+                         "pearson_interior", "ratio_unit_free",
+                         "spearman_unit_free")]
+knitr::kable(frac_df, digits = c(0, 3, 2, 2, 2, 2), row.names = FALSE,
+             col.names = c("Regime", "Genes at the boundary",
+                           "Pearson statistic, boundary genes",
+                           "Pearson statistic, other genes",
+                           "Median devel / truth, other genes",
+                           "Spearman with the truth, other genes"),
+             caption = "devel's estimate, all replicates. A gene is at the boundary when its Poisson log-likelihood is at least that of the returned rate.")
+```
+
+## Why some genes have no finite estimate
+
+**A gene is at the boundary when its residuals around the fit are no more
+variable than Poisson.** Expanding the log-likelihood of section 2.2 around
+its Poisson limit gives
+
+$$
+\ell_j(\beta) = \ell_j^{\text{Poisson}} + \frac{D_j}{2\beta} + O(\beta^{-2}),
+\qquad
+D_j = \sum_i \frac{(A_{ji} - m_{ji})^2 - A_{ji}}{\mu_{ji}},
+\qquad m_{ji} = \mu_{ji}s_{ji}.
+$$
+
+$D_j$ compares each squared residual with the count itself, which is what the
+squared residual would average if the gene were Poisson. When $D_j > 0$ the
+likelihood comes down to its limit from above, so a finite maximum exists.
+When $D_j < 0$ it climbs to the limit from below and never exceeds it.
+
+```{r table_score}
+score_table_df <- as.data.frame(table(
+  ifelse(pearson_df$score_at_poisson > 0, "D > 0", "D <= 0"),
+  ifelse(pearson_df$bool_boundary, "at the boundary", "finite estimate")
+))
+colnames(score_table_df) <- c("Sign of D", "devel's estimate", "Genes")
+knitr::kable(score_table_df, row.names = FALSE,
+             caption = "The sign of D against what devel returned: baseline, low_count, trend and near_poisson, all replicates.")
+```
+
+The Pearson statistic (the mean of $(A - m)^2/m$, which is 1 for a Poisson
+gene) is the familiar version of the same comparison, and is plotted below.
+
+```{r fig_pearson, fig.width=9, fig.height=3.6}
+plot_df <- pearson_df
+plot_df$regime <- factor(plot_df$regime,
+                         levels = c("baseline", "low_count", "trend",
+                                    "near_poisson"))
+plot_df$status <- factor(ifelse(plot_df$bool_boundary, "at the boundary",
+                                "finite estimate"),
+                         levels = c("finite estimate", "at the boundary"))
+plot_df$pearson_plot <- pmin(plot_df$pearson, 2)
+
+plot1 <- ggplot2::ggplot(plot_df, ggplot2::aes(x = pearson_plot))
+plot1 <- plot1 + ggplot2::geom_histogram(ggplot2::aes(y = ggplot2::after_stat(density),
+                                                      fill = status),
+                                         position = "identity", alpha = 0.65,
+                                         binwidth = 0.025, boundary = 1)
+plot1 <- plot1 + ggplot2::geom_vline(xintercept = 1, colour = "#0b0b0b",
+                                     linewidth = 0.5)
+plot1 <- plot1 + ggplot2::facet_wrap(~ regime, nrow = 1, scales = "free_y")
+plot1 <- plot1 + ggplot2::scale_fill_manual(values = c(`finite estimate` = "#9e9d97",
+                                                       `at the boundary` = "#eb6834"),
+                                            name = "devel's estimate")
+plot1 <- plot1 + ggplot2::labs(x = "Pearson statistic of the gene (values above 2 drawn at 2)",
+                               y = "Density within each group",
+                               title = "Boundary genes have a Pearson statistic at or below about 1",
+                               subtitle = "Black line: the Poisson value. Each group is scaled to area 1, so the heights do not show how many genes are in it.")
+plot(plot1)
+```
+
+This is a known property of the negative binomial likelihood, not a fault of
+`devel`'s solver.
+
+* *"the maximum likelihood (ML) estimator of κ, κ̂, does not have a
+  distribution, since there exists a finite probability of observing a data
+  set from which κ̂ may not be calculated. (This occurs when the sample mean
+  exceeds the sample variance.)"* Piegorsch (1990), §1–2, p.863–864. (wiki:
+  `piegorsch-1990`, `maximum-likelihood-dispersion`)
+* *"if S² < Ȳ then the likelihood function reaches maximum at α = 0."* Dai,
+  Bao and Bao (2013), §1, p.22, under their Condition 1.1. (wiki: `dai-2012`)
+  Here $\alpha = 0$ is $\beta = \infty$.
+* It is common with little overdispersion and small means. In Piegorsch's
+  simulations at mean 1 and $\alpha = 1/5$, 570 of 1000 samples of size 10 and
+  267 of 1000 of size 50 had no positive estimate (Table 1, p.865; wiki:
+  `underdispersion`).
+* It has been seen in single-cell data. Refitting sctransform's estimator on
+  simulated counts with one true $\theta$, raising the iteration limit
+  *"caused 49.9% of the estimates to diverge to infinity or above 10¹⁰"*.
+  Lause, Berens and Kobak (2021), Results, p.5. (wiki: `lause-2021`) The
+  `near_poisson` regime here gives
+  `r round(100 * boundary_df$frac_boundary[boundary_df$regime == "near_poisson"])`%.
+* The same paper names the conditions: *"estimation bias occurs especially
+  for low NB means, small sample sizes, and large true values of θ [...],
+  i.e., for samples that are close to the Poisson distribution."* (p.6)
+
+**How to read a boundary estimate.** The wiki's synthesis page
+`underdispersion` puts it this way: a gene at the boundary "should be read as
+*uninformative*, not as *Poisson*." The data of such a gene are compatible
+with a wide range of rates (the flat part of the fourth panel above). `devel`
+picks the far end of that range.
+
+## Why that inflates the test
+
+The empirical null fits one Gaussian to the statistics of all genes. **Its
+scale is about 0.3, because the variance in the Welch denominator is
+conservative, and the statistics of genes with a large rate are wider than
+that.**
+
+```{r fig_null_scale, fig.width=9, fig.height=3.8}
+plot_df <- null_scale_df[null_scale_df$candidate %in% names(method_label_vec) &
+                           null_scale_df$regime %in% c("null", "trend",
+                                                       "wide_rate",
+                                                       "near_poisson"), ]
+plot_df <- stats::reshape(plot_df, direction = "long",
+                          varying = paste0("rate_group_", 1:5),
+                          v.names = "null_sd", timevar = "fifth",
+                          times = 1:5, idvar = c("candidate", "regime"))
+plot_df$method <- .label_method(plot_df$candidate)
+plot_df$regime <- factor(plot_df$regime,
+                         levels = c("null", "trend", "wide_rate",
+                                    "near_poisson"))
+
+plot1 <- ggplot2::ggplot(plot_df, ggplot2::aes(x = fifth, y = null_sd,
+                                               colour = method))
+plot1 <- plot1 + ggplot2::geom_line(linewidth = 0.8)
+plot1 <- plot1 + ggplot2::geom_point(size = 2.2)
+plot1 <- plot1 + ggplot2::facet_wrap(~ regime, nrow = 1)
+plot1 <- plot1 + ggplot2::scale_y_log10(breaks = c(0.25, 0.5, 1, 2, 4))
+plot1 <- plot1 + ggplot2::scale_colour_manual(values = method_col_vec,
+                                              name = NULL)
+plot1 <- plot1 + ggplot2::labs(x = "Fifth of the genes by their rate (1 = smallest rates)",
+                               y = "SD of the null statistic (log scale)",
+                               title = "Under devel, the null genes with the largest rates have statistics 2 to 10 times wider",
+                               subtitle = "Null genes only, all replicates. A flat line is what a single empirical null assumes.")
+plot(plot1)
+```
+
+```{r fig_qq, fig.width=10, fig.height=5.5}
+plot_df <- qq_df[qq_df$regime %in% c("null", "baseline", "low_count",
+                                     "wide_rate", "trend", "near_poisson"), ]
+plot_df$method <- .label_method(plot_df$candidate)
+plot_df$regime <- factor(plot_df$regime,
+                         levels = c("null", "baseline", "low_count",
+                                    "wide_rate", "trend", "near_poisson"))
+# p-values below 1e-30 are drawn at 1e-30.
+plot_df$observed_plot <- pmin(-log10(plot_df$observed), 30)
+
+plot1 <- ggplot2::ggplot(plot_df, ggplot2::aes(x = -log10(expected),
+                                               y = observed_plot,
+                                               colour = method))
+plot1 <- plot1 + ggplot2::geom_abline(slope = 1, intercept = 0,
+                                      colour = "#52514e", linewidth = 0.5,
+                                      linetype = "dashed")
+plot1 <- plot1 + ggplot2::geom_line(linewidth = 0.8)
+plot1 <- plot1 + ggplot2::facet_wrap(~ regime, nrow = 2, scales = "free_y")
+plot1 <- plot1 + ggplot2::scale_colour_manual(values = method_col_vec,
+                                              name = NULL)
+plot1 <- plot1 + ggplot2::labs(x = "Expected -log10 p under a uniform",
+                               y = "Observed -log10 p, null genes (capped at 30)",
+                               title = "devel's null p-values leave the diagonal in the tail; master and the cap stay near it",
+                               subtitle = "Null genes of all 10 replicates pooled. Dashed line is y = x.")
+plot(plot1)
+```
+
+That the estimate of the dispersion decides the validity of the test is the
+point of two of the wiki's sources.
+
+* Svensson (2025), Introduction, p.2: *"accurate estimation of the φ
+  parameter is crucial for statistical inference as SE(β̂) directly depends
+  on φ."* The same preprint found that the less efficient moment estimator
+  gave the better tests: *"Surprisingly, the method of moments estimates lead
+  to the best calibrated p values."* (Results, p.3; wiki: `svensson-2025`)
+* Law et al. (2014), Background, argue that negative-binomial methods treat
+  the estimated dispersion as known, and that the resulting tests become
+  liberal when the estimate is imprecise (wiki: `law-2014`; the wiki's record
+  of this passage has reconstructed words, so it is paraphrased here).
+
+The wiki's synthesis (`test-calibration-and-dispersion`) draws the conclusion
+that applies here: a dispersion estimate that is "biased but stable can
+produce better-calibrated tests than one that is unbiased but noisy."
+
+# The proposed change
+
+$$
+\hat\beta_j^{\text{cap}} = \min\big\{\hat\beta_j^{\text{MLE}},\ c \cdot \text{median}_i\, s_{ji}\big\},
+\qquad c = 10.
+$$
+
+Three choices are in this line.
+
+* **The cap is in units of the gene's library size**, because the rate is
+  (section 2.1). A cap at one number for all genes would be tight for highly
+  expressed genes and loose for lowly expressed ones.
+* **The median, not `master`'s maximum.** The maximum is set by one cell.
+* **Applied in R after `gamma_rate()`**, so that `gamma_rate()` stays a
+  maximum-likelihood estimator and its tests (T-CPP-GAM-05 and the others)
+  keep their meaning.
+
+## Why 10
+
+```{r fig_sweep_fp, fig.width=10, fig.height=5.5}
+sweep_plot_df <- sweep_df[grepl("^cap_", sweep_df$candidate), ]
+sweep_plot_df$multiplier <- as.numeric(sub("^cap_", "",
+                                           sweep_plot_df$candidate))
+# "No cap" is drawn at 1e4 on the axis.
+sweep_plot_df$multiplier_plot <- ifelse(is.finite(sweep_plot_df$multiplier),
+                                        sweep_plot_df$multiplier, 1e4)
+fp_regime_vec <- c("null", "baseline", "low_count", "wide_rate", "trend",
+                   "near_poisson")
+plot_df <- sweep_plot_df[sweep_plot_df$regime %in% fp_regime_vec, ]
+plot_df$regime <- factor(plot_df$regime, levels = fp_regime_vec)
+
+plot1 <- ggplot2::ggplot(plot_df, ggplot2::aes(x = multiplier_plot, y = fp))
+plot1 <- plot1 + ggplot2::geom_vline(xintercept = 10,
+                                     colour = method_col_vec[["10x cap"]],
+                                     linewidth = 0.8, linetype = "dashed")
+plot1 <- plot1 + ggplot2::geom_errorbar(ggplot2::aes(ymin = pmax(fp - fp_se, 0),
+                                                     ymax = fp + fp_se),
+                                        width = 0, colour = "#52514e")
+plot1 <- plot1 + ggplot2::geom_line(colour = "#0b0b0b", linewidth = 0.8)
+plot1 <- plot1 + ggplot2::geom_point(colour = "#0b0b0b", size = 2)
+plot1 <- plot1 + ggplot2::facet_wrap(~ regime, nrow = 2, scales = "free_y")
+plot1 <- plot1 + ggplot2::scale_x_log10(breaks = c(1, 10, 100, 1000, 1e4),
+                                        labels = c("1", "10", "100", "1000",
+                                                   "none"))
+plot1 <- plot1 + ggplot2::labs(x = "Cap multiplier c (log scale)",
+                               y = "False discoveries per data set",
+                               title = "False discoveries are low up to c = 10 to 20 and rise beyond",
+                               subtitle = "FDR < 0.05, mean of 10 replicates, bars are 1 SE. Green line: the proposed c = 10. master's bound is between c = 2 and c = 3.")
+plot(plot1)
+```
+
+```{r fig_sweep_tp, fig.width=9, fig.height=3.4}
+tp_regime_vec <- c("weak_de", "low_count", "wide_rate", "trend")
+plot_df <- sweep_plot_df[sweep_plot_df$regime %in% tp_regime_vec, ]
+plot_df$regime <- factor(plot_df$regime, levels = tp_regime_vec)
+
+plot1 <- ggplot2::ggplot(plot_df, ggplot2::aes(x = multiplier_plot, y = tp))
+plot1 <- plot1 + ggplot2::geom_vline(xintercept = 10,
+                                     colour = method_col_vec[["10x cap"]],
+                                     linewidth = 0.8, linetype = "dashed")
+plot1 <- plot1 + ggplot2::geom_errorbar(ggplot2::aes(ymin = tp - tp_se,
+                                                     ymax = tp + tp_se),
+                                        width = 0, colour = "#52514e")
+plot1 <- plot1 + ggplot2::geom_line(colour = "#0b0b0b", linewidth = 0.8)
+plot1 <- plot1 + ggplot2::geom_point(colour = "#0b0b0b", size = 2)
+plot1 <- plot1 + ggplot2::facet_wrap(~ regime, nrow = 1)
+plot1 <- plot1 + ggplot2::scale_x_log10(breaks = c(1, 10, 100, 1000, 1e4),
+                                        labels = c("1", "10", "100", "1000",
+                                                   "none"))
+plot1 <- plot1 + ggplot2::scale_y_continuous(limits = c(0, 30))
+plot1 <- plot1 + ggplot2::labs(x = "Cap multiplier c (log scale)",
+                               y = "True discoveries per data set (of 30)",
+                               title = "True discoveries move by one to five genes across the whole range of the cap",
+                               subtitle = "The four regimes where power is not saturated. Bars are 1 SE.")
+plot(plot1)
+```
+
+```{r table_sweep}
+capped_df <- sweep_plot_df[sweep_plot_df$multiplier %in% c(2, 5, 10, 20, 50),
+                           c("multiplier", "regime", "frac_capped")]
+capped_wide_df <- stats::reshape(capped_df, idvar = "multiplier",
+                                 timevar = "regime", direction = "wide")
+colnames(capped_wide_df) <- sub("^frac_capped\\.", "",
+                                colnames(capped_wide_df))
+capped_wide_df <- capped_wide_df[order(capped_wide_df$multiplier),
+                                 c("multiplier", "null", "baseline",
+                                   "low_count", "wide_rate", "trend",
+                                   "near_poisson", "generate_null")]
+knitr::kable(capped_wide_df, digits = 2, row.names = FALSE,
+             caption = "Fraction of genes whose rate the cap changes, by multiplier c.")
+```
+
+What the sweep shows:
+
+* **Between $c = 5$ and $c = 20$ the choice matters little** for false
+  discoveries. Beyond 50 they rise in every regime.
+* **Too tight a cap is also worse when the rate depends on expression.** In
+  `trend`, $c = 1$ and $c = 2$ give
+  `r .fmt(.get(sweep_df, "cap_1", "trend", "fp"))` and
+  `r .fmt(.get(sweep_df, "cap_2", "trend", "fp"))` false discoveries against
+  `r .fmt(.get(sweep_df, "cap_10", "trend", "fp"))` at $c = 10$. `master`'s
+  bound is in that tight range.
+* **At $c = 10$ most genes keep their own estimate** in ordinary data. At
+  `master`'s bound almost none do.
+* **True discoveries change little, and not always in the cap's favor.** In
+  `low_count` they are lowest near $c = 10$
+  (`r .fmt(.get(sweep_df, "cap_10", "low_count", "tp"))`, SE
+  `r .fmt(.get(sweep_df, "cap_10", "low_count", "tp_se"))`) and higher at
+  $c = 1$ (`r .fmt(.get(sweep_df, "cap_1", "low_count", "tp"))`) and with no
+  cap (`r .fmt(.get(sweep_df, "cap_Inf", "low_count", "tp"))`, which comes
+  with `r .fmt(.get(sweep_df, "cap_Inf", "low_count", "fp"))` false
+  discoveries). The differences at the tight end are about one standard
+  error.
+
+## Why not a cap taken from the literature
+
+Every package in the wiki bounds its dispersion, so a bound is ordinary
+practice.
+
+| Package | Bound, as implemented | In this report's terms | Wiki |
+|---|---|---|---|
+| DESeq2 | `minDisp = 1e-8`; `maxDisp <- max(10, ncol(object))` | $\theta \le 10^8$ | `pkg-deseq2`, `R/core.R` L714–729 |
+| nebula | `max` default `c(10, 1000)` for $(\sigma^2, \phi)$ | cell-level $\theta \le 1000$ | `pkg-nebula`, `R/nebula.R` L14–15 |
+| glmpca | $\theta$ capped at $10^4$ | $\theta \le 10^4$ | `pkg-glmpca` |
+
+Those bounds are numerical guards. The measured level of technical
+overdispersion in UMI data gives a bound with a meaning:
+
+* *"negative control data were consistent with overdispersion θ ≈ 100 or
+  larger"*. Lause, Berens and Kobak (2021), Results, p.6. (wiki: `lause-2021`)
+* *"measurement dispersion is no larger than 5 × 10⁻³"*, that is
+  $\theta \ge 200$. Sarkar and Stephens (2021), Results, p.11. (wiki:
+  `sarkar-stephens-2021`, `technical-vs-biological-variance`)
+
+Since $\theta = \mu\beta$ and the fitted $\mu$ is about 1, "no gene is less
+overdispersed than the measurement itself" would be a cap near
+$\beta = 100$ to $200$. With a median library size of about 2 in these
+simulations that is $c = 50$ to $100$. **At $c = 50$ the false discoveries
+under the null are `r .fmt(.get(sweep_df, "cap_50", "null", "fp"))`, against
+`r .fmt(.get(sweep_df, "cap_10", "null", "fp"))` at $c = 10$.** The cap that
+calibrates this test is tighter than what the literature on technical noise
+supports. The documentation should therefore describe it as a bound on the
+weight the posterior gives to the fit, and not as an estimate of a floor on
+overdispersion.
+
+# In what sense it improves on `master`
+
+## As an estimate of the rate
+
+```{r fig_accuracy, fig.width=9, fig.height=3.8}
+acc_regime_vec <- c("null", "baseline", "low_count", "wide_rate", "trend",
+                    "near_poisson")
+plot_df <- accuracy_df[accuracy_df$candidate %in% names(method_label_vec) &
+                         accuracy_df$regime %in% acc_regime_vec, ]
+plot_df$method <- .label_method(plot_df$candidate)
+plot_df$regime <- factor(plot_df$regime, levels = acc_regime_vec)
+
+plot1 <- ggplot2::ggplot(plot_df, ggplot2::aes(x = regime,
+                                               y = frac_within_2fold,
+                                               fill = method))
+plot1 <- plot1 + ggplot2::geom_col(position = ggplot2::position_dodge(width = 0.75),
+                                   width = 0.68)
+plot1 <- plot1 + ggplot2::geom_text(ggplot2::aes(label = sprintf("%.2f", frac_within_2fold)),
+                                    position = ggplot2::position_dodge(width = 0.75),
+                                    vjust = -0.4, size = 2.8,
+                                    colour = "#0b0b0b")
+plot1 <- plot1 + ggplot2::scale_y_continuous(limits = c(0, 1.08),
+                                             breaks = seq(0, 1, by = 0.25))
+plot1 <- plot1 + ggplot2::scale_fill_manual(values = method_col_vec,
+                                            name = NULL)
+plot1 <- plot1 + ggplot2::labs(x = NULL,
+                               y = "Genes within twofold of the true rate",
+                               title = "The capped rate is closer to the truth than master's wherever the rate can be estimated",
+                               subtitle = "Unit-free rate against the generator's truth, all genes and replicates")
+plot(plot1)
+```
+
+```{r table_accuracy}
+acc_df <- accuracy_df[accuracy_df$candidate %in% names(method_label_vec) &
+                        accuracy_df$regime %in% acc_regime_vec,
+                      c("candidate", "regime", "spearman", "median_ratio")]
+acc_df$method <- as.character(.label_method(acc_df$candidate))
+acc_wide_df <- stats::reshape(acc_df[, c("method", "regime", "spearman",
+                                         "median_ratio")],
+                              idvar = "regime", timevar = "method",
+                              direction = "wide")
+acc_wide_df <- acc_wide_df[match(acc_regime_vec, acc_wide_df$regime),
+                           c("regime", "spearman.master", "spearman.devel",
+                             "spearman.10x cap", "median_ratio.master",
+                             "median_ratio.devel", "median_ratio.10x cap")]
+knitr::kable(acc_wide_df, digits = 2, row.names = FALSE,
+             col.names = c("Regime", "Spearman: master", "devel", "10x cap",
+                           "Median estimate / truth: master", "devel",
+                           "10x cap"),
+             caption = "Rank agreement with the truth within a data set, and the median ratio to the truth.")
+```
+
+* **Where the rate can be estimated, the cap inherits `devel`'s accuracy.**
+  Its Spearman correlation with the truth equals `devel`'s, and more genes
+  are within twofold than under `devel`, because the boundary genes are no
+  longer at $10^7$.
+* **`near_poisson` is the exception, for every method.** The true unit-free
+  rates there are 50 to 1000. `master` returns about 2.5 and the cap returns
+  10. Neither is an estimate. The data do not contain the information: even
+  the genes with a finite `devel` estimate gain a median of 0.26
+  log-likelihood units over Poisson.
+
+## As an input to the test
+
+```{r fig_discoveries, fig.width=10, fig.height=5.5}
+plot_df <- by_rep_df
+plot_df$method <- .label_method(plot_df$candidate)
+plot_df$regime <- factor(plot_df$regime, levels = regime_vec)
+mean_df <- stats::aggregate(fp ~ method + regime, data = plot_df, FUN = mean)
+
+plot1 <- ggplot2::ggplot(plot_df, ggplot2::aes(x = method, y = fp + 1))
+plot1 <- plot1 + ggplot2::geom_point(ggplot2::aes(colour = method),
+                                     position = ggplot2::position_jitter(width = 0.18,
+                                                                         height = 0,
+                                                                         seed = 1),
+                                     size = 1.8, alpha = 0.7)
+plot1 <- plot1 + ggplot2::geom_errorbar(data = mean_df,
+                                        ggplot2::aes(ymin = fp + 1,
+                                                     ymax = fp + 1),
+                                        width = 0.6, colour = "#0b0b0b",
+                                        linewidth = 0.8)
+plot1 <- plot1 + ggplot2::facet_wrap(~ regime, nrow = 2)
+plot1 <- plot1 + ggplot2::scale_y_log10(breaks = c(1, 2, 6, 11, 31, 101),
+                                        labels = c("0", "1", "5", "10", "30",
+                                                   "100"))
+plot1 <- plot1 + ggplot2::scale_colour_manual(values = method_col_vec,
+                                              guide = "none")
+plot1 <- plot1 + ggplot2::labs(x = NULL,
+                               y = "False discoveries per data set (log scale)",
+                               title = "The cap returns devel's false discoveries to master's level, and below it in trend",
+                               subtitle = "FDR < 0.05. One point per replicate; black bar is the mean.")
+plot(plot1)
+```
+
+```{r table_discoveries}
+disc_df <- discovery_df[discovery_df$candidate %in% names(method_label_vec),
+                        c("candidate", "regime", "fp", "tp", "type1", "auc")]
+disc_df$method <- as.character(.label_method(disc_df$candidate))
+num_de_df <- unique(by_rep_df[, c("regime", "num_de")])
+disc_table_df <- do.call(rbind, lapply(regime_vec, function(regime){
+  x <- disc_df[disc_df$regime == regime, ]
+  x <- x[match(method_label_vec, x$method), ]
+  data.frame(regime = regime,
+             num_de = num_de_df$num_de[num_de_df$regime == regime][1],
+             fp = paste0(.fmt(x$fp), collapse = " / "),
+             tp = paste0(.fmt(x$tp), collapse = " / "),
+             type1 = paste0(.fmt(x$type1, 3), collapse = " / "),
+             auc = paste0(ifelse(is.na(x$auc), "--", .fmt(x$auc, 3)),
+                          collapse = " / "))
+}))
+knitr::kable(disc_table_df, row.names = FALSE,
+             col.names = c("Regime", "DE genes", "False discoveries",
+                           "True discoveries", "Type-I error at p < 0.05",
+                           "AUC of |z|"),
+             caption = "Each cell is master / devel / 10x cap. Means over 10 replicates of 300 genes.")
+```
+
+* **Against `devel`**, the cap removes the inflation in every regime.
+* **Against `master`**, the table below takes the difference within each
+  replicate, which removes the variation between data sets. The cap has
+  fewer false discoveries in `trend` and `near_poisson`, and 0.3 more in
+  `baseline`. Each of these is two to three standard errors from zero, and
+  with eight regimes compared one difference of that size is unremarkable.
+  The others are within two standard errors. For true discoveries the cap
+  gains one gene in `trend` and loses 0.7 of a gene under `generate_null()`;
+  the rest are within one standard error.
+
+```{r table_paired}
+paired_df <- merge(by_rep_df[by_rep_df$candidate == "cap_10s",
+                             c("regime", "rep", "fp", "tp")],
+                   by_rep_df[by_rep_df$candidate == "master",
+                             c("regime", "rep", "fp", "tp")],
+                   by = c("regime", "rep"), suffixes = c("_cap", "_master"))
+.mean_se <- function(v){
+  paste0(.fmt(mean(v), 2), " (", .fmt(stats::sd(v) / sqrt(length(v)), 2), ")")
+}
+paired_table_df <- do.call(rbind, lapply(regime_vec, function(regime){
+  x <- paired_df[paired_df$regime == regime, ]
+  data.frame(regime = regime,
+             fp_diff = .mean_se(x$fp_cap - x$fp_master),
+             tp_diff = .mean_se(x$tp_cap - x$tp_master))
+}))
+knitr::kable(paired_table_df, row.names = FALSE,
+             col.names = c("Regime",
+                           "False discoveries: 10x cap minus master, mean (SE)",
+                           "True discoveries: 10x cap minus master, mean (SE)"),
+             caption = "Paired over the 10 replicates of each regime. Negative false discoveries and positive true discoveries favor the cap.")
+```
+
+* **In `trend` the cap is better than `master` on both counts**, and ranks
+  the genes better (AUC
+  `r .fmt(.get(discovery_df, "cap_10s", "trend", "auc"), 3)` against
+  `r .fmt(.get(discovery_df, "master", "trend", "auc"), 3)`). Section 7.4
+  explains why.
+* **`devel`'s extra true discoveries in `low_count` and `wide_rate` are not
+  power.** Its ranking of the genes is worse there (AUC
+  `r .fmt(.get(discovery_df, "mle", "low_count", "auc"), 3)` and
+  `r .fmt(.get(discovery_df, "mle", "wide_rate", "auc"), 3)` against
+  `r .fmt(.get(discovery_df, "cap_10s", "low_count", "auc"), 3)` and
+  `r .fmt(.get(discovery_df, "cap_10s", "wide_rate", "auc"), 3)`). It rejects
+  more because its threshold is miscalibrated.
+
+## Summary of the comparison with `master`
+
+| Criterion | `master` | 10x cap | Verdict |
+|---|---|---|---|
+| Is the rate an estimate? | for about 1 gene in 10 | for about 9 genes in 10 | better |
+| Genes within twofold of the truth, ordinary regimes | 0.56 to 0.60 | 0.95 to 0.96 | better |
+| Ranks genes by true overdispersion | no (Spearman 0.05) | yes (0.77) | better |
+| False discoveries, rate unrelated to expression | 0.2 to 2.6 | 0.1 to 2.1 | same |
+| False and true discoveries, rate follows expression | 2.3 and 20.7 | 1.0 and 21.7 | better |
+| Nearly Poisson data | rate not estimable | rate not estimable | same |
+| Sensitive to one extreme cell | yes (`max`) | no (`median`) | better |
+| Reproduces the 2024 paper's numbers | yes | not checked on real data | open |
+
+# The nuances
+
+## The rate has units
+
+> **The mistake to avoid.** Comparing `nuisance_vec` with the generator's
+> $\beta_j$ directly makes `devel` look biased upward two- to threefold. The
+> generator's library size averages 1. The fit's library size contains the
+> gene intercept and the covariate effects, so the same overdispersion is
+> $\beta_j \cdot s$ in the fit's units. The comparison runs without error and
+> gives a plausible wrong answer.
+
+```{r table_units}
+unit_df <- boundary_df[match(c("null", "baseline", "low_count", "wide_rate",
+                               "trend"), boundary_df$regime),
+                       c("regime", "ratio_raw", "ratio_unit_free",
+                         "spearman_raw", "spearman_unit_free")]
+knitr::kable(unit_df, digits = 2, row.names = FALSE,
+             col.names = c("Regime", "Median devel / truth, raw",
+                           "Median devel / truth, unit-free",
+                           "Spearman, raw", "Spearman, unit-free"),
+             caption = "devel's estimate against the truth, genes with a finite estimate.")
+```
+
+**Unit-free, `devel` is 3% to 14% above the truth** (39% at low counts).
+Section 4.1 of the comparison report and the session-13 notes state the raw
+figure. A small excess in this direction is what is expected when the fit
+absorbs part of the residual variance (wiki: `nuisance-parameter-bias`).
+
+## The true rates do not calibrate the test when some are very large
+
+Feeding the pipeline the *true* rates is the best any estimator could do.
+
+```{r table_oracle}
+oracle_table_df <- do.call(rbind, lapply(c("wide_rate", "trend"),
+                                         function(regime){
+  data.frame(regime = regime,
+             fp_oracle = .get(discovery_df, "oracle", regime, "fp"),
+             tp_oracle = .get(discovery_df, "oracle", regime, "tp"),
+             fp_cap = .get(discovery_df, "cap_10s", regime, "fp"),
+             tp_cap = .get(discovery_df, "cap_10s", regime, "tp"))
+}))
+knitr::kable(oracle_table_df, digits = 1, row.names = FALSE,
+             col.names = c("Regime", "True rates: false discoveries",
+                           "true discoveries", "10x cap: false discoveries",
+                           "true discoveries"),
+             caption = "Per data set, 30 DE genes.")
+knitr::kable(oracle_rate_df, digits = c(0, 0, 0, 0, 4, 2), row.names = FALSE,
+             col.names = c("Regime", "True unit-free rate", "Null genes",
+                           "False discoveries", "Fraction",
+                           "SD of the null statistic"),
+             caption = "The true rates' false discoveries, by the size of the true rate. All replicates pooled.")
+```
+
+* **With true rates below about 30, the truth works** and is the most
+  powerful choice (`trend`).
+* **With true rates above 30 it does not.** The null statistics of those
+  genes are 1.5 to 2.3 times wider than the rest, for the reason of section
+  2.3. In `wide_rate` they supply 55 of the 57 false discoveries. In `trend`
+  they are 5% of the null genes and supply 8 of the 15.
+
+**The earlier statement in the brainstorm that "the true rates do not
+calibrate the test" was too general.** It holds for genes that are nearly
+Poisson in truth. Those genes are the ones the cap acts on.
+
+## More cells
+
+The boundary is a small-sample effect for genes with moderate rates. The
+problem of section 7.2 is not.
+
+```{r table_more_cells}
+cells_candidate_vec <- c("mle", "cap_max_s", "cap_10s", "oracle")
+cells_label_vec <- c(mle = "devel", cap_max_s = "master's bound",
+                     cap_10s = "10x cap", oracle = "true rates")
+cells_df <- more_cells_df[more_cells_df$candidate %in% cells_candidate_vec, ]
+cells_table_df <- do.call(rbind, lapply(cells_candidate_vec, function(candidate){
+  x <- cells_df[cells_df$candidate == candidate, ]
+  x <- x[match(c("null", "weak_de", "wide_rate"), x$regime), ]
+  data.frame(method = cells_label_vec[[candidate]],
+             null = .fmt(x$fp[1]),
+             weak_de = paste0(.fmt(x$fp[2]), " / ", .fmt(x$tp[2])),
+             wide_rate = paste0(.fmt(x$fp[3]), " / ", .fmt(x$tp[3])))
+}))
+knitr::kable(cells_table_df, row.names = FALSE,
+             col.names = c("Rates", "null: false discoveries",
+                           "weak_de: false / true",
+                           "wide_rate: false / true"),
+             caption = "150 cells per individual (3000 cells) in place of 30. master itself was not run at this size; its bound is applied to devel's estimate.")
+```
+
+* **With true rates of 2 to 8 and 3000 cells, no gene is at the boundary and
+  `devel` needs no fix.**
+* **With widely spread true rates the inflation remains**, and the cap still
+  removes it.
+  `r .fmt(100 * .get(more_cells_df, "mle", "wide_rate", "frac_boundary"))`%
+  of genes are still at the boundary, against
+  `r .fmt(100 * boundary_df$frac_boundary[boundary_df$regime == "wide_rate"])`%
+  at 600 cells.
+* Methods whose strength depends on the precision of the estimate
+  (empirical-Bayes shrinkage, the profile-likelihood bound) weaken as cells
+  are added:
+  `r .fmt(.get(more_cells_df, "eb_map", "wide_rate", "fp"))` and
+  `r .fmt(.get(more_cells_df, "profile_lower_90", "wide_rate", "fp"))` false
+  discoveries in `wide_rate` against the cap's
+  `r .fmt(.get(more_cells_df, "cap_10s", "wide_rate", "fp"))`. The cap does
+  not depend on the number of cells. This was the reason for choosing it.
+
+## A real trend between overdispersion and expression
+
+No other regime ties the rate to the gene's expression, so `trend` was
+written for this report. It uses DESeq2's parametric trend,
+$\alpha(m) = \alpha_0 + \alpha_1/m$ in the $\text{Var} = m + \alpha m^2$ form
+(wiki: `trended-dispersion`, `pkg-deseq2`; `parametricDispersionFit` in
+`R/core.R` returns `coefs[1] + coefs[2] / q`). With $\theta = \mu\beta$ this
+is, in the generator's units,
+
+$$
+\beta_j = \frac{1}{\alpha_0\, e^{\text{intercept}_j} + \alpha_1}\cdot e^{\varepsilon_j},
+\qquad \alpha_0 = 0.1,\ \ \alpha_1 = 0.02,\ \ \varepsilon_j \sim N(0, 0.3^2),
+$$
+
+with gene intercepts from −2 to 2. **Highly expressed genes are more
+overdispersed relative to Poisson, and lowly expressed genes are nearly
+Poisson.** $\alpha_0 = 0.1$ is the plateau $\theta \approx 10$ that Lause,
+Berens and Kobak report in PBMC data and read as biological (Results, p.6;
+wiki: `lause-2021`). $\alpha_1$ and the noise are my choices.
+
+```{r fig_trend, fig.width=10, fig.height=4}
+plot_df <- rate_df[rate_df$regime == "trend", ]
+plot_df$method <- .label_method(plot_df$candidate)
+plot_df$rate_plot <- pmin(plot_df$rate_unit_free, 3000)
+
+plot1 <- ggplot2::ggplot(plot_df, ggplot2::aes(x = mean_count))
+plot1 <- plot1 + ggplot2::geom_point(ggplot2::aes(y = nuisance_true),
+                                     colour = "#c3c2b7", size = 0.9,
+                                     alpha = 0.7)
+plot1 <- plot1 + ggplot2::geom_hline(yintercept = 10, colour = "#52514e",
+                                     linewidth = 0.5, linetype = "dashed")
+plot1 <- plot1 + ggplot2::geom_point(ggplot2::aes(y = rate_plot,
+                                                  colour = method),
+                                     size = 0.9, alpha = 0.5)
+plot1 <- plot1 + ggplot2::facet_wrap(~ method, nrow = 1)
+plot1 <- plot1 + ggplot2::scale_x_log10()
+plot1 <- plot1 + ggplot2::scale_y_log10()
+plot1 <- plot1 + ggplot2::scale_colour_manual(values = method_col_vec,
+                                              guide = "none")
+plot1 <- plot1 + ggplot2::labs(x = "Mean count of the gene (log scale)",
+                               y = "Unit-free rate (log scale)",
+                               title = "master's rate is flat in expression where the truth falls twentyfold; the cap follows the truth up to 10",
+                               subtitle = "Grey: the true rate. Colour: the estimate (values above 3000 drawn at 3000). Dashed line: 10. Three replicates.")
+plot(plot1)
+```
+
+```{r table_trend_third}
+third_df <- trend_third_df
+third_df$third <- factor(third_df$third, levels = c("low", "middle", "high"))
+third_label_vec <- c(master = "master", mle = "devel", cap_10s = "10x cap",
+                     oracle = "true rates")
+third_df$method <- factor(third_label_vec[third_df$candidate],
+                          levels = third_label_vec)
+third_df <- third_df[order(third_df$third, third_df$method), ]
+knitr::kable(third_df[, c("third", "mean_count", "rate_true_median", "method",
+                          "fp", "tp", "num_de", "frac_within_2fold")],
+             digits = c(0, 2, 1, 0, 1, 1, 1, 2), row.names = FALSE,
+             col.names = c("Third of genes by expression", "Median mean count",
+                           "Median true rate", "Rates", "False discoveries",
+                           "True discoveries", "DE genes",
+                           "Within twofold of the truth"),
+             caption = "The trend regime, by third of the genes' expression. Per data set.")
+```
+
+What `trend` shows:
+
+* **`master`'s bound has the wrong shape.** It is a multiple of the library
+  size for nearly every gene, so its unit-free rate is about constant, while
+  the truth falls twentyfold across the range.
+  `r round(100 * .get(accuracy_df, "master", "trend", "frac_within_2fold"))`%
+  of `master`'s rates are within twofold of the truth, against
+  `r round(100 * .get(accuracy_df, "cap_10s", "trend", "frac_within_2fold"))`%
+  for the cap.
+* **That costs `master` false discoveries among the highly expressed
+  genes.** They are truly the most overdispersed, and a rate that is the same
+  for every gene is too large for them *relative to the others*, which is
+  what reaches the posterior after the rescaling (section 7.5). The high
+  third supplies
+  `r .fmt(trend_third_df$fp[trend_third_df$candidate == "master" & trend_third_df$third == "high"])`
+  of `master`'s `r .fmt(.get(discovery_df, "master", "trend", "fp"))` false
+  discoveries. It also costs power in the low and middle thirds.
+* **The cap's cost is in the low third.** Those genes have a true rate near
+  20, the cap holds them at 10, and the test is more cautious than it need
+  be: `r .fmt(trend_third_df$tp[trend_third_df$candidate == "cap_10s" & trend_third_df$third == "low"])`
+  true discoveries against
+  `r .fmt(trend_third_df$tp[trend_third_df$candidate == "oracle" & trend_third_df$third == "low"])`
+  with the true rates. It is still above `master`'s
+  `r .fmt(trend_third_df$tp[trend_third_df$candidate == "master" & trend_third_df$third == "low"])`.
+* **`devel` fails here as in `wide_rate`**:
+  `r round(100 * boundary_df$frac_boundary[boundary_df$regime == "trend"])`%
+  of genes are at the boundary, mostly among the lowly expressed genes
+  (figure above), and its false discoveries follow them:
+  `r .fmt(trend_third_df$fp[trend_third_df$candidate == "mle" & trend_third_df$third == "low"])`
+  of `r .fmt(.get(discovery_df, "mle", "trend", "fp"))` are in the low
+  third.
+
+**Would modelling the trend do better?** Shrinking toward a fitted trend in
+expression, as DESeq2 does, was tried on the empirical-Bayes prototype.
+
+```{r table_trend_variants}
+variant_label_vec <- c(eb_map = "shrinkage, constant centre",
+                       eb_trend = "shrinkage, centre is a fitted trend")
+variant_table_df <- do.call(rbind, lapply(names(variant_label_vec),
+                                          function(candidate){
+  data.frame(method = variant_label_vec[[candidate]],
+             fp = .get(variant_df, candidate, "trend", "fp"),
+             fp_se = .get(variant_df, candidate, "trend", "fp_se"),
+             tp = .get(variant_df, candidate, "trend", "tp"),
+             slope = .get(variant_df, candidate, "trend", "slope"),
+             within = .get(accuracy_df, candidate, "trend",
+                           "frac_within_2fold"),
+             spearman = .get(accuracy_df, candidate, "trend", "spearman"))
+}))
+cap_row_df <- data.frame(method = "10x cap",
+                         fp = .get(discovery_df, "cap_10s", "trend", "fp"),
+                         fp_se = .get(sweep_df, "cap_10", "trend", "fp_se"),
+                         tp = .get(discovery_df, "cap_10s", "trend", "tp"),
+                         slope = NA,
+                         within = .get(accuracy_df, "cap_10s", "trend",
+                                       "frac_within_2fold"),
+                         spearman = .get(accuracy_df, "cap_10s", "trend",
+                                         "spearman"))
+knitr::kable(rbind(cap_row_df, variant_table_df), digits = 2,
+             row.names = FALSE,
+             col.names = c("Rates", "False discoveries", "SE",
+                           "True discoveries", "Fitted slope",
+                           "Within twofold of the truth",
+                           "Spearman with the truth"),
+             caption = "The trend regime, 600 cells. The slope is of the log unit-free rate on the log mean count.")
+```
+
+* **When a trend exists, a prior centred on it gives the most accurate rates
+  and the most true discoveries**, with false discoveries within noise of the
+  cap's. This is a real advantage, and the cap leaves it unused.
+* **It was not chosen because its protection depends on the number of cells**
+  (section 7.3), and because the wiki records two cautions about fitted
+  trends. One is that a trend can be produced by the estimator alone: Lause,
+  Berens and Kobak simulated one constant $\theta$ and the estimation
+  procedure *"showed the same positive correlation of θ̂_g with the average
+  expression as in real data"* (Results, p.5). The other is the wiki's own
+  observation (`trended-dispersion`) that the assumption that genes of
+  similar expression have similar dispersion is "rarely stated explicitly
+  and, as far as the ingested sources go, never justified."
+* Whether real data have a trend in the eSVD model's rate is not known. The
+  trend with a cap as a backstop is a candidate for a later version.
+
+## The rescaling by the geometric mean
+
+```{r table_rescale}
+rescale_table_df <- rescale_df
+rescale_table_df$method <- .label_method(rescale_table_df$candidate)
+rescale_table_df$rescaled <- ifelse(rescale_table_df$geometric_mean > 1,
+                                    "yes", "no")
+rescale_table_df <- rescale_table_df[order(match(rescale_table_df$regime,
+                                                 regime_vec),
+                                           rescale_table_df$method), ]
+rescale_table_df <- rescale_table_df[rescale_table_df$regime %in%
+                                       c("baseline", "low_count", "trend",
+                                         "near_poisson", "generate_null"), ]
+# Columns that run from 0.001 to millions are printed to two significant
+# digits.
+for(column in c("geometric_mean", "rescaled_q01", "rescaled_q50",
+                "rescaled_q99")){
+  rescale_table_df[[column]] <- format(signif(rescale_table_df[[column]], 2),
+                                       scientific = FALSE, drop0trailing = TRUE,
+                                       trim = TRUE, big.mark = ",")
+}
+knitr::kable(rescale_table_df[, c("regime", "method", "geometric_mean",
+                                  "rescaled", "rescaled_q01", "rescaled_q50",
+                                  "rescaled_q99")],
+             row.names = FALSE, align = "llrlrrr",
+             col.names = c("Regime", "Rates", "Geometric mean of the rates",
+                           "Rescaled?", "Rate / geometric mean: 1st percentile",
+                           "median", "99th percentile"),
+             caption = "bool_stabilize_underdispersion divides every rate by the geometric mean when it exceeds 1. Means over replicates; the percentiles pool all genes.")
+```
+
+* **Where the rescaling applies, the level of the rates is discarded.** In
+  `baseline` the three versions have geometric means of 4.7, 11 and 9.6,
+  and after the division all three are centred at 1. What differs between
+  them is the spread.
+* **This is why the cap matters through the spread and not the level.**
+  Under `devel` in `near_poisson` the geometric mean is about
+  `r formatC(rescale_df$geometric_mean[rescale_df$candidate == "mle" & rescale_df$regime == "near_poisson"], format = "e", digits = 1)`.
+  After the division the boundary genes are in the thousands and the median
+  gene is at 0.04: two populations, one collapsed onto the fit and one equal
+  to the raw counts.
+* **It does not apply in every regime.** Under `generate_null()` all three
+  geometric means are below 1, and under `master` so is `low_count`'s. **The
+  brainstorm's statement that the rescaling happened in every regime was
+  wrong for these**, and has been corrected there.
+* **Between the 1st and the 99th percentile, the rates after the division
+  span a factor of 5 to 30 with the cap, 9 to 80 under `master`, and 50 to
+  several million under `devel`** (eSVD-model regimes of the table).
+
+# Recommendation
+
+**Adopt $\min\{\hat\beta^{\text{MLE}}_j,\ 10\cdot\text{median}_i\, s_{ji}\}$ for
+1.1.0**, after one check on real data.
+
+1. **Where.** In `.estimate_nuisance_matrix()` in `R/nuisance.R`, after the
+   per-gene estimates, and in the same place for `compute_test_per_gene()`.
+   Not in `src/gamma_rate.cpp`.
+2. **Interface.** One new argument to `estimate_nuisance()`, the multiplier,
+   defaulting to 10, with `Inf` giving `devel`'s present behavior. A second
+   setting that reproduces `master`'s bound is optional and depends on item
+   5.
+3. **Record what the cap did.** A per-gene status (`"estimated"`, `"capped"`,
+   `"boundary"`) stored beside `nuisance_vec`, its counts in `param`, and a
+   column in `report_results()`. A gene at the cap has a standard error for
+   its fold change that reflects the cap, which is Q-LFC-1.
+4. **Document it for what it is.** A bound on how much more weight the
+   posterior may give the fit for one gene than for the typical gene, chosen
+   to keep the test calibrated. Not an estimate of the smallest
+   overdispersion in the data.
+5. **Before implementing, run one of the paper's data sets** and record the
+   fraction of genes at the boundary, above `master`'s bound and above the
+   cap, and how far the list of genes at FDR < 0.05 moves between `master`
+   and the cap. This needs a path for `PAPER_DATA`.
+6. **Tests to write with the change**: the cap binds exactly at the
+   multiplier; `Inf` reproduces `devel`; a gene built to have a Pearson
+   statistic below 1 is reported as `"boundary"`; on the `null` fixture the
+   false discoveries with the cap do not exceed those with `master`'s bound.
+
+**Not recommended for 1.1.0**: empirical-Bayes shrinkage alone, the
+profile-likelihood bound alone, one rate for all genes, or changes to the
+test statistic. The brainstorm gives the result for each.
+
+# What we glossed over
+
+* **Simulated data only.** Seven of the eight regimes come from the eSVD
+  model. Real data are in item 5 of the recommendation.
+* **The multiplier 10 was chosen on the simulations that evaluate it.** The
+  flat region from 5 to 20 makes the exact value matter little, but it is not
+  a held-out result.
+* **Ten replicates per regime.** Differences in false discoveries below
+  about 1 per data set are not resolved. The contrast with `devel` is far
+  outside that.
+* **The `trend` regime's parameters** ($\alpha_0 = 0.1$, $\alpha_1 = 0.02$,
+  noise 0.3, effect ±0.5) are one choice. A steeper or flatter trend moves
+  the share of genes above the cap.
+* **Shrinkage toward a fitted trend was run at 600 cells only.** Its behavior
+  at 3000 cells, and with the cap as a backstop, is not known.
+* **`master` at 3000 cells was not run.** Section 7.3 applies its bound to
+  `devel`'s estimate, which matches `master` at 600 cells.
+* **`compute_test_per_gene()`** (`bool_diet = TRUE`) was not run. It calls the
+  same estimator.
+* **The quotations are as the wiki's footnotes record them.** They were not
+  checked against the PDFs for this report. Two wiki pages quoted here
+  (`underdispersion`, `test-calibration-and-dispersion`, `trended-dispersion`)
+  are the wiki's syntheses and are marked as such where quoted.
+* **The variance in the Welch denominator** (open question 4 of
+  `CLAUDE_kevin.md`) is the reason the statistic's scale depends on the rate.
+  The cap works around it. The brainstorm's Idea 10 is the longer route.
+
+# References
+
+Wiki page names are in backticks. DOIs were checked against Crossref on
+2026-09-29.
+
+* Choudhary, S. and Satija, R. (2022). Comparison and evaluation of
+  statistical error models for scRNA-seq. *Genome Biology* 23:27.
+  [doi:10.1186/s13059-021-02584-9](https://doi.org/10.1186/s13059-021-02584-9).
+  `choudhary-2022`
+* Dai, H., Bao, Y. and Bao, M. (2013). Maximum likelihood estimate for the
+  dispersion parameter of the negative binomial distribution. *Statistics &
+  Probability Letters* 83:21–27.
+  [doi:10.1016/j.spl.2012.08.017](https://doi.org/10.1016/j.spl.2012.08.017).
+  `dai-2012`
+* He, L. et al. (2021). NEBULA is a fast negative binomial mixed model for
+  differential or co-expression analysis of large-scale multi-subject
+  single-cell data. *Communications Biology* 4.
+  [doi:10.1038/s42003-021-02146-6](https://doi.org/10.1038/s42003-021-02146-6).
+  `he-2021`, `pkg-nebula`
+* Lause, J., Berens, P. and Kobak, D. (2021). Analytic Pearson residuals for
+  normalization of single-cell RNA-seq UMI data. *Genome Biology* 22:258.
+  [doi:10.1186/s13059-021-02451-7](https://doi.org/10.1186/s13059-021-02451-7).
+  `lause-2021`
+* Law, C. W., Chen, Y., Shi, W. and Smyth, G. K. (2014). voom: precision
+  weights unlock linear model analysis tools for RNA-seq read counts. *Genome
+  Biology* 15:R29.
+  [doi:10.1186/gb-2014-15-2-r29](https://doi.org/10.1186/gb-2014-15-2-r29).
+  `law-2014`
+* Lin, K. Z., Qiu, Y. and Roeder, K. (2024). eSVD-DE: cohort-wide
+  differential expression in single-cell RNA-seq data using exponential-family
+  embeddings. *BMC Bioinformatics* 25:113.
+  [doi:10.1186/s12859-024-05724-7](https://doi.org/10.1186/s12859-024-05724-7)
+* Love, M. I., Huber, W. and Anders, S. (2014). Moderated estimation of fold
+  change and dispersion for RNA-seq data with DESeq2. *Genome Biology*
+  15:550.
+  [doi:10.1186/s13059-014-0550-8](https://doi.org/10.1186/s13059-014-0550-8).
+  `love-2014`, `pkg-deseq2`
+* Piegorsch, W. W. (1990). Maximum likelihood estimation for the negative
+  binomial dispersion parameter. *Biometrics* 46(3):863–867.
+  [doi:10.2307/2532104](https://doi.org/10.2307/2532104). `piegorsch-1990`
+* Sarkar, A. and Stephens, M. (2021). Separating measurement and expression
+  models clarifies confusion in single-cell RNA sequencing analysis. *Nature
+  Genetics* 53(6):770–777.
+  [doi:10.1038/s41588-021-00873-4](https://doi.org/10.1038/s41588-021-00873-4).
+  `sarkar-stephens-2021`
+* Svensson, V. (2025). Negative binomial regression and inference using a
+  pre-trained transformer. Preprint, Tahoe Therapeutics (no DOI recorded in
+  the wiki). `svensson-2025`
+* Wiki synthesis pages quoted: `underdispersion`,
+  `test-calibration-and-dispersion`, `trended-dispersion`. Also consulted:
+  `dispersion-parameterizations`, `maximum-likelihood-dispersion`,
+  `identifiability-of-dispersion-at-low-counts`, `nuisance-parameter-bias`,
+  `technical-vs-biological-variance`, `pkg-glmpca`.

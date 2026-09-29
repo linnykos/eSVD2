@@ -16,11 +16,12 @@ Resolves the location names declared in the master `CLAUDE.md` → *External Loc
 |---|---|---|---|
 | `EXAMPLES_REPO` | — | *(not recorded)* | Clone of `linnykos/eSVD2_examples`; add a row when it is checked out somewhere |
 | `PAPER_DATA` | — | *(not recorded)* | Public datasets (GSE136831, GSE135893, Smillie, Velmeshev); add a row when downloaded |
+| `OVERDISPERSION_WIKI` | personal laptop (macOS), Dropbox | `~/Library/CloudStorage/Dropbox/Collaboration-and-People/amywatt/git/overdispersion_wiki` | Read only from this project. Start at `wiki/index.md`; pages are `wiki/pages/<slug>.md` |
 | `WAS2CODE_REPO` | personal laptop (macOS), Dropbox | `~/Library/CloudStorage/Dropbox/Collaboration-and-People/archive/tati/git/Was2CODE` | Under `archive/`, so treat as frozen. `R/esvd_helper.R` (60 lines) is the file being imported into `eSVD2`; copy it in rather than depending on this path |
 
 Name the machine specifically enough that another collaborator can tell whether it is reachable to them. **A missing row means unknown; only an explicit *(not present)* row means known-absent.**
 
-## Project Status (as of 2026-09-28)
+## Project Status (as of 2026-09-29)
 
 **Goal: get `eSVD2` onto CRAN.** Correctness first; efficiency is explicitly out
 of scope for now.
@@ -30,9 +31,27 @@ standard error to the ordinary output: `log2fc_vec`, `log2fc_se_vec`,
 `case_var`, `control_var` on the `eSVD` object from both test paths, a
 `logFC_se` column in `report_results()`, and the exported
 `compute_log_fold_change()`. The statistic is proposal 2 of the Was2CoDE
-wiki page `code-esvd2.md`. **Session 12's work is uncommitted on `devel`**
-(sessions 1-11 are committed, last commit `a95e533`); Kevin vets the tests,
-then commits.
+wiki page `code-esvd2.md`. Session 12 is committed on `devel` as `d49e402`.
+
+**A master-vs-devel comparison now exists** (session 13):
+`additional_context/version_comparison/`, knitted report
+`version_comparison_claude.html`, rerun end to end by `run_all_claude.sh` in
+about 6.5 min. Its finding outranks the open naming questions: **the
+uncapped `gamma_rate` is the only change that moves ordinary results, and in
+simulation it raises false discoveries** (details under Key Methodological
+Details). Nothing in the package was changed by that session.
+
+**Kevin chose the fix (session 14): cap the rate at 10 times the gene's
+median library size, `min(MLE, 10 * median_i s_ji)`, applied in R after
+`gamma_rate`. It is NOT to be implemented in `R/` until Kevin has read the
+report** `additional_context/overdispersion_brainstorm/overdispersion_cap_claude.html`
+(source `.Rmd` beside it), which explains what master did, what devel does,
+the change, and in what sense it improves on master, with formulas, plots
+and citations from the overdispersion wiki. The eleven ideas considered are
+in `additional_context/OVERDISPERSION_BRAINSTORM.md`. Everything is rerun
+and reknitted by `overdispersion_brainstorm/run_all_claude.sh` in about 4
+min (needs the version comparison to have been run first, and pandoc).
+Nothing in the package was changed.
 
 **`R CMD check --as-cran` on the 1.1.0 tarball: `Status: 2 NOTEs`**
 (`New submission`, and a missing HTML Tidy on this machine), the same two as
@@ -56,6 +75,88 @@ Windows/Linux check (`devtools::check_win_devel()`, rhub) and one sanitizer
 run.
 
 ## Key Methodological Details
+
+- **Master (3d5f7bf) vs devel differ on ordinary data only through the
+  nuisance estimate.** logFC agrees at r >= 0.998 in all six simulated
+  regimes. Overwriting devel's `nuisance_vec` with master's right after
+  `estimate_nuisance()` reproduces master's Welch statistics to within 0.006
+  on every data set; no other change (QR reparameterization, GLM-fallback
+  offset, SVD start, new empirical-null estimators) reaches the statistic.
+- **Master's rate is `min(MLE, max library size of the gene)`**, and 78% to
+  100% of genes sit at that cap in the model-generated regimes (39% under
+  `generate_null()`), which is why its rates have Spearman about 0 with the
+  truth. `pmin(devel rate, max_i s_ji)` reproduces master's rates to a
+  median of 0.1% and its Welch statistics to within 0.025.
+- **Devel's MLE is accurate away from the boundary; the "two- to threefold
+  overestimate" was a units mismatch.** The rate shares units with the
+  fitted library size, which contains the gene intercept; the generator's
+  library size averages 1. Divided by the gene's median fitted library size,
+  the estimate is 4% to 16% above the truth (39% at low counts), Spearman
+  0.77. Section 4.1 of the comparison report still has the uncorrected
+  comparison.
+- **A rate of about 1e7 is the boundary of the likelihood, not a solver
+  failure.** Around the Poisson limit the log-likelihood is
+  `l_Poisson + D / (2 * beta)` with `D = sum_i [(A_i - m_i)^2 - A_i] / mu_i`,
+  `m = mu * s`; a gene is at the boundary when `D <= 0` (agrees with devel's
+  output for 11,997 of 12,000 genes). Fractions: 0.5% ordinary, 2.5% at mean
+  counts of 0.1 to 0.6, 12% with a trend, 16% when true rates span 0.5 to
+  200, 48% near-Poisson.
+- **The true rates miscalibrate the test only for genes that are nearly
+  Poisson in truth.** With true rates of 0.5 to 200 the oracle gives 5.7
+  false discoveries per 300 genes, 55 of 57 from genes whose true rate is
+  above 30 times the library size. With true rates below about 50 (the
+  `trend` regime) the oracle is the best choice (1.5 false, 24.3 of 30 true).
+  The null SD of the Gaussianized statistic is about 0.3 and grows with the
+  rate (0.69 in the top fifth of devel's rates).
+- **`bool_stabilize_underdispersion` discards the absolute scale of the
+  rates whenever their geometric mean exceeds 1**: every eSVD-model regime
+  under devel, but not `generate_null()` (0.7), nor `low_count` (0.5) and
+  `generate_null()` (0.4) under master.
+- **When the rate follows expression, the cap beats master on the test as
+  well as on the estimate.** In the `trend` regime (DESeq2's
+  `alpha0 + alpha1 / m`, alpha0 0.1, alpha1 0.02): cap 1.0 false and 21.7
+  true discoveries, master 2.3 and 20.7; paired differences -1.3 (SE 0.6)
+  and +1.0 (SE 0.45). Master's rate is flat in expression where the truth
+  falls twentyfold. The cap's cost is on lowly expressed genes whose true
+  rate is near 20: 3.0 true discoveries of 10.7 against the oracle's 5.9.
+- **Shrinkage toward a fitted trend gives the best rates when a trend
+  exists** (97% within twofold, 24.3 true discoveries, 1.6 false), run at
+  600 cells only.
+- **A cap `rate <= c * median_i s_ji` is flat in false discoveries for c
+  from 1 to 10 and rises from c = 20.** At c = 10 about 11% of genes are
+  capped in ordinary data. A cap at the technical-noise level of the
+  literature (c of 50 to 500 here) is too loose: 1.2 to 2.9 false
+  discoveries under the null.
+- **Bounds built from the gene's likelihood weaken as cells are added; a cap
+  does not.** At 600 cells the empirical-Bayes MAP rate acts as a soft cap
+  near 10 times the library size and matches the hard cap. At 3000 cells
+  with true rates spanning 0.5 to 200 it leaves 6.2 false discoveries per
+  300 genes against the cap's 3.0 (profile lower bound 5.7, oracle 10.1).
+- **As an estimate, both the cap at 10 and the shrinkage beat master
+  wherever the rate is identifiable**: 95% and 99% of genes within twofold
+  of the truth against master's 60%, Spearman 0.77 against 0.05. In
+  near-Poisson data no candidate is within a factor of 8 or ranks the genes.
+  Shrinkage followed by the cap equals the cap at 3000 cells.
+- **DESeq2's trend centre and `trigamma((m - p)/2)` sampling variance change
+  nothing in these simulations**, which have no trend by construction. The
+  trigamma value is 0.003 at 600 cells against a measured 0.10 to 2.1.
+- **With 3000 cells and true rates of 2 to 8 no gene is at the boundary**
+  and the uncapped MLE is calibrated; the ordinary-regime inflation is a
+  small-sample effect, the wide-rate inflation is not.
+- **A diverged rate is almost always a false discovery**: 74-100% of null
+  genes with a diverged rate reach FDR < 0.05, against under 1% of the
+  others. Per 300 null genes, devel gives 2.7 false discoveries under the
+  global null against master's 0.2. In the near-Poisson regime devel gives
+  63 against 2.6, with type-I error at p < 0.05 of 0.28 against 0.07.
+- **The t-to-z log-scale fix matters only because of the `gamma_rate`
+  change**: master's largest Welch statistic in simulation was 26; devel's
+  is 53, and 10 of devel's statistics would be `Inf` under master's
+  `qnorm(pt())`.
+- **Master called all 30 of 30 genes significant, silently**, on a 30-gene
+  cohort (its unconstrained fallback null estimator). Devel called none.
+- **NEWS's "zeroes NA counts in sparse matrices" never takes effect via
+  `format_covariates()`**: `Log_UMI = log(rowSums(dat))` is already `NA`,
+  and `initialize_esvd()` stops on the covariates first.
 
 - **The log2 SE is `(1/ln 2) * sqrt(case_var/(n1*case_mean^2) +
   control_var/(n0*control_mean^2))`**, `n` counting individuals, the
@@ -166,6 +267,19 @@ run.
 `UNIT_TEST_PLAN.md` section 2.18; Q1-Q12 are in `CRAN_READINESS.md` section
 0.3.
 
+0. **Q10 (most important): Kevin to read
+   `overdispersion_brainstorm/overdispersion_cap_claude.html` and confirm the
+   cap before it is implemented.** Its section 8 lists what the
+   implementation would be: the cap in `.estimate_nuisance_matrix()` and in
+   `compute_test_per_gene()`, one new argument (multiplier, default 10, `Inf`
+   for the present behavior), a per-gene status (`estimated` / `capped` /
+   `boundary`) surfaced in `report_results()`, and four tests. Still to
+   decide: whether to offer master's bound as a setting. Not yet run: one
+   real data set, which says how far the cap departs from the published
+   results; it needs a `PAPER_DATA` path.
+0b. Correct the "two- to threefold" statement in section 4.1 of
+   `version_comparison_claude.Rmd` (multiply `nuisance_true` by the gene's
+   median fitted library size), or leave the report as a dated record.
 1. **Q-LFC-1**: the SE is unreliable where the nuisance estimate diverges.
    Document only (done), repair the divergence upstream (Q10), or flag such
    genes in `report_results()`.
@@ -199,8 +313,14 @@ run.
 
 **Ready to start, blocked on nothing:**
 
-16. Vet `tests/testthat/test_compute_log_fold_change_claude.R`, then commit
-    session 12 on `devel`.
+16. Vet `tests/testthat/test_compute_log_fold_change_claude.R` (committed
+    in `d49e402` without a recorded vet). Review and commit
+    `additional_context/version_comparison/`,
+    `additional_context/overdispersion_brainstorm/`,
+    `OVERDISPERSION_BRAINSTORM.md`, and the `.gitignore` lines for their
+    regenerable folders.
+16b. Either make `sparse_na` work as NEWS says (zero NA before
+    `format_covariates()` computes `Log_UMI`), or reword the NEWS item.
 17. Windows / Linux checks (`devtools::check_win_devel()`,
     `rhub::rhub_check()`) and one ASan/UBSan run.
 18. The nine suggested tests in `CRAN_READINESS.md` section 0.4, once the

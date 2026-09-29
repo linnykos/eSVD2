@@ -1,0 +1,17 @@
+Loading required package: Rcpp
+Warning message:
+package ‘Rcpp’ was built under R version 4.5.2 
+[1] "Loaded eSVD2 1.0.1.7 for `master`"
+[1] "reference: silent"
+[1] "determinism: silent"
+[1] "determinism: silent"
+[1] "sparse_input: silent"
+[1] "sparse_na: error"
+[1] "all_zero_gene: warning"
+[1] "collinear_covariate: error"
+[1] "confounded_design: error"
+[1] "few_genes: silent"
+[1] "extreme_de: silent"
+[1] "one_case_individual: error"
+[1] "two_cell_individual: silent"
+[1] "individual_in_both_arms: error"
