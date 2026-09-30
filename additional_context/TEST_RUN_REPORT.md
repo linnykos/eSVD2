@@ -7,6 +7,9 @@
 > `CRAN_READINESS.md`. Finding 1.1 (`gamma_rate` could not exceed the library
 > size) was fixed in Part 6.1. Its consequence, a diverging rate, is what
 > the cap of 1.2.0 addresses (`OVERDISPERSION_BRAINSTORM.md`).
+>
+> The `test_*_claude.R` files named below lost the `_claude` suffix on
+> 2026-09-30. Six of them were appended to the older file of the same name.
 
 **Run 2026-08-29**, R 4.5.1 / macOS (Darwin 23.2.0), `devtools::load_all()` on
 the working tree (version 1.0.1.07). **No eSVD2 R or C++ code was changed**, as

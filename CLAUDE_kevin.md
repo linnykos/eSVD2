@@ -21,7 +21,7 @@ Resolves the location names declared in the master `CLAUDE.md` → *External Loc
 
 Name the machine specifically enough that another collaborator can tell whether it is reachable to them. **A missing row means unknown; only an explicit *(not present)* row means known-absent.**
 
-## Project Status (as of 2026-09-29)
+## Project Status (as of 2026-09-30)
 
 **Goal: get `eSVD2` onto CRAN.** Correctness first; efficiency is explicitly out
 of scope for now.
@@ -33,18 +33,19 @@ misleading comments, roxygen blocks and two message strings in `R/` and
 `src/` (no behaviour change; `man/` regenerated). Session 20 changed
 `estimate_nuisance.eSVD`'s default to `bool_covariates_as_library = TRUE` and
 made both posterior paths and `eSVD()` refuse the same nonsensical settings
-through `.check_posterior_args()`. All three are uncommitted:
+through `.check_posterior_args()`. All three are committed as `b0dd8f2`.
 
-- `CRAN_READINESS.md` §0 is rewritten; the session-10 §0 is kept as §0.5.
-- `UNIT_TEST_PLAN.md` has §2.19 to §2.21, T-POST-13 and T-PGENE-01.
-- `OVERDISPERSION_BRAINSTORM.md` has a "Decision" section.
-- Both knitted reports were rerun against 1.2.0.
+**No file in `R/` or `tests/testthat/` carries the `_claude` suffix any
+more** (session 21, uncommitted). Six drafted test files had the name of an
+older test file, so each was appended to it; the suite is now 28 files. The
+scripts and reports under `additional_context/` keep the suffix.
 
-**`R CMD check --as-cran` after the comment fixes (2026-09-29): `Status: 2 NOTEs`**
-(`New submission`, HTML Tidy on this machine), tests
+**`R CMD check --as-cran` after the rename (2026-09-30): `Status: 3 NOTEs`**
+(`New submission`, HTML Tidy on this machine, and "unable to verify current
+time", which is the check failing to reach a time server), tests
 `[ FAIL 0 | WARN 0 | SKIP 20 | PASS 1608 ]`. The suite under `NOT_CRAN=true`
 gives **2110 pass / 0 fail / 0 warnings / 0 skip**: 298 `test_that` blocks in
-34 files.
+28 files.
 
 **What stands between the package and a submission**:
 
@@ -67,7 +68,7 @@ gives **2110 pass / 0 fail / 0 warnings / 0 skip**: 298 `test_that` blocks in
   `nuisance_num_capped` counts every gene the cap replaced, boundary genes
   included.
 - **The rule for which covariate columns form the library size lives in one
-  place, `.nuisance_library_idx()`** (in `R/nuisance_cap_claude.R`), used by
+  place, `.nuisance_library_idx()`** (in `R/nuisance_cap.R`), used by
   `estimate_nuisance.eSVD()`, `compute_posterior.default()`,
   `compute_test_per_gene()` and `plot_fitted_vs_observed()` since session
   17. The eight column sets it must give on F-TINY are written out by hand
@@ -353,10 +354,11 @@ gives **2110 pass / 0 fail / 0 warnings / 0 skip**: 298 `test_that` blocks in
 **Decisions for Kevin, newest first.** Q-LFC-2 and Q-LFC-3 are in
 `UNIT_TEST_PLAN.md` §2.18; the full list is `CRAN_READINESS.md` §0.3.
 
-0. **Review and commit session 18's changes under `additional_context/`**,
-   plus the `.gitignore` exception. The pattern `*cache*` had been silently
-   ignoring `overdispersion_brainstorm/01_cache_fits_claude.R`, which
-   `run_all_claude.sh` needs, so that script was never in git.
+0. **Review and commit the rename of session 21.** Also decide whether the
+   26 `*_claude.*` files under `additional_context/` lose the suffix too
+   (their scripts call each other by name, and `.gitignore` names
+   `01_cache_fits_claude.R`), and whether the `_claude` convention in the
+   master `CLAUDE.md` still holds for new files.
 0f. **Run one real data set under 1.2.0** (brainstorm Idea 11). It needs a
     `PAPER_DATA` path. This is the only check the default `c = 10` has not had.
 0e. `plot_fitted_vs_observed()` resets the caller's random stream
@@ -391,7 +393,7 @@ gives **2110 pass / 0 fail / 0 warnings / 0 skip**: 298 `test_that` blocks in
 
 **Ready to start, blocked on nothing:**
 
-16. Vet `tests/testthat/test_compute_log_fold_change_claude.R`, which was
+16. Vet `tests/testthat/test_compute_log_fold_change.R`, which was
     committed in `d49e402` without a recorded vet.
 16b. Make `sparse_na` work as NEWS says, or reword the NEWS item.
 17. Windows / Linux checks (`devtools::check_win_devel()`,

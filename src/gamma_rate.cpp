@@ -167,7 +167,7 @@ public:
 //      root is bracketed.
 //   4. Newton-Raphson (boost) on [lb, ub] from the geometric mean sqrt(lb * ub).
 // For a gene at the boundary of the likelihood (no finite maximizer; D <= 0
-// in R/nuisance_cap_claude.R) [l(b)]' stays positive, step 1 exhausts
+// in R/nuisance_cap.R) [l(b)]' stays positive, step 1 exhausts
 // max_grow, and the value returned is where the search stopped, not an
 // estimate. estimate_nuisance() detects such genes and caps them.
 

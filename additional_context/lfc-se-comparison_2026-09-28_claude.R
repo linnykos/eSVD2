@@ -4,7 +4,7 @@
 # Supplementary evidence for eSVD2 1.1.0 (`compute_log_fold_change`). It is
 # NOT a unit test and does not ship: it needs three Bioconductor / CRAN
 # packages that are not in `Suggests`. The shipped tests are T-LFC-01 to
-# T-LFC-18 in tests/testthat/test_compute_log_fold_change_claude.R.
+# T-LFC-18 in tests/testthat/test_compute_log_fold_change.R.
 #
 # Run from the package root:
 #   Rscript additional_context/lfc-se-comparison_2026-09-28_claude.R

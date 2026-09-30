@@ -7,8 +7,9 @@ one says *what we would have to assert to know it is right*. Every test in §3 o
 back at this file.
 
 > **Current state, 2026-09-29 (version 1.2.0, commit `1a0a536`).** The plan
-> below has been implemented. The suite is 298 `test_that` blocks in 34 files
-> (22 `_claude` files beside the 12 older ones). Under `NOT_CRAN=true`
+> below has been implemented. The suite is 298 `test_that` blocks in 28 files
+> (the `_claude` suffix was dropped on 2026-09-30, and six drafted files were
+> appended to the older file of the same name). Under `NOT_CRAN=true`
 > it gives **2110 expectations passing, 0 failing, 0 warnings, 0 skipped**
 > (after session 20). `R CMD check --as-cran` on the 1.2.0 tarball gives `Status: 2
 > NOTEs` (`CRAN_READINESS.md` §0). Since the review passes below, four
@@ -461,7 +462,7 @@ against another.
 | T-PG-04 | equivalence holds across the parameter grid: `bool_adjust_covariates ∈ {T,F}` × `bool_covariates_as_library ∈ {T,F}` × `bool_stabilize_underdispersion ∈ {T,F}` × `pseudocount ∈ {0, 1}` | [oracle] same | each boolean is implemented twice, in two different shapes (matrix sweep vs scalar multiply). 16 cells, cheap on `F-TINY` |
 | T-PG-05 | `compute_test_per_gene` does **not** write `posterior_mean_mat`/`posterior_var_mat` onto the object | [invariant] its documented memory contract | the whole reason the function exists |
 | T-PG-06 | on a fixture where `p = 1`, both paths still work | [invariant] | `Matrix::colMeans` on a 1-column matrix vs `mean()` on a vector — the `drop = FALSE` discipline differs between the two implementations |
-| T-PGENE-01 | `compute_test_per_gene()` equals the matrix path on the six admissible settings of the three library booleans (`bool_library_includes_interept` set by rerunning `estimate_nuisance()`) | [invariant] | added 2026-09-29 (1.2.0, session 17) in `test_compute_test_per_gene_claude.R`, before the per-gene path's inline library rule was routed through `.nuisance_library_idx()`; with T-POST-13 it pins this path to the hand-written column sets too |
+| T-PGENE-01 | `compute_test_per_gene()` equals the matrix path on the six admissible settings of the three library booleans (`bool_library_includes_interept` set by rerunning `estimate_nuisance()`) | [invariant] | added 2026-09-29 (1.2.0, session 17) in `test_compute_test_per_gene.R`, before the per-gene path's inline library rule was routed through `.nuisance_library_idx()`; with T-POST-13 it pins this path to the hand-written column sets too |
 | T-PGENE-02 | `compute_test_per_gene()` and `compute_posterior()` both refuse `bool_adjust_covariates = TRUE` with `bool_covariates_as_library = TRUE`, with the identical message naming both | [invariant] | added 2026-09-29 (session 20): the per-gene path used to run on it; both now call `.check_posterior_args()` |
 | T-PGENE-03 | both paths refuse, by name, 16 nonsensical settings (booleans that are `NA`, a string or length 2; `alpha_max` ≤ 0 or `NA`; `library_min` ≤ 0, `Inf` or `NA`; `nuisance_lower_quantile` outside `[0, 1]`, `NA` or length 2; `pseudocount` < 0 or `NA`) and accept the documented `NULL`s and `alpha_max = Inf` | [invariant] | same |
 | T-PGENE-04 | `nuisance_lower_quantile = NULL` skips the floor on both paths: equal to each other and to the run at 0 | [invariant] | **[regression]** the matrix path computed `quantile(x, probs = NULL)`, which is `numeric(0)`, and `pmax()` emptied `nuisance_vec` |
@@ -884,7 +885,7 @@ rather than reusing `F-TINY`.
 
 ---
 
-### 2.18 Log2 fold change and its standard error — `test_compute_log_fold_change_claude.R` **[new file, new feature]**
+### 2.18 Log2 fold change and its standard error — `test_compute_log_fold_change.R` **[new file, new feature]**
 
 Added 2026-09-28 with eSVD2 1.1.0. Unlike the rest of this plan, this section
 was written *with* the tests, not before them: Kevin asked for the feature and
@@ -1032,7 +1033,7 @@ test changed after it failed deserves a second look:
 The comparison against DESeq2, dreamlet and NEBULA is
 `lfc-se-comparison_2026-09-28_claude.R` in this folder. It is not a test.
 
-### 2.19 The cap on the nuisance rate — `test_nuisance_cap_claude.R` **[new file, new feature]**
+### 2.19 The cap on the nuisance rate — `test_nuisance_cap.R` **[new file, new feature]**
 
 Added 2026-09-29 with eSVD2 1.2.0 (sessions 15 to 17). Like §2.18, this section
 was written *with* the tests. At first the IDs and oracles lived only in the
@@ -1102,7 +1103,7 @@ Two tests elsewhere were added for the same refactor: **T-POST-13** (§2.7) and
 **T-PGENE-01** (§2.11). A golden snapshot of 25 outputs, saved before the
 refactor and kept outside the repo, was bit-identical (`identical()`) after it.
 
-### 2.20 Redoing the test at another cap — `test_recompute_pvalue_claude.R` **[new file, new feature]**
+### 2.20 Redoing the test at another cap — `test_recompute_pvalue.R` **[new file, new feature]**
 
 `recompute_pvalue(input_obj, cap_multiplier, seurat_obj = NULL)` applies the new
 cap to the stored `nuisance_mle_vec`. It then repeats the posterior, the
@@ -1138,7 +1139,7 @@ sums weighted by `cos(sqrt(2) · i)` over cells.
 | T-REDO-12b | `compute_posterior()` after `compute_test_per_gene()` records its own settings | [invariant] | |
 | T-REDO-13 | a cap at or below the recorded `min_val` is refused before anything is recomputed | [invariant] | T-CAP-03d at the redo |
 
-### 2.21 The diagnostic plots — `test_plot_diagnostics_claude.R` **[new file, new feature]**
+### 2.21 The diagnostic plots — `test_plot_diagnostics.R` **[new file, new feature]**
 
 `plot_nuisance()` draws each gene's unit-free rate, `nuisance_vec / median_i s_ji`,
 on a log10 axis against its mean count, its −log10 p-value or its sparsity.
@@ -1662,9 +1663,9 @@ means functions defined under `R/` plus the `RcppExports` bindings.
 
 **As implemented (2026-09-29, 1.2.0): 293 `test_that` blocks in 34 files, 2014
 expectations**, all passing under `NOT_CRAN=true`. The largest files are
-`test_validation_claude.R` (23 blocks), `test_nuisance_cap_claude.R` (22),
-`test_compute_log_fold_change_claude.R` (20), and
-`test_gene_status_claude.R` and `test_recompute_pvalue_claude.R` (17 each).
+`test_validation.R` (23 blocks), `test_nuisance_cap.R` (22),
+`test_compute_log_fold_change.R` (20), and
+`test_gene_status.R` and `test_recompute_pvalue.R` (17 each).
 The rest of this appendix is the scorecard as it was proposed.
 
 At proposal time: Roughly: **~40 `test_that` blocks today, ~242 proposed** (~200 in the original

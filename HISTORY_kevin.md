@@ -910,3 +910,12 @@ would write first.
 - Open, accepted: an object built before this change whose `param` records both flags TRUE on the diet path is now refused by `recompute_pvalue()`; that combination was never meaningful.
 - Tests written first and seen failing: T-PGENE-02 to -05 and T-NUIS-09. T-NUIS-08 was taken (`bool_use_log`) and T-POST-14 is reserved in `CRAN_READINESS.md` §0.4; the NULL-quantile case on the matrix path is covered inside T-PGENE-04 rather than a separate T-POST test.
 - Verification: suite under `NOT_CRAN=true` 2110 pass / 0 fail / 0 skip across 298 blocks; `R CMD check --as-cran` `Status: 2 NOTEs`, tests `[ FAIL 0 | SKIP 20 | PASS 1608 ]`; `RoxygenNote` rewrite reverted again. Nothing is committed.
+
+### [2026-09-30] (Session 21 — the `_claude` suffix dropped from `R/` and `tests/testthat/`)
+- Kevin asked for the suffix to be removed from the package folders; 5 files in `R/` and 22 in `tests/testthat/` had it, none elsewhere in the package.
+- Decision (approved in plan mode): six drafted test files had the name of an older test file (`compute_test_per_gene`, `compute_test_statistic`, `gamma_rate`, `initialization`, `nuisance`, `posterior`), so each was appended to the older file under a divider rather than given a new name. The only line removed was `context("Test compute_test_per_gene (claude)")`.
+- Scope: the 26 `*_claude.*` files under `additional_context/` keep the suffix, since Kevin named the package folders only. Open: whether they lose it too, and whether the `_claude` convention in the master `CLAUDE.md` still stands for new files.
+- `TEST_RUN_REPORT.md` is a dated record, so its filenames were left as they were and a note was added to its banner instead.
+- Found while renaming: a comment in the posterior tests placed `.library_column_oracle()` in the cap test file; it lives in `helper-fixtures.R`. Corrected.
+- Found: the tree was clean at the start of the session, so the changes of sessions 18 to 20 are committed (`b0dd8f2`); `CLAUDE_kevin.md` had said otherwise.
+- Verification: suite under `NOT_CRAN=true` 2110 pass / 0 fail / 0 warnings / 0 skip, 298 blocks in 28 files; `R CMD check --as-cran` `Status: 3 NOTEs`, tests `[ FAIL 0 | WARN 0 | SKIP 20 | PASS 1608 ]`. The third NOTE is "unable to verify current time" (no time server reached), not a package matter. `RoxygenNote` rewrite reverted again. Nothing is committed.

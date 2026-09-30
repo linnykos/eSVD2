@@ -50,7 +50,7 @@ machine and not the package.
 - **Vignette**: rebuilds in 65 s.
 - **Tarball**: 1,556,652 bytes.
 - **Full suite under `NOT_CRAN=true`**: 2110 pass / 0 fail / 0 warnings /
-  0 skip, across 34 files and 298 `test_that` blocks.
+  0 skip, across 28 files and 298 `test_that` blocks.
 
 Two NOTEs is the same result as session 10. The third NOTE that sessions 16 and
 17 saw (`unable to verify current time`) came from the check's clock service
