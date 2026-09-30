@@ -64,8 +64,9 @@ Paths below are relative to this file's directory and are the same for everyone.
 `.gitignore` keeps build artifacts and session state out of *git history*.
 `.Rbuildignore` keeps collaboration material out of the *CRAN tarball* —
 `additional_context/`, `CLAUDE*.md`, `HISTORY_*.md`, `brainstorming_*.md`,
-`.claude/`, `.githooks/`, `oldcode/`, `docs/` are all tracked on GitHub but must
-never ship to CRAN. **When you add a new top-level file or folder, decide
+`.claude/`, `.githooks/`, `oldcode/` are all tracked on GitHub but must
+never ship to CRAN. `docs/` (the rendered pkgdown site) is in both: it is
+`.gitignore`d here and rebuilt from the sources. **When you add a new top-level file or folder, decide
 explicitly which of the two it belongs in.**
 
 ## External Locations

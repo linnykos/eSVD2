@@ -15,7 +15,7 @@ Resolves the location names declared in the master `CLAUDE.md` → *External Loc
 | Location name | Machine | Path | Notes |
 |---|---|---|---|
 | `EXAMPLES_REPO` | — | *(not recorded)* | Clone of `linnykos/eSVD2_examples`; add a row when it is checked out somewhere |
-| `PAPER_DATA` | — | *(not recorded)* | Public datasets (GSE136831, GSE135893, Smillie, Velmeshev); add a row when downloaded |
+| `PAPER_DATA` | personal laptop (macOS) | `~/Downloads/rawMatrix/` (Velmeshev only) | Unzipped from `~/Downloads/rawMatrix.zip` (from cells.ucsc.edu/autism) on 2026-09-30; the processed `asd_seurat.RData` and the fitted `asd_esvd.RData` / `asd_esvd_stagewise.RData` of session 22 are in `~/Downloads/esvd_asd_tmp/`. All of it is disposable and can be regenerated from the articles. The other data sets are not downloaded |
 | `OVERDISPERSION_WIKI` | personal laptop (macOS), Dropbox | `~/Library/CloudStorage/Dropbox/Collaboration-and-People/amywatt/git/overdispersion_wiki` | Read only from this project. Start at `wiki/index.md`; pages are `wiki/pages/<slug>.md` |
 | `WAS2CODE_REPO` | personal laptop (macOS), Dropbox | `~/Library/CloudStorage/Dropbox/Collaboration-and-People/archive/tati/git/Was2CODE` | Under `archive/`, so treat as frozen. `R/esvd_helper.R` (60 lines) is the file being imported into `eSVD2`; copy it in rather than depending on this path |
 
@@ -40,6 +40,16 @@ more** (session 21, uncommitted). Six drafted test files had the name of an
 older test file, so each was appended to it; the suite is now 28 files. The
 scripts and reports under `additional_context/` keep the suffix.
 
+**The two ASD articles were rerun under 1.2.0 (session 22, uncommitted).**
+`asd.Rmd` now runs the cohort through `eSVD_helper()`, shows the fold change
+with its SE, the diagnostic plots and the cap-1/10/Inf comparison, and ends
+with a section explaining every tuning parameter; `asd-preprocess.Rmd` was
+refreshed. The regenerated Seurat object equals the 2024 Dropbox Public
+file, which was left alone. This was the real-data check of the default cap
+(item 0f), and the answer is uncomfortable: **the cap acts on 73% of the
+genes of this cohort** and on every one of the ten most significant genes.
+The wrapper reproduces the hand pipeline on this cohort (Welch r 0.99986).
+
 **`R CMD check --as-cran` after the rename (2026-09-30): `Status: 3 NOTEs`**
 (`New submission`, HTML Tidy on this machine, and "unable to verify current
 time", which is the check failing to reach a time server), tests
@@ -49,17 +59,43 @@ gives **2110 pass / 0 fail / 0 warnings / 0 skip**: 298 `test_that` blocks in
 
 **What stands between the package and a submission**:
 
-- one real data set under the cap;
+- deciding what the real-data result of session 22 means for the default cap;
 - rewording `?compute_log_fold_change`'s caveat;
 - Q-LFC-2 and Q-LFC-3;
 - `Authors@R`;
 - the misspelled argument names;
-- confirming the ASD articles and the rank-deficiency refusal;
+- the rank-deficiency refusal, which now bites the ASD article's own design;
 - a Windows/Linux check, one sanitizer run, and a pkgdown rebuild.
 
 `CRAN_READINESS.md` §0.3 is the list.
 
 ## Key Methodological Details
+
+- **On the Velmeshev L2/3 cohort (13,302 cells, 6,599 genes, 15 vs 16
+  donors, `k = 30`) the default cap binds on 73% of genes**: 4,576 capped,
+  256 boundary, 1,767 estimated. The share falls with expression (80% of the
+  lowest tercile by mean count, 60% of the highest); the boundary genes are
+  the rarest. 164 of the 243 FDR-0.05 genes are capped or boundary. Cap 1
+  gives 516 discoveries, cap 10 gives 243, no cap 307 (143 in common with
+  cap 10; Welch r 0.97 and 0.88 with the default). The simulations behind
+  the default had about 11% capped.
+- **The 2024 ASD design is rank deficient**: `Seqbatch` and `region` are
+  both determined by `Capbatch` (ACC is exactly CB3, CB4, CB8, CB9). 1.0.x
+  fit it anyway (ridge start, batch columns omitted from the
+  reparameterization); 1.2.0 refuses it by name. The article adjusts for
+  `sex` and `Capbatch`, the same column space.
+- **`eSVD_helper()` reproduces the stage-by-stage pipeline on real data**
+  (Welch r 0.99986, 243 of 245 FDR genes shared) even though `z_mat`
+  entries differ by up to 2.4.
+- **`plot_fitted_vs_observed()` on real data gives 1.6% of pairs beyond
+  3 SD**, inside the 1 to 2% expected under the model.
+- **The +/- 2 SE interval of the log2FC covers zero for 87% of the
+  significant genes** on this cohort; the empirical null there has mean
+  -0.15 and SD 0.42, so the calibration drives significance.
+- **pkgdown articles are built with `pkgdown::build_article("articles/<name>")`**
+  (the `articles/` prefix is required) with the devel library first on
+  `.libPaths()` and RStudio's pandoc on `PATH`. `docs/` is `.gitignore`d
+  in this clone.
 
 - **The cap is applied in R, in one place, `.apply_nuisance_cap()`**, used by
   `estimate_nuisance()` and by `recompute_pvalue()`; `gamma_rate` stays a
@@ -359,8 +395,15 @@ gives **2110 pass / 0 fail / 0 warnings / 0 skip**: 298 `test_that` blocks in
    (their scripts call each other by name, and `.gitignore` names
    `01_cache_fits_claude.R`), and whether the `_claude` convention in the
    master `CLAUDE.md` still holds for new files.
-0f. **Run one real data set under 1.2.0** (brainstorm Idea 11). It needs a
-    `PAPER_DATA` path. This is the only check the default `c = 10` has not had.
+0f. **Decide what to make of the real-data cap result** (session 22): with
+    `k = 30` on the ASD cohort the cap binds on 73% of genes and on all of
+    the top ten. Candidates: accept and document (the article already says
+    so), sweep `k` to see whether a smaller rank leaves more over-dispersion
+    in the residual, or revisit the default `c`. The fitted objects are in
+    `~/Downloads/esvd_asd_tmp/` for further experiments.
+0g. Whether `region` should be adjusted for as biology in the ASD article
+    rather than absorbed by `Capbatch` (they are collinear, so it is either
+    `region + Seqbatch` or `Capbatch`, not both).
 0e. `plot_fitted_vs_observed()` resets the caller's random stream
     (`seed_number = 10`). Keep it, default to `NULL`, or restore the stream on
     exit?
@@ -376,8 +419,11 @@ gives **2110 pass / 0 fail / 0 warnings / 0 skip**: 298 `test_that` blocks in
    spelling of Kevin's name.
 6. Rename `bool_library_includes_interept` / `library_multipler` now or
    later? The recommendation is later, with a deprecation shim.
-7. Confirm the ASD tutorials as `vignettes/articles/` pkgdown articles.
-8. Confirm refusing rank-deficient covariates at `initialize_esvd()`.
+7. Review the rewritten ASD articles (session 22), in particular the
+   tuning-parameter section, which was written from the roxygen and the
+   code without Kevin's review.
+8. Confirm refusing rank-deficient covariates at `initialize_esvd()`; it
+   now refuses the 2024 article's own design (see Key details).
 9. Keep the aggregated line-search warning, or downgrade it to `verbose`?
 10. `multtest()`'s fallback warning on fewer than about 40 genes: keep it as
     is?
@@ -400,6 +446,8 @@ gives **2110 pass / 0 fail / 0 warnings / 0 skip**: 298 `test_that` blocks in
     `rhub::rhub_check()`) and one ASan/UBSan run.
 18. The suggested tests in `CRAN_READINESS.md` §0.4, including T-LFC-20 and
     T-POST-14 (whether `alpha_max` ever binds).
-19. Rebuild the pkgdown site (`docs/`) so it lists the four new functions.
+19. Rebuild the whole pkgdown site (`docs/`) so it lists the four new
+    functions; only the two ASD articles were rebuilt in session 22, and
+    `docs/` is not tracked here.
 20. Optional: `.compute_df()` could read the stored `case_var` /
     `control_var`; the `.split_individuals_by_arm()` refactor.
