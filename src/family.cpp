@@ -108,7 +108,7 @@ List direction_Xi(
     Eigen::LLT<MatrixXd> solver(H);
     if(solver.info() != Eigen::Success)
     {
-        // Fall back to gradient direction if Hessian is singular
+        // Fall back to gradient direction if the Hessian is not positive definite
         direc.noalias() = -g / double(non_na);
     } else {
         direc.noalias() = -solver.solve(g);
@@ -278,7 +278,7 @@ List direction_YZj(
     Eigen::LLT<MatrixXd> solver(Rcpp::as<MapMat>(Hsub));
     if(solver.info() != Eigen::Success)
     {
-        // Fall back to gradient direction if Hessian is singular
+        // Fall back to gradient direction if the Hessian is not positive definite
         direc.noalias() = -Rcpp::as<MapVec>(gsub) / double(non_na);
     } else {
         direc.noalias() = -solver.solve(Rcpp::as<MapVec>(gsub));

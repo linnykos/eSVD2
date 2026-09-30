@@ -21,7 +21,7 @@ cmp_dir <- file.path("additional_context", "version_comparison")
 work_dir <- file.path("additional_context", "overdispersion_brainstorm")
 out_dir <- file.path(work_dir, "output")
 
-library(eSVD2, lib.loc = file.path(cmp_dir, "lib", "devel"))
+library(eSVD2, lib.loc = file.path(cmp_dir, "lib", "devel_1.1.0"))
 source(file.path(cmp_dir, "helpers_claude.R"))
 source(file.path(work_dir, "helpers_candidates_claude.R"))
 

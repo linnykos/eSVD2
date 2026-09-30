@@ -3,8 +3,9 @@
 # Drafted by Claude for Kevin Z. Lin, 2026-09-29
 #
 # Needs additional_context/version_comparison/run_all_claude.sh to have been
-# run first: it builds lib/devel, the six original regimes, and master's
-# output. Run from the package root:
+# run first: it builds lib/devel_1.1.0 (the uncapped version these dry-runs
+# were built on), lib/devel (1.2.0, used only by 09), the six original
+# regimes, and master's output. Run from the package root:
 #   bash additional_context/overdispersion_brainstorm/run_all_claude.sh
 #
 # About 4 minutes on 8 cores.
@@ -15,7 +16,7 @@ mkdir -p "$work_dir/output/logs"
 
 for script in 00_simulate_extra 01_cache_fits 01b_run_master 02_run_candidates \
               03_summarize 04_downstream 05_cap_sweep 06_more_cells \
-              07_deseq2_variants 08_report_tables; do
+              07_deseq2_variants 08_report_tables 09_run_v120; do
   echo "== $script"
   Rscript "$work_dir/${script}_claude.R" > "$work_dir/output/logs/$script.txt" 2>&1
 done

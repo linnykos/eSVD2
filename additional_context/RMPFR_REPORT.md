@@ -2,6 +2,8 @@
 
 **Verdict: no. Drop it from `DESCRIPTION` entirely.**
 
+> *Status, 2026-09-29: done. `Rmpfr` was removed in session 9 (`CRAN_READINESS.md` §2.2). T-MPFR-05, -06 and -08 still pass under 1.2.0.*
+
 Run 2026-08-29 on R 4.5.1 / macOS (Darwin 23.2.0), `Rmpfr` 1.1.2, GMP 64-bit
 limbs. Reproduce with:
 

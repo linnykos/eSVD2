@@ -5,21 +5,190 @@
 **Goal:** Decide how `eSVD2` 1.1.0 should estimate (or bound) the per-gene
 nuisance rate before CRAN, given that the uncapped `gamma_rate` raises false
 discoveries (`version_comparison/version_comparison_claude.Rmd`, Q10 and Q-LFC-1
-in `CLAUDE_kevin.md`). This document is for choosing a route. **Nothing in the
-package was changed.**
-
-> **Decision (Kevin, 2026-09-29): Idea 1, the cap at 10 times the gene's
-> median library size. It is not to be implemented in `R/` until Kevin has
-> read the report** `overdispersion_brainstorm/overdispersion_cap_claude.html`,
-> which explains the change with formulas, plots and the wiki's citations.
-> Section 3.6 below records what that report added, including two
-> corrections to this document.
+in `CLAUDE_kevin.md`). This document was written to choose a route, and
+sections 1 to the end are kept as they were written. **The route was chosen and
+shipped as version 1.2.0 (commit `1a0a536`); the section "Decision" directly
+below records what was implemented and how it departs from Idea 1 as written.**
 
 Notation: `β_j` is the Gamma **rate** the package stores in `nuisance_vec`
 (large = little overdispersion), `s_ji` is the fitted covariate-adjusted library
 size (`library_mat`), `μ_ji` is the fitted mean without the library
 (`mean_mat`). Paper citations use the page names of the overdispersion wiki
 (`amywatt/git/overdispersion_wiki/wiki/pages/<name>.md`), e.g. `lause-2021`.
+
+---
+
+## Decision (2026-09-29): Idea 1 with Idea 6, shipped in 1.2.0
+
+**What was chosen.** Kevin chose Idea 1, the unit-free cap at 10 times the
+gene's median library size, together with Idea 6 (record which genes the cap
+acted on). He asked for two things beyond this document: a way to redo the
+test at another cap without refitting, and diagnostic plots. He read
+`overdispersion_brainstorm/overdispersion_cap_claude.html` first, as he had
+asked. The code was written in sessions 15 to 17, vetted by Kevin, and
+committed as `1a0a536` (version 1.2.0). The test IDs and oracles are in
+`UNIT_TEST_PLAN.md` sections 2.19 to 2.21.
+
+**Why.** Section 1 gives the reasons:
+
+- a cap is the only bound tried that does not weaken as cells are added
+  (section 3.4);
+- false discoveries are flat for c from 1 to 10 (section 3.3);
+- about 90% of genes keep their own estimate;
+- `gamma_rate` stays a maximum-likelihood estimator.
+
+Idea 2 (master's bound `max_i s_ji`) is **not offered** as an option.
+`?estimate_nuisance` says only that `cap_multiplier = 1` is close to it.
+
+### What was implemented
+
+For gene `j`, with `m_j = median_i s_ji` the median over cells of the library
+the fit uses:
+
+```
+nuisance_vec[j] = max( min(MLE_j, cap_multiplier * m_j), min_val * m_j )
+```
+
+- **Arguments.** `estimate_nuisance()` (both methods) and `eSVD()` take
+  `cap_multiplier = 10`, and `eSVD_helper()` passes it on through `...`.
+  `cap_multiplier = Inf` gives the rates of 1.1.0.
+- **Status.** Each gene gets a factor `nuisance_status`. The precedence is:
+  - `failed`: both estimation routes failed;
+  - `boundary`: `D_j = Σ_i [(A_ji − m_ji)² − A_ji] / μ_ji ≤ 0`, so no finite
+    MLE exists (section 2.3);
+  - `capped`: a finite MLE above the cap;
+  - `estimated`: everything else.
+
+  `report_results()` has the status as a seventh column.
+- **What the fit stores.** Beside `nuisance_vec`, the fit stores
+  `nuisance_mle_vec` (the rate before the cap), `nuisance_library_median_vec`,
+  `gene_mean_count_vec` and `gene_sparsity_vec`. `param` records
+  `nuisance_cap_multiplier`, `nuisance_num_capped` (every gene the cap
+  replaced, boundary genes included), `nuisance_num_boundary` and
+  `nuisance_min_val`.
+- **`recompute_pvalue(input_obj, cap_multiplier, seurat_obj = NULL)`** applies
+  another cap to the stored MLE. It then repeats the posterior, the statistic
+  and the p-values with the settings in `param`, without fitting again.
+- **`plot_nuisance()`** draws the unit-free rate `β_j / m_j` on a log10 axis,
+  with the cap as a line at `c`, against mean count, −log10 p-value or
+  sparsity.
+- **`plot_fitted_vs_observed()`** draws fitted against observed counts, with
+  the pairs beyond `num_sd` model SDs in red.
+
+### The nuances of what was implemented
+
+These are the places where 1.2.0 differs from Idea 1 as written above, or
+where the cap does something a reader of the rule alone would not expect.
+
+1. **A boundary gene is set to the cap itself** (Kevin confirmed,
+   2026-09-29). It is not set to `min(value the optimizer stopped at, cap)`.
+   That stopping value is arbitrary: about 1e7 on the first route, and
+   exactly `exp(10) = 22026` on the log route. It lies below the cap once
+   the median library size is above about 2200, which is the usual case with
+   `bool_library_includes_interept = FALSE`. Under the literal
+   `pmin(nuisance_vec, cap)` of Idea 1, those boundary genes kept 22026 and
+   were not counted as capped. `nuisance_mle_vec` still keeps the stopping
+   value.
+2. **The floor `min_val` is in the units of the cap** (Kevin, 2026-09-29).
+   The floor is `min_val * m_j`, and `min_val` (default `1e-4`) must be below
+   `cap_multiplier`, so no gene can sit above its cap. The absolute floor of
+   1.1.0 held a gene with a degenerate fit (median library about 1e-8)
+   thousands of times above its cap. A gene lifted by the floor keeps the
+   status `estimated`; a failed gene gets the floor.
+3. **The boundary is decided by `D_j`, not by comparing two
+   log-likelihoods** as Idea 6 proposed. `D_j` is the first-order term of the
+   log-likelihood around Poisson (section 2.3), and T-CAP-04 checks it
+   against `dnbinom` / `dpois`. The status levels are `estimated` / `capped` /
+   `boundary` / `failed`, not Idea 6's `interior` / `capped` / `boundary`.
+4. **The cap is applied in R, in one function, `.apply_nuisance_cap()`**,
+   which `estimate_nuisance()` and `recompute_pvalue()` both call.
+   `gamma_rate` is unchanged, as Idea 1 intended.
+   - `compute_test_per_gene()` needed no change: it reads the capped
+     `nuisance_vec` from the fit.
+   - The rule that picks the library columns now lives in one place,
+     `.nuisance_library_idx()`, which the posterior and the per-gene path
+     also use.
+5. **Every gene's results move, not only the capped ones.**
+   - `bool_stabilize_underdispersion` divides every rate by their geometric
+     mean when that mean is above 1, and the cap lowers that mean.
+   - The empirical null is fitted to all genes.
+
+   `NEWS.md` says so under "Results change".
+6. **The effective cap in the posterior is tighter than `c` for a gene whose
+   library is below `library_min = 0.1`**, because `compute_posterior()`
+   floors the library there and not the rate.
+7. **`c = 1` is not master.** Master's bound is the gene's *largest* library
+   size; the 1.2.0 cap is `c` times its *median*.
+8. **A `bool_diet = TRUE` object drops `covariates`** (Kevin: the diet is to
+   be as small as possible). So `recompute_pvalue()` and
+   `plot_fitted_vs_observed()` rebuild the counts and the design from the
+   Seurat object the analysis was run on, and check them against summaries
+   recorded at the fit: gene means, column sums, and sums weighted by
+   `cos(sqrt(2) · i)` over cells. The weighted sums make an exchange between
+   cells visible. Only an object built by `eSVD()` or `eSVD_helper()` of
+   1.2.0 can be rebuilt; a stage-by-stage object must still carry its `dat`
+   and `covariates`. The check notices edited data but is not a proof of
+   equality.
+9. **`param` is overwritten on a rerun** by `estimate_nuisance()`,
+   `compute_posterior()` and the two test functions, because
+   `recompute_pvalue()` replays it. `initialize_esvd()`, `opt_esvd()` and the
+   reparameterization still keep their first call's entries.
+10. **`plot_fitted_vs_observed()`'s SD is the model's marginal one**,
+    `sqrt(m (1 + s/β))`, with the capped rate and the library of
+    `estimate_nuisance()`. It is not the posterior's rescaled rate. Almost
+    every red point is a count above the fit, because `m − 3 SD < 0` for most
+    pairs.
+
+**The shipped cap against the prototype.** The dry-runs in sections 3.3 to 3.6
+applied `pmin(MLE, 10 · m_j)` to 1.1.0 fits. `overdispersion_brainstorm/09_run_v120_claude.R`
+runs 1.2.0 itself, end to end, on the same ten regimes. **The 1.2.0 cap
+reproduces the prototype exactly.**
+
+- **Discoveries.** Every gene is called the same at FDR < 0.05 in all 100
+  data sets. False and true discoveries per data set are identical to the
+  `cap_10s` rows of section 3.
+- **Statistics.** The Gaussianized statistics differ by at most 5e-6, which
+  is the rounding of the stored tables.
+- **Rates.** The rates agree within 1% for every gene but two, both in
+  `generate_null()`. There the absolute floor of 1.1.0 (1e-4) had lifted the
+  MLE, and the floor in cap units (`1e-4 · m_j`) does not; the statistics
+  are unchanged.
+- **Boundary genes.** Nuance 1 made no difference here. The median library
+  is small in these simulations (0.8 to 2.5 in the six original regimes), so
+  the cap is far below both stopping values of the optimizer. Nuance 1
+  matters on data whose library excludes the intercept, which none of these
+  runs used.
+
+The per-data-set counts are in `output/report_v120_by_rep.csv`. In ordinary
+data 1.2.0 caps 7% to 12% of genes (boundary genes included), and 0.4% to
+0.8% of all genes are at the boundary. The share capped rises to 23% in
+`low_count`, 45% in `trend`, 49% in `wide_rate` and 95%
+in `near_poisson`.
+
+### The other ideas after this decision
+
+| # | Status after 1.2.0 |
+|---|---|
+| 1 | **Shipped**, with nuances 1, 2 and 7 above |
+| 6 | **Shipped**, as `nuisance_status` (nuance 3) |
+| 2 | Not offered; `c = 1` documented as close |
+| 3, 4 | Not implemented. Worth revisiting only in combination with the cap (section 3.4) |
+| 5 | Not implemented; failed on `generate_null()` |
+| 7, 8, 9 | Dropped (no-go) |
+| 10 | Later: a methods project, not a CRAN item |
+| 11 | **Still open.** No `PAPER_DATA` path is recorded, so how far 1.2.0 departs from the published results on real data is unmeasured. The default c = 10 is still read off the simulations that evaluate it |
+
+Also from this work:
+
+- **The coverage of the fold-change SE under the cap (Q-LFC-1)** was
+  measured in the rerun of the version comparison, over 10 simulated cohorts
+  per regime. The ±2 SE interval covers the true log2 fold change for at
+  least 99% of genes of every status (`estimated`, `capped`, `boundary`) in
+  five of six regimes. The exception is `strong_de` (0.72 to 0.85), and the
+  cause there is the `Log_UMI` depth bias, not the rate. Without the cap,
+  genes with a diverged rate had coverage of 0 to 0.47. What remains is to
+  reword the caveat in `?compute_log_fold_change`.
+- **Whether `alpha_max` ever binds** is still open.
 
 ---
 
@@ -822,7 +991,9 @@ results. One day once the data are at hand.
   through `log_gamma_rate`'s default bracket. That is far above every cap
   that worked here, so it is not a fix.
 
-## Corrections this implies elsewhere (not made)
+## Corrections this implies elsewhere
+
+*Status, 2026-09-29: both were made in the rerun of the comparison report against 1.2.0. Its nuisance section now compares the rates in the fit's units, and says why master's rates carry no information about the truth. `CLAUDE_kevin.md` was corrected in session 14.*
 
 * `CLAUDE_kevin.md` and section 4.1 of the comparison report say devel
   "overestimates the rates two- to threefold". In the fit's units the excess is

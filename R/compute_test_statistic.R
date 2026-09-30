@@ -122,9 +122,9 @@ compute_test_statistic.eSVD <- function(input_obj,
 #' @param posterior_var_mat    Posterior variance matrix (a \code{matrix}) where the \eqn{n} rows represent cells
 #'                             and \eqn{p} columns represent genes.
 #'                             The rows and columns of the matrix should be the same as those in \code{input_obj}.
-#' @param case_individuals     Vector of strings representing the individuals in \code{metadata[,covariate_individual]}
+#' @param case_individuals     Vector of strings: the values of \code{individual_vec}
 #'                             that are the case individuals.
-#' @param control_individuals  Vector of strings representing the individuals in \code{metadata[,covariate_individual]}
+#' @param control_individuals  Vector of strings: the values of \code{individual_vec}
 #'                             that are the control individuals.
 #' @param individual_vec       Vector of strings of length \eqn{n} (i.e., the number of cells) that denote which cell originates from which individual.
 #' @param min_cells_per_individual  Minimum number of cells an individual must

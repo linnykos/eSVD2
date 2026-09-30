@@ -39,8 +39,8 @@ is hard-coded to describe case, and a \code{0} to describe control.}
 
 \item{k}{Number of latent dimensions.}
 
-\item{lambda}{Penalty of the \code{mixed_effect_variables} when using \code{glmnet::glmnet} to
-initialize the coefficients.}
+\item{lambda}{Ridge penalty used by \code{glmnet::glmnet} on every covariate that is
+neither the intercept nor an offset; must lie in \eqn{[10^{-4}, 10^4]}.}
 
 \item{library_size_variable}{A string of the variable name (which must be in \code{covariates}) of which variable denotes the sequenced (i.e., observed) library size.}
 
@@ -60,10 +60,11 @@ By default, this is set to \code{NULL} since the code will extract this informat
 \code{case_control} and \code{individual}
 }
 \description{
-For each gene, this function estimates two ridge-regression penalized GLMs (using the
-Poisson model) -- one using the \code{case_control_variable} and one without, and
-both sets of coefficients as well as the p-value (according to a deviance test) is returned.
-This p-value is on the log10-scale.
+For each gene, this function fits one ridge-penalized Poisson GLM of the counts on
+\code{covariates} (with \code{offset_variables} as offsets; \code{stats::glm} when
+at most one covariate is left to estimate) to obtain \code{z_mat}, and then takes a
+rank-\code{k} SVD of \code{log1p(dat)} minus the fitted covariate effects to obtain
+\code{x_mat} and \code{y_mat}. The result is stored as \code{fit_Init}.
 }
 \examples{
 set.seed(10)

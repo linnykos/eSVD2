@@ -1,16 +1,21 @@
 # Fits every simulated regime with ONE version of eSVD2
-# Drafted by Claude for Kevin Z. Lin, 2026-09-29
+# Drafted by Claude for Kevin Z. Lin, 2026-09-29; updated 2026-09-29 for 1.2.0
 #
-# The same script serves both versions: the step-by-step API (initialize_esvd
+# The same script serves every version: the step-by-step API (initialize_esvd
 # through compute_pvalue) has the same function names and arguments at
-# 3d5f7bf and at 1.1.0, so only the library it is loaded from differs.
+# 3d5f7bf and at 1.2.0, except for `cap_multiplier`, which only 1.2.0 has.
 #
 # Run from the package root, in this order:
 #   Rscript additional_context/version_comparison/02_run_regimes_claude.R master
 #   Rscript additional_context/version_comparison/02_run_regimes_claude.R devel
+#   Rscript additional_context/version_comparison/02_run_regimes_claude.R devel_nocap
 #   Rscript additional_context/version_comparison/02_run_regimes_claude.R devel_swap
 #
-# `devel_swap` is an ablation, not a third version: the devel code, with the
+# `devel` is 1.2.0 at its default `cap_multiplier = 10`. `devel_nocap` is 1.2.0
+# with `cap_multiplier = Inf`, whose rates are those of 1.1.0 (the uncapped
+# estimate this comparison reported on first); it is kept as a reference arm.
+#
+# `devel_swap` is an ablation, not a version: the devel code, with the
 # per-gene nuisance rate replaced by the value master estimated on the same
 # data set, right after estimate_nuisance(). Where devel_swap reproduces master,
 # the difference between the versions is the nuisance estimate; where it
@@ -22,7 +27,7 @@
 rm(list = ls())
 
 label <- commandArgs(trailingOnly = TRUE)[1]
-stopifnot(label %in% c("master", "devel", "devel_swap"))
+stopifnot(label %in% c("master", "devel", "devel_nocap", "devel_swap"))
 lib_label <- ifelse(label == "master", "master", "devel")
 
 cmp_dir <- file.path("additional_context", "version_comparison")
@@ -34,6 +39,10 @@ lib_dir <- file.path(cmp_dir, "lib", lib_label)
 library(eSVD2, lib.loc = lib_dir)
 print(paste0("Loaded eSVD2 ", utils::packageVersion("eSVD2", lib.loc = lib_dir),
              " for `", label, "`"))
+
+# NULL leaves the argument out of the call, which master requires.
+cap_multiplier <- NULL
+if(label == "devel_nocap") cap_multiplier <- Inf
 
 if(label == "devel_swap"){
   master_gene_df <- utils::read.csv(file.path(cmp_dir, "output", "master",
@@ -84,6 +93,7 @@ for(stem in stem_vec){
                        covariates = covariates,
                        cc_var = cc_var,
                        individual_vec = sim$individual_vec,
+                       cap_multiplier = cap_multiplier,
                        nuisance_override_vec = nuisance_override_vec)
   elapsed_val <- as.numeric(difftime(Sys.time(), start_time, units = "secs"))
 

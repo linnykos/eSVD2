@@ -35,7 +35,8 @@ and the genes' latent vectors as well as the coefficients.}
 be treated as an offset during the optimization (i.e., their coefficients will not change
 throughout the optimization).}
 
-\item{tol}{Small positive number to differentiate between zero and non-zero.}
+\item{tol}{Relative tolerance of the stopping rule: iteration stops once the objective
+changes by at most \code{tol} times \code{max(1, |previous objective|)}.}
 
 \item{verbose}{Integer.}
 

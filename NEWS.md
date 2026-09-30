@@ -81,6 +81,23 @@
 * An object built with 1.1.0 or earlier works with `report_results()`
   (`nuisance_status` is `NA`) and is refused by `recompute_pvalue()` and the
   two plots, which need what 1.2.0 stores.
+* `estimate_nuisance()` on an `eSVD` object now defaults to
+  `bool_covariates_as_library = TRUE`, as `compute_posterior()` and
+  `compute_test_per_gene()` do and as `eSVD()` has always passed it. Before,
+  a stage-by-stage analysis run with defaults estimated the nuisance rate on
+  one library size and computed the posterior on another. `eSVD()` and
+  `eSVD_helper()` are unaffected; a direct call to `estimate_nuisance()`
+  without the argument gives different rates. Pass
+  `bool_covariates_as_library = FALSE` for the old default.
+* `compute_test_per_gene()` refuses the settings `compute_posterior()`
+  refuses, with the same messages: `bool_adjust_covariates = TRUE` together
+  with `bool_covariates_as_library = TRUE` (it used to run), a boolean that
+  is not one `TRUE` or `FALSE`, and a non-positive or missing `alpha_max`,
+  `library_min` or `pseudocount`, or a `nuisance_lower_quantile` outside
+  `[0, 1]`. Both functions refuse these by name.
+* `nuisance_lower_quantile = NULL` means no floor in `compute_posterior()`,
+  as it already did in `compute_test_per_gene()`. It used to empty the vector
+  of rates and fail with an unrelated error.
 
 # eSVD2 1.1.0
 

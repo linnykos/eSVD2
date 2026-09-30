@@ -10,7 +10,8 @@ using Eigen::VectorXd;
 using MapMat = Eigen::Map<MatrixXd>;
 using MapVec = Eigen::Map<VectorXd>;
 
-// C++ translation of line_search() in constrained_newton_lbfgs.R
+// Originally translated from line_search() in oldcode/constrained_newton_lbfgs.R;
+// it now differs in how a failed search is reported
 List line_search(
     double alpha0, NumericVector x, double fx, NumericVector direction,
     Objective& objective, int max_linesearch, double scaling = 0.5
@@ -85,7 +86,7 @@ inline NumericVector compute_direction(NumericMatrix H_, NumericVector g_)
     Eigen::LLT<MatrixXd> solver(H);
     if(solver.info() != Eigen::Success)
     {
-        // Fall back to gradient direction if Hessian is singular
+        // Fall back to gradient direction if the Hessian is not positive definite
         direc.noalias() = -g;
     } else {
         direc.noalias() = -solver.solve(g);
@@ -93,7 +94,8 @@ inline NumericVector compute_direction(NumericMatrix H_, NumericVector g_)
     return res;
 }
 
-// C++ translation of constr_newton() in constrained_newton_lbfgs.R
+// Originally translated from constr_newton() in oldcode/constrained_newton_lbfgs.R;
+// it now counts failed line searches instead of warning
 List constr_newton(
     const VectorXd& x0, Objective& objective, int max_iter = 100,
     int max_linesearch = 30, double eps_rel = 1e-5, bool verbose = false

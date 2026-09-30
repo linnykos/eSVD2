@@ -1,5 +1,5 @@
 ---
-title: "The nuisance rate in eSVD2: what `master` did, what `devel` does, and the proposed cap"
+title: "The nuisance rate in eSVD2: what `master` did, what 1.1.0 did, and the cap of 1.2.0"
 author: "Drafted by Claude for Kevin Z. Lin"
 date: "2026-09-29"
 output:
@@ -43,6 +43,8 @@ qq_df <- .read("report_null_qq.csv")
 rescale_df <- .read("report_rescaling.csv")
 trend_third_df <- .read("report_trend_by_third.csv")
 oracle_rate_df <- .read("report_oracle_by_rate.csv")
+v120_by_rep_df <- .read("report_v120_by_rep.csv")
+v120_agreement_df <- .read("report_v120_agreement.csv")
 
 # The three versions this report is about, under the names the scripts use.
 method_label_vec <- c(master = "master", mle = "devel", cap_10s = "10x cap")
@@ -72,16 +74,25 @@ theme_update(panel.grid.minor = element_blank(),
 
 # Overview
 
-This report explains one decision for `eSVD2` 1.1.0: how to bound the per-gene
-nuisance rate that `estimate_nuisance()` returns. It builds on the comparison
+This report explains one decision about `eSVD2`: how to bound the per-gene
+nuisance rate that `estimate_nuisance()` returns. It was written to support
+the decision, and has been updated now that the decision is implemented. It builds on the comparison
 of `master` with `devel` (`../version_comparison/version_comparison_claude.html`)
 and on the brainstorm (`../OVERDISPERSION_BRAINSTORM.md`). The method is
 eSVD-DE (Lin, Qiu and Roeder 2024). The citations marked **wiki** are pages of
 the overdispersion wiki (location `OVERDISPERSION_WIKI`); each names the paper
 and the place in it that the wiki records.
 
-**Nothing in `R/`, `src/` or `tests/` has been changed.** The cap below exists
-only in the scripts of this folder.
+**Status (2026-09-29).** Kevin chose the cap this report describes. It is
+implemented in `eSVD2` 1.2.0 (commit `1a0a536`) as `cap_multiplier = 10`.
+Section 5 gives the rule exactly as it ships, and what 1.2.0 adds around it.
+The evidence in sections 3 to 7 comes from a prototype that overwrote 1.1.0's
+rate in the scripts of this folder. Section 5.2 shows that 1.2.0 itself
+reproduces the prototype's discoveries exactly.
+
+**Names in this report.** `devel` means version 1.1.0, whose rate is the
+uncapped maximum-likelihood estimate. `10x cap` is the rule shipped in 1.2.0.
+In `../version_comparison/`, `devel` is 1.2.0 and 1.1.0 is `devel_nocap`.
 
 ## The short takeaway
 
@@ -98,8 +109,10 @@ only in the scripts of this folder.
    this gives `r .fmt(.get(discovery_df, "mle", "null", "fp"))` false
    discoveries per data set against `master`'s
    `r .fmt(.get(discovery_df, "master", "null", "fp"))`.
-3. **The proposal is `devel`'s estimate, capped at 10 times the gene's median
-   library size**: $\hat\beta_j^{\text{cap}} = \min\{\hat\beta_j^{\text{MLE}},\; 10 \cdot \text{median}_i\, s_{ji}\}$.
+3. **The change, shipped in 1.2.0, is `devel`'s estimate capped at 10 times
+   the gene's median library size**: $\hat\beta_j^{\text{cap}} = \min\{\hat\beta_j^{\text{MLE}},\; 10 \cdot \text{median}_i\, s_{ji}\}$,
+   with a gene that has no finite MLE set to the cap. (A floor, far below the
+   cap, is in section 5.)
    In ordinary data about
    `r round(100 * .get(sweep_df, "cap_10", "baseline", "frac_capped"))`% of
    genes are capped; the rest keep their own estimate.
@@ -131,10 +144,10 @@ All results are from simulation. No real data set has been run.
 | 2 | What is the rate, and what does it do downstream? | formulas |
 | 3 | What did `master` do? | likelihood curves; fraction of genes at the bound |
 | 4 | What does `devel` do, and why does it inflate the test? | the boundary of the likelihood; the null scale of the statistic |
-| 5 | What is the proposed change, and why 10? | sweep of the cap |
+| 5 | What is the change as shipped in 1.2.0, and why 10? | the rule; 1.2.0 against the prototype; sweep of the cap |
 | 6 | In what sense is it an improvement over `master`? | accuracy of the estimate; false and true discoveries |
 | 7 | The nuances | units; large true rates; more cells; a real trend; the rescaling |
-| 8 | Recommendation | |
+| 8 | What was decided, and what remains open | |
 
 ## How the numbers were produced
 
@@ -156,8 +169,12 @@ fitted once per data set. Each version of the rate is then written over
 | `near_poisson` | 50 to 1000 | 15, effect 0.8 | almost no overdispersion |
 | `generate_null` | the package's `generate_null()` | 10 | a generator not from the eSVD model |
 
-`run_all_claude.sh` reruns everything, including this report, in about 4
-minutes.
+`09_run_v120_claude.R` then fits every data set again with 1.2.0 itself, end
+to end, at its default cap. That is the check in section 5.2.
+
+`run_all_claude.sh` reruns everything, including this report, in about 6
+minutes. The dry-runs load 1.1.0 from `../version_comparison/lib/devel_1.1.0`,
+and the check loads 1.2.0 from `lib/devel`.
 
 # The rate, and what it does downstream
 
@@ -289,13 +306,14 @@ happens and what it does to `devel`'s rates.
 
 ## The three versions side by side
 
-| | `master` (`3d5f7bf`) | `devel` (1.1.0) | Proposed |
+| | `master` (`3d5f7bf`) | `devel` (1.1.0) | 1.2.0 (`1a0a536`) |
 |---|---|---|---|
 | Search for the root of $\ell_j'$ | Newton inside $[10^{-6},\ \max_i s_{ji}]$ | bracket grown by doubling until $\ell_j' \le 0$ | as `devel` |
 | Returned when the root is above the bracket | the bracket's end, $\max_i s_{ji}$ | the root | the root |
 | Returned when there is no finite root | the bracket's end | about $10^7$ | $10 \cdot \text{median}_i\, s_{ji}$ |
+| Floor | $10^{-6}$ | `min_val` $= 10^{-4}$ | $10^{-4}\cdot\text{median}_i\, s_{ji}$ |
 | In one line | $\min\{\hat\beta^{\text{MLE}},\ \max_i s_{ji}\}$ | $\hat\beta^{\text{MLE}}$ | $\min\{\hat\beta^{\text{MLE}},\ 10\cdot\text{median}_i\, s_{ji}\}$ |
-| Where | `src/gamma_rate.cpp` | `src/gamma_rate.cpp` | R, after `gamma_rate()` |
+| Where | `src/gamma_rate.cpp` | `src/gamma_rate.cpp` | R, `.apply_nuisance_cap()`, after `gamma_rate()` |
 
 # What `master` did
 
@@ -317,10 +335,10 @@ marker_df <- rbind(
   data.frame(example = gene_df$example, rate = gene_df$rate_mle,
              marker = "devel: the estimate"),
   data.frame(example = gene_df$example, rate = gene_df$proposed_cap,
-             marker = "proposed cap")
+             marker = "1.2.0: the cap")
 )
 marker_levels <- c("master: end of the search", "devel: the estimate",
-                   "proposed cap")
+                   "1.2.0: the cap")
 marker_df$marker <- factor(marker_df$marker, levels = marker_levels)
 marker_col_vec <- stats::setNames(as.character(method_col_vec), marker_levels)
 
@@ -358,7 +376,7 @@ knitr::kable(example_df[, c("example", "rate_true_fit_units",
              digits = c(0, 1, 1, 1, 1, 2), row.names = FALSE,
              col.names = c("Gene", "True rate (fit's units)",
                            "master returns", "devel returns",
-                           "Proposed returns", "Pearson statistic"),
+                           "1.2.0 returns", "Pearson statistic"),
              caption = "The same four genes. The Pearson statistic is the mean of (count - fitted)^2 / fitted; below 1 means the residuals are less variable than Poisson.")
 ```
 
@@ -368,8 +386,8 @@ Reading the four panels:
   search. All three versions return it.
 * **Typical and weakly overdispersed.** The maximum exists, but to the right
   of `master`'s search. `master` returns the end of its search. `devel` and
-  the proposal return the maximum when it is below the cap, and the cap
-  otherwise.
+  1.2.0 return the maximum when it is below the cap, and 1.2.0 returns the
+  cap otherwise.
 * **At the boundary.** The curve rises all the way to the right and flattens.
   There is no finite maximum. `devel` returns a number near $10^7$, which is
   where its solver stops, and the likelihood is flat for four orders of
@@ -628,22 +646,134 @@ The wiki's synthesis (`test-calibration-and-dispersion`) draws the conclusion
 that applies here: a dispersion estimate that is "biased but stable can
 produce better-calibrated tests than one that is unbiased but noisy."
 
-# The proposed change
+# The change, as shipped in 1.2.0
+
+## The rule
+
+For gene $j$, with $m_j = \text{median}_i\, s_{ji}$ the median over cells of
+the library the fit uses:
 
 $$
-\hat\beta_j^{\text{cap}} = \min\big\{\hat\beta_j^{\text{MLE}},\ c \cdot \text{median}_i\, s_{ji}\big\},
-\qquad c = 10.
+\hat\beta_j = \max\Big\{\min\big\{\hat\beta_j^{\text{MLE}},\ c \cdot m_j\big\},\ \texttt{min\_val} \cdot m_j\Big\},
+\qquad c = \texttt{cap\_multiplier} = 10,\quad \texttt{min\_val} = 10^{-4}.
 $$
 
-Three choices are in this line.
+Three choices are in the cap.
 
 * **The cap is in units of the gene's library size**, because the rate is
   (section 2.1). A cap at one number for all genes would be tight for highly
   expressed genes and loose for lowly expressed ones.
-* **The median, not `master`'s maximum.** The maximum is set by one cell.
-* **Applied in R after `gamma_rate()`**, so that `gamma_rate()` stays a
-  maximum-likelihood estimator and its tests (T-CPP-GAM-05 and the others)
-  keep their meaning.
+* **The median, not `master`'s maximum.** The maximum is set by one cell. So
+  `cap_multiplier = 1` is close to `master`'s bound but not equal to it, and
+  1.2.0 does not offer `master`'s bound as an option.
+* **Applied in R after `gamma_rate()`**, in the one function
+  `.apply_nuisance_cap()`, so that `gamma_rate()` stays a maximum-likelihood
+  estimator and its tests (T-CPP-GAM-05 and the others) keep their meaning.
+
+Three more details were settled while implementing it; Kevin confirmed all
+three on 2026-09-29.
+
+* **A gene with no finite MLE is set to the cap itself.** It is not set to
+  the smaller of the cap and the value where the optimizer stopped. That
+  value is arbitrary: about $10^7$ on one route, exactly $e^{10} = 22026$ on
+  the log route. It lies below the cap once $m_j$ is above about 2200, which
+  is the usual case when the library excludes the gene intercept
+  (`bool_library_includes_interept = FALSE`). Such a gene is recognized by
+  the statistic of section 4.2,
+  $D_j = \sum_i [(A_{ji} - m_{ji})^2 - A_{ji}] / \mu_{ji} \le 0$.
+* **The floor is in the units of the cap**, $\texttt{min\_val} \cdot m_j$,
+  and `min_val` must be below `cap_multiplier`. So no gene can end above its
+  cap. The absolute floor of 1.1.0 had held a gene with a degenerate fit
+  ($m_j$ near $10^{-8}$) thousands of times above its cap.
+* **An object built with `bool_diet = TRUE` keeps no covariates**, to stay
+  small. Redoing its test at another cap needs the Seurat object it was
+  built from (section 5.3).
+
+`cap_multiplier = Inf` gives the rates of 1.1.0.
+
+## 1.2.0 against the prototype
+
+The numbers in sections 3 to 7 come from a prototype. It fitted 1.1.0 once,
+then wrote $\min\{\hat\beta^{\text{MLE}}_j,\ 10\, m_j\}$ over `nuisance_vec`
+before the posterior. `09_run_v120_claude.R` instead fits every data set with
+1.2.0 itself, end to end, with no override.
+
+```{r table_v120}
+proto_df <- by_rep_df[by_rep_df$candidate == "cap_10s", ]
+proto_sum_df <- stats::aggregate(cbind(fp, tp) ~ regime, data = proto_df,
+                                 FUN = mean)
+colnames(proto_sum_df)[2:3] <- c("fp_proto", "tp_proto")
+v120_sum_df <- stats::aggregate(cbind(fp, tp, num_capped, num_boundary) ~ regime,
+                                data = v120_by_rep_df, FUN = mean)
+v120_table_df <- merge(v120_sum_df, proto_sum_df, by = "regime", all.x = TRUE)
+v120_table_df <- merge(v120_table_df,
+                       v120_agreement_df[, c("regime", "frac_rate_within_1pct",
+                                             "num_fdr_calls_differ")],
+                       by = "regime")
+v120_table_df$frac_capped <- v120_table_df$num_capped / 300
+v120_table_df$frac_boundary <- v120_table_df$num_boundary / 300
+v120_order_vec <- c(regime_vec, setdiff(v120_table_df$regime, regime_vec))
+v120_table_df <- v120_table_df[order(match(v120_table_df$regime,
+                                           v120_order_vec)), ]
+knitr::kable(v120_table_df[, c("regime", "fp", "fp_proto", "tp", "tp_proto",
+                               "frac_capped", "frac_boundary",
+                               "frac_rate_within_1pct",
+                               "num_fdr_calls_differ")],
+             digits = c(0, 1, 1, 1, 1, 3, 3, 4, 0), row.names = FALSE,
+             col.names = c("Regime", "False disc., 1.2.0", "False disc., prototype",
+                           "True disc., 1.2.0", "True disc., prototype",
+                           "Capped (incl. boundary)", "Boundary",
+                           "Rates within 1% of prototype",
+                           "Genes called differently"),
+             caption = "1.2.0 at cap_multiplier = 10 against the prototype, per data set (means of 10 replicates of 300 genes). The prototype's discovery counts were tabulated for eight regimes only; the last two columns compare gene by gene in all ten.")
+```
+
+**1.2.0 calls every gene of every data set as the prototype did**, and its
+rates agree with the prototype's to within 1% for all genes but
+`r sum(round((1 - v120_agreement_df$frac_rate_within_1pct) * v120_agreement_df$num_genes))`.
+Those are genes in `generate_null` where the old absolute floor had lifted the
+MLE and the new floor does not; their statistics did not move. The
+boundary rule made no difference here. A gene's median library size in these
+fits is at most about 8 (in the regimes of `report_rates.csv`), so its cap is
+under 100. That is far below both of the optimizer's stopping values, the
+smaller of which is 22026. Every result in this report is therefore a
+result about the shipped code.
+
+## What 1.2.0 adds around the cap
+
+* **A status for every gene**, the factor `nuisance_status`. The precedence
+  is:
+  - `failed`: both estimation routes failed, and the gene gets the floor;
+  - `boundary`: $D_j \le 0$;
+  - `capped`: a finite MLE above the cap;
+  - `estimated`: everything else.
+
+  A gene lifted by the floor keeps `estimated`. The status is also the
+  seventh column of `report_results()`.
+* **What the fit stores beside `nuisance_vec`**: `nuisance_mle_vec` (the rate
+  before the cap), `nuisance_library_median_vec` ($m_j$), and each gene's mean
+  count and sparsity. `param` records the multiplier, the floor, and the
+  counts `nuisance_num_capped` (every gene the cap replaced, boundary genes
+  included) and `nuisance_num_boundary`.
+* **`recompute_pvalue(input_obj, cap_multiplier, seurat_obj = NULL)`**. It
+  applies another cap to the stored MLE and repeats the posterior, the test
+  statistic and the p-values with the settings in `param`, without fitting
+  again. For a `bool_diet = TRUE` object it rebuilds the counts and covariates
+  from the Seurat object, then checks them against summaries recorded at the
+  fit: gene means, column sums, and sums weighted by position over cells, so
+  that an exchange between cells is noticed.
+* **`plot_nuisance()`** draws $\hat\beta_j / m_j$ on a log axis, with the cap
+  as a line at $c$, against mean count, $-\log_{10}$ p-value or sparsity.
+  **`plot_fitted_vs_observed()`** draws the fitted against the observed
+  count, marking the pairs more than `num_sd` model standard deviations
+  $\sqrt{m(1 + s/\beta)}$ from the fit.
+
+**Every gene's results move, not only the capped ones.** The rescaling of
+section 7.5 divides every rate by their geometric mean, which the cap lowers,
+and the empirical null is fitted to all genes. `NEWS.md` says so. And in
+the posterior, the cap is effectively tighter than $c$ for a gene whose library
+is below `library_min = 0.1`, because `compute_posterior()` floors the library
+there.
 
 ## Why 10
 
@@ -675,7 +805,7 @@ plot1 <- plot1 + ggplot2::scale_x_log10(breaks = c(1, 10, 100, 1000, 1e4),
 plot1 <- plot1 + ggplot2::labs(x = "Cap multiplier c (log scale)",
                                y = "False discoveries per data set",
                                title = "False discoveries are low up to c = 10 to 20 and rise beyond",
-                               subtitle = "FDR < 0.05, mean of 10 replicates, bars are 1 SE. Green line: the proposed c = 10. master's bound is between c = 2 and c = 3.")
+                               subtitle = "FDR < 0.05, mean of 10 replicates, bars are 1 SE. Green line: the default c = 10 of 1.2.0. master's bound is between c = 2 and c = 3.")
 plot(plot1)
 ```
 
@@ -1249,43 +1379,56 @@ knitr::kable(rescale_table_df[, c("regime", "method", "geometric_mean",
   span a factor of 5 to 30 with the cap, 9 to 80 under `master`, and 50 to
   several million under `devel`** (eSVD-model regimes of the table).
 
-# Recommendation
+# What was decided, and what remains open
 
-**Adopt $\min\{\hat\beta^{\text{MLE}}_j,\ 10\cdot\text{median}_i\, s_{ji}\}$ for
-1.1.0**, after one check on real data.
+**Decided (Kevin, 2026-09-29) and shipped in 1.2.0**: the cap
+$\min\{\hat\beta^{\text{MLE}}_j,\ 10\cdot m_j\}$, with the three details of
+section 5.1. Here is what became of each part of the recommendation this
+report made before the decision.
 
-1. **Where.** In `.estimate_nuisance_matrix()` in `R/nuisance.R`, after the
-   per-gene estimates, and in the same place for `compute_test_per_gene()`.
-   Not in `src/gamma_rate.cpp`.
-2. **Interface.** One new argument to `estimate_nuisance()`, the multiplier,
-   defaulting to 10, with `Inf` giving `devel`'s present behavior. A second
-   setting that reproduces `master`'s bound is optional and depends on item
-   5.
-3. **Record what the cap did.** A per-gene status (`"estimated"`, `"capped"`,
-   `"boundary"`) stored beside `nuisance_vec`, its counts in `param`, and a
-   column in `report_results()`. A gene at the cap has a standard error for
-   its fold change that reflects the cap, which is Q-LFC-1.
-4. **Document it for what it is.** A bound on how much more weight the
-   posterior may give the fit for one gene than for the typical gene, chosen
-   to keep the test calibrated. Not an estimate of the smallest
+1. **Where.** In R, in `.apply_nuisance_cap()`, called from
+   `estimate_nuisance()` and `recompute_pvalue()`. Not in
+   `src/gamma_rate.cpp`. `compute_test_per_gene()` needed no change, because
+   it reads the capped rate from the fit.
+2. **Interface.** `cap_multiplier = 10` in both `estimate_nuisance()` methods
+   and in `eSVD()`, passed on by `eSVD_helper()`; `Inf` gives 1.1.0. A
+   setting that reproduces `master`'s bound was not added; the documentation
+   says `cap_multiplier = 1` is close to it.
+3. **Record what the cap did.** Done, as `nuisance_status` with a fourth
+   level, `failed` (section 5.3). The standard error of the fold change
+   under the cap was then measured in the rerun of
+   `../version_comparison/`. The ±2 SE interval covers the truth for at
+   least 99% of genes of every status in five of six regimes. The exception
+   is `strong_de`, and its cause is the depth adjustment, not the rate.
+4. **Document it for what it is.** Done in `?estimate_nuisance` and
+   `NEWS.md`: a calibration device, not an estimate of the smallest
    overdispersion in the data.
-5. **Before implementing, run one of the paper's data sets** and record the
-   fraction of genes at the boundary, above `master`'s bound and above the
-   cap, and how far the list of genes at FDR < 0.05 moves between `master`
-   and the cap. This needs a path for `PAPER_DATA`.
-6. **Tests to write with the change**: the cap binds exactly at the
-   multiplier; `Inf` reproduces `devel`; a gene built to have a Pearson
-   statistic below 1 is reported as `"boundary"`; on the `null` fixture the
-   false discoveries with the cap do not exceed those with `master`'s bound.
+5. **Run one of the paper's data sets.** **Still open.** It needs a path
+   for `PAPER_DATA`. It would record:
+   - the fraction of genes at the boundary, above `master`'s bound and above
+     the cap;
+   - how far the list of genes at FDR < 0.05 moves between `master` and
+     1.2.0.
 
-**Not recommended for 1.1.0**: empirical-Bayes shrinkage alone, the
-profile-likelihood bound alone, one rate for all genes, or changes to the
-test statistic. The brainstorm gives the result for each.
+   This is the one check the default $c = 10$ has not had.
+6. **Tests.** Written with the change: `UNIT_TEST_PLAN.md` §2.19 to §2.21
+   (T-CAP, T-REDO, T-DIAG), 54 `test_that` blocks.
+
+**Not adopted**:
+
+- empirical-Bayes shrinkage alone;
+- the profile-likelihood bound alone;
+- one rate for all genes;
+- changes to the test statistic.
+
+The brainstorm gives the result for each. Shrinkage toward a fitted trend,
+with the cap as a backstop, remains a candidate for a later version if real
+data show a trend (section 7.4).
 
 # What we glossed over
 
 * **Simulated data only.** Seven of the eight regimes come from the eSVD
-  model. Real data are in item 5 of the recommendation.
+  model. One real data set is the first open item of section 8.
 * **The multiplier 10 was chosen on the simulations that evaluate it.** The
   flat region from 5 to 20 makes the exact value matter little, but it is not
   a held-out result.
@@ -1299,8 +1442,9 @@ test statistic. The brainstorm gives the result for each.
   at 3000 cells, and with the cap as a backstop, is not known.
 * **`master` at 3000 cells was not run.** Section 7.3 applies its bound to
   `devel`'s estimate, which matches `master` at 600 cells.
-* **`compute_test_per_gene()`** (`bool_diet = TRUE`) was not run. It calls the
-  same estimator.
+* **`compute_test_per_gene()`** (`bool_diet = TRUE`) was not run here. It
+  reads the capped rate from the fit, and T-PGENE-01 pins it to the matrix
+  path.
 * **The quotations are as the wiki's footnotes record them.** They were not
   checked against the PDFs for this report. Two wiki pages quoted here
   (`underdispersion`, `test-calibration-and-dispersion`, `trended-dispersion`)

@@ -133,7 +133,9 @@ fold change and its standard error; see \code{compute_log_fold_change}),
 \code{nuisance_vec} and the other per-gene vectors of
 \code{estimate_nuisance}), plus \code{dat}, \code{covariates}, the earlier
 fits and the posterior matrices when \code{bool_diet = FALSE}.
-\code{param} records, among the settings of every stage, the number of
+\code{param} records the settings of every stage (the \code{opt_*} entries
+are those of the first \code{opt_esvd} call, because a later call does not
+overwrite an entry that is already there), the number of
 genes whose nuisance rate was capped (\code{nuisance_num_capped}) and the
 arguments of this call that name the variables (as \code{esvd_*}), which
 is what lets \code{recompute_pvalue} and \code{plot_fitted_vs_observed}
@@ -143,9 +145,10 @@ rebuild the counts and covariates from \code{seurat_obj} alone.
 diagnostics.
 }
 \description{
-The end-to-end wrapper: \code{format_covariates}, \code{initialize_esvd},
-two rounds of \code{opt_esvd} (the case-control coefficient held fixed,
-then freed) each followed by \code{reparameterization_esvd_covariates},
+The end-to-end wrapper: \code{format_covariates}, \code{initialize_esvd}
+and two rounds of \code{opt_esvd} (the case-control coefficient held fixed,
+then freed), each of the three followed by
+\code{reparameterization_esvd_covariates},
 \code{estimate_nuisance}, and then either the fused
 \code{compute_test_per_gene} (\code{bool_diet = TRUE}) or
 \code{compute_posterior}, \code{compute_test_statistic} and

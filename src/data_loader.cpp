@@ -48,8 +48,10 @@ SEXP data_loader(SEXP mat)
     }
 
     // An S4 object that is not a dgCMatrix (e.g. a dgeMatrix), or a dense
-    // matrix that is neither integer nor double (e.g. character), falls
-    // through both branches above. Returning a null pointer here used to
+    // matrix that is neither integer nor numeric (e.g. character), falls
+    // through both branches above. (A logical matrix counts as numeric to
+    // Rf_isNumeric, enters the double branch, and is rejected there by
+    // Rcpp::as.) Returning a null pointer here used to
     // surface much later as "external pointer is not valid".
     if (loader == nullptr)
     {

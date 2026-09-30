@@ -50,7 +50,7 @@
 }
 
 # Negative binomial 2
-# theta = log(p)
+# theta = log(mu), the log of the mean
 .dat_to_nat.neg_binom2 <- function(A, gamma, tol = 1e-3) {
   res <- log(A + tol)
 
@@ -61,8 +61,8 @@
 }
 
 # Bernoulli
-# Do a simple mapping: A=0 ==> theta=+1 (p ~= 0.73)
-#                      A=1 ==> theta=-1 (p ~= 0.27)
+# Do a simple mapping: A=1 ==> theta=+1 (p ~= 0.73)
+#                      A=0 ==> theta=-1 (p ~= 0.27)
 .dat_to_nat.bernoulli <- function(A, gamma, tol = 1e-3) {
   res <- ifelse(A > 0.5, 1, -1)
 

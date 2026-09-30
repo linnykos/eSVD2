@@ -865,3 +865,48 @@ would write first.
 - Refactor (i): `compute_posterior.default()` and `compute_test_per_gene()` call `.nuisance_library_idx()`; the inline copies and their `unique()` are gone. Refactor (ii): `.estimate_nuisance_matrix()` uses one `vapply` over the genes returning `c(rate, D_j)` (a 2 x p matrix even for p = 1), and `.compute_boundary_statistic()` takes one gene's `x_vec, mu_vec, s_vec`; T-CAP-04b was rewritten to the per-gene signature, with the same definition as its oracle.
 - Not measured: the speed gain of (ii); it is one fewer column extraction per gene, which matters on a `dgCMatrix`.
 - Verification after the refactor: suite under `NOT_CRAN=true` 2014 pass / 0 fail / 0 warnings / 0 skip in 63 s across 34 files (up from 1892 across 33); `R CMD check --as-cran` on the rebuilt `eSVD2_1.2.0.tar.gz` gave `Status: 3 NOTEs`, the same three as session 16. Nothing is committed.
+
+### [2026-09-29] (Session 18 — `additional_context/` brought up to 1.2.0; the comparison and the cap report rerun)
+- Kevin asked for every `.md` under `additional_context/` to be updated for 1.2.0 (vetted and committed as `1a0a536`), a "Decision" section in the brainstorm, and both knitted reports rerun against the current code; nothing in `R/`, `src/` or `tests/` changed.
+- Decision (Claude): `version_comparison/` gained a `devel_nocap` arm (1.2.0 at `cap_multiplier = Inf`), so the first edition's comparison survives as a reference; its statistics equal the old 1.1.0 run to every stored digit.
+- Decision (Claude): the 1.1.0 install moved to `lib/devel_1.1.0` and the brainstorm's scripts 01 to 07 now load it, because reinstalling `lib/devel` as 1.2.0 would silently have changed what they reproduce.
+- Finding: master vs 1.2.0 false discoveries are within noise in every regime (null 0.2 vs 0.2, `near_poisson` 1.8 vs 2.6, `baseline` 2.1 vs 1.8); power is lower only on `generate_null()` (8.1 vs 8.8 of 10), which the uncapped arm shares (8.2).
+- Finding: under the cap, ±2 SE covers the true log2FC for at least 99% of genes of every status in five of six regimes (`strong_de` 0.72 to 0.85), against 0 to 0.47 for diverged genes without it; this answers the measurement half of Q-LFC-1.
+- Finding: `09_run_v120_claude.R` (new) shows 1.2.0 end to end calls every gene of all 100 brainstorm data sets as the prototype `cap_10s` did; the boundary-gene rule never bound, because no median library in these simulations exceeds about 8.
+- Finding: master's Welch statistics on `generate_null()` moved by up to 0.006 between two runs on identical data (its random SVD start); it explains the ablation's 0.006 there.
+- Correction: section 4.1 of the comparison report now compares rates in the fit's units (item 0b closed), and the brainstorm's "Corrections this implies elsewhere" are marked made.
+- Finding: `.gitignore`'s `*cache*` had been ignoring `overdispersion_brainstorm/01_cache_fits_claude.R`, a script `run_all_claude.sh` needs; an exception line was added.
+- Open: the comment in `.apply_nuisance_cap()` says the floor can only move a failed gene, but T-CAP-03c lifts an estimated gene with a tiny MLE; not edited, since `R/` was out of scope.
+- Verification: `R CMD check --as-cran` on the HEAD tarball gave `Status: 2 NOTEs` (`New submission`, HTML Tidy), tests `[ FAIL 0 | WARN 0 | SKIP 20 | PASS 1512 ]`; suite under `NOT_CRAN=true` 2014 pass / 0 fail / 0 skip in 64 s; both reports knit. Nothing is committed.
+
+### [2026-09-29] (Session 19 — misleading comments corrected in `R/` and `src/`)
+- Kevin asked for every potentially misleading code comment to be fixed; three parallel read-only audits covered all of `R/` and `src/`, and each finding was checked against the code before editing.
+- Fixed about 35 comments and roxygen blocks in 16 R files and 6 C++ files. The ones a reader was most likely to act on:
+  - `initialize_esvd`'s description claimed two GLMs and a deviance-test p-value;
+  - `estimate_nuisance`'s `bool_covariates_as_library` text was copied from `bool_adjust_covariates`;
+  - `alpha_max` was called a cap on the numerator (it caps the fitted mean);
+  - `bool_stabilize_underdispersion` spoke of "under-dispersion";
+  - `gamma_rate.cpp` described a search that no longer runs;
+  - the Bernoulli start mapping was written reversed;
+  - `curved_gaussian`'s nuisance was called the CV (it is mean/sd);
+  - `library_multipler`'s variance description matched no family;
+  - `opt_esvd`'s `tol` was called a zero threshold.
+- Resolved: the floor comment in `.apply_nuisance_cap()`. `estimate_nuisance()` floors before storing `nuisance_mle_vec`, so from both callers the helper's floor changes nothing. A gene lifted by the floor keeps the status `estimated`, and a failed gene's `nuisance_mle_vec` is the floor, not an estimate.
+- Two message strings were also changed: `multtest()`'s error no longer blames `qnorm(pt())` saturation, and `opt_esvd`'s line-search warning says "last accepted step". No test matches either.
+- Pointers to `CRAN_READINESS.md` in code now name `additional_context/`; the file is not shipped with the package.
+- Open: two code inconsistencies the audit found, left unfixed because the request was about comments: the `bool_covariates_as_library` defaults differ between `estimate_nuisance.eSVD` (FALSE) and the posterior (TRUE); and `compute_test_per_gene` lacks `compute_posterior.default`'s refusal of `bool_adjust_covariates` with `bool_covariates_as_library`.
+- Verification:
+  - `git diff -U0` of `R/` and `src/` shows no changed line outside comments, roxygen and the two strings;
+  - `devtools::document()` rewrote `RoxygenNote` again, and that was reverted;
+  - the suite under `NOT_CRAN=true` gives 2014 pass / 0 fail / 0 skip;
+  - `R CMD check --as-cran` gives `Status: 2 NOTEs` (`New submission`, HTML Tidy).
+- Nothing is committed.
+
+### [2026-09-29] (Session 20 — the library default aligned; the posterior paths refuse the same settings)
+- At Kevin's direction, `estimate_nuisance.eSVD()` now defaults to `bool_covariates_as_library = TRUE`, the default of `compute_posterior.eSVD()` and `compute_test_per_gene()` and what `eSVD()` passes. No existing test changed with it; the stage-by-stage rates change for direct callers, and `NEWS.md` says so.
+- Decision (Claude, within Kevin's "refuse nonsensical inputs"): one internal `.check_posterior_args()` in `R/posterior.R`, called first by `compute_posterior.default` and by `compute_test_per_gene`, so both refuse the same settings with identical messages. It replaces the matrix path's bare `!a | !b` `stopifnot`.
+- Resolved: `nuisance_lower_quantile = NULL` now means no floor on the matrix path too. It had computed `quantile(x, probs = NULL)`, which is `numeric(0)`, and died later with "missing value where TRUE/FALSE needed".
+- Finding (`/code-review`): after the per-gene refusal, `eSVD(bool_adjust_covariates = TRUE)` with the default library flag would fail only after the whole fit. `eSVD()` now runs the same check on entry (T-PGENE-05 asserts that the intermediate file is never written).
+- Open, accepted: an object built before this change whose `param` records both flags TRUE on the diet path is now refused by `recompute_pvalue()`; that combination was never meaningful.
+- Tests written first and seen failing: T-PGENE-02 to -05 and T-NUIS-09. T-NUIS-08 was taken (`bool_use_log`) and T-POST-14 is reserved in `CRAN_READINESS.md` §0.4; the NULL-quantile case on the matrix path is covered inside T-PGENE-04 rather than a separate T-POST test.
+- Verification: suite under `NOT_CRAN=true` 2110 pass / 0 fail / 0 skip across 298 blocks; `R CMD check --as-cran` `Status: 2 NOTEs`, tests `[ FAIL 0 | SKIP 20 | PASS 1608 ]`; `RoxygenNote` rewrite reverted again. Nothing is committed.

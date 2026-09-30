@@ -116,9 +116,11 @@
   }
 
   # A boundary gene has no finite maximum-likelihood rate, so min(MLE, cap)
-  # is the cap itself. What the optimizer returned for it is where its
-  # iterations stopped (about 1e7 on one route, exp(10) on the other), which
-  # is below the cap when the library size is in the thousands.
+  # is the cap itself. What the optimizer returned for it is only where its
+  # iterations stopped (about 1e7 on the first route, exactly exp(10) on the
+  # log route), which is below the cap once the median library size is above
+  # about 2200 (log route) or 1e6 (first route). Either way the gene is set
+  # to the cap.
   bool_at_cap_vec <- bool_boundary_vec & !bool_failed_vec & is.finite(cap_vec)
   # A failed gene sits at the floor by assignment; the cap did not act on it.
   bool_capped_vec <- !bool_failed_vec &
@@ -126,8 +128,12 @@
   nuisance_vec <- pmin(nuisance_mle_vec, cap_vec)
   nuisance_vec[bool_at_cap_vec] <- cap_vec[bool_at_cap_vec]
   # The floor is in the units of the cap and below it (`.check_min_val`), so
-  # it can only move a failed gene, whose value is 0, and no gene ends above
-  # its cap.
+  # no gene ends above its cap. `estimate_nuisance()` has already applied it
+  # before storing `nuisance_mle_vec`, so from that function and from
+  # `recompute_pvalue()` this line changes nothing; it keeps the rule whole
+  # when the helper is called on its own. It lifts every rate below
+  # `min_val * m`: a failed gene (set to 0 upstream) and also an estimated
+  # gene with a tiny MLE, which keeps the status `estimated`.
   nuisance_vec <- pmax(nuisance_vec, min_val * as.numeric(library_median_vec))
   names(nuisance_vec) <- names(nuisance_mle_vec)
 
@@ -152,7 +158,10 @@
 #'
 #' The one place the rule lives. Shared by \code{estimate_nuisance.eSVD},
 #' \code{compute_posterior.default}, \code{compute_test_per_gene} and
-#' \code{plot_fitted_vs_observed}, which must all use the same library.
+#' \code{plot_fitted_vs_observed}. They get the same library when they are
+#' passed the same \code{bool_covariates_as_library} and
+#' \code{bool_library_includes_interept}; the defaults agree
+#' (\code{bool_covariates_as_library = TRUE} everywhere).
 #'
 #' @param covariates             Covariate matrix, columns named.
 #' @param case_control_variable  Name of the case-control column, or

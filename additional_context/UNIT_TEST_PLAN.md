@@ -6,7 +6,27 @@ one says *what we would have to assert to know it is right*. Every test in §3 o
 `CRAN_READINESS.md` has been absorbed here and expanded; that section now points
 back at this file.
 
-**Nothing here has been written yet.** The intent is that Kevin reads the list
+> **Current state, 2026-09-29 (version 1.2.0, commit `1a0a536`).** The plan
+> below has been implemented. The suite is 298 `test_that` blocks in 34 files
+> (22 `_claude` files beside the 12 older ones). Under `NOT_CRAN=true`
+> it gives **2110 expectations passing, 0 failing, 0 warnings, 0 skipped**
+> (after session 20). `R CMD check --as-cran` on the 1.2.0 tarball gives `Status: 2
+> NOTEs` (`CRAN_READINESS.md` §0). Since the review passes below, four
+> sections were added *with* their code rather than before it:
+>
+> - §2.17 (cohort filtering);
+> - §2.18 (log2 fold change and its SE, 1.1.0);
+> - §2.19 to §2.21 (the cap on the nuisance rate, `recompute_pvalue()`, the
+>   diagnostic plots, 1.2.0);
+> - T-POST-13 and T-PGENE-01, which pin the library columns.
+>
+> The text from here to §9 is the proposal as reviewed, kept for its
+> reasoning. A test whose ID appears there but whose wording differs from the
+> test file is described correctly by the file header. `TEST_RUN_REPORT.md`
+> records the first run against the unmodified code and the fixes that
+> followed.
+
+**At the time of writing nothing here had been written.** The intent was that Kevin reads the list
 first, strikes the tests that are not worth their cost, flags the ones whose
 expected answer he disagrees with, and only then do we write code and regenerate
 fixtures. Several tests below cannot be written until an open question is
@@ -342,6 +362,7 @@ covariate-orthogonalization step — the paper's Step 1 — is not covered at al
 | T-NUIS-05 | on `generate_data()` output with a known `nuisance_param_vec`, the estimate recovers the truth within a stated tolerance | [oracle] the simulation truth | **✅ RESOLVED (Q-NUIS-1) — ±30% relative on the rate** [[KZL: Yes, let's use 30%]]. Written as `expect_equal(est, truth, tolerance = 0.3)` **gene by gene**, not on the mean of the vector — the mean would let a few wildly wrong genes hide behind the rest. Two riders: (i) run it on `F-SMALL`, not `F-TINY`, per Q-FIX-1; (ii) 30% at `n = 400` is a *loose* bar, so if the suite ever passes it only barely, that is a finding about the estimator, not about the tolerance — record the observed spread in a comment when the test lands |
 | T-NUIS-06 | `estimate_nuisance.eSVD(bool_covariates_as_library = TRUE)` and `FALSE` give different answers, and the `TRUE` branch's `library_idx` matches `compute_posterior`'s | [invariant] | the two functions build `library_size_variables` with *nearly* identical but not shared code — `nuisance.R` uses `c(...)` where `posterior.R` uses `unique(c(...))`. If a variable were ever listed twice the index sets would diverge |
 | T-NUIS-07 | dimension mismatch between `input_obj`, `mean_mat`, `library_mat` errors informatively | [invariant] | `stopifnot` today |
+| T-NUIS-09 | `bool_covariates_as_library` defaults to `TRUE` in `estimate_nuisance.eSVD`, `compute_posterior.eSVD` and `compute_test_per_gene`; `estimate_nuisance(obj)` equals the explicit `TRUE` call and records `TRUE` | [invariant] | added 2026-09-29 (session 20): the default was `FALSE` in `estimate_nuisance.eSVD`, so a stage-by-stage run with defaults used two libraries. (T-NUIS-08 in the test file is the `bool_use_log` test.) |
 
 ### 2.7 `compute_posterior()` — `test_posterior.R` **[strengthen]**
 
@@ -360,6 +381,8 @@ Currently three assertions, all about `dim()`.
 | T-POST-09 | `library_min` actually binds: with `library_min = 1e6` every entry of `SplusBeta` is `>= 1e6` | [invariant] | pins the clamp, which is the parameter whose default *disagrees* between the two pipelines (§1.5) |
 | T-POST-10 | `alpha_max` binds: with `alpha_max = 1`, `Alpha <= nuisance_vec` element-wise | [invariant] | same reasoning |
 | T-POST-11 | `nuisance_lower_quantile = 0.5` floors half the genes at the median | [oracle] direct `quantile()` recomputation | untested parameter |
+| T-POST-12 | the posterior matrices carry the dimnames of `dat` | [invariant] | added during implementation |
+| T-POST-13 | with `alpha_max = NULL`, `library_min = NULL`, `nuisance_lower_quantile = 0` and no stabilization, `compute_posterior.default()`'s numerator and denominator equal a posterior built by hand from the column sets of `.library_column_oracle()`, on every library setting | [oracle] by hand | added 2026-09-29 (1.2.0, session 17) before the inline library rule was routed through `.nuisance_library_idx()`; see §2.19 D |
 
 ### 2.8 `compute_test_statistic()` — `test_compute_test_statistic.R` **[strengthen]**
 
@@ -438,6 +461,11 @@ against another.
 | T-PG-04 | equivalence holds across the parameter grid: `bool_adjust_covariates ∈ {T,F}` × `bool_covariates_as_library ∈ {T,F}` × `bool_stabilize_underdispersion ∈ {T,F}` × `pseudocount ∈ {0, 1}` | [oracle] same | each boolean is implemented twice, in two different shapes (matrix sweep vs scalar multiply). 16 cells, cheap on `F-TINY` |
 | T-PG-05 | `compute_test_per_gene` does **not** write `posterior_mean_mat`/`posterior_var_mat` onto the object | [invariant] its documented memory contract | the whole reason the function exists |
 | T-PG-06 | on a fixture where `p = 1`, both paths still work | [invariant] | `Matrix::colMeans` on a 1-column matrix vs `mean()` on a vector — the `drop = FALSE` discipline differs between the two implementations |
+| T-PGENE-01 | `compute_test_per_gene()` equals the matrix path on the six admissible settings of the three library booleans (`bool_library_includes_interept` set by rerunning `estimate_nuisance()`) | [invariant] | added 2026-09-29 (1.2.0, session 17) in `test_compute_test_per_gene_claude.R`, before the per-gene path's inline library rule was routed through `.nuisance_library_idx()`; with T-POST-13 it pins this path to the hand-written column sets too |
+| T-PGENE-02 | `compute_test_per_gene()` and `compute_posterior()` both refuse `bool_adjust_covariates = TRUE` with `bool_covariates_as_library = TRUE`, with the identical message naming both | [invariant] | added 2026-09-29 (session 20): the per-gene path used to run on it; both now call `.check_posterior_args()` |
+| T-PGENE-03 | both paths refuse, by name, 16 nonsensical settings (booleans that are `NA`, a string or length 2; `alpha_max` ≤ 0 or `NA`; `library_min` ≤ 0, `Inf` or `NA`; `nuisance_lower_quantile` outside `[0, 1]`, `NA` or length 2; `pseudocount` < 0 or `NA`) and accept the documented `NULL`s and `alpha_max = Inf` | [invariant] | same |
+| T-PGENE-04 | `nuisance_lower_quantile = NULL` skips the floor on both paths: equal to each other and to the run at 0 | [invariant] | **[regression]** the matrix path computed `quantile(x, probs = NULL)`, which is `numeric(0)`, and `pmax()` emptied `nuisance_vec` |
+| T-PGENE-05 | `eSVD()` refuses those settings before fitting: the error names the setting and the intermediate file written after the initialization does not exist | [invariant] | **[regression]** from `/code-review`: otherwise the refusal came after the whole fit |
 
 ### 2.12 `eSVD()` — `test_eSVD.R` **[new file]**
 
@@ -986,6 +1014,14 @@ test changed after it failed deserves a second look:
   `?compute_log_fold_change`), or act on it? Options: repair the nuisance
   divergence upstream (Q10), which removes the cause; or flag such genes in
   `report_results()`.
+  **Update, 2026-09-29 (1.2.0): both options were taken.** The cap (§2.19)
+  bounds the rate, so a gene no longer gets a rate near 1e7, and
+  `report_results()` flags each gene's `nuisance_status`. The rerun of
+  `version_comparison/` measured the coverage under the cap. Over 10
+  simulated cohorts per regime, ±2 SE covers the truth for at least 99% of
+  genes of every status in five of six regimes; in `strong_de` it covers
+  0.72 to 0.85, which is finding 5. What remains is to reword the caveat in
+  `?compute_log_fold_change`.
 - **Q-LFC-2.** Decision D4 makes `compute_test_statistic.default()` warn on a
   non-positive arm mean. One existing test, T-TSTAT-06, feeds it mean-zero
   Gaussian matrices and now asserts that warning. Keep the warning, or return
@@ -995,6 +1031,162 @@ test changed after it failed deserves a second look:
 
 The comparison against DESeq2, dreamlet and NEBULA is
 `lfc-se-comparison_2026-09-28_claude.R` in this folder. It is not a test.
+
+### 2.19 The cap on the nuisance rate — `test_nuisance_cap_claude.R` **[new file, new feature]**
+
+Added 2026-09-29 with eSVD2 1.2.0 (sessions 15 to 17). Like §2.18, this section
+was written *with* the tests. At first the IDs and oracles lived only in the
+file headers, by Kevin's instruction, until he had vetted the code; it was
+vetted and committed as `1a0a536`. The decision behind the feature is recorded
+in `OVERDISPERSION_BRAINSTORM.md` ("Decision"). The rule is
+
+```
+nuisance_vec[j] = max( min(MLE_j, cap_multiplier * m_j), min_val * m_j ),   m_j = median_i s_ji
+```
+
+with `MLE_j` the Gamma **rate** from `gamma_rate()` and `s_ji` the library the
+fit uses (the intercept included by default). Each gene also gets a status. The
+precedence is `failed` (both estimation routes failed), then `boundary`
+(`D_j = Σ_i [(A_ji − m_ji)² − A_ji] / μ_ji ≤ 0`, so no finite MLE exists), then
+`capped` (a finite MLE above the cap), then `estimated`. A boundary gene is set
+to the cap itself (Kevin, 2026-09-29).
+
+**Fixtures**, built in the file: 12 genes × 300 cells in three interleaved
+blocks (over-dispersed, Poisson, under-dispersed), with a library that differs
+by gene as well as by cell, so that the cap is a different number for every
+gene. The wrappers run on F-TINY and on the cohort of T-GS/T-COH.
+
+**A. The rule**
+
+| ID | Assert | Oracle | Why |
+|---|---|---|---|
+| T-CAP-01 | at `cap_multiplier` 0.5, 1 and 10, a rate above the cap equals `c · median_i s_ji` and every other rate equals the uncapped one; the fixture is first shown to hold genes on both sides of the cap | [oracle] `stats::median`, the same function at `Inf` | the headline rule; the precondition keeps either half from being vacuous |
+| T-CAP-02 | `cap_multiplier = Inf` returns the maximum-likelihood rate, including a boundary gene's arbitrary stopping value (about 1e7, or exactly `exp(10)` when `gamma_rate()` raises "no root" and the log route answers) | [oracle] 1.1.0's behaviour | `Inf` is the documented way back to 1.1.0 |
+| T-CAP-02b | the default is 10 | [invariant] | |
+| T-CAP-03 | rates rise and the number capped falls as `c` grows | [invariant] monotonicity | |
+| T-CAP-03b | on a grid of `(c, min_val)`, every unit-free rate `nuisance_vec / m_j` lies in `[min_val, c]` | [invariant] | the floor shares the units of the cap (Kevin, 2026-09-29); under the earlier absolute floor, a gene with a degenerate fit sat above its cap |
+| T-CAP-03c | three genes with medians 0.5, 2 and 8: a rate below the floor goes to `min_val · m_j` of its own gene | [oracle] by hand | a floor or cap using one number for all genes is wrong on two of the three |
+| T-CAP-03d | `min_val` must be one positive finite number below `cap_multiplier`; nine bad values, both methods | [invariant] | a floor at or above the cap would put every gene above it |
+| T-CAP-04 | a gene has status `boundary` exactly when its likelihood at rates 1e3 and 1e4 is below the Poisson likelihood and rising | [oracle] `stats::dnbinom`, `stats::dpois` | `D_j ≤ 0` is a first-order expansion; this checks it against the likelihood itself |
+| T-CAP-04b | `.compute_boundary_statistic()` called gene by gene equals `Σ ((A − m)² − A) / μ` written out on the whole matrix | [oracle] the definition | the helper became per-gene in session 17 |
+| T-CAP-04c | a boundary gene is at the cap whatever the optimizer returned (1e7, `exp(10)`, or a value below the cap) | [oracle] constructed input | **[regression]** code review, session 15: `pmin(stopping value, cap)` left 30 of 30 boundary genes at 22026 when the library was in the thousands |
+| T-CAP-04d | the same end to end, on the fixture with its library × 5000 and its mean ÷ 5000 (every fitted count, and so every status, unchanged) | [invariant] | the regime where the regression bites (`bool_library_includes_interept = FALSE`) |
+| T-CAP-05 | `nuisance_num_capped` and `nuisance_num_boundary` in `param` agree with the status factor and with `nuisance_vec != nuisance_mle_vec` | [invariant] | three records of one fact |
+| T-CAP-05b | `nuisance_library_median_vec`, `gene_mean_count_vec` and `gene_sparsity_vec` equal their recomputation from the documented matrices | [oracle] | the plots read them |
+| T-CAP-06 | a gene whose estimation fails on both routes has status `failed`, the floor `min_val · m_j`, a warning, and is not counted as capped | [invariant] | it used to be indistinguishable from a gene estimated at `min_val` |
+
+**B. The argument and `param`**
+
+| ID | Assert | Oracle | Why |
+|---|---|---|---|
+| T-CAP-07 | `cap_multiplier` must be one positive number: 0, −1, `NA`, two values, a string and `NULL` are refused by name, on both methods | [invariant] | |
+| T-CAP-08 | estimating again at another cap overwrites the multiplier and counts in `param` | [invariant] | **[regression]** `.combine_two_named_lists()` never overwrites (T-UTIL-03), so `param` described the first call |
+
+**C. The wrappers**
+
+| ID | Assert | Oracle | Why |
+|---|---|---|---|
+| T-CAP-09 | `eSVD()` passes `cap_multiplier` through under either `bool_diet`; two runs that differ only in the cap share the factorization and the MLE rates exactly | [invariant] | the cap acts after the fit |
+| T-CAP-09b | `eSVD_helper()` passes it through and pads the five new per-gene vectors at the reinserted all-zero genes | [invariant] | §2.16's reinsertion must cover the new fields |
+| T-CAP-09c | `report_results()` has a seventh column, `nuisance_status`, equal to the stored factor | [invariant] | |
+| T-CAP-09d | on an object saved before 1.2.0, the column is present and `NA` | [invariant] | old objects |
+
+**D. The library columns, pinned before the session-17 refactor**
+
+| ID | Assert | Oracle | Why |
+|---|---|---|---|
+| T-CAP-10 | `.nuisance_library_idx()` returns, on eight settings of the three library booleans, the column positions written out by hand in `.library_column_oracle()` (`helper-fixtures.R`) | [oracle] by hand | F-TINY's columns are Intercept, Log_UMI, Age, CC_1, Sex_M, so the case-control column sits between library columns and an off-by-one lands on a real column; written before the two inline copies were routed through the helper |
+| T-CAP-11 | `.estimate_nuisance_matrix()` returns the same whole list on dense and sparse counts, on both routes | [invariant] | pinned before the boundary statistic moved into the per-gene loop |
+
+Two tests elsewhere were added for the same refactor: **T-POST-13** (§2.7) and
+**T-PGENE-01** (§2.11). A golden snapshot of 25 outputs, saved before the
+refactor and kept outside the repo, was bit-identical (`identical()`) after it.
+
+### 2.20 Redoing the test at another cap — `test_recompute_pvalue_claude.R` **[new file, new feature]**
+
+`recompute_pvalue(input_obj, cap_multiplier, seurat_obj = NULL)` applies the new
+cap to the stored `nuisance_mle_vec`. It then repeats the posterior, the
+statistic and the p-values with the settings recorded in `param`, without
+fitting again. **The oracle throughout is the same analysis run from scratch
+at the new cap.** The two runs go through the same code path, so they are
+compared at `1e-10`. A statistical tolerance would hide a redo that rebuilt
+slightly different covariates, because the pipeline amplifies a 1e-9
+perturbation to order 1.
+
+A `bool_diet = TRUE` object has neither counts nor covariates. They are
+rebuilt from the Seurat object and the `esvd_*` arguments `eSVD()` recorded,
+and checked against summaries stored at the fit: gene means, column sums, and
+sums weighted by `cos(sqrt(2) · i)` over cells.
+
+| ID | Assert | Oracle | Why |
+|---|---|---|---|
+| T-REDO-01 | redoing at the object's own cap changes nothing | [invariant] | |
+| T-REDO-02 | redoing at another cap equals the later stages run again by hand; the fixture is first shown to move at each cap | [oracle] | |
+| T-REDO-03 | 10 → 1 → 10 returns the start | [invariant] | the redo reads the MLE, never the capped rate |
+| T-REDO-04 | the fit and `nuisance_mle_vec` are untouched and the new cap is recorded | [invariant] | |
+| T-REDO-05 | a diet object redone from the Seurat object equals `eSVD()` from scratch at the new cap | [oracle] | the SVD start is deterministic, so two `eSVD()` runs agree |
+| T-REDO-05b | the same for `bool_diet = FALSE`, posterior matrices included | [oracle] | |
+| T-REDO-06 | the rebuilt counts and covariates equal those a `bool_diet = FALSE` run carries, on the cohort the helper filtered | [oracle] | `Log_UMI` and rescaled `Age` depend on which cells and genes are present |
+| T-REDO-07 | an `eSVD_helper()` object keeps its gene status and padding through the redo | [invariant] | |
+| T-REDO-08 | a diet object without the Seurat object is refused, naming the reason | [invariant] | |
+| T-REDO-08b | a covariate exchanged between two individuals with the same number of cells is refused | [invariant] | **[regression]** code review, session 15: column sums do not see an exchange, and the redo returned statistics 0.06 to 0.18 off without a word |
+| T-REDO-08c | counts exchanged between two cells are refused (every gene mean is unchanged) | [invariant] | same |
+| T-REDO-09 | refused with the reason: no `nuisance_mle_vec` (pre-1.2.0), not yet tested, no gene or cell names (`dat[, NULL]` would select nothing silently), a negative cap, a non-object | [invariant] | |
+| T-REDO-10 | each non-default setting of the original run is honoured, each first shown to move the result | [oracle] `eSVD()` from scratch | a redo that fell back to function defaults would pass on a setting that changes nothing |
+| T-REDO-11 | `min_cells_per_individual = 0` is kept | [invariant] | the default of 3 would refuse the object |
+| T-REDO-12 | the redo uses the settings of the *last* `compute_posterior()` call; the second call's settings (`library_min = 20, pseudocount = 1`) are first shown to move the statistic | [invariant] | **[regression]** code review, session 15: stale `param` gave statistics up to 0.99 away. The first draft used `alpha_max = 5, library_min = 2`, which move nothing on F-TINY, and its own precondition caught that |
+| T-REDO-12b | `compute_posterior()` after `compute_test_per_gene()` records its own settings | [invariant] | |
+| T-REDO-13 | a cap at or below the recorded `min_val` is refused before anything is recomputed | [invariant] | T-CAP-03d at the redo |
+
+### 2.21 The diagnostic plots — `test_plot_diagnostics_claude.R` **[new file, new feature]**
+
+`plot_nuisance()` draws each gene's unit-free rate, `nuisance_vec / median_i s_ji`,
+on a log10 axis against its mean count, its −log10 p-value or its sparsity.
+The cap is drawn as a line at `c`. `plot_fitted_vs_observed()` draws
+`log1p(m)` against `log1p(A)`, with `m = μ · s`, and marks in red the pairs
+with `|A − m| > num_sd · SD`, where `SD² = m (1 + s / β)` is the model's
+marginal negative-binomial variance. The tests assert on the plot's data and
+layers and that it builds; they do not compare images.
+
+**Fixture**: an `eSVD` object whose "fit" is the truth the counts were drawn
+from, built by hand. It has 400 cells, 30 genes and 8 individuals, with rates
+0.2 to 1 times each gene's median library size. `ggplot2` and `ggrepel` are
+`Suggests`, so each test skips without them.
+
+| ID | Assert | Oracle | Why |
+|---|---|---|---|
+| T-DIAG-01 | one row per analyzed gene, for each `x_axis` | [invariant] | |
+| T-DIAG-02 | each axis is the quantity it is documented to show | [oracle] recomputed | |
+| T-DIAG-03 | the cap is a line at `c`, and there is no line when `c = Inf` | [invariant] | |
+| T-DIAG-03b | no gene is drawn above the cap, whatever its library size, including a gene built through `.apply_nuisance_cap()` with median library 1e-8 | [invariant] | **[regression]** found by looking at the rendered plot in session 15, not by a test: the absolute floor drew such a gene thousands of times above the line |
+| T-DIAG-04 | the requested genes are labeled, and by default the capped genes with the smallest p-values | [invariant] | |
+| T-DIAG-05 | refuses, naming the problem: an unknown gene, an unknown `x_axis`, the p-value axis on an untested object (the other two axes still draw), an object without `nuisance_library_median_vec`, and a fit without gene names | [invariant] | |
+| T-DIAG-06 | works on a diet object and omits the reinserted all-zero genes | [invariant] | the scatter plots need no counts |
+| T-DIAG-07 | the marked pairs are exactly those beyond `num_sd` SD | [oracle] the generator's matrices, variance as `m + m²/size` | |
+| T-DIAG-08 | a pair is marked exactly when its bar misses the diagonal | [invariant] | |
+| T-DIAG-08b | a count far below the fit is marked, and the bar stops at `m − num_sd · SD` | [oracle] | added after the mutation sweep: with realistic rates `m − 3 SD < 0`, so no count had ever been marked from below |
+| T-DIAG-09 | the bars and the diagonal appear when they should | [invariant] | |
+| T-DIAG-10 | the marked share is small at the true rates, more than triples with rates ten times too large, and nearly vanishes with rates ten times too small | [oracle] the truth | the plot shows what it is for; thresholds at about half the measured contrast |
+| T-DIAG-11 | `max_points` bounds the pairs drawn, and `seed_number` decides which | [invariant] | |
+| T-DIAG-12 | on a fitted object the fitted count is `exp` of the natural parameter, from the counts or from the Seurat object | [oracle] matrices rebuilt as `?estimate_nuisance.eSVD` documents | the SD uses the library of `estimate_nuisance()`, not the posterior's rescaled rate |
+| T-DIAG-13 | refuses an unknown gene, `num_sd = 0`, `max_points = 0`, a fit without `nuisance_vec`, and a fit without gene names | [invariant] | |
+
+**Teeth (§2.19 to §2.21).** A mutation sweep of 26 deliberate breakages was
+run in a scratch copy of the new code in session 15. 25 turned at least one
+test red. The one that did not is equivalent: it reversed the gene order
+consistently on both axes of `plot_fitted_vs_observed()`. The sweep's one gap
+was closed by T-DIAG-08b.
+
+**Open, from this work** (tracked in `CRAN_READINESS.md` §0.3):
+
+- `plot_fitted_vs_observed()` calls `set.seed(seed_number)` with a default of
+  10 (the house convention). That resets the caller's random stream when the
+  plot is drawn inside a loop.
+- `alpha_max` changed no statistic on F-TINY at 1, 5, 86 or 1000. Whether it
+  ever binds was not investigated.
+- The caveat in `?compute_log_fold_change` still describes the uncapped case
+  (Q-LFC-1). The coverage under the cap has been measured in simulation and
+  is at or above nominal outside `strong_de`.
 
 ## 3. C++ backend tests
 
@@ -1463,8 +1655,19 @@ means functions defined under `R/` plus the `RcppExports` bindings.
 | `gene_status` (new, §2.16) | — | — | 17 tests |
 | tail precision (new, §2.15) | — | — | 8 tests (4 shipped, 4 run once) |
 | cohort filtering (new, §2.17) | 2 (1 imported, 1 new) | 0 | 14 tests |
+| nuisance cap (new, §2.19) | 2 new (`.apply_nuisance_cap`, `.nuisance_library_idx`) | — | 22 tests |
+| `recompute_pvalue` (new, §2.20) | 1 | — | 17 tests |
+| diagnostic plots (new, §2.21) | 2 | — | 15 tests |
+| log2 fold change (new, §2.18) | 1 | — | 20 tests |
 
-Roughly: **~40 `test_that` blocks today, ~242 proposed** (~200 in the original
+**As implemented (2026-09-29, 1.2.0): 293 `test_that` blocks in 34 files, 2014
+expectations**, all passing under `NOT_CRAN=true`. The largest files are
+`test_validation_claude.R` (23 blocks), `test_nuisance_cap_claude.R` (22),
+`test_compute_log_fold_change_claude.R` (20), and
+`test_gene_status_claude.R` and `test_recompute_pvalue_claude.R` (17 each).
+The rest of this appendix is the scorecard as it was proposed.
+
+At proposal time: Roughly: **~40 `test_that` blocks today, ~242 proposed** (~200 in the original
 draft, plus 17 for `gene_status`, 14 for cohort filtering, 4 shipped for tail
 precision, 6 new validation rows and a handful of splits). The single largest
 block is still §3.2's 12 assertions × 7 families, which is also the cheapest to

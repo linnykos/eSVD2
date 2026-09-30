@@ -23,7 +23,7 @@ cache_dir <- file.path(work_dir, "cache")
 out_dir <- file.path(work_dir, "output")
 dir.create(out_dir, showWarnings = FALSE, recursive = TRUE)
 
-library(eSVD2, lib.loc = file.path(cmp_dir, "lib", "devel"))
+library(eSVD2, lib.loc = file.path(cmp_dir, "lib", "devel_1.1.0"))
 source(file.path(work_dir, "helpers_candidates_claude.R"))
 
 # master's own output: the six regimes of the version comparison, and the

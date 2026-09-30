@@ -45,18 +45,20 @@ variables should have already been split into numerous indicator variables).}
 \code{"exponential"}, \code{"poisson"}, \code{"neg_binom"},
 \code{"neg_binom2"}, or \code{"bernoulli"}. Notably, with exception of
 \code{"neg_binom2"}, all the other families are parameterized such that
-eSVD is fitting the dot product to be the canonical parameter of these
-exponential-family distributions. For \code{"neg_binom2"}, the dot
+eSVD is fitting the dot product to be the natural parameter of these
+exponential-family distributions (see the "Natural parameter" line at the
+top of each \code{src/family_*.cpp}). For \code{"neg_binom2"}, the dot
 product is the log-mean of the distribution (i.e., similar to the canonical
 parameterization of the Poisson family).}
 
 \item{l2pen}{Small positive number for the amount of penalization for both the cells'
 and the genes' latent vectors as well as the coefficients.}
 
-\item{library_multipler}{Vector of positive numerics of length \eqn{n}. It is the multiplier
-such that the variance of cell \code{i}'s entries is the mean of
-cell \code{i}'s entries times the square-root of cell \code{i}'s
-value in \code{library_multipler} (entry-wise). This is used as
+\item{library_multipler}{Vector of positive numerics of length \eqn{n}: the per-cell multiplier
+\eqn{s_i} in the likelihood, entering by family (for example, the
+Poisson mean is \eqn{s_i e^{\theta_{ij}}}, and the Gaussian has mean
+\eqn{s_i\theta_{ij}} and variance \eqn{s_i\gamma_j^2});
+\code{"neg_binom2"} ignores it. This is used as
 an alternative interpretation of how library-size affects a cell's
 gene expression (instead of using the library size as a covariate to be
 regressed out).}
@@ -66,8 +68,8 @@ regressed out).}
 \item{nuisance_vec}{Vector of positive numerics of length \eqn{p},
 representing each gene's nuisance parameter when using an exponential-family
 distribution that requires one: the standard deviation for
-\code{"gaussian"}, the coefficient of variation for
-\code{"curved_gaussian"}, and the size (number of failures) for
+\code{"gaussian"}, the mean divided by the standard deviation (the
+inverse coefficient of variation) for \code{"curved_gaussian"}, and the size (number of failures) for
 \code{"neg_binom"} and \code{"neg_binom2"}. It is ignored by
 \code{"poisson"}, \code{"exponential"} and \code{"bernoulli"}.
 The default \code{NULL} uses \code{1} for every gene, which is a
@@ -78,7 +80,8 @@ the families that use it.}
 be treated as an offset during the optimization (i.e., their coefficients will not change
 throughout the optimization).}
 
-\item{tol}{Small positive number to differentiate between zero and non-zero.}
+\item{tol}{Relative tolerance of the stopping rule: iteration stops once the objective
+changes by at most \code{tol} times \code{max(1, |previous objective|)}.}
 
 \item{verbose}{Integer}
 

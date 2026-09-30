@@ -23,8 +23,8 @@ and 'NEBULA'),
 the gene's over-dispersion, one of \code{estimated}, \code{capped},
 \code{boundary}, \code{failed}; \code{NA} for a gene that was not
 analyzed, and for every gene of an object built before version 1.2.0). The
-fold change and the statistic of a gene that is not \code{estimated}
-reflect the cap on its rate. \code{pvalue}
+fold change and the statistic of a \code{capped} or \code{boundary} gene
+reflect the cap on its rate, and those of a \code{failed} gene the floor. \code{pvalue}
 underflows to \code{0} for any gene with \code{log10pvalue} above about
 308, so genes should be ranked by \code{log10pvalue}, which keeps the
 distinction. \code{logFC / logFC_se} is not the statistic behind

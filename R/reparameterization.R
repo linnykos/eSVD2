@@ -65,10 +65,10 @@
 #'
 #' Designed to output matrices of the same dimension as \code{x_mat}
 #' and \code{y_mat}, but linearly transformed so \code{x_mat \%*\% t(y_mat)}
-#' is preserved but either \code{x_mat \%*\% t(x_mat)} is diagonal and equal to
-#' \code{y_mat \%*\% t(y_mat)} (if \code{equal_covariance} is \code{FALSE})
-#' or \code{x_mat \%*\% t(x_mat)/nrow(x_mat)} is diagonal and equal to
-#' \code{y_mat \%*\% t(y_mat)/nrow(y_mat)} (if \code{equal_covariance} is \code{TRUE})
+#' is preserved but either the \eqn{k \times k} matrix \code{t(x_mat) \%*\% x_mat} is diagonal and equal to
+#' \code{t(y_mat) \%*\% y_mat} (if \code{equal_covariance} is \code{FALSE})
+#' or \code{t(x_mat) \%*\% x_mat/nrow(x_mat)} is diagonal and equal to
+#' \code{t(y_mat) \%*\% y_mat/nrow(y_mat)} (if \code{equal_covariance} is \code{TRUE})
 #'
 #' @param x_mat matrix of dimension \code{n} by \code{k}
 #' @param y_mat matrix of dimension \code{p} by \code{k}
@@ -162,7 +162,8 @@ reparameterization_esvd_covariates <- function(input_obj,
   # (a) rewrote non-syntactic covariate names such as "Diagnosis_ASD (severe)"
   # via make.names(), so `z_mat[, names(coef)]` was a subscript error, and
   # (b) returned NA coefficients for aliased columns, which then propagated
-  # silently into z_mat and every posterior (CRAN_READINESS.md 1.3).
+  # silently into z_mat and every posterior (additional_context/CRAN_READINESS.md
+  # section 1.3, not shipped with the package).
   qr_res <- qr(covariate_mat)
   if(qr_res$rank < ncol(covariate_mat)){
     aliased_vec <- colnames(covariate_mat)[qr_res$pivot[-seq_len(qr_res$rank)]]

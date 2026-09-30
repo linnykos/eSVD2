@@ -233,3 +233,25 @@ test_that("T-NUIS-08: bool_use_log gives an answer close to the direct route", {
                 info = paste0("gene ", gene_idx))
   }
 })
+
+## [invariant] the rate and the posterior are computed on the same library
+## when every stage is called with its defaults. `estimate_nuisance.eSVD`
+## defaulted to `bool_covariates_as_library = FALSE` while the posterior and
+## `compute_test_per_gene` default to TRUE and `eSVD()` passes TRUE (the
+## precedent is T-PG-03 for `library_min`).
+test_that("T-NUIS-09: the default library of estimate_nuisance is the posterior's", {
+  expect_true(formals(eSVD2:::estimate_nuisance.eSVD)$bool_covariates_as_library)
+  expect_true(formals(eSVD2:::compute_posterior.eSVD)$bool_covariates_as_library)
+  expect_true(formals(compute_test_per_gene)$bool_covariates_as_library)
+
+  esvd_obj <- .small_esvd_obj()
+  latest_fit <- esvd_obj[["latest_Fit"]]
+  res_default <- suppressWarnings(estimate_nuisance(input_obj = esvd_obj))
+  res_true <- suppressWarnings(
+    estimate_nuisance(input_obj = esvd_obj, bool_covariates_as_library = TRUE)
+  )
+
+  expect_equal(res_default[[latest_fit]]$nuisance_vec,
+               res_true[[latest_fit]]$nuisance_vec)
+  expect_true(res_default$param$nuisance_bool_covariates_as_library)
+})

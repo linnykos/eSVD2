@@ -20,18 +20,23 @@ compute_test_per_gene(
 \arguments{
 \item{input_obj}{eSVD object after nuisance estimation.}
 
-\item{alpha_max}{Maximum value of the prior mean (same role as in
+\item{alpha_max}{Upper bound on the fitted mean without the library,
+before it forms the prior (same role as in
 \code{compute_posterior.eSVD}); default 1e3.}
 
-\item{bool_adjust_covariates}{Boolean; if TRUE, adjust the prior by
-confounding covariates (same as in
+\item{bool_adjust_covariates}{Boolean; if TRUE, divide the posterior
+numerator (count plus prior) by the exponentiated
+effect of the confounding covariates (same as in
 \code{compute_posterior.default}).}
 
 \item{bool_covariates_as_library}{Boolean; if TRUE, include non–case-control
 covariates in the covariate-adjusted library size.}
 
 \item{bool_stabilize_underdispersion}{Boolean; if TRUE, mean-center
-log10(nuisance_vec) when it suggests under-dispersion.}
+log10(nuisance_vec) when its mean is above 0, i.e. when
+the geometric mean of the rates is above 1 (less
+over-dispersion than a unit rate; see
+\code{compute_posterior.eSVD}).}
 
 \item{library_min}{Minimum value for the covariate-adjusted library size;
 default 0.1, the same as \code{compute_posterior.eSVD}.}
@@ -39,7 +44,8 @@ default 0.1, the same as \code{compute_posterior.eSVD}.}
 \item{min_cells_per_individual}{Minimum number of cells an individual must
 contribute; see \code{compute_test_statistic}.}
 
-\item{nuisance_lower_quantile}{Lower quantile at which to floor nuisance_vec.}
+\item{nuisance_lower_quantile}{Lower quantile at which to floor nuisance_vec,
+one number in [0, 1]; \code{NULL} means no floor.}
 
 \item{pseudocount}{Numeric; additional count added to each entry in the
 count matrix when forming the posterior.}
@@ -70,7 +76,10 @@ overwrites them.
 This function reproduces the behavior of
 \code{compute_posterior()}, \code{compute_test_statistic()}, and
 \code{compute_pvalue()}, but it computes everything one gene at a time
-without ever allocating an n x p posterior mean/variance matrix.
+without ever allocating an n x p posterior mean/variance matrix. It
+refuses the same settings as \code{compute_posterior}, among them
+\code{bool_adjust_covariates = TRUE} together with
+\code{bool_covariates_as_library = TRUE}.
 }
 \examples{
 set.seed(10)

@@ -24,8 +24,11 @@ columns are the different categorical or numerical variables that you wish to ad
 
 \item{rescale_numeric_variables}{A vector of strings denoting the column names in \code{covariate_df} that are numerical and you wish to rescale}
 
-\item{variables_enumerate_all}{If not \code{NULL}, this allows you to control specifically which \code{factor} variables
-in \code{covariate_df} you would like to split into indicators. By default, this is \code{NULL}, meaning all the \code{factor} variables are split into indicators}
+\item{variables_enumerate_all}{Names of \code{factor} variables in \code{covariate_df} that get an indicator for
+every level, with no reference level dropped. Every \code{factor} is split into
+indicators either way; by default (\code{NULL}) each drops its first level.
+A full set of indicators is collinear with the intercept, which
+\code{initialize_esvd} refuses.}
 }
 \value{
 a \code{matrix} with the same number of rows as \code{dat}, whose

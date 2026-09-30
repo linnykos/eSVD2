@@ -159,6 +159,7 @@
                           covariates,
                           cc_var,
                           individual_vec,
+                          cap_multiplier = NULL,
                           k = 3,
                           max_iter = 50,
                           nuisance_override_vec = NULL){
@@ -209,9 +210,14 @@
                                                      fit_name = "fit_Second",
                                                      omitted_variables = NULL)
     stage_val <- "estimate_nuisance"
-    obj <- eSVD2::estimate_nuisance(input_obj = obj,
-                                    bool_covariates_as_library = TRUE,
-                                    verbose = 0)
+    # master has no `cap_multiplier`, so the argument is passed only when set.
+    nuisance_arg_list <- list(input_obj = obj,
+                              bool_covariates_as_library = TRUE,
+                              verbose = 0)
+    if(!is.null(cap_multiplier)){
+      nuisance_arg_list$cap_multiplier <- cap_multiplier
+    }
+    obj <- do.call(eSVD2::estimate_nuisance, nuisance_arg_list)
     if(!is.null(nuisance_override_vec)){
       stopifnot(length(nuisance_override_vec) == ncol(dat))
       obj[[obj[["latest_Fit"]]]]$nuisance_vec[] <- nuisance_override_vec
@@ -240,14 +246,21 @@
        warning_vec = warning_vec)
 }
 
-# Pulls the per-gene results out of a fitted object. Only the fields both
-# versions store are required; the logFC standard error exists only in devel.
+# Pulls the per-gene results out of a fitted object. Only the fields every
+# version stores are required; the logFC standard error exists from 1.1.0 and
+# the nuisance status and library median from 1.2.0, and are NA before.
 .extract_gene_df <- function(esvd_obj,
                              gene_vec){
   latest_fit <- esvd_obj[["latest_Fit"]]
   pvalue_list <- esvd_obj$pvalue_list
   logfc_se_vec <- esvd_obj$log2fc_se_vec
   if(is.null(logfc_se_vec)) logfc_se_vec <- rep(NA, length(gene_vec))
+  status_vec <- esvd_obj[[latest_fit]]$nuisance_status
+  if(is.null(status_vec)) status_vec <- rep(NA, length(gene_vec))
+  library_median_vec <- esvd_obj[[latest_fit]]$nuisance_library_median_vec
+  if(is.null(library_median_vec)){
+    library_median_vec <- rep(NA, length(gene_vec))
+  }
 
   data.frame(gene = gene_vec,
              case_mean = as.numeric(esvd_obj$case_mean),
@@ -260,6 +273,8 @@
              gaussian_teststat = .as_numeric(pvalue_list$gaussian_teststat),
              log10p = .as_numeric(pvalue_list$log10pvalue),
              fdr = as.numeric(pvalue_list$fdr_vec),
-             nuisance = as.numeric(esvd_obj[[latest_fit]]$nuisance_vec))
+             nuisance = as.numeric(esvd_obj[[latest_fit]]$nuisance_vec),
+             nuisance_library_median = as.numeric(library_median_vec),
+             nuisance_status = as.character(status_vec))
 }
 

@@ -14,21 +14,23 @@ compute_posterior <- function(input_obj, ...) {UseMethod("compute_posterior")}
 #' The posterior is computed based on whatever \code{input_obj$latest_Fit} is set to.
 #'
 #' @param input_obj                       \code{eSVD} object output from \code{opt_esvd.eSVD}.
-#' @param alpha_max                       Maximum value of numerator when computing posterior, default is \code{1e3}.
+#' @param alpha_max                       Upper bound on the fitted mean without the library, \eqn{\mu_{ji}}, before it forms the prior \eqn{\mu_{ji}\beta_j}, default is \code{1e3}.
 #' @param bool_adjust_covariates          Boolean to adjust the numerator in the posterior by the donor covariates, default is \code{FALSE}.
 #'                                        This parameter is experimental, and we have not yet encountered a scenario where it is useful to be set to be \code{TRUE}.
 #' @param bool_covariates_as_library      Boolean to include the donor covariates effects in the adjusted library size, default is \code{TRUE}
 #' @param bool_return_components          Boolean to return the numerator and denominator of the posterior terms as well (themselves cell-by-gene matrices), default is \code{FALSE}
 #' @param bool_stabilize_underdispersion  Boolean, default \code{TRUE}. \code{nuisance_vec}
-#'                                        holds Gamma \emph{rates}, so a geometric mean above 1
-#'                                        means the genes look under-dispersed on average. When
-#'                                        that happens (\code{mean(log10(nuisance_vec)) > 0}), every
-#'                                        gene's rate is divided by the geometric mean so that
+#'                                        holds Gamma \emph{rates}, which share the units of the library
+#'                                        size, so a geometric mean above 1 means less over-dispersion
+#'                                        than a unit rate in those units (not under-dispersion: a finite
+#'                                        rate is always over-dispersed). When that happens
+#'                                        (\code{mean(log10(nuisance_vec)) > 0}), every gene's rate,
+#'                                        capped ones included, is divided by the one geometric mean so that
 #'                                        \code{mean(log10(nuisance_vec))} becomes 0; otherwise the
 #'                                        rates are left alone
 #' @param library_min                     All covariate-adjusted library size smaller than this value are set to this value, default is 0.1.
 #' @param nuisance_lower_quantile         All the nuisance values that are smaller than this quantile
-#'                                        are set to this quantile, default is 0.01
+#'                                        are set to this quantile, default is 0.01; one number in \eqn{[0, 1]}, or \code{NULL} for no floor.
 #' @param pseudocount                     The additional count that is added to the count matrix, default is 0.
 #' @param ...                             Additional parameters.
 #'
@@ -148,22 +150,24 @@ compute_posterior.eSVD <- function(input_obj,
 #'                                        \emph{rates} \eqn{\beta_j = 1/\gamma_j}: the posterior mean is
 #'                                        \eqn{(A_{ji} + \mu_{ji}\beta_j)/(\ell_{ji} + \beta_j)}, so a larger
 #'                                        value pulls the posterior harder towards the fitted mean.
-#' @param alpha_max                       Maximum value of numerator when computing posterior, default is \code{1e3}.
+#' @param alpha_max                       Upper bound on the fitted mean without the library, \eqn{\mu_{ji}}, before it forms the prior \eqn{\mu_{ji}\beta_j}, default is \code{1e3}.
 #' @param bool_adjust_covariates          Boolean to adjust the numerator in the posterior by the donor covariates, default is \code{FALSE}.
 #'                                        This parameter is experimental, and we have not yet encountered a scenario where it is useful to be set to be \code{TRUE}.
 #' @param bool_covariates_as_library      Boolean to include the donor covariates effects in the adjusted library size, default is \code{TRUE}.
 #' @param bool_library_includes_interept  Boolean if the intercept term from the eSVD matrix factorization should be included in the calculation for the covariate-adjusted library size, default is \code{TRUE}.
 #' @param bool_return_components          Boolean to return the numerator and denominator of the posterior terms as well (themselves cell-by-gene matrices), default is \code{FALSE}.
 #' @param bool_stabilize_underdispersion  Boolean, default \code{TRUE}. \code{nuisance_vec}
-#'                                        holds Gamma \emph{rates}, so a geometric mean above 1
-#'                                        means the genes look under-dispersed on average. When
-#'                                        that happens (\code{mean(log10(nuisance_vec)) > 0}), every
-#'                                        gene's rate is divided by the geometric mean so that
+#'                                        holds Gamma \emph{rates}, which share the units of the library
+#'                                        size, so a geometric mean above 1 means less over-dispersion
+#'                                        than a unit rate in those units (not under-dispersion: a finite
+#'                                        rate is always over-dispersed). When that happens
+#'                                        (\code{mean(log10(nuisance_vec)) > 0}), every gene's rate,
+#'                                        capped ones included, is divided by the one geometric mean so that
 #'                                        \code{mean(log10(nuisance_vec))} becomes 0; otherwise the
 #'                                        rates are left alone.
 #' @param library_min                     All covariate-adjusted library size smaller than this value are set to this value, default is 0.1.
 #' @param nuisance_lower_quantile         All the nuisance values that are smaller than this quantile
-#'                                        are set to this quantile.
+#'                                        are set to this quantile; one number in \eqn{[0, 1]}, or \code{NULL} for no floor.
 #' @param pseudocount                     The additional count that is added to the count matrix, default is 0.
 #' @param ...                             Additional parameters.
 #'
@@ -186,6 +190,13 @@ compute_posterior.default <- function(input_obj,
                                       nuisance_lower_quantile = 0.01,
                                       pseudocount = 0,
                                       ...){
+  .check_posterior_args(alpha_max = alpha_max,
+                        bool_adjust_covariates = bool_adjust_covariates,
+                        bool_covariates_as_library = bool_covariates_as_library,
+                        bool_stabilize_underdispersion = bool_stabilize_underdispersion,
+                        library_min = library_min,
+                        nuisance_lower_quantile = nuisance_lower_quantile,
+                        pseudocount = pseudocount)
   stopifnot(inherits(input_obj, c("matrix", "dgCMatrix")),
             is.list(esvd_res),
             all(c("x_mat", "y_mat", "z_mat") %in% names(esvd_res)),
@@ -194,8 +205,7 @@ compute_posterior.default <- function(input_obj,
             all(colnames(covariates) == colnames(esvd_res$z_mat)),
             nrow(esvd_res$x_mat) == nrow(covariates),
             nrow(esvd_res$y_mat) == nrow(esvd_res$z_mat),
-            ncol(esvd_res$x_mat) == ncol(esvd_res$y_mat),
-            !bool_adjust_covariates | !bool_covariates_as_library)
+            ncol(esvd_res$x_mat) == ncol(esvd_res$y_mat))
 
   if(inherits(input_obj, "dgCMatrix")) input_obj <- as.matrix(input_obj)
   if(!is.null(pseudocount) && pseudocount > 0) input_obj <- input_obj + pseudocount
@@ -203,7 +213,8 @@ compute_posterior.default <- function(input_obj,
   case_control_idx <- which(colnames(covariates) == case_control_variable)
 
   # The one rule for which columns form the library size, shared with
-  # `estimate_nuisance` and `compute_test_per_gene`.
+  # `estimate_nuisance` and `compute_test_per_gene`. They agree when they are
+  # passed the same library booleans, as they are by default.
   library_idx <- .nuisance_library_idx(
     covariates = covariates,
     case_control_variable = case_control_variable,
@@ -222,11 +233,18 @@ compute_posterior.default <- function(input_obj,
   ))
   if(!is.null(library_min)) library_mat <- pmax(library_mat, library_min)
 
-  nuisance_vec <- pmax(nuisance_vec,
-                       stats::quantile(nuisance_vec, probs = nuisance_lower_quantile))
-  # Recentre log10(nuisance_vec) at 0 when the genes look under-dispersed on
-  # average (`nuisance_vec` is the Gamma rate, so a geometric mean above 1 is
-  # LESS over-dispersion than Poisson-Gamma with unit rate). Written as a
+  # `stats::quantile(x, probs = NULL)` is `numeric(0)`, and `pmax()` with it
+  # would empty `nuisance_vec`, so NULL has to skip the floor explicitly.
+  if(!is.null(nuisance_lower_quantile)){
+    nuisance_vec <- pmax(nuisance_vec,
+                         stats::quantile(nuisance_vec,
+                                         probs = nuisance_lower_quantile))
+  }
+  # Recentre log10(nuisance_vec) at 0 when the geometric mean of the rates is
+  # above 1 (`nuisance_vec` is the Gamma rate, in the units of the library
+  # size, so that is LESS over-dispersion than a unit rate; it is not
+  # under-dispersion). Every rate, capped ones included, is divided by the
+  # same factor. Written as a
   # plain subtraction rather than `scale()`, which returns a p x 1 matrix and
   # moves `names()` to `rownames()`.
   if(bool_stabilize_underdispersion && mean(log10(nuisance_vec)) > 0) {
@@ -267,6 +285,76 @@ compute_posterior.default <- function(input_obj,
   }
 }
 
+#' Check the settings the two posterior paths share
+#'
+#' Called first by \code{compute_posterior.default} and by
+#' \code{compute_test_per_gene}, so that the matrix path and the per-gene
+#' path refuse the same inputs with the same messages.
+#'
+#' @param alpha_max                       \code{NULL} (no bound) or one number above 0; \code{Inf} is allowed.
+#' @param bool_adjust_covariates          One \code{TRUE} or \code{FALSE}.
+#' @param bool_covariates_as_library      One \code{TRUE} or \code{FALSE}; not \code{TRUE} together with
+#'                                        \code{bool_adjust_covariates}.
+#' @param bool_stabilize_underdispersion  One \code{TRUE} or \code{FALSE}.
+#' @param library_min                     \code{NULL} (no floor) or one positive finite number.
+#' @param nuisance_lower_quantile         \code{NULL} (no floor) or one number in \eqn{[0, 1]}.
+#' @param pseudocount                     \code{NULL} or one non-negative finite number.
+#'
+#' @return \code{NULL}, invisibly; an error names the first setting that fails.
+#' @noRd
+.check_posterior_args <- function(alpha_max,
+                                  bool_adjust_covariates,
+                                  bool_covariates_as_library,
+                                  bool_stabilize_underdispersion,
+                                  library_min,
+                                  nuisance_lower_quantile,
+                                  pseudocount){
+  .describe <- function(x){
+    if(is.null(x)) return("NULL")
+    paste0(deparse(x), collapse = "")
+  }
+  .is_one_number <- function(x){
+    is.numeric(x) && length(x) == 1 && !is.na(x)
+  }
+
+  bool_list <- list(bool_adjust_covariates = bool_adjust_covariates,
+                    bool_covariates_as_library = bool_covariates_as_library,
+                    bool_stabilize_underdispersion = bool_stabilize_underdispersion)
+  for(arg_name in names(bool_list)){
+    x <- bool_list[[arg_name]]
+    if(!is.logical(x) || length(x) != 1 || is.na(x)){
+      stop("`", arg_name, "` must be one TRUE or FALSE; received ", .describe(x))
+    }
+  }
+  if(bool_adjust_covariates && bool_covariates_as_library){
+    stop("`bool_adjust_covariates` and `bool_covariates_as_library` cannot ",
+         "both be TRUE: the first divides the posterior numerator by the ",
+         "covariate effects that the second puts in the library size")
+  }
+
+  if(!is.null(alpha_max) && (!.is_one_number(alpha_max) || alpha_max <= 0)){
+    stop("`alpha_max` must be NULL or one number above 0; received ",
+         .describe(alpha_max))
+  }
+  if(!is.null(library_min) && (!.is_one_number(library_min) ||
+                               !is.finite(library_min) || library_min <= 0)){
+    stop("`library_min` must be NULL or one positive finite number; received ",
+         .describe(library_min))
+  }
+  if(!is.null(nuisance_lower_quantile) &&
+     (!.is_one_number(nuisance_lower_quantile) ||
+      nuisance_lower_quantile < 0 || nuisance_lower_quantile > 1)){
+    stop("`nuisance_lower_quantile` must be NULL or one number between 0 and 1; ",
+         "received ", .describe(nuisance_lower_quantile))
+  }
+  if(!is.null(pseudocount) && (!.is_one_number(pseudocount) ||
+                               !is.finite(pseudocount) || pseudocount < 0)){
+    stop("`pseudocount` must be NULL or one non-negative finite number; ",
+         "received ", .describe(pseudocount))
+  }
+
+  invisible()
+}
 
 .format_param_posterior <- function(alpha_max,
                                     bool_adjust_covariates,

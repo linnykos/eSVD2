@@ -1,0 +1,24 @@
+[1] "Loaded eSVD2 1.2.0"
+                       regime num_genes frac_rate_within_1pct max_rate_ratio
+baseline             baseline      3000                1.0000              1
+generate_null   generate_null      3000                0.9993              1
+low_count           low_count      3000                1.0000              1
+minimal_design minimal_design      3000                1.0000              1
+near_poisson     near_poisson      3000                1.0000              1
+null                     null      3000                1.0000              1
+strong_de           strong_de      3000                1.0000              1
+trend                   trend      3000                1.0000              1
+weak_de               weak_de      3000                1.0000              1
+wide_rate           wide_rate      3000                1.0000              1
+               min_rate_ratio max_abs_diff_teststat num_fdr_calls_differ
+baseline               1.0000             4.995e-06                    0
+generate_null          0.2142             4.987e-06                    0
+low_count              1.0000             4.989e-06                    0
+minimal_design         1.0000             4.990e-06                    0
+near_poisson           1.0000             4.928e-06                    0
+null                   1.0000             3.899e-06                    0
+strong_de              1.0000             4.997e-06                    0
+trend                  1.0000             4.980e-06                    0
+weak_de                1.0000             4.989e-06                    0
+wide_rate              1.0000             4.999e-06                    0
+[1] "Ran 1.2.0 on 100 data sets"

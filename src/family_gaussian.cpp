@@ -46,7 +46,7 @@ public:
     }
 
     // Special case of Aij==0
-    // fn_si = log(si)
+    // fn_gammaj = 1 / gammaj^2
     inline void d12log_prob_single(
         double thetaij, double si, double gammaj,
         double fn_si, double fn_gammaj, bool compute_d1, bool compute_d2,

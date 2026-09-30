@@ -24,10 +24,10 @@ The rows and columns of the matrix should be named.}
 and \eqn{p} columns represent genes.
 The rows and columns of the matrix should be the same as those in \code{input_obj}.}
 
-\item{case_individuals}{Vector of strings representing the individuals in \code{metadata[,covariate_individual]}
+\item{case_individuals}{Vector of strings: the values of \code{individual_vec}
 that are the case individuals.}
 
-\item{control_individuals}{Vector of strings representing the individuals in \code{metadata[,covariate_individual]}
+\item{control_individuals}{Vector of strings: the values of \code{individual_vec}
 that are the control individuals.}
 
 \item{individual_vec}{Vector of strings of length \eqn{n} (i.e., the number of cells) that denote which cell originates from which individual.}

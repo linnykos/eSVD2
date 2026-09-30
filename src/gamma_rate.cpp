@@ -18,7 +18,7 @@ We assume Xi|lambdai ~ Pois(si * lambdai) and
   lambdai ~ Gamma with mean=mui and rate=beta, i.e.,
   lambdai ~ Gamma(mui * beta, beta)
 Then
-  log[p(xi|lambdai)] = xi * log(si * lambdai) - log(xi!) - si * lambdai * xi
+  log[p(xi|lambdai)] = xi * log(si * lambdai) - log(xi!) - si * lambdai
   log[p(lambdai)] = mui * b * log(b) - logGamma(mui * b)
                     + (mui * b - 1) * log(lambdai) - b * lambdai
 
@@ -157,18 +157,19 @@ public:
     }
 };
 
-// A local maximum of l(b) should satisfy [l(b)]'=0 and [l(b)]''<0
-// Note that [l(b)]' -> -0 and [l(b)]'' -> +0 when b -> +Inf,
-// so we need to initialize b from a small value
-//
-// First we choose a proper upper bound for b*, the (local) maximum
-// Let ub=max(s), if [l(ub)]''<0, then use ub;
-// otherwise repeatedly multiply ub by a constant 0<gamma<1, until
-// [l(ub)]''>0 and [l(gamma*ub)]''<0
-//
-// We then compute the result b* within [lb, ub] given initial value b0
-// If [l(b*)]'' > 0, it means it is not a local maximum
-// In this case, we set x0 <- gamma*x0, lb <- gamma*lb, and recompute the root
+// A local maximum of l(b) satisfies [l(b)]' = 0 and [l(b)]'' < 0. The search:
+//   1. Start ub at max(s) and double it while [l(ub)]' > 0, at most
+//      max_grow times, so that the maximizer is not to the right of ub.
+//   2. If [l(ub)]'' > 0, halve ub (at most max_try times) while the new ub
+//      is still at or right of the root ([l(new_ub)]' <= 0) and
+//      [l(new_ub)]'' > 0.
+//   3. Start lb at min(1e-6, ub / 2) and halve it until [l(lb)]' > 0, so the
+//      root is bracketed.
+//   4. Newton-Raphson (boost) on [lb, ub] from the geometric mean sqrt(lb * ub).
+// For a gene at the boundary of the likelihood (no finite maximizer; D <= 0
+// in R/nuisance_cap_claude.R) [l(b)]' stays positive, step 1 exhausts
+// max_grow, and the value returned is where the search stopped, not an
+// estimate. estimate_nuisance() detects such genes and caps them.
 
 // [[Rcpp::export]]
 double gamma_rate(NumericVector x, NumericVector mu, NumericVector s)
@@ -197,8 +198,10 @@ double gamma_rate(NumericVector x, NumericVector mu, NumericVector s)
     // MLE whenever the true root lay above it, so any gene whose
     // over-dispersion was small enough silently got nuisance_vec = max(s).
     //
-    // [l(b)]' -> -0 as b -> +Inf, so [l(ub)]' > 0 means the maximizer is still
-    // to the right of ub and the bracket has to grow.
+    // When a finite maximizer exists, [l(b)]' -> -0 as b -> +Inf, so
+    // [l(ub)]' > 0 means the maximizer is still to the right of ub and the
+    // bracket has to grow. At the boundary (D <= 0) [l(b)]' stays positive and
+    // this loop runs all max_grow doublings.
     const int max_grow = 60;
     std::pair<double, double> ub_dvals = deriv(ub);
     for(int i = 0; i < max_grow && ub_dvals.first > 0.0; i++)

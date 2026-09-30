@@ -102,6 +102,8 @@ additional_context/version_comparison/data/
 # run_all_claude.sh. The summary_*.csv tables and logs stay tracked.
 additional_context/overdispersion_brainstorm/data/
 additional_context/overdispersion_brainstorm/cache/
+# `*cache*` above would otherwise ignore this script, which run_all_claude.sh needs.
+!additional_context/overdispersion_brainstorm/01_cache_fits_claude.R
 additional_context/overdispersion_brainstorm/output/genes.csv
 additional_context/overdispersion_brainstorm/output/gene_summaries.csv
 additional_context/overdispersion_brainstorm/output/master_extra_genes.csv

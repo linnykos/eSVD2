@@ -29,8 +29,9 @@ estimate_nuisance <- function(input_obj, ...) {UseMethod("estimate_nuisance")}
 #' Poisson has no finite maximum-likelihood rate, its posterior would collapse
 #' onto the fit, and its test statistic would be inflated. The bound limits
 #' how much more weight the posterior may give the fit for one gene than for
-#' the typical gene. \code{cap_multiplier = Inf} removes it, which is the
-#' behaviour of version 1.1.0. \code{cap_multiplier = 1} is close to, but not
+#' the typical gene. \code{cap_multiplier = Inf} removes it and gives the
+#' rates of version 1.1.0, except that the floor \code{min_val} is now a
+#' multiple of the library size rather than an absolute number. \code{cap_multiplier = 1} is close to, but not
 #' the same as, the bound of the version that accompanied Lin, Qiu and Roeder
 #' (2024), which was the largest library size of the gene and not a multiple
 #' of its median. \code{recompute_pvalue} changes the multiplier on a
@@ -60,8 +61,11 @@ estimate_nuisance <- function(input_obj, ...) {UseMethod("estimate_nuisance")}
 #' @param input_obj                       \code{eSVD} object output from \code{opt_esvd.eSVD}.
 #'                                        Specifically, the nuisance parameters will be estimated
 #'                                        based on the fit in \code{input_obj[[input_obj[["latest_Fit"]]]]}.
-#' @param bool_covariates_as_library      Boolean to adjust the numerator in the posterior by the donor covariates, default is \code{FALSE}.
-#'                                        This parameter is experimental, and we have not yet encountered a scenario where it is useful to be set to be \code{TRUE}.
+#' @param bool_covariates_as_library      Boolean to include the donor covariates (every covariate other than the case-control
+#'                                        variable) in the covariate-adjusted library size, default is \code{TRUE}, as in
+#'                                        \code{compute_posterior.eSVD} and \code{compute_test_per_gene} and as \code{eSVD}
+#'                                        passes it. Pass the same value to all of them, or the rate and the posterior use
+#'                                        different libraries.
 #' @param bool_library_includes_interept  Boolean if the intercept term from the eSVD matrix factorization should be included in the calculation for the covariate-adjusted library size, default is \code{TRUE}.
 #' @param bool_use_log                    Boolean if the nuisance (i.e., over-dispersion) parameter should be estimated on the log scale, default is \code{FALSE}.
 #' @param cap_multiplier                  One positive number, default \code{10}: no gene's rate may exceed this
@@ -75,8 +79,11 @@ estimate_nuisance <- function(input_obj, ...) {UseMethod("estimate_nuisance")}
 #'
 #' @return \code{eSVD} object with the following named vectors, one entry per
 #' gene, added to the list in \code{input_obj[[input_obj[["latest_Fit"]]]]}:
-#' \code{nuisance_vec} (the rate after the cap, which is what every later
-#' stage uses), \code{nuisance_mle_vec} (the rate before the cap),
+#' \code{nuisance_vec} (the rate after the floor and the cap, which is what
+#' later stages read; \code{compute_posterior} still floors it at a quantile
+#' and may rescale it), \code{nuisance_mle_vec} (the rate before the cap but
+#' after the floor, so for a \code{failed} gene it is the floor and not an
+#' estimate),
 #' \code{nuisance_library_median_vec} (the median over cells of the gene's
 #' library size, so the cap is \code{cap_multiplier} times this),
 #' \code{nuisance_status} (a factor with levels \code{estimated},
@@ -116,7 +123,7 @@ estimate_nuisance <- function(input_obj, ...) {UseMethod("estimate_nuisance")}
 #' esvd_obj$param$nuisance_num_capped
 #' @export
 estimate_nuisance.eSVD <- function(input_obj,
-                                   bool_covariates_as_library = FALSE,
+                                   bool_covariates_as_library = TRUE,
                                    bool_library_includes_interept = TRUE,
                                    bool_use_log = FALSE,
                                    cap_multiplier = 10,
@@ -229,8 +236,8 @@ estimate_nuisance.eSVD <- function(input_obj,
 #'
 #' @return Numeric vector of length \eqn{p} (named by \code{colnames(input_obj)}
 #' when present) of Gamma rates, after the cap. A gene whose estimation fails
-#' on both routes gets \code{min_val}, and a warning reports how many genes
-#' did. The rates before the cap and each gene's status are returned by the
+#' on both routes gets the floor, \code{min_val} times the median of its
+#' library size, and a warning reports how many genes did. The rates before the cap and each gene's status are returned by the
 #' \code{eSVD} method only.
 #' @export
 estimate_nuisance.default <- function(input_obj,

@@ -102,7 +102,7 @@ public:
     }
 };
 
-// Objective function, gradient, and Hessian for Yj
+// Objective function, gradient, and Hessian for the free entries (YZind) of [Yj Zj]
 class ObjectiveYZ: public Objective
 {
 private:
@@ -255,7 +255,7 @@ NumericMatrix opt_yz(
     MatrixXd YZ = init.transpose();
     int num_linesearch_failed = 0;
 
-    // Optimize each row of YZ [(k+r) x p]
+    // Optimize each gene: column j of YZ [(k+r) x p], i.e. row j of YZ0
     for(int j = 0; j < p; j++)
     {
         if(verbose >= 2)

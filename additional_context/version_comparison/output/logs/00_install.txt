@@ -662,16 +662,570 @@ package ‘Rcpp’ was built under R version 4.5.2
 ** installing vignettes
 ** checking absolute paths in shared objects and dynamic libraries
 * DONE (eSVD2)
+* installing *source* package ‘eSVD2’ ...
+** this is package ‘eSVD2’ version ‘1.1.0’
+** using staged installation
+** libs
+using C++ compiler: ‘Apple clang version 15.0.0 (clang-1500.1.0.2.5)’
+using SDK: ‘MacOSX14.2.sdk’
+clang++ -arch arm64 -std=gnu++17 -I"/Library/Frameworks/R.framework/Resources/include" -DNDEBUG  -I'/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/Rcpp/include' -I'/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include' -I'/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/BH/include' -I/opt/R/arm64/include    -fPIC  -falign-functions=64 -Wall -g -O2   -c RcppExports.cpp -o RcppExports.o
+In file included from RcppExports.cpp:4:
+In file included from ./../inst/include/eSVD2.h:4:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigen.h:25:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigenForward.h:29:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/Sparse:26:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/SparseCore:61:
+/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/src/SparseCore/TriangularSolver.h:273:13: warning: variable 'count' set but not used [-Wunused-but-set-variable]
+      Index count = 0;
+            ^
+In file included from RcppExports.cpp:4:
+In file included from ./../inst/include/eSVD2.h:4:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigen.h:25:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigenForward.h:29:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/Sparse:29:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/SparseLU:35:
+/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/src/SparseLU/SparseLU_heap_relax_snode.h:78:9: warning: variable 'nsuper_et_post' set but not used [-Wunused-but-set-variable]
+  Index nsuper_et_post = 0; // Number of relaxed snodes in postordered etree 
+        ^
+/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/src/SparseLU/SparseLU_heap_relax_snode.h:79:9: warning: variable 'nsuper_et' set but not used [-Wunused-but-set-variable]
+  Index nsuper_et = 0; // Number of relaxed snodes in the original etree 
+        ^
+In file included from RcppExports.cpp:4:
+In file included from ./../inst/include/eSVD2.h:4:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigen.h:25:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigenForward.h:31:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/unsupported/Eigen/IterativeSolvers:46:
+/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/unsupported/Eigen/src/IterativeSolvers/IDRS.h:72:10: warning: variable 'replacements' set but not used [-Wunused-but-set-variable]
+                        Index replacements = 0;
+                              ^
+In file included from RcppExports.cpp:4:
+In file included from ./../inst/include/eSVD2.h:4:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigen.h:25:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigenForward.h:37:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/unsupported/Eigen/SparseExtra:45:
+/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/unsupported/Eigen/src/SparseExtra/MarketIO.h:246:7: warning: variable 'count' set but not used [-Wunused-but-set-variable]
+  int count = 0;
+      ^
+5 warnings generated.
+clang++ -arch arm64 -std=gnu++17 -I"/Library/Frameworks/R.framework/Resources/include" -DNDEBUG  -I'/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/Rcpp/include' -I'/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include' -I'/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/BH/include' -I/opt/R/arm64/include    -fPIC  -falign-functions=64 -Wall -g -O2   -c constrained_newton.cpp -o constrained_newton.o
+In file included from constrained_newton.cpp:1:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigen.h:25:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigenForward.h:29:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/Sparse:26:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/SparseCore:61:
+/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/src/SparseCore/TriangularSolver.h:273:13: warning: variable 'count' set but not used [-Wunused-but-set-variable]
+      Index count = 0;
+            ^
+In file included from constrained_newton.cpp:1:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigen.h:25:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigenForward.h:29:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/Sparse:29:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/SparseLU:35:
+/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/src/SparseLU/SparseLU_heap_relax_snode.h:78:9: warning: variable 'nsuper_et_post' set but not used [-Wunused-but-set-variable]
+  Index nsuper_et_post = 0; // Number of relaxed snodes in postordered etree 
+        ^
+/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/src/SparseLU/SparseLU_heap_relax_snode.h:79:9: warning: variable 'nsuper_et' set but not used [-Wunused-but-set-variable]
+  Index nsuper_et = 0; // Number of relaxed snodes in the original etree 
+        ^
+In file included from constrained_newton.cpp:1:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigen.h:25:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigenForward.h:31:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/unsupported/Eigen/IterativeSolvers:46:
+/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/unsupported/Eigen/src/IterativeSolvers/IDRS.h:72:10: warning: variable 'replacements' set but not used [-Wunused-but-set-variable]
+                        Index replacements = 0;
+                              ^
+In file included from constrained_newton.cpp:1:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigen.h:25:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigenForward.h:37:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/unsupported/Eigen/SparseExtra:45:
+/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/unsupported/Eigen/src/SparseExtra/MarketIO.h:246:7: warning: variable 'count' set but not used [-Wunused-but-set-variable]
+  int count = 0;
+      ^
+5 warnings generated.
+clang++ -arch arm64 -std=gnu++17 -I"/Library/Frameworks/R.framework/Resources/include" -DNDEBUG  -I'/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/Rcpp/include' -I'/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include' -I'/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/BH/include' -I/opt/R/arm64/include    -fPIC  -falign-functions=64 -Wall -g -O2   -c data_loader.cpp -o data_loader.o
+In file included from data_loader.cpp:1:
+In file included from ./data_loader.h:5:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigen.h:25:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigenForward.h:29:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/Sparse:26:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/SparseCore:61:
+/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/src/SparseCore/TriangularSolver.h:273:13: warning: variable 'count' set but not used [-Wunused-but-set-variable]
+      Index count = 0;
+            ^
+In file included from data_loader.cpp:1:
+In file included from ./data_loader.h:5:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigen.h:25:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigenForward.h:29:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/Sparse:29:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/SparseLU:35:
+/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/src/SparseLU/SparseLU_heap_relax_snode.h:78:9: warning: variable 'nsuper_et_post' set but not used [-Wunused-but-set-variable]
+  Index nsuper_et_post = 0; // Number of relaxed snodes in postordered etree 
+        ^
+/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/src/SparseLU/SparseLU_heap_relax_snode.h:79:9: warning: variable 'nsuper_et' set but not used [-Wunused-but-set-variable]
+  Index nsuper_et = 0; // Number of relaxed snodes in the original etree 
+        ^
+In file included from data_loader.cpp:1:
+In file included from ./data_loader.h:5:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigen.h:25:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigenForward.h:31:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/unsupported/Eigen/IterativeSolvers:46:
+/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/unsupported/Eigen/src/IterativeSolvers/IDRS.h:72:10: warning: variable 'replacements' set but not used [-Wunused-but-set-variable]
+                        Index replacements = 0;
+                              ^
+In file included from data_loader.cpp:1:
+In file included from ./data_loader.h:5:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigen.h:25:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigenForward.h:37:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/unsupported/Eigen/SparseExtra:45:
+/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/unsupported/Eigen/src/SparseExtra/MarketIO.h:246:7: warning: variable 'count' set but not used [-Wunused-but-set-variable]
+  int count = 0;
+      ^
+5 warnings generated.
+clang++ -arch arm64 -std=gnu++17 -I"/Library/Frameworks/R.framework/Resources/include" -DNDEBUG  -I'/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/Rcpp/include' -I'/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include' -I'/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/BH/include' -I/opt/R/arm64/include    -fPIC  -falign-functions=64 -Wall -g -O2   -c esvd_family.cpp -o esvd_family.o
+In file included from esvd_family.cpp:1:
+In file included from ./distribution.h:5:
+In file included from ./data_loader.h:5:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigen.h:25:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigenForward.h:29:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/Sparse:26:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/SparseCore:61:
+/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/src/SparseCore/TriangularSolver.h:273:13: warning: variable 'count' set but not used [-Wunused-but-set-variable]
+      Index count = 0;
+            ^
+In file included from esvd_family.cpp:1:
+In file included from ./distribution.h:5:
+In file included from ./data_loader.h:5:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigen.h:25:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigenForward.h:29:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/Sparse:29:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/SparseLU:35:
+/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/src/SparseLU/SparseLU_heap_relax_snode.h:78:9: warning: variable 'nsuper_et_post' set but not used [-Wunused-but-set-variable]
+  Index nsuper_et_post = 0; // Number of relaxed snodes in postordered etree 
+        ^
+/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/src/SparseLU/SparseLU_heap_relax_snode.h:79:9: warning: variable 'nsuper_et' set but not used [-Wunused-but-set-variable]
+  Index nsuper_et = 0; // Number of relaxed snodes in the original etree 
+        ^
+In file included from esvd_family.cpp:1:
+In file included from ./distribution.h:5:
+In file included from ./data_loader.h:5:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigen.h:25:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigenForward.h:31:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/unsupported/Eigen/IterativeSolvers:46:
+/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/unsupported/Eigen/src/IterativeSolvers/IDRS.h:72:10: warning: variable 'replacements' set but not used [-Wunused-but-set-variable]
+                        Index replacements = 0;
+                              ^
+In file included from esvd_family.cpp:1:
+In file included from ./distribution.h:5:
+In file included from ./data_loader.h:5:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigen.h:25:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigenForward.h:37:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/unsupported/Eigen/SparseExtra:45:
+/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/unsupported/Eigen/src/SparseExtra/MarketIO.h:246:7: warning: variable 'count' set but not used [-Wunused-but-set-variable]
+  int count = 0;
+      ^
+5 warnings generated.
+clang++ -arch arm64 -std=gnu++17 -I"/Library/Frameworks/R.framework/Resources/include" -DNDEBUG  -I'/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/Rcpp/include' -I'/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include' -I'/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/BH/include' -I/opt/R/arm64/include    -fPIC  -falign-functions=64 -Wall -g -O2   -c family.cpp -o family.o
+In file included from family.cpp:1:
+In file included from ./family.h:4:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigen.h:25:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigenForward.h:29:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/Sparse:26:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/SparseCore:61:
+/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/src/SparseCore/TriangularSolver.h:273:13: warning: variable 'count' set but not used [-Wunused-but-set-variable]
+      Index count = 0;
+            ^
+In file included from family.cpp:1:
+In file included from ./family.h:4:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigen.h:25:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigenForward.h:29:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/Sparse:29:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/SparseLU:35:
+/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/src/SparseLU/SparseLU_heap_relax_snode.h:78:9: warning: variable 'nsuper_et_post' set but not used [-Wunused-but-set-variable]
+  Index nsuper_et_post = 0; // Number of relaxed snodes in postordered etree 
+        ^
+/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/src/SparseLU/SparseLU_heap_relax_snode.h:79:9: warning: variable 'nsuper_et' set but not used [-Wunused-but-set-variable]
+  Index nsuper_et = 0; // Number of relaxed snodes in the original etree 
+        ^
+In file included from family.cpp:1:
+In file included from ./family.h:4:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigen.h:25:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigenForward.h:31:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/unsupported/Eigen/IterativeSolvers:46:
+/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/unsupported/Eigen/src/IterativeSolvers/IDRS.h:72:10: warning: variable 'replacements' set but not used [-Wunused-but-set-variable]
+                        Index replacements = 0;
+                              ^
+In file included from family.cpp:1:
+In file included from ./family.h:4:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigen.h:25:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigenForward.h:37:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/unsupported/Eigen/SparseExtra:45:
+/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/unsupported/Eigen/src/SparseExtra/MarketIO.h:246:7: warning: variable 'count' set but not used [-Wunused-but-set-variable]
+  int count = 0;
+      ^
+5 warnings generated.
+clang++ -arch arm64 -std=gnu++17 -I"/Library/Frameworks/R.framework/Resources/include" -DNDEBUG  -I'/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/Rcpp/include' -I'/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include' -I'/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/BH/include' -I/opt/R/arm64/include    -fPIC  -falign-functions=64 -Wall -g -O2   -c family_bernoulli.cpp -o family_bernoulli.o
+In file included from family_bernoulli.cpp:2:
+In file included from ./distribution.h:5:
+In file included from ./data_loader.h:5:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigen.h:25:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigenForward.h:29:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/Sparse:26:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/SparseCore:61:
+/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/src/SparseCore/TriangularSolver.h:273:13: warning: variable 'count' set but not used [-Wunused-but-set-variable]
+      Index count = 0;
+            ^
+In file included from family_bernoulli.cpp:2:
+In file included from ./distribution.h:5:
+In file included from ./data_loader.h:5:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigen.h:25:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigenForward.h:29:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/Sparse:29:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/SparseLU:35:
+/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/src/SparseLU/SparseLU_heap_relax_snode.h:78:9: warning: variable 'nsuper_et_post' set but not used [-Wunused-but-set-variable]
+  Index nsuper_et_post = 0; // Number of relaxed snodes in postordered etree 
+        ^
+/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/src/SparseLU/SparseLU_heap_relax_snode.h:79:9: warning: variable 'nsuper_et' set but not used [-Wunused-but-set-variable]
+  Index nsuper_et = 0; // Number of relaxed snodes in the original etree 
+        ^
+In file included from family_bernoulli.cpp:2:
+In file included from ./distribution.h:5:
+In file included from ./data_loader.h:5:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigen.h:25:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigenForward.h:31:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/unsupported/Eigen/IterativeSolvers:46:
+/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/unsupported/Eigen/src/IterativeSolvers/IDRS.h:72:10: warning: variable 'replacements' set but not used [-Wunused-but-set-variable]
+                        Index replacements = 0;
+                              ^
+In file included from family_bernoulli.cpp:2:
+In file included from ./distribution.h:5:
+In file included from ./data_loader.h:5:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigen.h:25:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigenForward.h:37:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/unsupported/Eigen/SparseExtra:45:
+/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/unsupported/Eigen/src/SparseExtra/MarketIO.h:246:7: warning: variable 'count' set but not used [-Wunused-but-set-variable]
+  int count = 0;
+      ^
+5 warnings generated.
+clang++ -arch arm64 -std=gnu++17 -I"/Library/Frameworks/R.framework/Resources/include" -DNDEBUG  -I'/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/Rcpp/include' -I'/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include' -I'/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/BH/include' -I/opt/R/arm64/include    -fPIC  -falign-functions=64 -Wall -g -O2   -c family_curved_gaussian.cpp -o family_curved_gaussian.o
+In file included from family_curved_gaussian.cpp:2:
+In file included from ./distribution.h:5:
+In file included from ./data_loader.h:5:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigen.h:25:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigenForward.h:29:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/Sparse:26:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/SparseCore:61:
+/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/src/SparseCore/TriangularSolver.h:273:13: warning: variable 'count' set but not used [-Wunused-but-set-variable]
+      Index count = 0;
+            ^
+In file included from family_curved_gaussian.cpp:2:
+In file included from ./distribution.h:5:
+In file included from ./data_loader.h:5:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigen.h:25:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigenForward.h:29:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/Sparse:29:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/SparseLU:35:
+/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/src/SparseLU/SparseLU_heap_relax_snode.h:78:9: warning: variable 'nsuper_et_post' set but not used [-Wunused-but-set-variable]
+  Index nsuper_et_post = 0; // Number of relaxed snodes in postordered etree 
+        ^
+/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/src/SparseLU/SparseLU_heap_relax_snode.h:79:9: warning: variable 'nsuper_et' set but not used [-Wunused-but-set-variable]
+  Index nsuper_et = 0; // Number of relaxed snodes in the original etree 
+        ^
+In file included from family_curved_gaussian.cpp:2:
+In file included from ./distribution.h:5:
+In file included from ./data_loader.h:5:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigen.h:25:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigenForward.h:31:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/unsupported/Eigen/IterativeSolvers:46:
+/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/unsupported/Eigen/src/IterativeSolvers/IDRS.h:72:10: warning: variable 'replacements' set but not used [-Wunused-but-set-variable]
+                        Index replacements = 0;
+                              ^
+In file included from family_curved_gaussian.cpp:2:
+In file included from ./distribution.h:5:
+In file included from ./data_loader.h:5:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigen.h:25:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigenForward.h:37:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/unsupported/Eigen/SparseExtra:45:
+/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/unsupported/Eigen/src/SparseExtra/MarketIO.h:246:7: warning: variable 'count' set but not used [-Wunused-but-set-variable]
+  int count = 0;
+      ^
+5 warnings generated.
+clang++ -arch arm64 -std=gnu++17 -I"/Library/Frameworks/R.framework/Resources/include" -DNDEBUG  -I'/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/Rcpp/include' -I'/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include' -I'/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/BH/include' -I/opt/R/arm64/include    -fPIC  -falign-functions=64 -Wall -g -O2   -c family_exponential.cpp -o family_exponential.o
+In file included from family_exponential.cpp:2:
+In file included from ./distribution.h:5:
+In file included from ./data_loader.h:5:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigen.h:25:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigenForward.h:29:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/Sparse:26:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/SparseCore:61:
+/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/src/SparseCore/TriangularSolver.h:273:13: warning: variable 'count' set but not used [-Wunused-but-set-variable]
+      Index count = 0;
+            ^
+In file included from family_exponential.cpp:2:
+In file included from ./distribution.h:5:
+In file included from ./data_loader.h:5:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigen.h:25:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigenForward.h:29:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/Sparse:29:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/SparseLU:35:
+/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/src/SparseLU/SparseLU_heap_relax_snode.h:78:9: warning: variable 'nsuper_et_post' set but not used [-Wunused-but-set-variable]
+  Index nsuper_et_post = 0; // Number of relaxed snodes in postordered etree 
+        ^
+/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/src/SparseLU/SparseLU_heap_relax_snode.h:79:9: warning: variable 'nsuper_et' set but not used [-Wunused-but-set-variable]
+  Index nsuper_et = 0; // Number of relaxed snodes in the original etree 
+        ^
+In file included from family_exponential.cpp:2:
+In file included from ./distribution.h:5:
+In file included from ./data_loader.h:5:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigen.h:25:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigenForward.h:31:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/unsupported/Eigen/IterativeSolvers:46:
+/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/unsupported/Eigen/src/IterativeSolvers/IDRS.h:72:10: warning: variable 'replacements' set but not used [-Wunused-but-set-variable]
+                        Index replacements = 0;
+                              ^
+In file included from family_exponential.cpp:2:
+In file included from ./distribution.h:5:
+In file included from ./data_loader.h:5:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigen.h:25:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigenForward.h:37:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/unsupported/Eigen/SparseExtra:45:
+/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/unsupported/Eigen/src/SparseExtra/MarketIO.h:246:7: warning: variable 'count' set but not used [-Wunused-but-set-variable]
+  int count = 0;
+      ^
+5 warnings generated.
+clang++ -arch arm64 -std=gnu++17 -I"/Library/Frameworks/R.framework/Resources/include" -DNDEBUG  -I'/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/Rcpp/include' -I'/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include' -I'/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/BH/include' -I/opt/R/arm64/include    -fPIC  -falign-functions=64 -Wall -g -O2   -c family_gaussian.cpp -o family_gaussian.o
+In file included from family_gaussian.cpp:2:
+In file included from ./distribution.h:5:
+In file included from ./data_loader.h:5:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigen.h:25:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigenForward.h:29:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/Sparse:26:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/SparseCore:61:
+/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/src/SparseCore/TriangularSolver.h:273:13: warning: variable 'count' set but not used [-Wunused-but-set-variable]
+      Index count = 0;
+            ^
+In file included from family_gaussian.cpp:2:
+In file included from ./distribution.h:5:
+In file included from ./data_loader.h:5:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigen.h:25:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigenForward.h:29:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/Sparse:29:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/SparseLU:35:
+/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/src/SparseLU/SparseLU_heap_relax_snode.h:78:9: warning: variable 'nsuper_et_post' set but not used [-Wunused-but-set-variable]
+  Index nsuper_et_post = 0; // Number of relaxed snodes in postordered etree 
+        ^
+/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/src/SparseLU/SparseLU_heap_relax_snode.h:79:9: warning: variable 'nsuper_et' set but not used [-Wunused-but-set-variable]
+  Index nsuper_et = 0; // Number of relaxed snodes in the original etree 
+        ^
+In file included from family_gaussian.cpp:2:
+In file included from ./distribution.h:5:
+In file included from ./data_loader.h:5:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigen.h:25:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigenForward.h:31:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/unsupported/Eigen/IterativeSolvers:46:
+/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/unsupported/Eigen/src/IterativeSolvers/IDRS.h:72:10: warning: variable 'replacements' set but not used [-Wunused-but-set-variable]
+                        Index replacements = 0;
+                              ^
+In file included from family_gaussian.cpp:2:
+In file included from ./distribution.h:5:
+In file included from ./data_loader.h:5:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigen.h:25:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigenForward.h:37:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/unsupported/Eigen/SparseExtra:45:
+/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/unsupported/Eigen/src/SparseExtra/MarketIO.h:246:7: warning: variable 'count' set but not used [-Wunused-but-set-variable]
+  int count = 0;
+      ^
+5 warnings generated.
+clang++ -arch arm64 -std=gnu++17 -I"/Library/Frameworks/R.framework/Resources/include" -DNDEBUG  -I'/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/Rcpp/include' -I'/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include' -I'/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/BH/include' -I/opt/R/arm64/include    -fPIC  -falign-functions=64 -Wall -g -O2   -c family_neg_binom.cpp -o family_neg_binom.o
+In file included from family_neg_binom.cpp:2:
+In file included from ./distribution.h:5:
+In file included from ./data_loader.h:5:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigen.h:25:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigenForward.h:29:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/Sparse:26:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/SparseCore:61:
+/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/src/SparseCore/TriangularSolver.h:273:13: warning: variable 'count' set but not used [-Wunused-but-set-variable]
+      Index count = 0;
+            ^
+In file included from family_neg_binom.cpp:2:
+In file included from ./distribution.h:5:
+In file included from ./data_loader.h:5:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigen.h:25:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigenForward.h:29:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/Sparse:29:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/SparseLU:35:
+/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/src/SparseLU/SparseLU_heap_relax_snode.h:78:9: warning: variable 'nsuper_et_post' set but not used [-Wunused-but-set-variable]
+  Index nsuper_et_post = 0; // Number of relaxed snodes in postordered etree 
+        ^
+/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/src/SparseLU/SparseLU_heap_relax_snode.h:79:9: warning: variable 'nsuper_et' set but not used [-Wunused-but-set-variable]
+  Index nsuper_et = 0; // Number of relaxed snodes in the original etree 
+        ^
+In file included from family_neg_binom.cpp:2:
+In file included from ./distribution.h:5:
+In file included from ./data_loader.h:5:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigen.h:25:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigenForward.h:31:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/unsupported/Eigen/IterativeSolvers:46:
+/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/unsupported/Eigen/src/IterativeSolvers/IDRS.h:72:10: warning: variable 'replacements' set but not used [-Wunused-but-set-variable]
+                        Index replacements = 0;
+                              ^
+In file included from family_neg_binom.cpp:2:
+In file included from ./distribution.h:5:
+In file included from ./data_loader.h:5:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigen.h:25:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigenForward.h:37:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/unsupported/Eigen/SparseExtra:45:
+/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/unsupported/Eigen/src/SparseExtra/MarketIO.h:246:7: warning: variable 'count' set but not used [-Wunused-but-set-variable]
+  int count = 0;
+      ^
+5 warnings generated.
+clang++ -arch arm64 -std=gnu++17 -I"/Library/Frameworks/R.framework/Resources/include" -DNDEBUG  -I'/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/Rcpp/include' -I'/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include' -I'/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/BH/include' -I/opt/R/arm64/include    -fPIC  -falign-functions=64 -Wall -g -O2   -c family_neg_binom2.cpp -o family_neg_binom2.o
+In file included from family_neg_binom2.cpp:2:
+In file included from ./distribution.h:5:
+In file included from ./data_loader.h:5:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigen.h:25:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigenForward.h:29:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/Sparse:26:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/SparseCore:61:
+/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/src/SparseCore/TriangularSolver.h:273:13: warning: variable 'count' set but not used [-Wunused-but-set-variable]
+      Index count = 0;
+            ^
+In file included from family_neg_binom2.cpp:2:
+In file included from ./distribution.h:5:
+In file included from ./data_loader.h:5:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigen.h:25:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigenForward.h:29:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/Sparse:29:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/SparseLU:35:
+/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/src/SparseLU/SparseLU_heap_relax_snode.h:78:9: warning: variable 'nsuper_et_post' set but not used [-Wunused-but-set-variable]
+  Index nsuper_et_post = 0; // Number of relaxed snodes in postordered etree 
+        ^
+/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/src/SparseLU/SparseLU_heap_relax_snode.h:79:9: warning: variable 'nsuper_et' set but not used [-Wunused-but-set-variable]
+  Index nsuper_et = 0; // Number of relaxed snodes in the original etree 
+        ^
+In file included from family_neg_binom2.cpp:2:
+In file included from ./distribution.h:5:
+In file included from ./data_loader.h:5:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigen.h:25:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigenForward.h:31:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/unsupported/Eigen/IterativeSolvers:46:
+/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/unsupported/Eigen/src/IterativeSolvers/IDRS.h:72:10: warning: variable 'replacements' set but not used [-Wunused-but-set-variable]
+                        Index replacements = 0;
+                              ^
+In file included from family_neg_binom2.cpp:2:
+In file included from ./distribution.h:5:
+In file included from ./data_loader.h:5:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigen.h:25:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigenForward.h:37:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/unsupported/Eigen/SparseExtra:45:
+/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/unsupported/Eigen/src/SparseExtra/MarketIO.h:246:7: warning: variable 'count' set but not used [-Wunused-but-set-variable]
+  int count = 0;
+      ^
+5 warnings generated.
+clang++ -arch arm64 -std=gnu++17 -I"/Library/Frameworks/R.framework/Resources/include" -DNDEBUG  -I'/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/Rcpp/include' -I'/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include' -I'/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/BH/include' -I/opt/R/arm64/include    -fPIC  -falign-functions=64 -Wall -g -O2   -c family_poisson.cpp -o family_poisson.o
+In file included from family_poisson.cpp:2:
+In file included from ./distribution.h:5:
+In file included from ./data_loader.h:5:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigen.h:25:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigenForward.h:29:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/Sparse:26:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/SparseCore:61:
+/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/src/SparseCore/TriangularSolver.h:273:13: warning: variable 'count' set but not used [-Wunused-but-set-variable]
+      Index count = 0;
+            ^
+In file included from family_poisson.cpp:2:
+In file included from ./distribution.h:5:
+In file included from ./data_loader.h:5:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigen.h:25:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigenForward.h:29:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/Sparse:29:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/SparseLU:35:
+/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/src/SparseLU/SparseLU_heap_relax_snode.h:78:9: warning: variable 'nsuper_et_post' set but not used [-Wunused-but-set-variable]
+  Index nsuper_et_post = 0; // Number of relaxed snodes in postordered etree 
+        ^
+/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/src/SparseLU/SparseLU_heap_relax_snode.h:79:9: warning: variable 'nsuper_et' set but not used [-Wunused-but-set-variable]
+  Index nsuper_et = 0; // Number of relaxed snodes in the original etree 
+        ^
+In file included from family_poisson.cpp:2:
+In file included from ./distribution.h:5:
+In file included from ./data_loader.h:5:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigen.h:25:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigenForward.h:31:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/unsupported/Eigen/IterativeSolvers:46:
+/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/unsupported/Eigen/src/IterativeSolvers/IDRS.h:72:10: warning: variable 'replacements' set but not used [-Wunused-but-set-variable]
+                        Index replacements = 0;
+                              ^
+In file included from family_poisson.cpp:2:
+In file included from ./distribution.h:5:
+In file included from ./data_loader.h:5:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigen.h:25:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigenForward.h:37:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/unsupported/Eigen/SparseExtra:45:
+/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/unsupported/Eigen/src/SparseExtra/MarketIO.h:246:7: warning: variable 'count' set but not used [-Wunused-but-set-variable]
+  int count = 0;
+      ^
+5 warnings generated.
+clang++ -arch arm64 -std=gnu++17 -I"/Library/Frameworks/R.framework/Resources/include" -DNDEBUG  -I'/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/Rcpp/include' -I'/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include' -I'/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/BH/include' -I/opt/R/arm64/include    -fPIC  -falign-functions=64 -Wall -g -O2   -c gamma_rate.cpp -o gamma_rate.o
+clang++ -arch arm64 -std=gnu++17 -I"/Library/Frameworks/R.framework/Resources/include" -DNDEBUG  -I'/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/Rcpp/include' -I'/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include' -I'/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/BH/include' -I/opt/R/arm64/include    -fPIC  -falign-functions=64 -Wall -g -O2   -c optimization.cpp -o optimization.o
+In file included from optimization.cpp:1:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigen.h:25:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigenForward.h:29:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/Sparse:26:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/SparseCore:61:
+/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/src/SparseCore/TriangularSolver.h:273:13: warning: variable 'count' set but not used [-Wunused-but-set-variable]
+      Index count = 0;
+            ^
+In file included from optimization.cpp:1:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigen.h:25:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigenForward.h:29:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/Sparse:29:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/SparseLU:35:
+/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/src/SparseLU/SparseLU_heap_relax_snode.h:78:9: warning: variable 'nsuper_et_post' set but not used [-Wunused-but-set-variable]
+  Index nsuper_et_post = 0; // Number of relaxed snodes in postordered etree 
+        ^
+/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/Eigen/src/SparseLU/SparseLU_heap_relax_snode.h:79:9: warning: variable 'nsuper_et' set but not used [-Wunused-but-set-variable]
+  Index nsuper_et = 0; // Number of relaxed snodes in the original etree 
+        ^
+In file included from optimization.cpp:1:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigen.h:25:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigenForward.h:31:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/unsupported/Eigen/IterativeSolvers:46:
+/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/unsupported/Eigen/src/IterativeSolvers/IDRS.h:72:10: warning: variable 'replacements' set but not used [-Wunused-but-set-variable]
+                        Index replacements = 0;
+                              ^
+In file included from optimization.cpp:1:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigen.h:25:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/RcppEigenForward.h:37:
+In file included from /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/unsupported/Eigen/SparseExtra:45:
+/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/RcppEigen/include/unsupported/Eigen/src/SparseExtra/MarketIO.h:246:7: warning: variable 'count' set but not used [-Wunused-but-set-variable]
+  int count = 0;
+      ^
+5 warnings generated.
+clang++ -arch arm64 -std=gnu++17 -dynamiclib -Wl,-headerpad_max_install_names -undefined dynamic_lookup -L/Library/Frameworks/R.framework/Resources/lib -L/opt/R/arm64/lib -o eSVD2.so RcppExports.o constrained_newton.o data_loader.o esvd_family.o family.o family_bernoulli.o family_curved_gaussian.o family_exponential.o family_gaussian.o family_neg_binom.o family_neg_binom2.o family_poisson.o gamma_rate.o optimization.o -F/Library/Frameworks/R.framework/.. -framework R
+installing to /Users/kevinlin/Library/CloudStorage/Dropbox/Collaboration-and-People/Kathryn Roeder - private/eSVD2/git/eSVD2/additional_context/version_comparison/lib/devel_1.1.0/00LOCK-eSVD2/00new/eSVD2/libs
+** R
+** data
+*** moving datasets to lazyload DB
+** inst
+** byte-compile and prepare package for lazy loading
+** help
+*** installing help indices
+** building package indices
+** installing vignettes
+** testing if installed package can be loaded from temporary location
+** checking absolute paths in shared objects and dynamic libraries
+** testing if installed package can be loaded from final location
+** testing if installed package keeps a record of temporary installation path
+* DONE (eSVD2)
 * checking for file ‘./DESCRIPTION’ ... OK
 * preparing ‘eSVD2’:
 * checking DESCRIPTION meta-information ... OK
 * cleaning src
 * checking for LF line-endings in source and make files and shell scripts
 * checking for empty or unneeded directories
-* building ‘eSVD2_1.1.0.tar.gz’
+* building ‘eSVD2_1.2.0.tar.gz’
 
 * installing *source* package ‘eSVD2’ ...
-** this is package ‘eSVD2’ version ‘1.1.0’
+** this is package ‘eSVD2’ version ‘1.2.0’
 ** using staged installation
 ** libs
 using C++ compiler: ‘Apple clang version 15.0.0 (clang-1500.1.0.2.5)’
@@ -1225,4 +1779,5 @@ installing to /Users/kevinlin/Library/CloudStorage/Dropbox/Collaboration-and-Peo
 ** testing if installed package keeps a record of temporary installation path
 * DONE (eSVD2)
 master: 1.0.1.7 
-devel:  1.1.0 
+devel_1.1.0: 1.1.0 
+devel: 1.2.0 

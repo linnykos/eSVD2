@@ -44,8 +44,8 @@ over cells of the gene's library size (the units of
 \value{
 Numeric vector of length \eqn{p} (named by \code{colnames(input_obj)}
 when present) of Gamma rates, after the cap. A gene whose estimation fails
-on both routes gets \code{min_val}, and a warning reports how many genes
-did. The rates before the cap and each gene's status are returned by the
+on both routes gets the floor, \code{min_val} times the median of its
+library size, and a warning reports how many genes did. The rates before the cap and each gene's status are returned by the
 \code{eSVD} method only.
 }
 \description{

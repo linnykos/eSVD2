@@ -27,7 +27,7 @@ work_dir <- file.path("additional_context", "overdispersion_brainstorm")
 cache_dir <- file.path(work_dir, "cache")
 out_dir <- file.path(work_dir, "output")
 
-library(eSVD2, lib.loc = file.path(cmp_dir, "lib", "devel"))
+library(eSVD2, lib.loc = file.path(cmp_dir, "lib", "devel_1.1.0"))
 
 candidate_gene_df <- utils::read.csv(file.path(out_dir, "genes.csv"))
 rate_candidate_vec <- c("mle", "cap_max_s", "cap_50s", "common_unit", "oracle")

@@ -87,7 +87,7 @@
 #' \code{pt(t, df)} rounds to \code{1} (\code{t = 40, df = 18} is enough),
 #' whereas the lower tail stays finite far longer. One strongly up-regulated
 #' gene used to knock the whole empirical null over to its crudest fallback
-#' this way (CRAN_READINESS.md 1.1).
+#' this way.
 #'
 #' @param teststat_vec  Numeric vector of t-statistics.
 #' @param df_vec        Numeric vector of degrees of freedom, same length.

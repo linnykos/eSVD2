@@ -1,8 +1,9 @@
 #' Run the full eSVD-DE pipeline on a Seurat object
 #'
-#' The end-to-end wrapper: \code{format_covariates}, \code{initialize_esvd},
-#' two rounds of \code{opt_esvd} (the case-control coefficient held fixed,
-#' then freed) each followed by \code{reparameterization_esvd_covariates},
+#' The end-to-end wrapper: \code{format_covariates}, \code{initialize_esvd}
+#' and two rounds of \code{opt_esvd} (the case-control coefficient held fixed,
+#' then freed), each of the three followed by
+#' \code{reparameterization_esvd_covariates},
 #' \code{estimate_nuisance}, and then either the fused
 #' \code{compute_test_per_gene} (\code{bool_diet = TRUE}) or
 #' \code{compute_posterior}, \code{compute_test_statistic} and
@@ -103,7 +104,9 @@
 #' \code{nuisance_vec} and the other per-gene vectors of
 #' \code{estimate_nuisance}), plus \code{dat}, \code{covariates}, the earlier
 #' fits and the posterior matrices when \code{bool_diet = FALSE}.
-#' \code{param} records, among the settings of every stage, the number of
+#' \code{param} records the settings of every stage (the \code{opt_*} entries
+#' are those of the first \code{opt_esvd} call, because a later call does not
+#' overwrite an entry that is already there), the number of
 #' genes whose nuisance rate was capped (\code{nuisance_num_capped}) and the
 #' arguments of this call that name the variables (as \code{esvd_*}), which
 #' is what lets \code{recompute_pvalue} and \code{plot_fitted_vs_observed}
@@ -184,6 +187,17 @@ eSVD <- function(batch_var_prefix, # a variable inside categorical_vars. Can be 
   stopifnot(length(k) == 1, k > 0, k %% 1 == 0,
             length(min_cells_per_individual) == 1, min_cells_per_individual >= 0)
   .check_cap_multiplier(cap_multiplier)
+  # The posterior is reached only after the whole fit, so a setting it would
+  # refuse is refused here, before hours of optimization are spent.
+  .check_posterior_args(alpha_max = alpha_max,
+                        bool_adjust_covariates = bool_adjust_covariates,
+                        bool_covariates_as_library = bool_covariates_as_library,
+                        bool_stabilize_underdispersion = bool_stabilize_underdispersion,
+                        library_min = library_min,
+                        # not an argument of eSVD(); the posterior uses its
+                        # own default, which the check need not see
+                        nuisance_lower_quantile = NULL,
+                        pseudocount = pseudocount)
 
   # make sure there's an appropriate batch variable
   if(!is.null(batch_var_prefix) &&
@@ -209,7 +223,9 @@ eSVD <- function(batch_var_prefix, # a variable inside categorical_vars. Can be 
   # extract count matrix
   mat <- .extract_count_matrix(seurat_obj)
 
-  # The three refusals (Q-COH-7): the wrapper `eSVD_helper` filters, this
+  # The three refusals of the cohort (Q-COH-7; this function also refuses a
+  # `k` above the number of genes, an individual in both arms and levels
+  # outside `case_control_levels`): the wrapper `eSVD_helper` filters, this
   # function refuses, so a helper bug fails loudly here rather than as an
   # obscure numerical failure further down.
   all_zero_idx <- .which_all_zero(mat)

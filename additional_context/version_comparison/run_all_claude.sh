@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Runs the whole master (3d5f7bf) vs devel (1.1.0) comparison end to end.
+# Runs the whole master (3d5f7bf) vs devel (1.2.0) comparison end to end.
 # Drafted by Claude for Kevin Z. Lin, 2026-09-29
 #
 # Run from the package root:
@@ -19,6 +19,7 @@ Rscript "${cmp_dir}/01_simulate_data_claude.R" > "${log_dir}/01_simulate.txt" 2>
 
 Rscript "${cmp_dir}/02_run_regimes_claude.R" master > "${log_dir}/02_master.txt" 2>&1 &
 Rscript "${cmp_dir}/02_run_regimes_claude.R" devel > "${log_dir}/02_devel.txt" 2>&1 &
+Rscript "${cmp_dir}/02_run_regimes_claude.R" devel_nocap > "${log_dir}/02_devel_nocap.txt" 2>&1 &
 wait
 # The ablation reads master's nuisance estimates, so it runs after master.
 Rscript "${cmp_dir}/02_run_regimes_claude.R" devel_swap > "${log_dir}/02_devel_swap.txt" 2>&1 &

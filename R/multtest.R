@@ -39,8 +39,8 @@ multtest <- function(teststat_vec,
   if(!is.numeric(teststat_vec) || !all(is.finite(teststat_vec))){
     stop("`teststat_vec` must be a numeric vector of finite values; found ",
          sum(!is.finite(teststat_vec)), " non-finite entries. ",
-         "A non-finite statistic upstream usually means `qnorm(pt())` ",
-         "saturated; see `compute_pvalue`")
+         "A statistic upstream was not finite; check the output of ",
+         "`compute_test_statistic` and `compute_pvalue`")
   }
   stopifnot(length(observed_quantile) == 2,
             all(observed_quantile > 0), all(observed_quantile < 1),
@@ -56,9 +56,10 @@ multtest <- function(teststat_vec,
                             observed_quantile = observed_quantile)
   }
 
-  # A silently degraded null is the failure mode of CRAN_READINESS.md 1.1:
-  # one bad gene used to move the whole dataset onto the crudest estimator
-  # with nothing telling the user. The warning is the fix.
+  # A silently degraded null is the failure mode of section 1.1 of
+  # additional_context/CRAN_READINESS.md (not shipped): one bad gene used to
+  # move the whole dataset onto the crudest estimator with nothing telling
+  # the user. The warning is the fix.
   if(res$method != "locfdr"){
     warning("locfdr could not estimate the empirical null; using the `",
             res$method, "` estimator instead (null_mean = ",

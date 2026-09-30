@@ -22,7 +22,7 @@ work_dir <- file.path("additional_context", "overdispersion_brainstorm")
 cache_dir <- file.path(work_dir, "cache")
 out_dir <- file.path(work_dir, "output")
 
-library(eSVD2, lib.loc = file.path(cmp_dir, "lib", "devel"))
+library(eSVD2, lib.loc = file.path(cmp_dir, "lib", "devel_1.1.0"))
 source(file.path(work_dir, "helpers_candidates_claude.R"))
 
 gene_df <- utils::read.csv(file.path(out_dir, "genes.csv"))

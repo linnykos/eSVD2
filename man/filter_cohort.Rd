@@ -64,14 +64,14 @@ Dropping first means every threshold describes the cohort that will
 actually be analyzed.
 }
 \details{
-Every threshold is compared with \code{<=} (the count thresholds) or
-\code{<} (the per-individual and per-arm thresholds), so setting one to
-\code{0} disables it. \code{min_cells_per_id} is the one exception: a value
+\code{min_cells}, \code{min_ids} and \code{min_cells_casecontrol} reject
+at \code{<=}, and \code{min_cells_per_id} and \code{min_ids_per_arm} at
+\code{<}, so setting one to \code{0} disables it. \code{min_cells_per_id} is the one exception: a value
 of \code{1} or \code{2} would not disable the drop but weaken it, and a
 surviving one-cell individual has no within-individual variance, so it
 must be \code{0} (off) or at least \code{3}.
 
-The three rejections return the same bare \code{NA}, so the warning text
+The four rejections return the same bare \code{NA}, so the warning text
 is what tells a caller which filter fired; each names its own threshold.
 }
 \examples{

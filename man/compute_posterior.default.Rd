@@ -48,7 +48,7 @@ the output of \code{estimate_nuisance.default}. These are Gamma
 \eqn{(A_{ji} + \mu_{ji}\beta_j)/(\ell_{ji} + \beta_j)}, so a larger
 value pulls the posterior harder towards the fitted mean.}
 
-\item{alpha_max}{Maximum value of numerator when computing posterior, default is \code{1e3}.}
+\item{alpha_max}{Upper bound on the fitted mean without the library, \eqn{\mu_{ji}}, before it forms the prior \eqn{\mu_{ji}\beta_j}, default is \code{1e3}.}
 
 \item{bool_adjust_covariates}{Boolean to adjust the numerator in the posterior by the donor covariates, default is \code{FALSE}.
 This parameter is experimental, and we have not yet encountered a scenario where it is useful to be set to be \code{TRUE}.}
@@ -60,17 +60,19 @@ This parameter is experimental, and we have not yet encountered a scenario where
 \item{bool_return_components}{Boolean to return the numerator and denominator of the posterior terms as well (themselves cell-by-gene matrices), default is \code{FALSE}.}
 
 \item{bool_stabilize_underdispersion}{Boolean, default \code{TRUE}. \code{nuisance_vec}
-holds Gamma \emph{rates}, so a geometric mean above 1
-means the genes look under-dispersed on average. When
-that happens (\code{mean(log10(nuisance_vec)) > 0}), every
-gene's rate is divided by the geometric mean so that
+holds Gamma \emph{rates}, which share the units of the library
+size, so a geometric mean above 1 means less over-dispersion
+than a unit rate in those units (not under-dispersion: a finite
+rate is always over-dispersed). When that happens
+(\code{mean(log10(nuisance_vec)) > 0}), every gene's rate,
+capped ones included, is divided by the one geometric mean so that
 \code{mean(log10(nuisance_vec))} becomes 0; otherwise the
 rates are left alone.}
 
 \item{library_min}{All covariate-adjusted library size smaller than this value are set to this value, default is 0.1.}
 
 \item{nuisance_lower_quantile}{All the nuisance values that are smaller than this quantile
-are set to this quantile.}
+are set to this quantile; one number in \eqn{[0, 1]}, or \code{NULL} for no floor.}
 
 \item{pseudocount}{The additional count that is added to the count matrix, default is 0.}
 

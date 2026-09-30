@@ -17,20 +17,21 @@ generate_data(
 \eqn{n} rows represent cells and \eqn{p} columns represent genes.}
 
 \item{family}{A character string, one of \code{"gaussian"}, \code{"exponential"},
-\code{"poisson"}, \code{"neg_binom"}, \code{"curved_gaussian"},
-and \code{"bernoulli"}.}
+\code{"poisson"}, \code{"neg_binom"}, \code{"neg_binom2"},
+\code{"curved_gaussian"}, and \code{"bernoulli"}.}
 
 \item{nuisance_param_vec}{Either \code{NA} or a single numeric or a length-\eqn{p}
-vector of numerics representing nuisance parameters
-(for \code{family = "neg_binom"} and
-\code{family = "curved_gausian"}).
-It is only required if
-\code{family \%in\% c("neg_binom", "curved_gaussian")}.}
+vector of numerics representing nuisance parameters.
+It is required if \code{family} is \code{"gaussian"},
+\code{"curved_gaussian"}, \code{"neg_binom"} or
+\code{"neg_binom2"}, and ignored otherwise.}
 
-\item{library_size_vec}{Either \code{NA} or a length-\eqn{n} vector of numerics}
+\item{library_size_vec}{A single positive numeric (recycled to every cell; default \code{1})
+or a length-\eqn{n} vector of positive numerics.}
 
 \item{tol}{Small positive value to determine the smallest possible value in the output
-matrix, useful for only \code{family = "curved_gaussian"}.}
+matrix, applied only when \code{family} is \code{"gaussian"} or
+\code{"curved_gaussian"}.}
 }
 \value{
 The generated data matrix, of the same dimension as \code{nat_mat}

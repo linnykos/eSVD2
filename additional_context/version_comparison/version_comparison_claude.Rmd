@@ -1,5 +1,5 @@
 ---
-title: "eSVD2: `master` (3d5f7bf) versus `devel` (1.1.0) on simulated cohorts"
+title: "eSVD2: `master` (3d5f7bf) versus `devel` (1.2.0) on simulated cohorts"
 author: "Drafted by Claude for Kevin Z. Lin"
 date: "2026-09-29"
 output:
@@ -24,7 +24,7 @@ library(ggplot2)
 
 ```{r read_data}
 out_dir <- "output"
-version_vec <- c("master", "devel", "devel_swap")
+version_vec <- c("master", "devel", "devel_nocap", "devel_swap")
 
 gene_df <- do.call(rbind, lapply(version_vec, function(v){
   utils::read.csv(file.path(out_dir, v, "genes.csv"))
@@ -34,6 +34,17 @@ gene_df <- merge(gene_df, truth_df, by = c("regime", "rep", "gene"))
 gene_df$p <- 10^(-gene_df$log10p)
 gene_df$status <- factor(ifelse(gene_df$is_de, "DE", "null"),
                          levels = c("null", "DE"))
+
+# The rate shares units with the fitted library size, which contains the
+# gene's intercept; the generator's library averages 1. Multiplying the true
+# rate by the gene's median fitted library size (stored by 1.2.0, and the same
+# fit under every devel arm) puts both on the fit's scale.
+library_df <- gene_df[gene_df$version == "devel",
+                      c("regime", "rep", "gene", "nuisance_library_median")]
+colnames(library_df)[4] <- "s_median"
+gene_df <- merge(gene_df[, colnames(gene_df) != "nuisance_library_median"],
+                 library_df, by = c("regime", "rep", "gene"))
+gene_df$nuisance_true_fit <- gene_df$nuisance_true * gene_df$s_median
 
 run_df <- do.call(rbind, lapply(version_vec, function(v){
   utils::read.csv(file.path(out_dir, v, "runs.csv"))
@@ -46,24 +57,24 @@ wall_time_df <- utils::read.csv(file.path(out_dir, "wall_time.csv"),
 
 # One row per gene per data set, with the versions side by side.
 .wide <- function(column){
-  master_df <- gene_df[gene_df$version == "master",
-                       c("regime", "rep", "gene", "status", column)]
-  devel_df <- gene_df[gene_df$version == "devel",
-                      c("regime", "rep", "gene", column)]
-  swap_df <- gene_df[gene_df$version == "devel_swap",
-                     c("regime", "rep", "gene", column)]
-  colnames(master_df)[5] <- "master"
-  colnames(devel_df)[4] <- "devel"
-  colnames(swap_df)[4] <- "devel_swap"
-  res <- merge(master_df, devel_df, by = c("regime", "rep", "gene"))
-  merge(res, swap_df, by = c("regime", "rep", "gene"))
+  res <- gene_df[gene_df$version == "master",
+                 c("regime", "rep", "gene", "status", column)]
+  colnames(res)[5] <- "master"
+  for(v in setdiff(version_vec, "master")){
+    tmp_df <- gene_df[gene_df$version == v, c("regime", "rep", "gene", column)]
+    colnames(tmp_df)[4] <- v
+    res <- merge(res, tmp_df, by = c("regime", "rep", "gene"))
+  }
+  res
 }
 
 regime_levels <- c("baseline", "null", "strong_de", "near_poisson",
                    "minimal_design", "generate_null")
 version_col_vec <- c(master = "#2a78d6", devel = "#eb6834",
-                     devel_swap = "#1baf7a")
+                     devel_nocap = "#9e9d97", devel_swap = "#1baf7a")
 status_col_vec <- c(null = "#9e9d97", DE = "#4a3aa7")
+nuisance_status_col_vec <- c(estimated = "#2a78d6", capped = "#eb6834",
+                             boundary = "#4a3aa7")
 
 theme_set(theme_bw(base_size = 11))
 theme_update(panel.grid.minor = element_blank(),
@@ -77,15 +88,34 @@ num_null_genes <- sum(!gene_df$is_de & gene_df$version == "master" &
   idx <- gene_df$version == v & gene_df$regime == r
   sum(gene_df$fdr[idx] < 0.05 & !gene_df$is_de[idx]) / 10
 }
+.tp_per_rep <- function(v, r){
+  idx <- gene_df$version == v & gene_df$regime == r
+  sum(gene_df$fdr[idx] < 0.05 & gene_df$is_de[idx]) / 10
+}
 .type1 <- function(v, r){
   idx <- gene_df$version == v & gene_df$regime == r & !gene_df$is_de
   mean(gene_df$p[idx] < 0.05)
+}
+.within_twofold <- function(v){
+  idx <- gene_df$version == v & gene_df$regime %in%
+    c("baseline", "null", "strong_de", "minimal_design")
+  mean(abs(log2(gene_df$nuisance[idx] / gene_df$nuisance_true_fit[idx])) <= 1)
 }
 logfc_wide_df <- .wide("logFC")
 min_logfc_cor <- min(sapply(split(logfc_wide_df, logfc_wide_df$regime),
                             function(x){stats::cor(x$master, x$devel)}))
 teststat_wide_df <- .wide("teststat")
-swap_cor <- stats::cor(teststat_wide_df$master, teststat_wide_df$devel_swap)
+min_teststat_cor <- min(sapply(split(teststat_wide_df, teststat_wide_df$regime),
+                               function(x){stats::cor(x$master, x$devel)}))
+swap_max <- max(abs(teststat_wide_df$master - teststat_wide_df$devel_swap))
+
+devel_df <- gene_df[gene_df$version == "devel", ]
+ordinary_vec <- c("baseline", "null", "strong_de", "minimal_design",
+                  "generate_null")
+frac_capped_vec <- sapply(ordinary_vec, function(r){
+  mean(devel_df$nuisance_status[devel_df$regime == r] %in%
+         c("capped", "boundary"))
+})
 ```
 
 # Overview
@@ -94,12 +124,19 @@ This report compares two versions of `eSVD2` on the same simulated data:
 
 * **`master`**: git commit `3d5f7bf`, `DESCRIPTION` version 1.0.1.07. This is
   what `devtools::install_github("linnykos/eSVD2")` installs today.
-* **`devel`**: the working tree on the `devel` branch (commit `d49e402`),
-  version 1.1.0, the candidate for CRAN.
+* **`devel`**: the `devel` branch at commit `1a0a536`, version 1.2.0, the
+  candidate for CRAN. It caps each gene's nuisance rate at 10 times the median
+  of its library size (`cap_multiplier = 10`, the default).
 
-It asks two questions. **Which behaviors got better?** And **did the rewrite
-change what eSVD-DE reports on ordinary data, or mostly how it behaves at the
-edges?**
+A third arm, **`devel_nocap`**, is 1.2.0 run with `cap_multiplier = Inf`. Its
+rates are those of version 1.1.0, which is the `devel` a first edition of this
+report compared against master. It is kept as a reference, because it shows
+what the cap repairs. (Its statistics equal those of that first run to every
+stored digit.)
+
+The report asks two questions. **Which behaviors got better?** And **does
+`devel` change what eSVD-DE reports on ordinary data, or mostly how it behaves
+at the edges?**
 
 **The short answer.**
 
@@ -111,43 +148,57 @@ edges?**
    `missing value where TRUE/FALSE needed`, or finish silently with a wrong
    answer, now stop at the first step with a message that names the
    problem (section 7).
-3. **One change does move ordinary results: the overdispersion estimator
-   (`gamma_rate`).** It changes every gene's nuisance rate, so it changes
-   every Welch statistic and p-value. Replacing `devel`'s nuisance estimates
-   with `master`'s reproduces `master`'s Welch statistics at correlation
-   `r sprintf("%.4f", swap_cor)` (section 5.3). In these simulations the new
-   estimator ranks genes by their true overdispersion far better than the old
-   one, but it produces **more false discoveries**. Under the global null,
-   `r .fp_per_rep("devel", "null")` of `r num_null_genes` null genes per data set
-   reach FDR < 0.05, against `r .fp_per_rep("master", "null")` under `master`.
-   In the near-Poisson regime the type-I error at p < 0.05 is
-   `r sprintf("%.2f", .type1("devel", "near_poisson"))` against
-   `r sprintf("%.2f", .type1("master", "near_poisson"))`. **This is a
-   dramatic change, and it is not an improvement** (section 6).
+3. **The nuisance (overdispersion) rate is estimated differently, and with
+   the cap the test is calibrated as master's was.**
+   - *The estimate.* In the regimes where the rate can be estimated, `devel`
+     puts `r sprintf("%.0f%%", 100 * .within_twofold("devel"))` of genes
+     within twofold of the true rate, against
+     `r sprintf("%.0f%%", 100 * .within_twofold("master"))` for master.
+   - *False discoveries.* Under the global null, `r .fp_per_rep("devel", "null")`
+     of `r num_null_genes` null genes per data set reach FDR < 0.05, against
+     `r .fp_per_rep("master", "null")` under master and
+     `r .fp_per_rep("devel_nocap", "null")` without the cap.
+   - *The near-Poisson regime.* The type-I error at p < 0.05 is
+     `r sprintf("%.3f", .type1("devel", "near_poisson"))`, against
+     `r sprintf("%.3f", .type1("master", "near_poisson"))` for master and
+     `r sprintf("%.2f", .type1("devel_nocap", "near_poisson"))` without the cap.
+   - *The statistics.* The Welch statistics are close to master's (Pearson r
+     of at least `r sprintf("%.3f", min_teststat_cor)` in every regime), and
+     putting master's rates into `devel` still reproduces master's
+     statistics, to within `r signif(swap_max, 2)` (section 5.3).
+   - *What the cap acts on.* It acts on
+     `r sprintf("%.0f%%", 100 * min(frac_capped_vec))` to
+     `r sprintf("%.0f%%", 100 * max(frac_capped_vec))` of genes in ordinary
+     data.
+4. **The cost is small but visible.** On the `generate_null()` cohorts `devel`
+   finds `r .tp_per_rep("devel", "generate_null")` of 10 DE genes per data
+   set, against `r .tp_per_rep("master", "generate_null")` for master.
+   Elsewhere the two are within simulation noise of each other on false and
+   true discoveries (section 6.2).
 
 ## How the comparison was run
 
-The two versions are installed into separate private libraries and run in
+The versions are installed into separate private libraries and run in
 separate R processes. The step-by-step API (`initialize_esvd()` through
-`compute_pvalue()`) has the same function names and arguments in both, so
-one script drives either version, calling the steps in the order `eSVD()`
-runs them. All heavy computation happens in the scripts; this document only
-reads their CSVs.
+`compute_pvalue()`) has the same function names and arguments in both, except
+for `cap_multiplier`, which only 1.2.0 has. So one script drives every
+version, calling the steps in the order `eSVD()` runs them. All heavy
+computation happens in the scripts; this document only reads their CSVs.
 
 | Script | What it does |
 |---|---|
-| `00_install_versions_claude.sh` | `git archive 3d5f7bf` → `lib/master`; the working tree → `lib/devel` |
+| `00_install_versions_claude.sh` | `git archive 3d5f7bf` → `lib/master`; `git archive d49e402` (1.1.0) → `lib/devel_1.1.0`, used by `../overdispersion_brainstorm/`; the working tree (1.2.0) → `lib/devel` |
 | `helpers_claude.R` | the simulator and the pipeline, shared by the scripts below |
 | `01_simulate_data_claude.R` | 6 regimes × 10 replicates → `data/*.rds`, and the truth → `output/truth.csv` |
-| `02_run_regimes_claude.R` | fits all 60 data sets with one version → `output/<version>/genes.csv`, `runs.csv` |
+| `02_run_regimes_claude.R` | fits all 60 data sets with one version or arm → `output/<label>/genes.csv`, `runs.csv` |
 | `03_corner_cases_claude.R` | 12 perturbed cohorts per version → `output/<version>/corner_cases.csv` |
 | `run_all_claude.sh` | all of the above, end to end |
 
 The whole of `run_all_claude.sh` took **`r round(wall_time_df[1, 2] / 60, 1)`
 minutes** on the laptop it was run on.
 
-**`devel_swap` is an ablation, not a third version.** It runs the `devel` code
-on each data set, but right after `estimate_nuisance()` it overwrites the
+**`devel_swap` is an ablation, not a version.** It runs the `devel` code on
+each data set, but right after `estimate_nuisance()` it overwrites the
 per-gene nuisance rate with the value `master` estimated on the same data set.
 Where `devel_swap` matches `master`, the nuisance estimate explains the
 difference between the versions.
@@ -157,20 +208,25 @@ difference between the versions.
 Every regime has 20 individuals (10 case, 10 control), 30 cells each, and 300
 genes. Except for `generate_null`, the data come from the eSVD hierarchical
 model itself, using the generator of `.build_tiny_data()` in
-`tests/testthat/helper-fixtures.R`. That model has a rank-3 latent structure,
-an individual-level random effect, Sex and Age effects, a per-cell library
-size, and counts $A_{ji} \sim \mathrm{Poisson}(\ell_{ji} \lambda_{ji})$ with
-$\lambda_{ji} \sim \mathrm{Gamma}(\text{mean} = \mu_{ji}, \text{rate} = \beta_j)$.
-The truth for a gene's log2 fold change is the ratio of the arithmetic
-means of $\exp(\text{natural parameter})$ in the two arms, which is what
-both the logFC and the Welch statistic contrast.
+`tests/testthat/helper-fixtures.R`. That model has:
+
+- a rank-3 latent structure;
+- an individual-level random effect;
+- Sex and Age effects;
+- a per-cell library size;
+- counts $A_{ji} \sim \mathrm{Poisson}(\ell_{ji} \lambda_{ji})$ with
+  $\lambda_{ji} \sim \mathrm{Gamma}(\text{mean} = \mu_{ji}, \text{rate} = \beta_j)$.
+
+The truth for a gene's log2 fold change is the ratio of the arithmetic means
+of $\exp(\text{natural parameter})$ in the two arms. That is what both the
+logFC and the Welch statistic contrast.
 
 | Regime | DE genes | Nuisance rate $\beta_j$ | What it probes |
 |---|---|---|---|
 | `baseline` | 15, effect 0.8 (natural log) | U(2, 8) on the log scale | ordinary data |
 | `null` | 0 | U(2, 8) | calibration |
 | `strong_de` | 15, effect ±3 | U(2, 8) | large Welch statistics; the t → z mapping |
-| `near_poisson` | 15, effect 0.8 | U(50, 1000) | little overdispersion; the old `gamma_rate` cap |
+| `near_poisson` | 15, effect 0.8 | U(50, 1000) | little overdispersion; where the cap binds for almost every gene |
 | `minimal_design` | 15, effect 0.8 | U(2, 8) | no Sex/Age, so covariates are only Intercept + Log_UMI + CC (the GLM-fallback offset fix) |
 | `generate_null` | 10 | the package's own `generate_null()` | a generator not written for this report |
 
@@ -179,17 +235,19 @@ Each regime has 10 replicates with different seeds. The fit uses `k = 3`,
 
 # What changed, according to `NEWS.md`
 
-| Change in `devel` | Where this report looks at it |
-|---|---|
-| Welch → Gaussian mapping done on the log scale, so a large statistic no longer becomes `Inf` | 6.4 |
-| `multtest()` reports its empirical-null estimator and warns on the `locfdr` fallback; Efron's truncated MLE regains `p0 <= 1` | 6.5, 7 |
-| `gamma_rate` no longer caps its search at the largest library size | 4, 5, 6 |
-| `initialize_esvd()` refuses all-zero genes; zeroes `NA` in sparse input | 7 |
-| GLM fallback (≤ 1 covariate besides intercept and offsets) keeps the library-size offset | 3, regime `minimal_design` |
-| Collinear covariates refused by name | 7 |
-| `eSVD()` refuses individuals in both arms, one-individual arms, and individuals with too few cells | 7 |
-| Iterative SVD starts from a fixed vector (determinism) | 7 |
-| New: `log2fc_vec`, `log2fc_se_vec`, `compute_log_fold_change()` | 8 |
+| Change in `devel` | Version | Where this report looks at it |
+|---|---|---|
+| Welch → Gaussian mapping done on the log scale, so a large statistic no longer becomes `Inf` | 1.0.2 | 6.4 |
+| `multtest()` reports its empirical-null estimator and warns on the `locfdr` fallback; Efron's truncated MLE regains `p0 <= 1` | 1.0.2 | 6.5, 7 |
+| `gamma_rate` no longer caps its search at the largest library size | 1.0.2 | 4, 5, 6 |
+| `initialize_esvd()` refuses all-zero genes; zeroes `NA` in sparse input | 1.0.2 | 7 |
+| GLM fallback (≤ 1 covariate besides intercept and offsets) keeps the library-size offset | 1.0.2 | 3, regime `minimal_design` |
+| Collinear covariates refused by name | 1.0.2 | 7 |
+| `eSVD()` refuses individuals in both arms, one-individual arms, and individuals with too few cells | 1.0.2 | 7 |
+| Iterative SVD starts from a fixed vector (determinism) | 1.0.2 | 7 |
+| New: `log2fc_vec`, `log2fc_se_vec`, `compute_log_fold_change()` | 1.1.0 | 8 |
+| **The nuisance rate is capped at `cap_multiplier` (10) times the gene's median library size; a per-gene `nuisance_status`** | 1.2.0 | 4, 6, 8 |
+| New: `recompute_pvalue()`, `plot_nuisance()`, `plot_fitted_vs_observed()` | 1.2.0 | not exercised here (they need `eSVD()`'s object; see the tests) |
 
 # Point estimates: the log2 fold change
 
@@ -243,14 +301,36 @@ regime.
 `nuisance_vec` is the Gamma **rate** $\beta_j = 1/\gamma_j$: a large value
 means little overdispersion, and $\beta_j \to \infty$ is a Poisson gene.
 
+The three versions compute it as follows:
+
+- **`master`**: `gamma_rate` searched only up to the gene's largest library
+  size, so its rate is `min(MLE, max_i s_ji)`.
+- **`devel_nocap`** (1.1.0's rate): the maximum-likelihood estimate itself.
+- **`devel`** (1.2.0): `max(min(MLE, 10 · m_j), 1e-4 · m_j)`, with
+  `m_j = median_i s_ji`. A gene with no finite MLE is set to the cap.
+
+`../OVERDISPERSION_BRAINSTORM.md` explains why the cap was chosen, and
+`../overdispersion_brainstorm/overdispersion_cap_claude.html` explains it with
+formulas and plots.
+
+> **The units trap.** The rate shares its units with the fitted library size
+> `s_ji`, which contains the gene's intercept. The simulator's library size
+> averages 1. So the simulator's rate is not on the fit's scale. The first
+> edition of this report compared the two directly and concluded that the
+> uncapped estimate was "biased upward two- to threefold". Most of that was
+> the units. Below, the true rate is multiplied by the gene's median fitted
+> library size before the comparison.
+
 ## Against the truth
 
-```{r nuisance_truth, fig.width=9, fig.height=6}
-plot_df <- gene_df[gene_df$version %in% c("master", "devel") &
+```{r nuisance_truth, fig.width=9, fig.height=7.5}
+plot_df <- gene_df[gene_df$version %in% c("master", "devel_nocap", "devel") &
                      gene_df$regime != "generate_null", ]
 plot_df$regime <- factor(plot_df$regime, levels = regime_levels)
-plot_df$version <- factor(plot_df$version, levels = c("master", "devel"))
-plot1 <- ggplot2::ggplot(plot_df, ggplot2::aes(x = nuisance_true, y = nuisance))
+plot_df$version <- factor(plot_df$version,
+                          levels = c("master", "devel_nocap", "devel"))
+plot1 <- ggplot2::ggplot(plot_df, ggplot2::aes(x = nuisance_true_fit,
+                                               y = nuisance))
 plot1 <- plot1 + ggplot2::geom_abline(slope = 1, intercept = 0,
                                       colour = "#52514e", linewidth = 0.5,
                                       linetype = "dashed")
@@ -261,54 +341,77 @@ plot1 <- plot1 + ggplot2::scale_x_log10()
 plot1 <- plot1 + ggplot2::scale_y_log10()
 plot1 <- plot1 + ggplot2::scale_colour_manual(values = version_col_vec,
                                               guide = "none")
-plot1 <- plot1 + ggplot2::labs(x = "True rate (log scale)",
+plot1 <- plot1 + ggplot2::labs(x = "True rate, in the fit's units (log scale)",
                                y = "Estimated rate (log scale)",
-                               title = "master's estimate carries no information about the truth; devel's ranks it but diverges",
-                               subtitle = "Dashed line is y = x. Points near 1e7 are devel estimates that ran off to the upper end of the search.")
+                               title = "master's rate ignores the truth; the MLE tracks it but some genes diverge; the cap keeps the tracking and removes the divergence",
+                               subtitle = "Dashed line is y = x. devel_nocap's points near 1e7 are genes with no finite MLE.")
 plot(plot1)
 ```
 
 ```{r nuisance_table}
 nuisance_acc_df <- do.call(rbind, lapply(setdiff(regime_levels, "generate_null"),
                                          function(r){
-  do.call(rbind, lapply(c("master", "devel"), function(v){
+  do.call(rbind, lapply(c("master", "devel_nocap", "devel"), function(v){
     x <- gene_df[gene_df$regime == r & gene_df$version == v, ]
+    ratio_vec <- x$nuisance / x$nuisance_true_fit
     data.frame(regime = r,
                version = v,
                spearman = stats::cor(x$nuisance, x$nuisance_true,
                                      method = "spearman"),
-               median_ratio = stats::median(x$nuisance / x$nuisance_true),
-               max_estimate = max(x$nuisance),
+               median_ratio = stats::median(ratio_vec),
+               within_twofold = mean(abs(log2(ratio_vec)) <= 1),
                frac_diverged = mean(x$nuisance > 1e4))
   }))
 }))
-knitr::kable(nuisance_acc_df, digits = c(0, 0, 2, 2, 0, 3),
+knitr::kable(nuisance_acc_df, digits = c(0, 0, 2, 2, 2, 3),
              col.names = c("Regime", "Version", "Spearman with truth",
-                           "Median estimate / truth", "Largest estimate",
+                           "Median estimate / truth", "Within twofold",
                            "Fraction > 1e4"),
-             caption = "Nuisance rate against the truth, all genes and replicates.")
+             caption = "Nuisance rate against the truth in the fit's units, all genes and replicates.")
 ```
 
-What the plot and table show:
+```{r status_table}
+status_df <- do.call(rbind, lapply(regime_levels, function(r){
+  x <- devel_df[devel_df$regime == r, ]
+  data.frame(regime = r,
+             estimated = mean(x$nuisance_status == "estimated"),
+             capped = mean(x$nuisance_status == "capped"),
+             boundary = mean(x$nuisance_status == "boundary"),
+             failed = mean(x$nuisance_status == "failed"),
+             median_library = stats::median(x$s_median))
+}))
+knitr::kable(status_df, digits = 3,
+             col.names = c("Regime", "estimated", "capped", "boundary",
+                           "failed", "Median of m_j"),
+             caption = "devel: share of genes by nuisance_status, all genes and replicates. The cap is 10 times m_j.")
+```
 
-* **`master`'s estimates are nearly independent of the truth** (Spearman
-  near 0) and never exceed a few tens: the old search interval ended at
-  the largest library size. Even in `near_poisson`, where the true rates are
-  50 to 1000, `master` reports rates in the single digits and tens. It
-  therefore treats every gene as moderately overdispersed.
-* **`devel` ranks the genes correctly** (Spearman about 0.6 when the truth is
-  U(2, 8)), **but it is biased upward two- to threefold, and some estimates
-  diverge.** About 0.5% of ordinary genes, and about half of the
-  `near_poisson` genes, land near $10^7$. This is Q10 / Q-LFC-1 in
-  `CLAUDE_kevin.md`, now with a measured consequence.
+What the plot and tables show:
+
+* **`master`'s estimates are nearly independent of the truth** (Spearman near
+  0). Its rate is `min(MLE, max_i s_ji)`, and in these regimes nearly every
+  gene sits at that bound (78% to 100%, `../OVERDISPERSION_BRAINSTORM.md`
+  section 2.1). What master reports is close to the largest library size of
+  the gene, not a property of its overdispersion. In `near_poisson`, where
+  the true rates are far above any library size, it is two orders of
+  magnitude too small.
+* **The MLE (`devel_nocap`) is accurate where a finite estimate exists**: its
+  median ratio to the truth is 1.04 to 1.16 in the four ordinary regimes. But
+  a few genes per data set have no finite MLE and run to about 1e7, and in
+  `near_poisson` about half of them do.
+* **The cap keeps the MLE's accuracy and removes the divergence.** In the
+  ordinary regimes it acts on about a tenth of the genes, and it raises the
+  share within twofold of the truth from about 89% to about 95%. In
+  `near_poisson` no version recovers the rate: those genes are close to
+  Poisson, the likelihood is flat, and every estimate is a bound.
 
 ## Why the nuisance matters downstream
 
-The posterior shrinks each cell's observed count toward the fitted mean with
-weight governed by $\beta_j$. A huge $\beta_j$ makes the posterior collapse onto
-the fitted mean. The within-individual posterior variance then vanishes, the
-denominator of the Welch statistic shrinks, and the statistic grows. The next
-section follows that chain through to the p-values.
+The posterior shrinks each cell's observed count toward the fitted mean, with
+a weight governed by $\beta_j$. A huge $\beta_j$ makes the posterior collapse
+onto the fitted mean. The within-individual posterior variance then vanishes,
+the denominator of the Welch statistic shrinks, and the statistic grows. The
+cap bounds how far that collapse can go.
 
 # Test statistics and p-values
 
@@ -327,8 +430,8 @@ plot1 <- plot1 + ggplot2::scale_colour_manual(values = status_col_vec,
                                               name = "True status")
 plot1 <- plot1 + ggplot2::labs(x = "master: Welch statistic",
                                y = "devel: Welch statistic",
-                               title = "Most genes sit on y = x; a few leave it by an order of magnitude",
-                               subtitle = "Grey line is y = x. The genes far off the line are those whose devel nuisance rate diverged (section 6.3).")
+                               title = "With the cap, devel's Welch statistics sit close to master's",
+                               subtitle = "Grey line is y = x")
 plot(plot1)
 ```
 
@@ -350,14 +453,14 @@ plot(plot1)
 ```
 
 ```{r teststat_table}
+log10p_wide_df <- .wide("log10p")
 stat_agree_df <- do.call(rbind, lapply(regime_levels, function(r){
   x <- teststat_wide_df[teststat_wide_df$regime == r, ]
-  y <- .wide("log10p")
-  y <- y[y$regime == r, ]
+  y <- log10p_wide_df[log10p_wide_df$regime == r, ]
   data.frame(regime = r,
              teststat_cor = stats::cor(x$master, x$devel),
              teststat_median = stats::median(abs(x$master - x$devel)),
-             swap_cor = stats::cor(x$master, x$devel_swap),
+             nocap_cor = stats::cor(x$master, x$devel_nocap),
              swap_max = max(abs(x$master - x$devel_swap)),
              log10p_spearman = stats::cor(y$master, y$devel,
                                           method = "spearman"))
@@ -365,26 +468,32 @@ stat_agree_df <- do.call(rbind, lapply(regime_levels, function(r){
 knitr::kable(stat_agree_df, digits = 4,
              col.names = c("Regime", "Welch r (master, devel)",
                            "Median |Δ| (master, devel)",
-                           "Welch r (master, devel_swap)",
+                           "Welch r (master, devel_nocap)",
                            "Max |Δ| (master, devel_swap)",
                            "−log10 p Spearman (master, devel)"),
              caption = "Agreement of test statistics; all genes and replicates.")
 ```
 
-The Pearson correlations in the second column understate the agreement for
-most genes. The typical gene moves little (median |Δ| in the third column),
-and the correlation is pulled down by the few genes that move a great deal.
+**With the cap, `devel`'s statistics are closer to `master`'s than the
+uncapped ones were.** The correlation with master rises from the fourth
+column (`devel_nocap`) to the second (`devel`) in every regime, and the
+typical gene moves by a few hundredths.
 
 ## The ablation: the nuisance estimate is the whole difference
 
-The table's third column is the decisive one. **Put `master`'s nuisance rates
-into the `devel` code and the Welch statistics match `master`'s in every regime**: to within 0.006, and to all six stored
-digits in four of the six regimes. The other changes between the versions (the
-reparameterization by QR, the offset in the GLM fallback, the deterministic
-SVD start, the rewritten empirical-null estimators) move nothing that reaches
-the statistic in these regimes. Everything that differs between the versions'
-Welch statistics comes from the one line that changed `gamma_rate`'s search
-interval.
+**Put `master`'s nuisance rates into the `devel` code and the Welch statistics
+match `master`'s in every regime**, to within `r signif(swap_max, 2)`, and to
+all six stored digits in most regimes. The other changes between the versions
+move nothing that reaches the statistic in these regimes:
+
+- the reparameterization by QR;
+- the offset in the GLM fallback;
+- the deterministic SVD start;
+- the rewritten empirical-null estimators.
+
+What remains between `master` and `devel` is therefore the difference between
+two bounds on the rate: master's `max_i s_ji`, which most genes sit at, and
+`devel`'s `10 · median_i s_ji`, which about a tenth of them sit at.
 
 ```{r swap_scatter, fig.width=9, fig.height=3.5}
 plot_df <- teststat_wide_df[teststat_wide_df$regime %in%
@@ -398,7 +507,7 @@ plot1 <- plot1 + ggplot2::geom_point(colour = version_col_vec[["devel_swap"]],
 plot1 <- plot1 + ggplot2::facet_wrap(~ regime, nrow = 1, scales = "free")
 plot1 <- plot1 + ggplot2::labs(x = "master: Welch statistic",
                                y = "devel with master's nuisance: Welch statistic",
-                               title = "devel_swap reproduces master exactly")
+                               title = "devel_swap reproduces master")
 plot(plot1)
 ```
 
@@ -412,7 +521,7 @@ estimated empirical null. Each panel pools the null genes of all 10 replicates.
 ```{r qq_plot, fig.width=9, fig.height=5.5}
 qq_list <- list()
 for(r in regime_levels){
-  for(v in c("master", "devel")){
+  for(v in c("master", "devel_nocap", "devel")){
     p_vec <- gene_df$p[gene_df$regime == r & gene_df$version == v &
                          !gene_df$is_de]
     p_vec <- sort(p_vec)
@@ -424,7 +533,8 @@ for(r in regime_levels){
 }
 qq_df <- do.call(rbind, qq_list)
 qq_df$regime <- factor(qq_df$regime, levels = regime_levels)
-qq_df$version <- factor(qq_df$version, levels = c("master", "devel"))
+qq_df$version <- factor(qq_df$version,
+                        levels = c("master", "devel_nocap", "devel"))
 plot1 <- ggplot2::ggplot(qq_df, ggplot2::aes(x = expected, y = observed))
 plot1 <- plot1 + ggplot2::geom_abline(slope = 1, intercept = 0,
                                       colour = "#52514e", linewidth = 0.5,
@@ -436,7 +546,7 @@ plot1 <- plot1 + ggplot2::scale_colour_manual(values = version_col_vec,
                                               name = "Version")
 plot1 <- plot1 + ggplot2::labs(x = "Expected −log10 p (uniform)",
                                y = "Observed −log10 p, null genes",
-                               title = "devel's null p-values have a heavier upper tail; near_poisson is badly miscalibrated")
+                               title = "The cap brings devel's null tail back to master's; without it the tail is heavy")
 plot(plot1)
 ```
 
@@ -467,7 +577,7 @@ knitr::kable(discovery_df, digits = c(0, 0, 3, 1, 1, 0, 3),
 ```{r fp_plot, fig.width=9, fig.height=3.8}
 fp_list <- list()
 for(r in regime_levels){
-  for(v in c("master", "devel")){
+  for(v in c("master", "devel_nocap", "devel")){
     for(i in 1:10){
       idx <- gene_df$regime == r & gene_df$version == v & gene_df$rep == i
       fp_list[[paste(r, v, i)]] <- data.frame(regime = r,
@@ -480,7 +590,8 @@ for(r in regime_levels){
 }
 fp_df <- do.call(rbind, fp_list)
 fp_df$regime <- factor(fp_df$regime, levels = regime_levels)
-fp_df$version <- factor(fp_df$version, levels = c("master", "devel"))
+fp_df$version <- factor(fp_df$version,
+                        levels = c("master", "devel_nocap", "devel"))
 plot1 <- ggplot2::ggplot(fp_df, ggplot2::aes(x = version, y = fp + 1))
 plot1 <- plot1 + ggplot2::geom_point(ggplot2::aes(colour = version),
                                      position = ggplot2::position_jitter(width = 0.15,
@@ -491,6 +602,8 @@ plot1 <- plot1 + ggplot2::facet_wrap(~ regime, nrow = 1)
 plot1 <- plot1 + ggplot2::scale_y_log10()
 plot1 <- plot1 + ggplot2::scale_colour_manual(values = version_col_vec,
                                               guide = "none")
+plot1 <- plot1 + ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 45,
+                                                                    hjust = 1))
 plot1 <- plot1 + ggplot2::labs(x = NULL,
                                y = "False discoveries + 1 (log scale)",
                                title = "False discoveries per data set at FDR < 0.05",
@@ -500,79 +613,97 @@ plot(plot1)
 
 What this shows:
 
-* **At p < 0.05 the null genes are calibrated in both versions in the ordinary
-  regimes** (type-I error 0.04 to 0.06). The empirical null absorbs most of
-  the shift in the statistics.
-* **The difference is in the far tail, which is where FDR control acts.**
-  `devel`'s null statistics have a heavier upper tail, so a few null genes
-  per data set pass BH. About a quarter to a half of those (all of them in
-  `near_poisson`) are genes whose
-  nuisance rate diverged (section 6.3). The rest reflect the general upward
-  bias of `devel`'s rates.
-* **`near_poisson` is badly miscalibrated under `devel`**: about 60 of 285
-  null genes per data set are declared DE, and power also drops. In that
-  regime about half the genes' rates diverge, the empirical null is fitted to
-  a mixture of collapsed and uncollapsed genes, and neither group is scored
-  correctly.
-* **`master` is not "right" here either.** Its rates ignore the truth, but
-  treating every gene as moderately overdispersed happens to be
-  conservative, so its errors are errors of caution.
+* **At p < 0.05 the null genes are calibrated in `devel` and `master` in every
+  regime** (type-I error 0.03 to 0.07). Without the cap, `near_poisson` was at
+  `r sprintf("%.2f", .type1("devel_nocap", "near_poisson"))`.
+* **In the far tail, where FDR control acts, `devel` and `master` are within
+  simulation noise of each other.**
+  - `devel` has slightly more false discoveries in `baseline`,
+    `minimal_design` and `strong_de` (0.3 to 0.4 more per data set).
+  - It has slightly fewer in `near_poisson` and `generate_null`.
+  - The standard error of these per-data-set counts is about 0.5, so none of
+    the differences is resolved.
+  - Without the cap, false discoveries were 2 to 19 times master's in five
+    regimes, and 63 per data set (24 times master's) in `near_poisson`.
+* **Power is the same except on `generate_null()`**, where `devel` finds
+  `r .tp_per_rep("devel", "generate_null")` of 10 DE genes against master's
+  `r .tp_per_rep("master", "generate_null")`. Without the cap it found
+  `r .tp_per_rep("devel_nocap", "generate_null")`. So the loss comes from
+  estimating the rate rather than capping it at master's bound, not from the
+  cap itself.
+* **`master` is not "right" in the sense of estimating anything.** Its rates
+  ignore the truth (section 4.1). Treating every gene as moderately
+  overdispersed happens to be conservative, and the cap reaches the same
+  calibration while letting nine genes in ten keep their own estimate.
 
 ## Where devel's false discoveries come from
 
-**A diverged rate is close to a guaranteed false discovery.** In the ordinary
-regimes, 74% to 100% of the null genes whose rate diverged reach FDR < 0.05,
-against under 1% of the others (table below). The divergence is rare
-(about 0.5% of genes), but each occurrence is almost always an error.
+The table splits the null genes of `devel` by their `nuisance_status`, and the
+null genes of `devel_nocap` by whether their rate diverged.
 
-```{r near_poisson_mechanism, fig.width=9, fig.height=4}
-plot_df <- gene_df[gene_df$version == "devel" &
-                     gene_df$regime %in% c("null", "near_poisson"), ]
-plot_df$regime <- factor(plot_df$regime, levels = regime_levels)
+```{r status_fp_table}
+nocap_df <- gene_df[gene_df$version == "devel_nocap", ]
+status_fp_df <- do.call(rbind, lapply(regime_levels, function(r){
+  x <- devel_df[devel_df$regime == r & !devel_df$is_de, ]
+  y <- nocap_df[nocap_df$regime == r & !nocap_df$is_de, ]
+  .rate <- function(z, idx){
+    if(!any(idx)) return(NA)
+    mean(z$fdr[idx] < 0.05)
+  }
+  data.frame(regime = r,
+             fp_estimated = .rate(x, x$nuisance_status == "estimated"),
+             fp_capped = .rate(x, x$nuisance_status == "capped"),
+             fp_boundary = .rate(x, x$nuisance_status == "boundary"),
+             fp_nocap_diverged = .rate(y, y$nuisance > 1e4),
+             fp_nocap_other = .rate(y, y$nuisance <= 1e4))
+}))
+knitr::kable(status_fp_df, digits = 3,
+             col.names = c("Regime", "devel: estimated", "devel: capped",
+                           "devel: boundary", "devel_nocap: rate > 1e4",
+                           "devel_nocap: others"),
+             caption = "Share of null genes at FDR < 0.05, by the status of their nuisance rate.")
+```
+
+```{r status_mechanism, fig.width=9, fig.height=4}
+plot_df <- gene_df[gene_df$version %in% c("devel_nocap", "devel") &
+                     gene_df$regime == "null", ]
+plot_df$version <- factor(plot_df$version, levels = c("devel_nocap", "devel"))
 plot_df$discovery <- ifelse(plot_df$fdr < 0.05, "FDR < 0.05", "not significant")
-plot1 <- ggplot2::ggplot(plot_df, ggplot2::aes(x = nuisance, y = abs(teststat)))
-plot1 <- plot1 + ggplot2::geom_point(ggplot2::aes(colour = discovery,
-                                                  shape = status),
+plot1 <- ggplot2::ggplot(plot_df, ggplot2::aes(x = nuisance / s_median,
+                                               y = abs(teststat)))
+plot1 <- plot1 + ggplot2::geom_vline(xintercept = 10, colour = "#52514e",
+                                     linetype = "dashed", linewidth = 0.4)
+plot1 <- plot1 + ggplot2::geom_point(ggplot2::aes(colour = discovery),
                                      size = 1.2, alpha = 0.7)
-plot1 <- plot1 + ggplot2::facet_wrap(~ regime, nrow = 1, scales = "free_y")
+plot1 <- plot1 + ggplot2::facet_wrap(~ version, nrow = 1)
 plot1 <- plot1 + ggplot2::scale_x_log10()
 plot1 <- plot1 + ggplot2::scale_colour_manual(values = c(`FDR < 0.05` = "#eb6834",
                                                          `not significant` = "#9e9d97"),
                                               name = NULL)
-plot1 <- plot1 + ggplot2::scale_shape_manual(values = c(null = 16, DE = 17),
-                                             name = "True status")
-plot1 <- plot1 + ggplot2::labs(x = "devel: estimated nuisance rate (log scale)",
+plot1 <- plot1 + ggplot2::labs(x = "Unit-free rate, nuisance / median library size (log scale)",
                                y = "|Welch statistic|",
-                               title = "A diverged rate (right-hand cluster) inflates the Welch statistic")
+                               title = "null regime: without the cap, diverged genes (far right) are false discoveries; the cap (dashed) pulls them in",
+                               subtitle = "All null genes of 10 replicates")
 plot(plot1)
 ```
 
-```{r diverged_table}
-devel_df <- gene_df[gene_df$version == "devel", ]
-diverged_df <- do.call(rbind, lapply(regime_levels, function(r){
-  x <- devel_df[devel_df$regime == r & !devel_df$is_de, ]
-  fp_vec <- x$fdr < 0.05
-  data.frame(regime = r,
-             frac_diverged = mean(x$nuisance > 1e4),
-             fp_rate_diverged = mean(fp_vec[x$nuisance > 1e4]),
-             fp_rate_other = mean(fp_vec[x$nuisance <= 1e4]))
-}))
-knitr::kable(diverged_df, digits = 3,
-             col.names = c("Regime", "Fraction of null genes with rate > 1e4",
-                           "FDR < 0.05 rate, diverged", "FDR < 0.05 rate, others"),
-             caption = "devel only: false-discovery rate among null genes, split by whether the nuisance estimate diverged.")
-```
+* **Without the cap, a diverged rate was close to a guaranteed false
+  discovery** in the ordinary regimes. Each such gene was almost always an
+  error.
+* **With the cap, no boundary gene is a false discovery in the ordinary
+  regimes.** The false discoveries that remain are spread over estimated and
+  capped genes, at under 2% of null genes of either status. Capped genes carry a
+  somewhat higher share than estimated ones: they are the genes nearest the
+  bound, and the bound still gives them less posterior variance than most.
 
 ## The t → z mapping (`NEWS`: "no longer produces an infinite statistic")
 
 `master` computed the Gaussian statistic as `qnorm(pt(T, df))`, which returns
-`Inf` once `pt()` rounds to 1. `devel` works on the log scale. **In these
-simulations `master` never reached `Inf`**, because its capped nuisance rates
-keep its Welch statistics below about 26. Applying the old mapping to
-**`devel`'s** statistics shows where it would have failed:
+`Inf` once `pt()` rounds to 1. `devel` works on the log scale. Applying the
+old mapping to each arm's statistics shows where it would have failed:
 
 ```{r t_to_z_table}
-tz_df <- do.call(rbind, lapply(c("master", "devel"), function(v){
+tz_df <- do.call(rbind, lapply(c("master", "devel_nocap", "devel"), function(v){
   x <- gene_df[gene_df$version == v, ]
   z_old_vec <- stats::qnorm(stats::pt(x$teststat, df = x$df))
   data.frame(version = v,
@@ -587,9 +718,10 @@ knitr::kable(tz_df, digits = 1,
              caption = "All 60 data sets.")
 ```
 
-So the log-scale mapping is a real fix, but the situation it guards against
-arises chiefly because of the other change: the uncapped nuisance rate
-produces the huge statistics.
+With the cap, `devel`'s largest statistic is back near master's (about 26, in
+`strong_de`), and the old mapping would not have overflowed on these data.
+The log-scale mapping remains the correct computation; the uncapped rate was
+what made it necessary in practice.
 
 ## Which empirical-null estimator ran
 
@@ -604,9 +736,10 @@ knitr::kable(as.data.frame.matrix(method_tab),
 ```
 
 ```{r null_param_plot, fig.width=9, fig.height=3.5}
-plot_df <- run_df[run_df$version %in% c("master", "devel"), ]
+plot_df <- run_df[run_df$version %in% c("master", "devel_nocap", "devel"), ]
 plot_df$regime <- factor(plot_df$regime, levels = regime_levels)
-plot_df$version <- factor(plot_df$version, levels = c("master", "devel"))
+plot_df$version <- factor(plot_df$version,
+                          levels = c("master", "devel_nocap", "devel"))
 plot1 <- ggplot2::ggplot(plot_df, ggplot2::aes(x = version, y = null_sd))
 plot1 <- plot1 + ggplot2::geom_point(ggplot2::aes(colour = version),
                                      position = ggplot2::position_jitter(width = 0.15,
@@ -616,14 +749,19 @@ plot1 <- plot1 + ggplot2::geom_point(ggplot2::aes(colour = version),
 plot1 <- plot1 + ggplot2::facet_wrap(~ regime, nrow = 1, scales = "free_y")
 plot1 <- plot1 + ggplot2::scale_colour_manual(values = version_col_vec,
                                               guide = "none")
+plot1 <- plot1 + ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 45,
+                                                                    hjust = 1))
 plot1 <- plot1 + ggplot2::labs(x = NULL, y = "Estimated null SD",
                                title = "Empirical-null SD per replicate")
 plot(plot1)
 ```
 
-`devel` falls back from `locfdr` to the truncated MLE in a minority of
-replicates, most often in `null` and `strong_de`, and says so with a warning.
-`master` may have fallen back just as often; it had no way to report it.
+`locfdr` converges more often under the cap than without it. The fallback to
+the truncated MLE is now mostly in `strong_de`, where the DE genes' large
+statistics distort the spline fit. `devel` warns when it falls back; `master`
+may have fallen back as often, but had no way to report it. In
+`near_poisson` the uncapped arm's null SD was more than twice master's, and
+the cap brings it back.
 
 # Corner cases
 
@@ -655,93 +793,104 @@ knitr::kable(corner_wide_df,
 
 Reading the table:
 
-* **Fixed, and clearly better.** `collinear_covariate` and `confounded_design`
-  (Sex identical to case-control status) used to fail two stages later with
-  `missing value where TRUE/FALSE needed` from `opt_esvd()`. Now they stop in
-  `initialize_esvd()`, which names the redundant column. `all_zero_gene` used
-  to finish with glmnet convergence warnings and fit the zero genes anyway;
-  now it is refused by name and pointed at `eSVD_helper()`.
-  `one_case_individual` used to die in `compute_pvalue()` on `NaN`s; now it
-  stops in `compute_test_statistic()` with an explanation.
-  `two_cell_individual` used to run silently; now it is refused (it can be
-  overridden with `min_cells_per_individual = 0`).
+* **Fixed, and clearly better.**
+  - `collinear_covariate` and `confounded_design` (Sex identical to
+    case-control status) used to fail two stages later with `missing value
+    where TRUE/FALSE needed` from `opt_esvd()`. Now they stop in
+    `initialize_esvd()`, which names the redundant column.
+  - `all_zero_gene` used to finish with glmnet convergence warnings and fit
+    the zero genes anyway. Now it is refused by name and pointed at
+    `eSVD_helper()`.
+  - `one_case_individual` used to die in `compute_pvalue()` on `NaN`s. Now it
+    stops in `compute_test_statistic()` with an explanation.
+  - `two_cell_individual` used to run silently. Now it is refused, and can be
+    overridden with `min_cells_per_individual = 0`.
 * **`few_genes` is the most striking row.** With 30 genes, `master` declared
-  **every gene significant**, silently. Its unconstrained fallback estimator
-  gave a degenerate empirical null. `devel`'s `locfdr` converged here and
-  called nothing significant, which is conservative but at least not
-  nonsense. (Across the head-to-head regimes `devel` does fall back in some
-  replicates, and it warns when it does.)
+  **every gene significant**, silently: its unconstrained fallback estimator
+  gave a degenerate empirical null. `devel` calls nothing significant. Under
+  1.1.0, `locfdr` converged on this cohort; under the cap it does not, and
+  `devel` falls back to the truncated MLE and says so in a warning. The
+  answer is the same either way.
+* **The reference cohort** finds 10 genes at FDR < 0.05 under `devel`, as
+  under `master`. Under 1.1.0 it found 13, which included false discoveries.
 * **Unchanged.** `individual_in_both_arms` is refused by the same
   `stopifnot()` in both versions. The friendlier check lives in `eSVD()`,
   which these scripts do not call.
-* **Not a practical difference in these data.** `determinism`: `master`'s
-  two fits after different `set.seed()` calls differed by about 1e-11 in the
-  Welch statistic, so its random SVD start rarely mattered here; `devel` is
-  bit-identical. `sparse_input` agrees with dense input in both.
-* **`sparse_na` shows a gap between `NEWS.md` and behavior.** `NEWS` says
-  `initialize_esvd()` now zeroes `NA` counts in sparse matrices, but the
-  pipeline never gets that far: `format_covariates()` computes
-  `Log_UMI = log(rowSums(dat))`, which is `NA` for that cell, and
-  `initialize_esvd()` then stops on the covariates. The error is clearer
-  than `master`'s (`covariates` contains NA versus `missing value where
-  TRUE/FALSE needed`), but it names the covariates rather than the count
-  that caused them. The zeroing only helps a caller who builds the covariates
-  some other way.
+* **`determinism`**: `devel` is bit-identical across two fits after different
+  `set.seed()` calls. `sparse_input` agrees with dense input in both versions.
+* **`sparse_na` shows a gap between `NEWS.md` and behavior.**
+  - `NEWS` says `initialize_esvd()` now zeroes `NA` counts in sparse
+    matrices, but the pipeline never gets that far.
+  - `format_covariates()` computes `Log_UMI = log(rowSums(dat))`, which is
+    `NA` for that cell, and `initialize_esvd()` then stops on the covariates.
+  - The error is clearer than `master`'s (`covariates` contains NA, against
+    `missing value where TRUE/FALSE needed`). But it names the covariates
+    rather than the count that caused them.
+  - The zeroing only helps a caller who builds the covariates some other way.
 * **`extreme_de`** (five genes up by $e^4$ on nearly Poisson genes): both
-  versions find the five genes. Neither overflowed at this size.
+  versions find the five genes, and neither overflowed at this size. `devel`
+  warns because `locfdr` falls back.
 
-# New in devel: a standard error for the log2 fold change
+# New since 1.1.0: a standard error for the log2 fold change
 
 `master` has no counterpart. Below, the interval `logFC ± 2 SE` is checked
-against the true log2 fold change, split by whether the gene's nuisance rate
-diverged.
+against the true log2 fold change. For `devel` it is split by
+`nuisance_status`, and for `devel_nocap` by whether the rate diverged.
 
 ```{r se_table}
+.cover <- function(x, idx){
+  if(!any(idx)) return(NA)
+  mean(abs(x$logFC[idx] - x$truth_log2fc[idx]) <= 2 * x$logFC_se[idx])
+}
 se_df <- do.call(rbind, lapply(regime_levels, function(r){
   x <- devel_df[devel_df$regime == r, ]
-  cover_vec <- abs(x$logFC - x$truth_log2fc) <= 2 * x$logFC_se
-  diverged_vec <- x$nuisance > 1e4
+  y <- nocap_df[nocap_df$regime == r, ]
   data.frame(regime = r,
-             coverage_ordinary = mean(cover_vec[!diverged_vec]),
-             coverage_diverged = ifelse(any(diverged_vec),
-                                        mean(cover_vec[diverged_vec]), NA),
+             cover_estimated = .cover(x, x$nuisance_status == "estimated"),
+             cover_capped = .cover(x, x$nuisance_status == "capped"),
+             cover_boundary = .cover(x, x$nuisance_status == "boundary"),
+             cover_nocap_diverged = .cover(y, y$nuisance > 1e4),
              median_se = stats::median(x$logFC_se))
 }))
 knitr::kable(se_df, digits = 3,
-             col.names = c("Regime", "Coverage of ±2 SE, ordinary rate",
-                           "Coverage of ±2 SE, diverged rate", "Median SE"),
-             caption = "devel only, all genes and replicates.")
+             col.names = c("Regime", "devel: estimated", "devel: capped",
+                           "devel: boundary", "devel_nocap: rate > 1e4",
+                           "devel: median SE"),
+             caption = "Coverage of ±2 SE, all genes and replicates.")
 ```
 
 ```{r se_plot, fig.width=8, fig.height=4.5}
 plot_df <- devel_df[devel_df$regime == "baseline" & devel_df$rep == 1, ]
-plot_df$diverged <- ifelse(plot_df$nuisance > 1e4, "rate diverged", "ordinary")
+plot_df$nuisance_status <- factor(plot_df$nuisance_status,
+                                  levels = names(nuisance_status_col_vec))
 plot1 <- ggplot2::ggplot(plot_df, ggplot2::aes(x = truth_log2fc, y = logFC))
 plot1 <- plot1 + ggplot2::geom_abline(slope = 1, intercept = 0,
                                       colour = "#c3c2b7", linewidth = 0.5)
 plot1 <- plot1 + ggplot2::geom_errorbar(ggplot2::aes(ymin = logFC - 2 * logFC_se,
                                                      ymax = logFC + 2 * logFC_se,
-                                                     colour = diverged),
+                                                     colour = nuisance_status),
                                         width = 0, alpha = 0.5)
-plot1 <- plot1 + ggplot2::geom_point(ggplot2::aes(colour = diverged), size = 1.2)
-plot1 <- plot1 + ggplot2::scale_colour_manual(values = c(ordinary = "#2a78d6",
-                                                         `rate diverged` = "#eb6834"),
-                                              name = NULL)
+plot1 <- plot1 + ggplot2::geom_point(ggplot2::aes(colour = nuisance_status),
+                                     size = 1.2)
+plot1 <- plot1 + ggplot2::scale_colour_manual(values = nuisance_status_col_vec,
+                                              name = NULL, drop = FALSE)
 plot1 <- plot1 + ggplot2::labs(x = "True log2 fold change",
                                y = "devel: log2 fold change ± 2 SE",
                                title = "baseline, replicate 1")
 plot(plot1)
 ```
 
-For genes with an ordinary nuisance estimate, the SE covers the truth at or
-above the nominal rate in five of the six regimes: it is conservative, as
-`CLAUDE_kevin.md` notes, because the within-individual term dominates. The
-exception is `strong_de` (coverage 0.84). There, the ±3 effects move each
-case cell's total count, so the `Log_UMI` depth adjustment shifts every
-gene's fold change. That is the bias recorded in `CLAUDE_kevin.md`, which an
-SE cannot absorb. For genes whose rate diverged,
-the interval collapses and coverage falls well below nominal. This is the
-same failure as in section 6, seen from the SE's side.
+**Under the cap the SE covers the truth at or above the nominal rate for
+genes of every status, in five of the six regimes.** It is conservative,
+because the within-individual term dominates. Without the cap, genes whose
+rate diverged had coverage well below nominal: their interval collapsed with
+the posterior variance. This answers, in simulation, the part of Q-LFC-1
+that asked whether the cap repairs the SE.
+
+The exception is `strong_de` (coverage about 0.85 for estimated genes, and
+lower for capped ones), with or without the cap. There, the ±3 effects move
+each case cell's total count, so the `Log_UMI` depth adjustment shifts every
+gene's fold change. That is a bias, which an SE cannot absorb.
 
 # Runtime
 
@@ -750,56 +899,73 @@ runtime_df <- stats::aggregate(seconds ~ regime + version, data = run_df,
                                FUN = stats::median)
 runtime_wide_df <- stats::reshape(runtime_df, idvar = "regime",
                                   timevar = "version", direction = "wide")
+colnames(runtime_wide_df) <- sub("^seconds\\.", "", colnames(runtime_wide_df))
 knitr::kable(runtime_wide_df, digits = 2,
-             col.names = c("Regime", "devel (s)", "devel_swap (s)", "master (s)"),
              caption = "Median seconds per fit (600 cells × 300 genes).")
 ```
 
-`devel` is about 35-55% slower on these small fits (about 0.6 s per fit).
-The cost has not been profiled, so where it comes from is not known.
+`devel` is about a third slower than `master` on these small fits (about 0.6 s
+per fit). The cap itself costs nothing measurable (`devel` against
+`devel_nocap`). The rest has not been profiled.
 
 # Verdict
 
 * **On the estimate researchers report first, the fold change, nothing
   changed.**
-* **On the test, one change is dramatic, and it is not a corner-case
-  change.** Uncapping `gamma_rate` gives nuisance rates that are more
-  faithful in rank but biased upward, and occasionally divergent. That
-  shrinks posterior variances and inflates Welch statistics. In ordinary
-  regimes this costs a few false discoveries per 300 genes (from 0.2–1.8 up
-  to 2.7–3.8 per data set). In low-overdispersion data it breaks
-  calibration (type-I error 0.28 at p < 0.05). The ablation attributes all
-  of it to this one change.
+* **On the test, `devel` 1.2.0 is calibrated as `master` was, and its
+  nuisance rate means something.**
+  - `master` was calibrated by accident, through a bound at the largest
+    library size that held nearly every gene.
+  - 1.1.0 removed that bound and paid for it with false discoveries: 2.7 per
+    300 null genes under the null, and 63 in `near_poisson`.
+  - 1.2.0 bounds the rate deliberately at 10 times the median library size.
+    False discoveries return to master's level, within noise, while about
+    nine genes in ten keep their own estimate and the estimates track the
+    truth (Spearman about 0.6 against about 0).
+  - The ablation still attributes every difference in the statistics to the
+    nuisance rate.
+* **The cost** is a small loss of power on the `generate_null()` cohorts (0.7
+  of 10 DE genes per data set), and, at most, a few tenths of a false
+  discovery per data set in the ordinary regimes, which the ten replicates
+  cannot resolve.
 * **Everything else in `NEWS.md` behaves as a corner-case fix**, and in
   those corners `devel` is clearly better: clear, early errors instead of
   deep crashes, and no silent "everything is significant" on small gene
   sets.
 
-**What this suggests for the CRAN release** (Kevin's decision; nothing here
-has been changed): the `gamma_rate` change needs either a guard or an
-upper bound before release. The bound would be a principled cap on
-$\beta_j$, or a flag in `report_results()` for genes whose rate ran to the
-edge of the search. Q10 and Q-LFC-1 in `CLAUDE_kevin.md` are the open
-questions this data speaks to. The ablation machinery here (`devel_swap`)
-can test any candidate fix in about three minutes.
-
 # What we glossed over
 
-* **Only simulated data, and mostly data from the eSVD model itself.** The
-  one outside generator (`generate_null()`) shows the same pattern in
-  milder form. Real cohorts have thousands of genes, which helps `locfdr`
-  and may change the size of the tail effect.
+* **Only simulated data, and mostly data from the eSVD model itself.**
+  - The one outside generator (`generate_null()`) is also where `devel` loses
+    a little power.
+  - The default `cap_multiplier = 10` was chosen on simulations like these
+    (`../OVERDISPERSION_BRAINSTORM.md`, section 3.3), so they are not a
+    held-out test of it.
+  - One real data set is the open check (Idea 11 of the brainstorm).
 * **300 genes, 20 individuals, 30 cells per individual.** Chosen to fit the
   30-minute budget. The false-discovery counts scale with the number of
-  genes; the rates are what to compare.
+  genes; the rates are what to compare. With ten replicates the SE of a
+  per-data-set count is about 0.5.
+* **The median library size is between 0.8 and 2.5 in every regime**,
+  because the fit's library includes the gene intercept. With
+  `bool_library_includes_interept = FALSE` it would be in the thousands. That
+  is where 1.2.0's rule that a boundary gene goes to the cap itself (and not
+  to the optimizer's stopping value) matters, and it was not exercised here.
 * **`eSVD()` itself was not run**, because it needs a Seurat object. The
   scripts call its steps in the same order and with its defaults, except
-  `k = 3` and `max_iter = 50`. `compute_test_per_gene()` (the
-  `bool_diet = TRUE` path) was not compared.
+  `k = 3` and `max_iter = 50`. So `compute_test_per_gene()` (the
+  `bool_diet = TRUE` path), `recompute_pvalue()` and the diagnostic plots
+  were not compared here; the package's tests cover them.
+* **`master` is not bit-reproducible across runs on `generate_null()`.**
+  Between the first edition of this report and this one, `master`'s Welch
+  statistics on those cohorts moved by up to 0.006 on identical data, while
+  `devel`'s did not move. This is the random SVD start that `devel` fixed,
+  and it is why the ablation agrees to 0.006 rather than to every digit
+  there.
 * **The rescaling by `bool_stabilize_underdispersion`** divides every rate by
-  their geometric mean when that mean is above 1. It is on in both versions,
-  and diverged genes inflate that mean under `devel`. Its separate
-  contribution was not isolated.
+  their geometric mean when that mean is above 1. It is on in every arm.
+  Diverged genes inflated that mean under 1.1.0, and the cap bounds it. Its
+  separate contribution was not isolated.
 
 # References
 
@@ -807,4 +973,7 @@ can test any candidate fix in about three minutes.
   differential expression in single-cell RNA-seq data using exponential-family
   embeddings. *BMC Bioinformatics* 25:113.
   [doi:10.1186/s12859-024-05724-7](https://doi.org/10.1186/s12859-024-05724-7)
-* `NEWS.md` of this repository, sections 1.1.0 and 1.0.2.
+* `NEWS.md` of this repository, sections 1.2.0, 1.1.0 and 1.0.2.
+* `../OVERDISPERSION_BRAINSTORM.md` and
+  `../overdispersion_brainstorm/overdispersion_cap_claude.html`: why the cap,
+  and why 10.

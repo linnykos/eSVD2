@@ -1,5 +1,13 @@
 # eSVD2 test suite — first run against unmodified code
 
+> **Dated record (2026-08-29 to 2026-09-01), not updated since.** Every
+> finding here was resolved in versions 1.0.2 to 1.2.0. The current state of
+> the suite is at the top of `UNIT_TEST_PLAN.md` (2014 expectations passing
+> under 1.2.0), and the current state of the package is in §0 of
+> `CRAN_READINESS.md`. Finding 1.1 (`gamma_rate` could not exceed the library
+> size) was fixed in Part 6.1. Its consequence, a diverging rate, is what
+> the cap of 1.2.0 addresses (`OVERDISPERSION_BRAINSTORM.md`).
+
 **Run 2026-08-29**, R 4.5.1 / macOS (Darwin 23.2.0), `devtools::load_all()` on
 the working tree (version 1.0.1.07). **No eSVD2 R or C++ code was changed**, as
 instructed — every failure below is a statement about the package as it stands.

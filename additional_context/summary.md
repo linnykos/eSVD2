@@ -17,10 +17,19 @@ Papers are grouped by topic, not by date. Each entry is keyed by its
 `generate-paper-id` citation key, the same key used in `brainstorming_[name].md`.
 Superseded papers are marked `[SUPERSEDED by X]` rather than deleted.
 
-This folder also holds `CRAN_READINESS.md`, the working document for the current
-CRAN-submission effort. That is not a paper summary — see the file itself.
+This folder also holds working documents that are not paper summaries:
 
-Last updated: 2026-08-27
+| File | What it is |
+|---|---|
+| `CRAN_READINESS.md` | The audit driving the CRAN submission. Its §0 is the current status (1.2.0, `R CMD check` result, open questions) |
+| `UNIT_TEST_PLAN.md` | The test suite, with an ID and an oracle for each test. §2.18 to §2.21 cover the features of 1.1.0 and 1.2.0 |
+| `OVERDISPERSION_BRAINSTORM.md` | Options for bounding the nuisance rate, and the decision taken (the cap of 1.2.0) |
+| `TEST_RUN_REPORT.md`, `RMPFR_REPORT.md` | Dated records from 2026-08-29 to 2026-09-01: the suite's first run, and the `Rmpfr` experiment |
+| `version_comparison/` | master (`3d5f7bf`) against the current `devel` on simulated cohorts, as a knitted report |
+| `overdispersion_brainstorm/` | The dry-runs behind the brainstorm, and the report on the cap (`overdispersion_cap_claude.html`) |
+| `lfc-se-comparison_2026-09-28_claude.R`, `rmpfr_experiment_claude.R` | One-off scripts |
+
+Last updated: 2026-09-29 (the paper index itself is unchanged since 2026-08-27)
 
 ---
 
