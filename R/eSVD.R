@@ -70,6 +70,12 @@
 #' @param bool_library_includes_interept  See \code{estimate_nuisance}.
 #' @param bool_stabilize_underdispersion  See \code{compute_posterior}.
 #' @param bool_use_log      See \code{estimate_nuisance}.
+#' @param cap_multiplier    One positive number, default \code{10}: no gene's
+#'                          nuisance rate may exceed this many times the median
+#'                          of its library size, and \code{Inf} means no cap.
+#'                          See \code{estimate_nuisance}. The factorization
+#'                          does not depend on it, so \code{recompute_pvalue}
+#'                          can change it afterwards without fitting again.
 #' @param intermediate_save \code{NULL}, or a file path at which the object is
 #'                          saved after each major stage.
 #' @param k                 Number of latent dimensions; must not exceed the
@@ -94,9 +100,17 @@
 #' \code{compute_pvalue}), \code{param}, \code{case_control},
 #' \code{individual}, \code{latest_Fit} and the fit it names (an
 #' \code{eSVD_Fit} with \code{x_mat}, \code{y_mat}, \code{z_mat},
-#' \code{nuisance_vec}), plus \code{dat}, \code{covariates}, the earlier fits
-#' and the posterior matrices when \code{bool_diet = FALSE}.
-#' \code{report_results} turns it into a data frame.
+#' \code{nuisance_vec} and the other per-gene vectors of
+#' \code{estimate_nuisance}), plus \code{dat}, \code{covariates}, the earlier
+#' fits and the posterior matrices when \code{bool_diet = FALSE}.
+#' \code{param} records, among the settings of every stage, the number of
+#' genes whose nuisance rate was capped (\code{nuisance_num_capped}) and the
+#' arguments of this call that name the variables (as \code{esvd_*}), which
+#' is what lets \code{recompute_pvalue} and \code{plot_fitted_vs_observed}
+#' rebuild the counts and covariates from \code{seurat_obj} alone.
+#' \code{report_results} turns the object into a data frame, and
+#' \code{plot_nuisance} and \code{plot_fitted_vs_observed} draw its
+#' diagnostics.
 #' @examples
 #' \donttest{
 #' if(requireNamespace("SeuratObject", quietly = TRUE)){
@@ -141,6 +155,7 @@ eSVD <- function(batch_var_prefix, # a variable inside categorical_vars. Can be 
                  bool_library_includes_interept = TRUE,
                  bool_stabilize_underdispersion = TRUE,
                  bool_use_log = FALSE,
+                 cap_multiplier = 10,
                  intermediate_save = NULL, # NULL or filepath to save intermediary results
                  k = 30,
                  l2pen = 0.1,
@@ -168,6 +183,7 @@ eSVD <- function(batch_var_prefix, # a variable inside categorical_vars. Can be 
             all(is.character(case_control_levels)))
   stopifnot(length(k) == 1, k > 0, k %% 1 == 0,
             length(min_cells_per_individual) == 1, min_cells_per_individual >= 0)
+  .check_cap_multiplier(cap_multiplier)
 
   # make sure there's an appropriate batch variable
   if(!is.null(batch_var_prefix) &&
@@ -191,9 +207,7 @@ eSVD <- function(batch_var_prefix, # a variable inside categorical_vars. Can be 
   }
 
   # extract count matrix
-  mat <- Matrix::t(SeuratObject::LayerData(seurat_obj,
-                                           assay = "RNA",
-                                           layer = "counts"))
+  mat <- .extract_count_matrix(seurat_obj)
 
   # The three refusals (Q-COH-7): the wrapper `eSVD_helper` filters, this
   # function refuses, so a helper bug fails loudly here rather than as an
@@ -227,57 +241,41 @@ eSVD <- function(batch_var_prefix, # a variable inside categorical_vars. Can be 
                             min_cells_per_individual = min_cells_per_individual)
 
   if(verbose > 0) print("Processing the covariates")
-  if(is.factor(seurat_obj@meta.data[,id_var])) seurat_obj@meta.data[,id_var] <- droplevels(seurat_obj@meta.data[,id_var])
-  for(variable in categorical_vars){
-    if(is.factor(seurat_obj@meta.data[,variable])) seurat_obj@meta.data[,variable] <- droplevels(seurat_obj@meta.data[,variable])
-  }
-
-  if(length(categorical_vars) >= 1){
-    # `unique()` rather than `levels(droplevels())`: a categorical variable
-    # stored as character or numeric (0/1) is converted to a factor below,
-    # and `droplevels()` on a non-factor is an obscure error.
-    categorical_vars_subset <- categorical_vars[sapply(categorical_vars, function(x){
-      length(unique(seurat_obj@meta.data[,x])) > 1
-    })]
-  } else {
-    categorical_vars_subset <- NULL
-  }
-  covariate_dat <- seurat_obj@meta.data[,c(id_var, categorical_vars_subset, numerical_vars), drop = FALSE]
-  covariate_df <- data.frame(covariate_dat)
-
-  covariate_df[,case_control_var] <- factor(seurat_obj@meta.data[,case_control_var],
-                                            levels = case_control_levels)
-  for(variable in setdiff(c(id_var, categorical_vars_subset), case_control_var)){
-    covariate_df[,variable] <- factor(covariate_df[,variable],
-                                      levels = names(sort(table(covariate_df[,variable]),
-                                                          decreasing = TRUE)))
-  }
-
-  covariates <- format_covariates(dat = mat,
-                                  covariate_df = covariate_df,
-                                  rescale_numeric_variables = numerical_vars)
-
-  case_control_variable <- paste0(case_control_var, "_", case_control_levels[2])
-
-  ############
-
-  # The individual indicators are removed from the design by their exact
-  # names, `<id_var>_<level>`. A regex `grep(id_var, ...)` here used to drop
-  # every column containing `id_var` as a substring, e.g. `donor_age` for
-  # `id_var = "donor"`, silently un-adjusting the model for it.
-  individual_columns <- paste0(id_var, "_", levels(covariate_df[,id_var]))
-  keep_columns <- which(!colnames(covariates) %in% individual_columns)
+  input_list <- .prepare_esvd_covariates(mat = mat,
+                                         metadata_df = seurat_obj@meta.data,
+                                         case_control_levels = case_control_levels,
+                                         case_control_var = case_control_var,
+                                         categorical_vars = categorical_vars,
+                                         id_var = id_var,
+                                         numerical_vars = numerical_vars)
+  case_control_variable <- input_list$case_control_variable
+  covariates <- input_list$covariates
 
   if(verbose > 0) print("Initialization")
   eSVD_obj <- initialize_esvd(dat = mat,
-                              covariates = covariates[, keep_columns, drop = FALSE],
+                              covariates = covariates,
                               case_control_variable = case_control_variable,
                               bool_intercept = bool_intercept,
                               k = k,
                               lambda = lambda,
                               metadata_case_control = covariates[,case_control_variable],
-                              metadata_individual = covariate_df[,id_var],
+                              metadata_individual = input_list$individual_vec,
                               verbose = verbose - 1)
+
+  # Recorded so that the counts and covariates, which `bool_diet = TRUE`
+  # drops, can be rebuilt from the Seurat object alone. The column sums,
+  # plain and weighted, are how rebuilt counts and covariates are recognized
+  # as the fitted ones; see `.compute_weighted_colsum`.
+  param <- .format_param_esvd(batch_var_prefix = batch_var_prefix,
+                              case_control_levels = case_control_levels,
+                              case_control_var = case_control_var,
+                              categorical_vars = categorical_vars,
+                              count_weighted_colsum_vec = .compute_weighted_colsum(mat),
+                              covariate_colsum_vec = Matrix::colSums(covariates),
+                              covariate_weighted_colsum_vec = .compute_weighted_colsum(covariates),
+                              id_var = id_var,
+                              numerical_vars = numerical_vars)
+  eSVD_obj$param[names(param)] <- param
 
   if(!is.null(batch_var_prefix)){
     omitted_variables <- colnames(eSVD_obj$covariates)[grep(batch_var_prefix, colnames(eSVD_obj$covariates))]
@@ -352,6 +350,7 @@ eSVD <- function(batch_var_prefix, # a variable inside categorical_vars. Can be 
                                 bool_covariates_as_library = bool_covariates_as_library,
                                 bool_library_includes_interept = bool_library_includes_interept,
                                 bool_use_log = bool_use_log,
+                                cap_multiplier = cap_multiplier,
                                 verbose = verbose - 1)
 
   if(!is.null(intermediate_save)){
@@ -412,4 +411,140 @@ eSVD <- function(batch_var_prefix, # a variable inside categorical_vars. Can be 
   }
 
   eSVD_obj
+}
+
+#' Read the cells-by-genes count matrix from a Seurat object
+#'
+#' The one place that names the assay and the layer, shared by \code{eSVD}
+#' and by everything that rebuilds the counts of a fitted object.
+#'
+#' @param seurat_obj  A \code{Seurat} object whose \code{"RNA"} assay has a
+#'                    \code{"counts"} layer.
+#' @param cell_vec    \code{NULL} for every cell, or the names of the cells
+#'                    to return, in the order to return them.
+#' @param gene_vec    The same for the genes.
+#'
+#' @returns The counts, rows are cells and columns are genes.
+#' @noRd
+.extract_count_matrix <- function(seurat_obj,
+                                  cell_vec = NULL,
+                                  gene_vec = NULL){
+  # Genes by cells, as Seurat stores it.
+  count_mat <- SeuratObject::LayerData(seurat_obj,
+                                       assay = "RNA",
+                                       layer = "counts")
+  if(is.null(cell_vec) && is.null(gene_vec)) return(Matrix::t(count_mat))
+
+  if(is.null(cell_vec)) cell_vec <- colnames(count_mat)
+  if(is.null(gene_vec)) gene_vec <- rownames(count_mat)
+  missing_cells <- setdiff(cell_vec, colnames(count_mat))
+  if(length(missing_cells) > 0){
+    stop(length(missing_cells), " cell(s) of the fit are not in `seurat_obj` (",
+         paste0(utils::head(missing_cells, 5), collapse = ", "),
+         if(length(missing_cells) > 5) ", ..." else "", ")")
+  }
+  missing_genes <- setdiff(gene_vec, rownames(count_mat))
+  if(length(missing_genes) > 0){
+    stop(length(missing_genes), " gene(s) of the fit are not in `seurat_obj` (",
+         paste0(utils::head(missing_genes, 5), collapse = ", "),
+         if(length(missing_genes) > 5) ", ..." else "", ")")
+  }
+
+  # Subset before transposing: the object may hold many more cells and genes
+  # than were analyzed, and the transpose copies what it is given.
+  Matrix::t(count_mat[gene_vec, cell_vec, drop = FALSE])
+}
+
+#' Build the covariate matrix that eSVD is fitted with
+#'
+#' The block of \code{eSVD} that turns the metadata into the design matrix,
+#' as its own function so that \code{recompute_pvalue} and
+#' \code{plot_fitted_vs_observed} rebuild exactly the covariates the fit
+#' used. \code{Log_UMI} and the rescaled numerical variables depend on which
+#' cells and genes \code{mat} holds, so \code{mat} and \code{metadata_df}
+#' must be those of the fit.
+#'
+#' @param mat          Count matrix, rows are cells and columns are genes.
+#' @param metadata_df  The \code{meta.data} of the Seurat object, one row per
+#'                     row of \code{mat} and in the same order.
+#' @inheritParams eSVD
+#'
+#' @returns List with \code{case_control_variable} (the name of the
+#' case-control column of \code{covariates}), \code{covariates} (numeric
+#' matrix, rows are cells, without the indicator columns of the individuals)
+#' and \code{individual_vec} (factor, each cell's individual).
+#' @noRd
+.prepare_esvd_covariates <- function(mat,
+                                     metadata_df,
+                                     case_control_levels,
+                                     case_control_var,
+                                     categorical_vars,
+                                     id_var,
+                                     numerical_vars){
+  if(is.factor(metadata_df[,id_var])) metadata_df[,id_var] <- droplevels(metadata_df[,id_var])
+  for(variable in categorical_vars){
+    if(is.factor(metadata_df[,variable])) metadata_df[,variable] <- droplevels(metadata_df[,variable])
+  }
+
+  if(length(categorical_vars) >= 1){
+    # `unique()` rather than `levels(droplevels())`: a categorical variable
+    # stored as character or numeric (0/1) is converted to a factor below,
+    # and `droplevels()` on a non-factor is an obscure error.
+    categorical_vars_subset <- categorical_vars[sapply(categorical_vars, function(x){
+      length(unique(metadata_df[,x])) > 1
+    })]
+  } else {
+    categorical_vars_subset <- NULL
+  }
+  covariate_dat <- metadata_df[,c(id_var, categorical_vars_subset, numerical_vars), drop = FALSE]
+  covariate_df <- data.frame(covariate_dat)
+
+  covariate_df[,case_control_var] <- factor(metadata_df[,case_control_var],
+                                            levels = case_control_levels)
+  for(variable in setdiff(c(id_var, categorical_vars_subset), case_control_var)){
+    covariate_df[,variable] <- factor(covariate_df[,variable],
+                                      levels = names(sort(table(covariate_df[,variable]),
+                                                          decreasing = TRUE)))
+  }
+
+  covariates <- format_covariates(dat = mat,
+                                  covariate_df = covariate_df,
+                                  rescale_numeric_variables = numerical_vars)
+
+  case_control_variable <- paste0(case_control_var, "_", case_control_levels[2])
+
+  ############
+
+  # The individual indicators are removed from the design by their exact
+  # names, `<id_var>_<level>`. A regex `grep(id_var, ...)` here used to drop
+  # every column containing `id_var` as a substring, e.g. `donor_age` for
+  # `id_var = "donor"`, silently un-adjusting the model for it.
+  individual_columns <- paste0(id_var, "_", levels(covariate_df[,id_var]))
+  keep_columns <- which(!colnames(covariates) %in% individual_columns)
+
+  list(case_control_variable = case_control_variable,
+       covariates = covariates[, keep_columns, drop = FALSE],
+       individual_vec = covariate_df[,id_var])
+}
+
+.format_param_esvd <- function(batch_var_prefix,
+                               case_control_levels,
+                               case_control_var,
+                               categorical_vars,
+                               count_weighted_colsum_vec,
+                               covariate_colsum_vec,
+                               covariate_weighted_colsum_vec,
+                               id_var,
+                               numerical_vars){
+  # `list(name = NULL)` keeps the entry, where `param$name <- NULL` would
+  # drop it.
+  list(esvd_batch_var_prefix = batch_var_prefix,
+       esvd_case_control_levels = case_control_levels,
+       esvd_case_control_var = case_control_var,
+       esvd_categorical_vars = categorical_vars,
+       esvd_count_weighted_colsum_vec = count_weighted_colsum_vec,
+       esvd_covariate_colsum_vec = covariate_colsum_vec,
+       esvd_covariate_weighted_colsum_vec = covariate_weighted_colsum_vec,
+       esvd_id_var = id_var,
+       esvd_numerical_vars = numerical_vars)
 }

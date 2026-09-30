@@ -82,9 +82,14 @@ test_that("T-NUIS-05: estimate_nuisance computes the actual MLE", {
   library_mat <- matrix(dat_list$library_size_vec, nrow = nrow(dat),
                         ncol = ncol(dat), dimnames = dimnames(dat))
 
+  # `cap_multiplier = Inf`: the claim is about the maximum-likelihood
+  # estimate. Under the default cap of 10 times the median library size, five
+  # of these forty genes (MLEs of 26 to 60, library size about 1) are set to
+  # the cap; test_nuisance_cap_claude.R covers that.
   res <- suppressWarnings(estimate_nuisance(input_obj = dat,
                                             mean_mat = mean_mat,
                                             library_mat = library_mat,
+                                            cap_multiplier = Inf,
                                             verbose = 0))
 
   # The R implementation of the objective from the comment block of

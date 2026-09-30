@@ -216,3 +216,67 @@ test_that("T-POST-12: posterior matrices carry the dimnames of dat", {
   expect_equal(rownames(esvd_obj[[latest_fit]]$posterior_mean_mat),
                rownames(esvd_obj$dat))
 })
+
+## [oracle] the posterior built by hand from the column sets of
+## `.library_column_oracle()` (in `test_nuisance_cap_claude.R`). With
+## `alpha_max = NULL`, `library_min = NULL`, `nuisance_lower_quantile = 0` and
+## no stabilization, the components are exactly
+##   numerator   = A + exp(X Y' + C[, -lib] Z[, -lib]') * beta   (by column)
+##   denominator = exp(C[, lib] Z[, lib]') + beta                 (by column)
+## so which columns are `lib` is the whole test. Pinned before the inline
+## rule of `compute_posterior.default` was routed through
+## `.nuisance_library_idx()`.
+test_that("T-POST-13: compute_posterior.default uses the library columns written out by hand, on every setting", {
+  esvd_obj <- .small_esvd_obj()
+  fit <- esvd_obj[[esvd_obj$latest_Fit]]
+  dat <- esvd_obj$dat
+  covariates <- esvd_obj$covariates
+  nuisance_vec <- fit$nuisance_vec
+  all_columns <- colnames(covariates)
+
+  for(case in .library_column_oracle()){
+    label <- paste0("cov_lib = ", case$cov_lib, ", incl_int = ",
+                    case$incl_int, ", cc = ",
+                    if(is.null(case$cc)) "NULL" else case$cc)
+    lib_columns <- case$columns
+    nonlib_columns <- setdiff(all_columns, lib_columns)
+
+    res <- compute_posterior.default(
+      input_obj = dat,
+      case_control_variable = case$cc,
+      covariates = covariates,
+      esvd_res = fit,
+      library_size_variable = "Log_UMI",
+      nuisance_vec = nuisance_vec,
+      alpha_max = NULL,
+      bool_adjust_covariates = FALSE,
+      bool_covariates_as_library = case$cov_lib,
+      bool_library_includes_interept = case$incl_int,
+      bool_return_components = TRUE,
+      bool_stabilize_underdispersion = FALSE,
+      library_min = NULL,
+      nuisance_lower_quantile = 0
+    )
+
+    nat_nolib_mat <- tcrossprod(fit$x_mat, fit$y_mat)
+    if(length(nonlib_columns) > 0){
+      nat_nolib_mat <- nat_nolib_mat +
+        tcrossprod(covariates[, nonlib_columns, drop = FALSE],
+                   fit$z_mat[, nonlib_columns, drop = FALSE])
+    }
+    library_mat <- exp(tcrossprod(covariates[, lib_columns, drop = FALSE],
+                                  fit$z_mat[, lib_columns, drop = FALSE]))
+    numerator_mat <- dat + sweep(exp(nat_nolib_mat), MARGIN = 2,
+                                 STATS = nuisance_vec, FUN = "*")
+    denominator_mat <- sweep(library_mat, MARGIN = 2,
+                             STATS = nuisance_vec, FUN = "+")
+
+    expect_equal(unname(res$numerator_mat), unname(numerator_mat),
+                 tolerance = 1e-10, info = label)
+    expect_equal(unname(res$denominator_mat), unname(denominator_mat),
+                 tolerance = 1e-10, info = label)
+    expect_equal(unname(res$posterior_mean_mat),
+                 unname(numerator_mat / denominator_mat),
+                 tolerance = 1e-10, info = label)
+  }
+})

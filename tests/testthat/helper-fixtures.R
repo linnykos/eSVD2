@@ -362,3 +362,30 @@
          ...)
   )
 }
+
+# The eight column sets, written out by hand, that the rule "the library is
+# `Log_UMI`, plus every column but `Intercept` and the case-control column
+# when `bool_covariates_as_library`, plus `Intercept` when
+# `bool_library_includes_interept`" gives on a design with the five columns
+# of F-TINY (Intercept, Log_UMI, Age, CC_1, Sex_M). Shared by T-CAP-10 and
+# T-POST-13; the case-control column is `CC_1` or absent.
+.library_column_oracle <- function(){
+  list(
+    list(cov_lib = TRUE, incl_int = TRUE, cc = "CC_1",
+         columns = c("Intercept", "Log_UMI", "Age", "Sex_M")),
+    list(cov_lib = TRUE, incl_int = FALSE, cc = "CC_1",
+         columns = c("Log_UMI", "Age", "Sex_M")),
+    list(cov_lib = FALSE, incl_int = TRUE, cc = "CC_1",
+         columns = c("Intercept", "Log_UMI")),
+    list(cov_lib = FALSE, incl_int = FALSE, cc = "CC_1",
+         columns = c("Log_UMI")),
+    list(cov_lib = TRUE, incl_int = TRUE, cc = NULL,
+         columns = c("Intercept", "Log_UMI", "Age", "CC_1", "Sex_M")),
+    list(cov_lib = TRUE, incl_int = FALSE, cc = NULL,
+         columns = c("Log_UMI", "Age", "CC_1", "Sex_M")),
+    list(cov_lib = FALSE, incl_int = TRUE, cc = NULL,
+         columns = c("Intercept", "Log_UMI")),
+    list(cov_lib = FALSE, incl_int = FALSE, cc = NULL,
+         columns = c("Log_UMI"))
+  )
+}

@@ -29,8 +29,8 @@ each arm of their mean posterior expression), \code{case_var} and
 \code{control_var} (the variance of each arm, the two quantities the
 statistic divides by), and \code{log2fc_vec} and \code{log2fc_se_vec} (the
 log2 fold change and its standard error; see
-\code{compute_log_fold_change}). The individuals of each arm are recorded
-in \code{param}.
+\code{compute_log_fold_change}). The individuals of each arm and
+\code{min_cells_per_individual} are recorded in \code{param}.
 }
 \description{
 Compute test statistics for eSVD object

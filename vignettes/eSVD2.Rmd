@@ -36,6 +36,9 @@ Broadly speaking, eSVD-DE (the name of the method, which is implemented in the `
 library(eSVD2)
 # Seurat is only used for the UMAP below; every eSVD2 step runs without it.
 has_seurat <- requireNamespace("Seurat", quietly = TRUE)
+# ggplot2 and ggrepel are only used for the diagnostic plots at the end.
+has_ggplot <- requireNamespace("ggplot2", quietly = TRUE) &&
+  requireNamespace("ggrepel", quietly = TRUE)
 ```
 
 
@@ -154,11 +157,19 @@ eSVD_obj <- eSVD2::estimate_nuisance(
   bool_covariates_as_library = TRUE,
   bool_library_includes_interept = TRUE,
   bool_use_log = FALSE,
+  cap_multiplier = 10,
   min_val = 1e-4,
   verbose = 0
 )
 
 names(eSVD_obj)
+```
+
+The value stored in `eSVD_obj$fit_Second$nuisance_vec` is the Gamma *rate*, the reciprocal of the over-dispersion, so a larger value means less over-dispersion. **No gene's rate is allowed above `cap_multiplier` times the median of its library size.** A gene whose counts are no more variable around the fit than a Poisson has no finite maximum-likelihood rate, and without the cap its test statistic is inflated. The function records what it did with each gene, and how many genes the cap acted on.
+
+```{r nuisance_status}
+table(eSVD_obj$fit_Second$nuisance_status)
+eSVD_obj$param$nuisance_num_capped
 ```
 
 
@@ -230,6 +241,58 @@ utils::head(result_df[order(result_df$log10pvalue, decreasing = TRUE), ])
 ```
 
 The standard error is divided by the number of individuals in each arm and not by the number of cells, so it is on the same footing as the standard error from a pseudobulk analysis. Multiply `logFC` and `logFC_se` by `log(2)` to move both to the natural-log scale. Note that `logFC / logFC_se` is not the statistic behind the p-value, which is computed on the linear scale and calibrated with an empirical null. See `?eSVD2::compute_log_fold_change` for what the standard error does and does not account for.
+
+# Diagnostics of the over-dispersion
+
+The over-dispersion decides how much each cell's posterior follows the fit, so it is worth a look before the results are used. The two functions below draw what Step 3 estimated. They need the packages `ggplot2` and `ggrepel`.
+
+**The rate of each gene, against three summaries of the gene.** `eSVD2::plot_nuisance()` draws the rate divided by the gene's median library size, which puts every gene in the same units. The dashed line is the cap, and the genes it acted on sit on it. Most genes should be below the line. Where genes are at the line, they should be the lowly expressed and sparse ones, and they should not make up the most significant genes.
+
+```{r plot_nuisance_expression, eval = has_ggplot, fig.width = 7, fig.height = 5}
+plot1 <- eSVD2::plot_nuisance(input_obj = eSVD_obj,
+                              x_axis = "mean_expression")
+plot(plot1)
+```
+
+```{r plot_nuisance_pvalue, eval = has_ggplot, fig.width = 7, fig.height = 5}
+plot1 <- eSVD2::plot_nuisance(input_obj = eSVD_obj,
+                              x_axis = "log10pvalue")
+plot(plot1)
+```
+
+```{r plot_nuisance_sparsity, eval = has_ggplot, fig.width = 7, fig.height = 5}
+plot1 <- eSVD2::plot_nuisance(input_obj = eSVD_obj,
+                              x_axis = "sparsity")
+plot(plot1)
+```
+
+**The fitted count against the observed count.** In `eSVD2::plot_fitted_vs_observed()` each point is one cell and one gene, and a point is red when its count is more than 3 standard deviations from its fit, the standard deviation being the one the model implies for that gene's over-dispersion. The points should follow the dashed line, and only a small share should be red. With `bool_draw_bars = TRUE` each point carries the interval of 3 standard deviations around its fit: bars that are too short to reach the line mean the over-dispersion is underestimated, and bars that reach far past it for nearly every point mean it is overestimated.
+
+```{r plot_fitted_all, eval = has_ggplot, fig.width = 7, fig.height = 5}
+plot1 <- eSVD2::plot_fitted_vs_observed(input_obj = eSVD_obj,
+                                        max_points = 5000)
+plot(plot1)
+```
+
+The argument `genes` draws every cell of the genes named, one panel per gene.
+
+```{r plot_fitted_genes, eval = has_ggplot, fig.width = 7, fig.height = 4}
+plot1 <- eSVD2::plot_fitted_vs_observed(input_obj = eSVD_obj,
+                                        genes = colnames(obs_mat)[1:2],
+                                        bool_draw_bars = TRUE)
+plot(plot1)
+```
+
+**Redoing the test at another cap.** The factorization does not depend on the cap, so the test can be redone at another `cap_multiplier` without fitting again. `cap_multiplier = 1` is close to the behavior of the version of `eSVD2` that accompanied the paper, and `Inf` removes the cap.
+
+```{r recompute_pvalue, warning = FALSE}
+eSVD_obj_cap1 <- eSVD2::recompute_pvalue(input_obj = eSVD_obj,
+                                         cap_multiplier = 1)
+eSVD_obj_cap1$param$nuisance_num_capped
+stats::cor(eSVD_obj$teststat_vec, eSVD_obj_cap1$teststat_vec)
+```
+
+> **When the object has no counts.** `eSVD2::eSVD()` and `eSVD2::eSVD_helper()` return an object without the count matrix by default (`bool_diet = TRUE`). For such an object, pass the Seurat object the analysis was run on as `seurat_obj` to `eSVD2::recompute_pvalue()` and to `eSVD2::plot_fitted_vs_observed()`. `eSVD2::plot_nuisance()` needs no counts.
 
 # Setup
 

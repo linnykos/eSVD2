@@ -1,3 +1,87 @@
+# eSVD2 1.2.0
+
+## The nuisance rate is capped
+
+* `estimate_nuisance()` bounds each gene's nuisance rate (the Gamma rate, the
+  reciprocal of the over-dispersion) at `cap_multiplier` times the median over
+  cells of the gene's library size, `min(MLE, cap_multiplier * median library
+  size)`, with `cap_multiplier = 10` by default. The bound is applied in R
+  after the maximum-likelihood estimate; `gamma_rate()` is unchanged.
+* A gene at the boundary (no finite maximum-likelihood rate) is set to the
+  bound itself, and not to the smaller of the bound and the value at which
+  the iterations of the estimate stopped. That value is arbitrary (about 1e7
+  on one route, `exp(10)` on the other) and is below the bound when the
+  library size is in the thousands, as it is when the library excludes the
+  intercept.
+* The floor `min_val` is a multiple of the median library size too, so that
+  no gene's rate is above its bound: the rate is `max(min(MLE, cap_multiplier
+  * m), min_val * m)`, with `m` the gene's median library size, and `min_val`
+  must be below `cap_multiplier`. In 1.1.0 the floor was an absolute number;
+  it held a gene whose fit was degenerate (median library size below
+  `min_val / cap_multiplier`) above its bound. A gene whose estimation fails
+  gets the floor.
+* Why: a gene whose counts are no more variable around the fit than a Poisson
+  has no finite maximum-likelihood rate. In 1.1.0 such a gene received a rate
+  near 1e7 (or exactly `exp(10)`, when the first estimation route did not
+  return), its posterior followed the fit, and its test statistic was
+  inflated. The bound is a calibration device, and the documentation says so.
+* **Results change.** The statistics, p-values, fold changes and standard
+  errors of every analysis differ from 1.1.0, for all genes and not only the
+  capped ones: the posterior divides every rate by the geometric mean of the
+  rates when that mean is above 1 (`bool_stabilize_underdispersion`), and
+  the empirical null is fitted to all genes. `cap_multiplier = Inf` gives
+  the rates of 1.1.0.
+  `cap_multiplier = 1` is close to, but not the same as, the version that
+  accompanied Lin, Qiu and Roeder (2024), whose bound was the largest library
+  size of the gene.
+* `eSVD()` has the new argument `cap_multiplier`, and `eSVD_helper()` passes
+  it on.
+
+## New features
+
+* Every gene has a status, stored as the factor `nuisance_status` beside
+  `nuisance_vec`: `estimated`, `capped` (a finite maximum-likelihood rate
+  above the bound), `boundary` (no finite maximum-likelihood rate exists) or
+  `failed`. The rate before the cap is kept as `nuisance_mle_vec`, and
+  `param` records `nuisance_cap_multiplier`, `nuisance_num_capped` and
+  `nuisance_num_boundary`.
+* New exported function `recompute_pvalue()`: redo the posterior, the test
+  statistic and the p-values at another `cap_multiplier` on a fitted object,
+  with every other setting as it was and without fitting or estimating
+  anything again. An object built with `bool_diet = TRUE` has no counts; pass
+  the Seurat object the analysis was run on, and the counts and covariates
+  are rebuilt from it and checked against the fit. The check compares
+  summaries recorded at the fit (each gene's mean count, each covariate's
+  column sum, and sums weighted by the position of the cell, which change
+  when values are exchanged between cells); it notices counts or metadata
+  that were edited since, and it is not a proof of equality.
+* New exported function `plot_nuisance()`: each gene's rate, in units of its
+  library size, against its mean count, its -log10 p-value or its sparsity,
+  with the cap drawn and chosen genes labeled.
+* New exported function `plot_fitted_vs_observed()`: the fitted count against
+  the observed count for each cell and gene, the points more than `num_sd`
+  standard deviations from the fit in red, and optionally each point's
+  interval of `num_sd` standard deviations. Both plots need 'ggplot2'
+  ('ggrepel' for the first), which are suggested and not required.
+
+## Changes that can affect existing code
+
+* `report_results()` returns seven columns where it returned six; the new
+  one is `nuisance_status`.
+* The fit on an `eSVD` object has five more per-gene vectors
+  (`nuisance_mle_vec`, `nuisance_library_median_vec`, `nuisance_status`,
+  `gene_mean_count_vec`, `gene_sparsity_vec`), and `param` has more entries:
+  the ones above, the variable names `eSVD()` was called with (`esvd_*`),
+  `test_min_cells_per_individual`, and, from `compute_test_per_gene()`, the
+  settings of the posterior (`posterior_*`).
+* `estimate_nuisance()` and `compute_posterior()` overwrite their entries of
+  `param` when they are called again. They used to keep the entries of the
+  first call, which `recompute_pvalue()` would then have repeated the
+  posterior with.
+* An object built with 1.1.0 or earlier works with `report_results()`
+  (`nuisance_status` is `NA`) and is refused by `recompute_pvalue()` and the
+  two plots, which need what 1.2.0 stores.
+
 # eSVD2 1.1.0
 
 First CRAN submission.

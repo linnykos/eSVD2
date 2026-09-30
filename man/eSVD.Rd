@@ -20,6 +20,7 @@ eSVD(
   bool_library_includes_interept = TRUE,
   bool_stabilize_underdispersion = TRUE,
   bool_use_log = FALSE,
+  cap_multiplier = 10,
   intermediate_save = NULL,
   k = 30,
   l2pen = 0.1,
@@ -88,6 +89,13 @@ fit (\code{fit_Second}: \code{x_mat}, \code{y_mat},
 
 \item{bool_use_log}{See \code{estimate_nuisance}.}
 
+\item{cap_multiplier}{One positive number, default \code{10}: no gene's
+nuisance rate may exceed this many times the median
+of its library size, and \code{Inf} means no cap.
+See \code{estimate_nuisance}. The factorization
+does not depend on it, so \code{recompute_pvalue}
+can change it afterwards without fitting again.}
+
 \item{intermediate_save}{\code{NULL}, or a file path at which the object is
 saved after each major stage.}
 
@@ -122,9 +130,17 @@ fold change and its standard error; see \code{compute_log_fold_change}),
 \code{compute_pvalue}), \code{param}, \code{case_control},
 \code{individual}, \code{latest_Fit} and the fit it names (an
 \code{eSVD_Fit} with \code{x_mat}, \code{y_mat}, \code{z_mat},
-\code{nuisance_vec}), plus \code{dat}, \code{covariates}, the earlier fits
-and the posterior matrices when \code{bool_diet = FALSE}.
-\code{report_results} turns it into a data frame.
+\code{nuisance_vec} and the other per-gene vectors of
+\code{estimate_nuisance}), plus \code{dat}, \code{covariates}, the earlier
+fits and the posterior matrices when \code{bool_diet = FALSE}.
+\code{param} records, among the settings of every stage, the number of
+genes whose nuisance rate was capped (\code{nuisance_num_capped}) and the
+arguments of this call that name the variables (as \code{esvd_*}), which
+is what lets \code{recompute_pvalue} and \code{plot_fitted_vs_observed}
+rebuild the counts and covariates from \code{seurat_obj} alone.
+\code{report_results} turns the object into a data frame, and
+\code{plot_nuisance} and \code{plot_fitted_vs_observed} draw its
+diagnostics.
 }
 \description{
 The end-to-end wrapper: \code{format_covariates}, \code{initialize_esvd},

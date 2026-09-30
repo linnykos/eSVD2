@@ -26,56 +26,127 @@ Name the machine specifically enough that another collaborator can tell whether 
 **Goal: get `eSVD2` onto CRAN.** Correctness first; efficiency is explicitly out
 of scope for now.
 
-**Version is now `1.1.0`** (session 12). It adds the log2 fold change and its
-standard error to the ordinary output: `log2fc_vec`, `log2fc_se_vec`,
-`case_var`, `control_var` on the `eSVD` object from both test paths, a
-`logFC_se` column in `report_results()`, and the exported
-`compute_log_fold_change()`. The statistic is proposal 2 of the Was2CoDE
-wiki page `code-esvd2.md`. Session 12 is committed on `devel` as `d49e402`.
+**Version is now `1.2.0`, uncommitted in the working tree of `devel`, awaiting
+Kevin's vetting** (session 15). It implements the cap Kevin chose (Idea 1 of
+`additional_context/OVERDISPERSION_BRAINSTORM.md`):
 
-**A master-vs-devel comparison now exists** (session 13):
-`additional_context/version_comparison/`, knitted report
-`version_comparison_claude.html`, rerun end to end by `run_all_claude.sh` in
-about 6.5 min. Its finding outranks the open naming questions: **the
-uncapped `gamma_rate` is the only change that moves ordinary results, and in
-simulation it raises false discoveries** (details under Key Methodological
-Details). Nothing in the package was changed by that session.
+- `estimate_nuisance()`, `eSVD()` and (through `...`) `eSVD_helper()` take
+  `cap_multiplier = 10`; the rate is `max(min(MLE, c * m_j), min_val * m_j)`
+  with `m_j = median_i s_ji`, a boundary gene being set to the cap itself,
+  and `min_val` (default `1e-4`, in the units of `c`) must be below `c`.
+  `Inf` gives the rates of 1.1.0. **Kevin confirmed all three (the boundary
+  rule, the diet dropping `covariates`, the floor's units) on 2026-09-29.**
+- The fit carries `nuisance_mle_vec`, `nuisance_library_median_vec`,
+  `nuisance_status` (`estimated` / `capped` / `boundary` / `failed`),
+  `gene_mean_count_vec` and `gene_sparsity_vec`; `param` carries the counts
+  (`nuisance_num_capped`, `nuisance_num_boundary`); `report_results()` has a
+  seventh column, `nuisance_status`.
+- `recompute_pvalue(input_obj, cap_multiplier, seurat_obj = NULL)` redoes the
+  posterior, statistic and p-values at another cap without fitting.
+- `plot_nuisance()` (rate against mean expression, -log10 p-value or
+  sparsity) and `plot_fitted_vs_observed()` (fitted against observed counts,
+  red beyond `num_sd` SD, optional bars). `ggplot2 (>= 3.4.0)` and `ggrepel`
+  are in `Suggests`.
 
-**Kevin chose the fix (session 14): cap the rate at 10 times the gene's
-median library size, `min(MLE, 10 * median_i s_ji)`, applied in R after
-`gamma_rate`. It is NOT to be implemented in `R/` until Kevin has read the
-report** `additional_context/overdispersion_brainstorm/overdispersion_cap_claude.html`
-(source `.Rmd` beside it), which explains what master did, what devel does,
-the change, and in what sense it improves on master, with formulas, plots
-and citations from the overdispersion wiki. The eleven ideas considered are
-in `additional_context/OVERDISPERSION_BRAINSTORM.md`. Everything is rerun
-and reknitted by `overdispersion_brainstorm/run_all_claude.sh` in about 4
-min (needs the version comparison to have been run first, and pandoc).
-Nothing in the package was changed.
+New files, all `_claude`: `R/nuisance_cap_claude.R`,
+`R/recompute_pvalue_claude.R`, `R/plot_diagnostics_claude.R` and the three
+test files of the same names. **Their headers hold the test IDs and oracles**
+(T-CAP, T-REDO, T-DIAG); `UNIT_TEST_PLAN.md`, `CRAN_READINESS.md` and the two
+reports under `additional_context/` do not mention 1.2.0, by Kevin's
+instruction, until he has vetted the code.
 
-**`R CMD check --as-cran` on the 1.1.0 tarball: `Status: 2 NOTEs`**
-(`New submission`, and a missing HTML Tidy on this machine), the same two as
-before, with the vignette built and tarball 1.0 MB. Suite under
-`NOT_CRAN=true`: **996 pass / 0 fail / 0 warnings / 0 skip** in 41 s across
-30 files, up from 688. Three of the new tests (T-LFC-15, -16, -17) are
-`skip_on_cran()`, so a bare `R CMD check` does not run them.
+**`R CMD check --as-cran` on the 1.2.0 tarball (session 17):
+`Status: 3 NOTEs`** (`New submission`, a missing HTML Tidy on this machine,
+and `unable to verify current time`, the check's clock service and not the
+package), the same three as session 16, with the vignette built. Suite under `NOT_CRAN=true`: **2014 pass / 0 fail
+/ 0 warnings / 0 skip** in 63 s across 34 files.
 
-**Read `additional_context/UNIT_TEST_PLAN.md` section 2.18 first** for the
-new feature: the 18 tests (T-LFC-01 to -18) with their oracles, the ten
-breakages they were shown to catch, the five findings, the three corrections
-made to the tests after their first run, and Q-LFC-1 to -3.
-`additional_context/CRAN_READINESS.md` section 0 is still the session-10 text
-and does not mention 1.1.0.
+Session 12 (1.1.0: `log2fc_vec`, `log2fc_se_vec`, `logFC_se`,
+`compute_log_fold_change()`) is committed as `d49e402`; sessions 13 and 14
+(the master-vs-devel comparison and the brainstorm, both under
+`additional_context/`) as `df03465`. Section 2.18 of `UNIT_TEST_PLAN.md`
+covers the fold-change tests.
 
-**What still stands between the package and a submission** is decisions,
-not code: the three Q-LFC questions; `Authors@R` for Yixuan Qiu and Kathryn
-Roeder; whether to keep the misspelled argument names; confirming the ASD
-tutorials as pkgdown articles; confirming the rank-deficiency refusal; then a
-Windows/Linux check (`devtools::check_win_devel()`, rhub) and one sanitizer
-run.
+**What still stands between the package and a submission**: Kevin's vetting
+of 1.2.0 (items 0 to 0f below; 0a, 0c and 0d are decided); the three Q-LFC
+questions; `Authors@R` for Yixuan Qiu and Kathryn Roeder; whether to keep the
+misspelled argument names; confirming the ASD tutorials as pkgdown articles;
+confirming the rank-deficiency refusal; then a Windows/Linux check
+(`devtools::check_win_devel()`, rhub) and one sanitizer run.
 
 ## Key Methodological Details
 
+- **The cap is applied in R, in one place, `.apply_nuisance_cap()`**, used by
+  `estimate_nuisance()` and by `recompute_pvalue()`; `gamma_rate` stays a
+  maximum-likelihood estimator. Status precedence: `failed`, then
+  `boundary` (`D_j <= 0`), then `capped`, then `estimated`.
+  `nuisance_num_capped` counts every gene the cap replaced, boundary genes
+  included.
+- **The rule for which covariate columns form the library size lives in one
+  place, `.nuisance_library_idx()`** (in `R/nuisance_cap_claude.R`), used by
+  `estimate_nuisance.eSVD()`, `compute_posterior.default()`,
+  `compute_test_per_gene()` and `plot_fitted_vs_observed()` since session
+  17. The eight column sets it must give on F-TINY are written out by hand
+  in `.library_column_oracle()` (`helper-fixtures.R`), which T-CAP-10 and
+  T-POST-13 check against.
+- **`.estimate_nuisance_matrix()` walks the genes once**: the per-gene
+  `vapply` returns the rate and the boundary statistic `D_j` together, and
+  `.compute_boundary_statistic()` is a per-gene helper (`x_vec, mu_vec,
+  s_vec`). T-CAP-11 pins dense against sparse counts through that loop.
+- **A boundary gene is set to the cap, not to `min(optimizer's value,
+  cap)` (Kevin confirmed, 2026-09-29).** The optimizer's value is arbitrary
+  (about 1e7 on one route, exactly `exp(10)` on the log route) and is below
+  the cap once the median library size is above about 2200, as with
+  `bool_library_includes_interept = FALSE`. `nuisance_mle_vec` keeps the
+  optimizer's value.
+- **`min_val` is in the units of the cap (Kevin, 2026-09-29): the floor is
+  `min_val * median_i s_ji`, so no gene is above its cap** and on the
+  unit-free scale of `plot_nuisance()` every rate lies in `[min_val, c]`.
+  `.check_min_val()` refuses `min_val >= cap_multiplier` in both
+  `estimate_nuisance()` methods and in `recompute_pvalue()` (which reads
+  the recorded `nuisance_min_val`). A failed gene gets the floor. The
+  earlier absolute floor held a gene with a degenerate fit (median library
+  size about 1e-8) thousands of times above its cap; `plot_nuisance()` no
+  longer needs to count such genes.
+- **`bool_diet = TRUE` drops `covariates` (Kevin, 2026-09-29: the diet is
+  to be as small as possible)**, so `recompute_pvalue()` and
+  `plot_fitted_vs_observed()` keep rebuilding the design from the Seurat
+  object and checking it against the stored summaries.
+- **The cap is tighter than `c` in the posterior for any gene whose library
+  is below `library_min = 0.1`**, because `compute_posterior()` floors the
+  library there.
+- **`recompute_pvalue()` replays `param`**, so every stage it repeats must
+  overwrite its own `param` entries on a rerun. `estimate_nuisance()`,
+  `compute_posterior()`, `compute_test_statistic()` and
+  `compute_test_per_gene()` now do; `initialize_esvd()`, `opt_esvd()` and
+  the reparameterization still go through `.combine_two_named_lists()`
+  alone and go stale.
+- **A diet object is redone from the Seurat object**, subset to the fitted
+  cells and analyzed genes *before* the covariates are built (`Log_UMI` and
+  the rescaled numeric covariates depend on which cells and genes are
+  present), through `.prepare_esvd_covariates()`, the block `eSVD()` itself
+  calls. The rebuilt matrices are recognized by summaries stored at the fit
+  (gene means, column sums, and sums weighted by `cos(sqrt(2) * i)` so that
+  an exchange between cells is noticed). Only an object built by `eSVD()` or
+  `eSVD_helper()` of 1.2.0 can be rebuilt; a stage-by-stage object must
+  still carry its `dat` and `covariates`.
+- **The SD in `plot_fitted_vs_observed()` is the model's marginal one**,
+  `sqrt(m * (1 + s / beta))` with the capped `nuisance_vec` and the library
+  of `estimate_nuisance()`, not the posterior's rescaled rate. On counts
+  drawn from the model at their true rates 1 to 2% of pairs are beyond 3 SD
+  (a count is right-skewed); a rate ten times too large gives about 5%, ten
+  times too small under 0.1%.
+- **Counts below the fit are almost never marked**, because the fit minus
+  3 SD is negative for most pairs; the red points of the plot are counts
+  above the fit.
+- **`alpha_max` changed no statistic on F-TINY** at 1, 5, 86 or 1000, and
+  `library_min = 2` none either (every library size is above 2.4). A test
+  of the posterior's settings on that fixture must use `library_min >= 20`
+  or `pseudocount`.
+
+- **In the bullets below that compare "master" and "devel", "devel" is
+  version 1.1.0, the uncapped estimate, which 1.2.0 reproduces with
+  `cap_multiplier = Inf`.** They are the evidence for the cap.
 - **Master (3d5f7bf) vs devel differ on ordinary data only through the
   nuisance estimate.** logFC agrees at r >= 0.998 in all six simulated
   regimes. Overwriting devel's `nuisance_vec` with master's right after
@@ -168,12 +239,13 @@ run.
   it is about right: calibration ratio 0.77, coverage of +/- 2 SE 0.96, on
   genes with an ordinary nuisance estimate. Refitting moves the fold change
   far more than resampling individuals does.
-- **Where the nuisance estimate diverges the SE is anti-conservative.** About
-  12% of genes on the toy cohorts get a rate near 1e7 (true rates 0.1 to 10);
-  the posterior collapses onto the fit, the within term vanishes, coverage
-  falls to 0.36, and the Welch statistic is in the tens. This is Q10's
-  downstream face. The diverged genes also inflate the geometric mean that
-  `bool_stabilize_underdispersion` divides every gene's rate by.
+- **Where the nuisance estimate diverges the SE is anti-conservative**
+  (measured without a cap). About 12% of genes on the toy cohorts get a rate
+  near 1e7 (true rates 0.1 to 10); the posterior collapses onto the fit, the
+  within term vanishes, coverage falls to 0.36, and the Welch statistic is
+  in the tens. The diverged genes also inflate the geometric mean that
+  `bool_stabilize_underdispersion` divides every gene's rate by. The
+  coverage of the SE under the cap of 10 has not been measured.
 - **The depth adjustment shifts every fold change.** `Log_UMI` is the log of
   the observed total, which moves with the DE genes: on F-SMALL five planted
   genes raise a case cell's total by 2^0.23 and the 35 null genes come out at
@@ -200,8 +272,7 @@ run.
   (T-UTIL-03 pins it), so `param` goes stale when any stage is rerun with
   different settings. The two test functions now overwrite their own two
   entries (`test_case_individuals`, `test_control_individuals`), because the
-  SE divides by their lengths. Every other stage's `param` entries still go
-  stale on a rerun.
+  SE divides by their lengths.
 - **`report_results()` reads `logFC` from `log2fc_vec`** and recomputes it
   from the arm means only for an object built before 1.1.0.
 - **`nuisance_vec` is the Gamma *rate* `β = 1/γ`**, the reciprocal of the paper's
@@ -237,9 +308,9 @@ run.
   `num_linesearch_failed` as an attribute; `opt_esvd.default` sums and warns.
   No `Rcpp::warning()` remains in a C++ frame. Never fires on the fixtures.
 - **`gamma_rate`'s bracket fix has a large downstream consequence** (session
-  8; unchanged): Poisson-like genes get enormous rates, so
+  8): Poisson-like genes get enormous rates, so
   `bool_stabilize_underdispersion` rescales every gene by `10^-mean(log10)`.
-  Kevin's call (Q10 in the readiness doc).
+  The cap of 1.2.0 is Kevin's answer to it (Q10 in the readiness doc).
 - **Efron's truncated MLE** is `(delta0, log sigma0, p0)` under `L-BFGS-B`
   with `p0 ∈ [1e-4, 1]`; `.multtest_simple` is moment-corrected for
   truncation. `.multtest_locfdr` still catches warnings (Q7).
@@ -267,22 +338,23 @@ run.
 `UNIT_TEST_PLAN.md` section 2.18; Q1-Q12 are in `CRAN_READINESS.md` section
 0.3.
 
-0. **Q10 (most important): Kevin to read
-   `overdispersion_brainstorm/overdispersion_cap_claude.html` and confirm the
-   cap before it is implemented.** Its section 8 lists what the
-   implementation would be: the cap in `.estimate_nuisance_matrix()` and in
-   `compute_test_per_gene()`, one new argument (multiplier, default 10, `Inf`
-   for the present behavior), a per-gene status (`estimated` / `capped` /
-   `boundary`) surfaced in `report_results()`, and four tests. Still to
-   decide: whether to offer master's bound as a setting. Not yet run: one
-   real data set, which says how far the cap departs from the published
-   results; it needs a `PAPER_DATA` path.
+0. **Vet version 1.2.0** (working tree, uncommitted). Start with the
+   headers of the three new test files, then `NEWS.md`. Once vetted: write
+   section 2.19 of `UNIT_TEST_PLAN.md` from those headers, update
+   `CRAN_READINESS.md` section 0 and the two reports, drop the `_claude`
+   suffixes, commit.
+0e. `plot_fitted_vs_observed()` resets the caller's random stream
+   (`seed_number = 10`, the house convention). Keep, default to `NULL`, or
+   restore the stream on exit.
+0f. Not yet run: one real data set, which says how far the cap departs from
+   the published results; it needs a `PAPER_DATA` path.
 0b. Correct the "two- to threefold" statement in section 4.1 of
    `version_comparison_claude.Rmd` (multiply `nuisance_true` by the gene's
    median fitted library size), or leave the report as a dated record.
 1. **Q-LFC-1**: the SE is unreliable where the nuisance estimate diverges.
-   Document only (done), repair the divergence upstream (Q10), or flag such
-   genes in `report_results()`.
+   1.2.0 caps the rate and flags such genes in `report_results()`
+   (`nuisance_status`). Remaining: measure the coverage of the SE under the
+   cap, then reword the caveat in `?compute_log_fold_change`.
 2. **Q-LFC-2**: keep the warning from `compute_test_statistic.default()` on a
    non-positive arm mean, or return `NA` silently from the matrix method.
 3. **Q-LFC-3**: the names `log2fc_vec` / `log2fc_se_vec` and `logFC_se`.
@@ -302,13 +374,12 @@ run.
 11. `generate_null()` gene names `gene_1` vs Seurat's `gene-1`.
 12. Regenerated 400 x 60 legacy fixture vs porting the legacy tests to the
     built fixtures.
-13. `param` going stale on a rerun of `opt_esvd`, `estimate_nuisance` or
-    `compute_posterior` (see Key Methodological Details): fix in
-    `.combine_two_named_lists()`, or leave?
+13. `param` still goes stale on a rerun of `initialize_esvd`, `opt_esvd` or
+    the reparameterization (the later stages now overwrite their entries):
+    fix in `.combine_two_named_lists()`, or leave?
 14. T-PROP-06 counts `generate_null()`'s "null_large_var" genes as null;
     they are not. Investigate whether the test still means what it says.
-15. Carried over: nuisance blow-up (now with a measured consequence, item 1);
-    `.multtest_locfdr` catching warnings; `bool_diet` keeping the fit; the
+15. Carried over: `.multtest_locfdr` catching warnings; `bool_diet` keeping the fit; the
     non-determinism amplification.
 
 **Ready to start, blocked on nothing:**
@@ -325,7 +396,8 @@ run.
     `rhub::rhub_check()`) and one ASan/UBSan run.
 18. The nine suggested tests in `CRAN_READINESS.md` section 0.4, once the
     decisions they depend on are made.
-19. Rebuild the pkgdown site (`docs/`) so it lists `compute_log_fold_change`.
+19. Rebuild the pkgdown site (`docs/`) so it lists `compute_log_fold_change`,
+    `recompute_pvalue`, `plot_nuisance` and `plot_fitted_vs_observed`.
 20. Optional: `.compute_df()` could now read the stored `case_var` /
     `control_var` instead of recomputing them; `.split_individuals_by_arm()`
     refactor (four copies of the case/control derivation).

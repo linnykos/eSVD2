@@ -72,7 +72,8 @@ freedom are defined.}
 \item{verbose}{Integer; \code{0} is silent.}
 
 \item{...}{Further arguments to \code{eSVD}, such as \code{k},
-\code{bool_diet} or \code{intermediate_save}.}
+\code{bool_diet}, \code{cap_multiplier} or
+\code{intermediate_save}.}
 }
 \value{
 Either \code{NA} (the cohort was rejected; see the warning), or
@@ -105,7 +106,8 @@ in every per-gene estimate (\code{teststat_vec}, \code{case_mean},
 \code{control_mean}, \code{case_var}, \code{control_var},
 \code{log2fc_vec}, \code{log2fc_se_vec}, \code{pvalue_list$df_vec},
 \code{pvalue_list$gaussian_teststat}, and the rows of \code{y_mat},
-\code{z_mat} and \code{nuisance_vec} in the final fit), a
+\code{z_mat}, \code{nuisance_vec} and the other per-gene vectors of
+\code{estimate_nuisance} in the final fit), a
 \code{pvalue_list$log10pvalue} of \code{0} (that is, a p-value of 1) and a
 \code{pvalue_list$fdr_vec} of \code{1}. The empirical null and the
 Benjamini-Hochberg adjustment are computed on the analyzed genes only,

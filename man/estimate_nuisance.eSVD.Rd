@@ -9,6 +9,7 @@
   bool_covariates_as_library = FALSE,
   bool_library_includes_interept = TRUE,
   bool_use_log = FALSE,
+  cap_multiplier = 10,
   min_val = 1e-04,
   verbose = 0,
   ...
@@ -26,15 +27,34 @@ This parameter is experimental, and we have not yet encountered a scenario where
 
 \item{bool_use_log}{Boolean if the nuisance (i.e., over-dispersion) parameter should be estimated on the log scale, default is \code{FALSE}.}
 
-\item{min_val}{Minimum value of the nuisance parameter.}
+\item{cap_multiplier}{One positive number, default \code{10}: no gene's rate may exceed this
+many times the median over cells of its library size.
+\code{Inf} means no cap.}
+
+\item{min_val}{Minimum value of the rate, as a multiple of the median over cells of the
+gene's library size (the units of \code{cap_multiplier}); must be below
+\code{cap_multiplier}. Default \code{1e-4}.}
 
 \item{verbose}{Integer.}
 
 \item{...}{Additional parameters.}
 }
 \value{
-\code{eSVD} object with \code{nuisance_vec} appended to the list in
-\code{input_obj[[input_obj[["latest_Fit"]]]]}.
+\code{eSVD} object with the following named vectors, one entry per
+gene, added to the list in \code{input_obj[[input_obj[["latest_Fit"]]]]}:
+\code{nuisance_vec} (the rate after the cap, which is what every later
+stage uses), \code{nuisance_mle_vec} (the rate before the cap),
+\code{nuisance_library_median_vec} (the median over cells of the gene's
+library size, so the cap is \code{cap_multiplier} times this),
+\code{nuisance_status} (a factor with levels \code{estimated},
+\code{capped}, \code{boundary}, \code{failed}; see above),
+\code{gene_mean_count_vec} (the gene's mean count over cells) and
+\code{gene_sparsity_vec} (the fraction of cells in which its count is
+zero). \code{input_obj$param} records \code{nuisance_cap_multiplier},
+\code{nuisance_num_capped} (the number of genes whose rate the cap
+replaced, the \code{boundary} genes among them included),
+\code{nuisance_num_boundary} and \code{nuisance_num_failed}; calling the
+function again overwrites them. \code{plot_nuisance} draws these.
 }
 \description{
 Assumes a Gamma-Poisson model where the mean and variance are proportionally
@@ -43,6 +63,46 @@ related: \eqn{\lambda_{ji} \sim \mathrm{Gamma}(\mathrm{mean} = \mu_{ji},
 the Gamma \emph{rate} \eqn{\beta_j = 1/\gamma_j}, the reciprocal of the
 over-dispersion \eqn{\gamma_j} in Lin, Qiu and Roeder (2024), so a
 \strong{larger} value means \strong{less} over-dispersion.
+}
+\details{
+\strong{The cap.} Each gene's rate is the maximum-likelihood estimate,
+bounded above: \eqn{\hat\beta_j = \min\{\hat\beta_j^{\mathrm{MLE}},\ c
+\cdot \mathrm{median}_i\, \ell_{ji}\}}, with \eqn{c} =
+\code{cap_multiplier} and \eqn{\ell_{ji}} the covariate-adjusted library
+size of gene \eqn{j} in cell \eqn{i}. The rate has the units of the library
+size, which is why the bound is a multiple of it. The bound is a
+calibration device and not an estimate of the smallest over-dispersion in
+the data: a gene whose counts are no more variable around the fit than a
+Poisson has no finite maximum-likelihood rate, its posterior would collapse
+onto the fit, and its test statistic would be inflated. The bound limits
+how much more weight the posterior may give the fit for one gene than for
+the typical gene. \code{cap_multiplier = Inf} removes it, which is the
+behaviour of version 1.1.0. \code{cap_multiplier = 1} is close to, but not
+the same as, the bound of the version that accompanied Lin, Qiu and Roeder
+(2024), which was the largest library size of the gene and not a multiple
+of its median. \code{recompute_pvalue} changes the multiplier on a
+fitted object without estimating anything again.
+
+\strong{The floor} \code{min_val} is in the same units: no gene's rate is
+below \code{min_val} times the median of its library size. On the
+unit-free scale of \code{plot_nuisance} every rate therefore lies between
+\code{min_val} and \code{cap_multiplier}, and no gene is above its cap.
+\code{min_val} must be below \code{cap_multiplier}.
+
+\strong{The status} of each gene records what happened to it:
+\describe{
+  \item{\code{estimated}}{the gene keeps its maximum-likelihood rate.}
+  \item{\code{capped}}{a finite maximum-likelihood rate exists and is above
+    the bound.}
+  \item{\code{boundary}}{no finite maximum-likelihood rate exists: the
+    score statistic for over-dispersion, \eqn{D_j = \sum_i [(A_{ji} -
+    \ell_{ji}\mu_{ji})^2 - A_{ji}] / \mu_{ji}}, is not positive. Such a
+    gene is set to the bound, whatever value the iterations of the
+    estimate stopped at (which is what \code{nuisance_mle_vec} holds for
+    it). With \code{cap_multiplier = Inf} it keeps that value.}
+  \item{\code{failed}}{both estimation routes failed and the rate is the
+    floor, \code{min_val} times the median of its library size.}
+}
 }
 \examples{
 set.seed(10)
@@ -68,4 +128,6 @@ esvd_obj <- reparameterization_esvd_covariates(input_obj = esvd_obj,
                                                omitted_variables = "Log_UMI")
 esvd_obj <- estimate_nuisance(input_obj = esvd_obj)
 summary(esvd_obj$fit_First$nuisance_vec)
+table(esvd_obj$fit_First$nuisance_status)
+esvd_obj$param$nuisance_num_capped
 }

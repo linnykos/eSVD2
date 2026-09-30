@@ -38,7 +38,10 @@
 #'           \code{null_mean}, \code{null_sd}; see \code{compute_pvalue}.
 #'   }
 #' The individuals of each arm are recorded in \code{param}, as
-#' \code{compute_test_statistic} does.
+#' \code{compute_test_statistic} does, and so are the settings of the
+#' posterior, under the names \code{compute_posterior} uses
+#' (\code{posterior_alpha_max} and so on). Calling the function again
+#' overwrites them.
 #' @examples
 #' set.seed(10)
 #' sim <- generate_null(cell_per_person = 15, num_genes = 40,
@@ -136,11 +139,24 @@ compute_test_per_gene <- function(input_obj,
   # Recorded as `compute_test_statistic.eSVD` records them, so that the number
   # of individuals in each arm survives on an object whose `dat` is dropped.
   param <- .format_param_test_statistic(case_individuals = case_individuals,
-                                        control_individuals = control_individuals)
+                                        control_individuals = control_individuals,
+                                        min_cells_per_individual = min_cells_per_individual)
   input_obj$param <- .combine_two_named_lists(input_obj$param, param)
   # `.combine_two_named_lists` keeps an entry that is already there, so a
   # rerun on a changed cohort would leave the previous individuals in place
   # and `compute_log_fold_change` would divide by the wrong number of them.
+  input_obj$param[names(param)] <- param
+
+  # The settings of the posterior, under the names `compute_posterior.eSVD`
+  # records them, so that `recompute_pvalue` can repeat this call.
+  param <- .format_param_posterior(alpha_max = alpha_max,
+                                   bool_adjust_covariates = bool_adjust_covariates,
+                                   bool_covariates_as_library = bool_covariates_as_library,
+                                   bool_return_components = FALSE,
+                                   bool_stabilize_underdispersion = bool_stabilize_underdispersion,
+                                   library_min = library_min,
+                                   nuisance_lower_quantile = nuisance_lower_quantile,
+                                   pseudocount = pseudocount)
   input_obj$param[names(param)] <- param
 
   tmp_idx   <- .determine_individual_indices(
@@ -188,18 +204,15 @@ compute_test_per_gene <- function(input_obj,
   }
   case_control_idx <- which(colnames(covariates) == case_control_variable)
 
-  library_size_variables <- library_size_variable
-  if (bool_covariates_as_library) {
-    library_size_variables <- unique(c(
-      library_size_variables,
-      setdiff(colnames(covariates),
-              c("Intercept", case_control_variable))
-    ))
-  }
-  if (bool_library_includes_interept) {
-    library_size_variables <- unique(c("Intercept", library_size_variables))
-  }
-  library_idx <- which(colnames(covariates) %in% library_size_variables)
+  # The one rule for which columns form the library size, shared with
+  # `estimate_nuisance` and `compute_posterior.default`.
+  library_idx <- .nuisance_library_idx(
+    covariates = covariates,
+    case_control_variable = case_control_variable,
+    library_size_variable = library_size_variable,
+    bool_covariates_as_library = bool_covariates_as_library,
+    bool_library_includes_interept = bool_library_includes_interept
+  )
   idx_vec     <- c(case_control_idx, library_idx)
 
   # Pre-split covariates to avoid repeatedly indexing inside the loop

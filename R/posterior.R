@@ -92,6 +92,10 @@ compute_posterior.eSVD <- function(input_obj,
                                    nuisance_lower_quantile = nuisance_lower_quantile,
                                    pseudocount = pseudocount)
   input_obj$param <- .combine_two_named_lists(input_obj$param, param)
+  # `.combine_two_named_lists` keeps an entry that is already there, so a
+  # second call with other settings would leave the first call's settings
+  # in `param`, and `recompute_pvalue` would repeat the posterior with them.
+  input_obj$param[names(param)] <- param
   case_control_variable <- .get_object(eSVD_obj = input_obj, which_fit = "param", what_obj = "init_case_control_variable")
   library_size_variable <- .get_object(eSVD_obj = input_obj, which_fit = "param", what_obj = "init_library_size_variable")
   bool_library_includes_interept <- .get_object(eSVD_obj = input_obj, which_fit = "param", what_obj = "nuisance_bool_library_includes_interept")
@@ -198,13 +202,15 @@ compute_posterior.default <- function(input_obj,
   if(is.null(case_control_variable)) case_control_variable <- numeric(0)
   case_control_idx <- which(colnames(covariates) == case_control_variable)
 
-  library_size_variables <- library_size_variable
-  if(bool_covariates_as_library) library_size_variables <- unique(c(library_size_variables,
-                                                                    setdiff(colnames(covariates),
-                                                                            c("Intercept", case_control_variable))))
-  if(bool_library_includes_interept) library_size_variables <-  unique(c("Intercept", library_size_variables))
-
-  library_idx <- which(colnames(covariates) %in% library_size_variables)
+  # The one rule for which columns form the library size, shared with
+  # `estimate_nuisance` and `compute_test_per_gene`.
+  library_idx <- .nuisance_library_idx(
+    covariates = covariates,
+    case_control_variable = case_control_variable,
+    library_size_variable = library_size_variable,
+    bool_covariates_as_library = bool_covariates_as_library,
+    bool_library_includes_interept = bool_library_includes_interept
+  )
   idx_vec <- c(case_control_idx, library_idx)
 
   nat_mat1 <- tcrossprod(esvd_res$x_mat, esvd_res$y_mat)

@@ -10,7 +10,13 @@
 #' standard error of and how it compares with those of 'DESeq2', 'dreamlet'
 #' and 'NEBULA'),
 #' \code{log10pvalue} (\eqn{-\log_{10}} of the two-sided p-value),
-#' \code{pvalue} and \code{pvalue_adj} (Benjamini-Hochberg). \code{pvalue}
+#' \code{pvalue}, \code{pvalue_adj} (Benjamini-Hochberg) and
+#' \code{nuisance_status} (a factor: what \code{estimate_nuisance} did with
+#' the gene's over-dispersion, one of \code{estimated}, \code{capped},
+#' \code{boundary}, \code{failed}; \code{NA} for a gene that was not
+#' analyzed, and for every gene of an object built before version 1.2.0). The
+#' fold change and the statistic of a gene that is not \code{estimated}
+#' reflect the cap on its rate. \code{pvalue}
 #' underflows to \code{0} for any gene with \code{log10pvalue} above about
 #' 308, so genes should be ranked by \code{log10pvalue}, which keeps the
 #' distinction. \code{logFC / logFC_se} is not the statistic behind
@@ -75,12 +81,16 @@ report_results <- function(input_obj){
       logFC_se <- rep(NA_real_, length(logFC))
     }
 
+    nuisance_status <- .get_nuisance_status(input_obj = input_obj,
+                                            genes = genes)
+
     df <- data.frame(genes = genes,
                      logFC = unname(logFC),
                      logFC_se = unname(logFC_se),
                      log10pvalue = unname(log10pvalue),
                      pvalue = unname(pvalue),
-                     pvalue_adj = unname(pvalue_adj))
+                     pvalue_adj = unname(pvalue_adj),
+                     nuisance_status = unname(nuisance_status))
     rownames(df) <- df$genes
     return(df)
 
@@ -88,4 +98,28 @@ report_results <- function(input_obj){
     message("input_obj does not have all the results computed yet")
     invisible()
   }
+}
+
+#' The nuisance status of each gene, in the order of the results
+#'
+#' @param input_obj  \code{eSVD} object.
+#' @param genes      Character vector, the genes of the results.
+#'
+#' @returns Factor of the length of \code{genes} with the levels of
+#' \code{estimate_nuisance}. All \code{NA} when the object carries no
+#' status (built before version 1.2.0).
+#' @noRd
+.get_nuisance_status <- function(input_obj, genes){
+  latest_Fit <- input_obj[["latest_Fit"]]
+  nuisance_status <- NULL
+  if(!is.null(latest_Fit)) nuisance_status <- input_obj[[latest_Fit]]$nuisance_status
+
+  if(is.null(nuisance_status)){
+    return(factor(rep(NA_character_, length(genes)),
+                  levels = .nuisance_status_levels()))
+  }
+
+  # The column is joined to the others by position.
+  stopifnot(identical(names(nuisance_status), genes))
+  nuisance_status
 }

@@ -18,7 +18,13 @@ a data frame with one row per gene (in the order of
 standard error of and how it compares with those of 'DESeq2', 'dreamlet'
 and 'NEBULA'),
 \code{log10pvalue} (\eqn{-\log_{10}} of the two-sided p-value),
-\code{pvalue} and \code{pvalue_adj} (Benjamini-Hochberg). \code{pvalue}
+\code{pvalue}, \code{pvalue_adj} (Benjamini-Hochberg) and
+\code{nuisance_status} (a factor: what \code{estimate_nuisance} did with
+the gene's over-dispersion, one of \code{estimated}, \code{capped},
+\code{boundary}, \code{failed}; \code{NA} for a gene that was not
+analyzed, and for every gene of an object built before version 1.2.0). The
+fold change and the statistic of a gene that is not \code{estimated}
+reflect the cap on its rate. \code{pvalue}
 underflows to \code{0} for any gene with \code{log10pvalue} above about
 308, so genes should be ranked by \code{log10pvalue}, which keeps the
 distinction. \code{logFC / logFC_se} is not the statistic behind

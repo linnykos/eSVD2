@@ -24,8 +24,8 @@ compute_test_statistic <- function(input_obj, ...) {UseMethod("compute_test_stat
 #' \code{control_var} (the variance of each arm, the two quantities the
 #' statistic divides by), and \code{log2fc_vec} and \code{log2fc_se_vec} (the
 #' log2 fold change and its standard error; see
-#' \code{compute_log_fold_change}). The individuals of each arm are recorded
-#' in \code{param}.
+#' \code{compute_log_fold_change}). The individuals of each arm and
+#' \code{min_cells_per_individual} are recorded in \code{param}.
 #' @examples
 #' set.seed(10)
 #' sim <- generate_null(cell_per_person = 15, num_genes = 40,
@@ -82,7 +82,8 @@ compute_test_statistic.eSVD <- function(input_obj,
   stopifnot(length(intersect(control_individuals, case_individuals)) == 0)
 
   param <- .format_param_test_statistic(case_individuals = case_individuals,
-                                        control_individuals = control_individuals)
+                                        control_individuals = control_individuals,
+                                        min_cells_per_individual = min_cells_per_individual)
   input_obj$param <- .combine_two_named_lists(input_obj$param, param)
   # `.combine_two_named_lists` keeps an entry that is already there, so a
   # rerun on a changed cohort would leave the previous individuals in place
@@ -320,7 +321,9 @@ compute_test_statistic.default <- function(input_obj,
 }
 
 .format_param_test_statistic <- function(case_individuals,
-                                         control_individuals){
+                                         control_individuals,
+                                         min_cells_per_individual){
   list(test_case_individuals = case_individuals,
-       test_control_individuals = control_individuals)
+       test_control_individuals = control_individuals,
+       test_min_cells_per_individual = min_cells_per_individual)
 }

@@ -61,7 +61,10 @@ The input \code{eSVD} object with:
           \code{null_mean}, \code{null_sd}; see \code{compute_pvalue}.
   }
 The individuals of each arm are recorded in \code{param}, as
-\code{compute_test_statistic} does.
+\code{compute_test_statistic} does, and so are the settings of the
+posterior, under the names \code{compute_posterior} uses
+(\code{posterior_alpha_max} and so on). Calling the function again
+overwrites them.
 }
 \description{
 This function reproduces the behavior of

@@ -192,7 +192,8 @@ filter_cohort <- function(seurat_obj,
 #' \code{control_mean}, \code{case_var}, \code{control_var},
 #' \code{log2fc_vec}, \code{log2fc_se_vec}, \code{pvalue_list$df_vec},
 #' \code{pvalue_list$gaussian_teststat}, and the rows of \code{y_mat},
-#' \code{z_mat} and \code{nuisance_vec} in the final fit), a
+#' \code{z_mat}, \code{nuisance_vec} and the other per-gene vectors of
+#' \code{estimate_nuisance} in the final fit), a
 #' \code{pvalue_list$log10pvalue} of \code{0} (that is, a p-value of 1) and a
 #' \code{pvalue_list$fdr_vec} of \code{1}. The empirical null and the
 #' Benjamini-Hochberg adjustment are computed on the analyzed genes only,
@@ -208,7 +209,8 @@ filter_cohort <- function(seurat_obj,
 #' @inheritParams eSVD
 #' @inheritParams filter_cohort
 #' @param ...  Further arguments to \code{eSVD}, such as \code{k},
-#'             \code{bool_diet} or \code{intermediate_save}.
+#'             \code{bool_diet}, \code{cap_multiplier} or
+#'             \code{intermediate_save}.
 #'
 #' @returns Either \code{NA} (the cohort was rejected; see the warning), or
 #' the \code{eSVD} object returned by \code{eSVD} with the removed genes
@@ -273,9 +275,7 @@ eSVD_helper <- function(batch_var_prefix, # a variable inside categorical_vars. 
 
   # Step 3: gene status, from the DONOR-FILTERED counts.
   if(verbose > 0) print("Labeling gene status")
-  count_mat <- Matrix::t(SeuratObject::LayerData(seurat_obj,
-                                                 assay = "RNA",
-                                                 layer = "counts"))
+  count_mat <- .extract_count_matrix(seurat_obj)
   gene_vec <- colnames(count_mat)
   all_zero_idx <- .which_all_zero(count_mat)
   gene_status <- factor(rep("analyzed", length(gene_vec)),
@@ -353,6 +353,18 @@ eSVD_helper <- function(batch_var_prefix, # a variable inside categorical_vars. 
     out[names(vec)] <- vec
     out
   }
+  # A factor assigned into a numeric vector leaves its integer codes behind.
+  pad_factor <- function(vec){
+    if(is.null(vec)) return(NULL)
+    stopifnot(is.factor(vec), !is.null(names(vec)),
+              all(names(vec) %in% analyzed_vec))
+    out <- rep(NA_character_, length(gene_vec))
+    names(out) <- gene_vec
+    out[names(vec)] <- as.character(vec)
+    out_factor <- factor(out, levels = levels(vec))
+    names(out_factor) <- gene_vec
+    out_factor
+  }
   pad_rows <- function(mat){
     if(is.null(mat)) return(NULL)
     stopifnot(!is.null(rownames(mat)), all(rownames(mat) %in% analyzed_vec))
@@ -396,7 +408,10 @@ eSVD_helper <- function(batch_var_prefix, # a variable inside categorical_vars. 
     fit <- eSVD_obj[[fit_name]]
     fit$y_mat <- pad_rows(fit$y_mat)
     fit$z_mat <- pad_rows(fit$z_mat)
-    fit$nuisance_vec <- pad_vector(fit$nuisance_vec, fill = NA_real_)
+    for(element_name in .nuisance_numeric_elements()){
+      fit[[element_name]] <- pad_vector(fit[[element_name]], fill = NA_real_)
+    }
+    fit$nuisance_status <- pad_factor(fit$nuisance_status)
     fit$posterior_mean_mat <- pad_columns(fit$posterior_mean_mat)
     fit$posterior_var_mat <- pad_columns(fit$posterior_var_mat)
     eSVD_obj[[fit_name]] <- fit
@@ -409,4 +424,11 @@ eSVD_helper <- function(batch_var_prefix, # a variable inside categorical_vars. 
   }
 
   eSVD_obj
+}
+
+# The per-gene numeric vectors `estimate_nuisance` stores on a fit, in one
+# place so that padding them and stripping the padding cannot drift.
+.nuisance_numeric_elements <- function(){
+  c("nuisance_vec", "nuisance_mle_vec", "nuisance_library_median_vec",
+    "gene_mean_count_vec", "gene_sparsity_vec")
 }
