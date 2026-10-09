@@ -934,3 +934,11 @@ would write first.
 - The devel library `additional_context/version_comparison/lib/devel` was reinstalled from the working tree (HEAD `45f179f`). The installed `eSVD2` in the default library is still 1.0.1.02.
 - Temporary files: `~/Downloads/rawMatrix/` (the unzipped data), `~/Downloads/esvd_asd_tmp/` (`asd_seurat.RData`, `asd_esvd.RData` from the wrapper, `asd_esvd_stagewise.RData`, `analysis_summary.rds`); the driver scripts `01_preprocess.R` to `04_compare_and_panel.R` are in the session scratchpad only.
 - Nothing is committed.
+
+### [2026-10-08] (Session 23 — NEWS.md consolidated against master; vignettes rendered locally)
+- Rewrote `NEWS.md` as one 1.2.0 section relative to 1.0.1.07 (the `master` branch, April 2026), folding in the unreleased 1.0.2 and 1.1.0 sections; the previous text is at `f6c26aa`.
+- The audit of the master..devel diff found two facts the old NEWS had wrong or missing: `report_results()` returns seven columns where master returned four, and `compute_test_per_gene()`'s `library_min` default changed from 0.01 to 0.1 (now equal to `eSVD()` and `compute_posterior()`).
+- Decided: `.Rbuildignore` now excludes `vignettes/*.html` and `.gitignore` excludes the rendered vignette and article html, so local viewing copies never reach the tarball or git.
+- Rendering recipe that works on this machine: `git archive devel` into the scratchpad, `R CMD INSTALL --library=<scratch>/lib`, then `rmarkdown::render()` with that library first on `.libPaths()` and `RSTUDIO_PANDOC` set to RStudio's `quarto/bin/tools/aarch64`; the system library still holds eSVD2 1.0.1.2 and has no pandoc.
+- The two articles render in about a second because every heavy chunk is `eval = FALSE`; their only warning is the missing `\VignetteIndexEntry`, expected for pkgdown articles.
+- Open: whether Kevin prefers the single consolidated section or the per-milestone history in `NEWS.md` (item 16c).

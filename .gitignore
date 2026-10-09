@@ -107,3 +107,7 @@ additional_context/overdispersion_brainstorm/cache/
 additional_context/overdispersion_brainstorm/output/genes.csv
 additional_context/overdispersion_brainstorm/output/gene_summaries.csv
 additional_context/overdispersion_brainstorm/output/master_extra_genes.csv
+
+# Locally rendered vignettes and articles (view only; rebuilt from the .Rmd)
+vignettes/*.html
+vignettes/articles/*.html
