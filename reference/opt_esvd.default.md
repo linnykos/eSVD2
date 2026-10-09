@@ -16,7 +16,7 @@ opt_esvd(
   l2pen = 0.1,
   library_multipler = rep(1, nrow(input_obj)),
   max_iter = 100,
-  nuisance_vec = rep(NA, ncol(input_obj)),
+  nuisance_vec = NULL,
   offset_variables = NULL,
   tol = 1e-06,
   verbose = 0,
@@ -63,7 +63,8 @@ opt_esvd(
   `"poisson"`, `"neg_binom"`, `"neg_binom2"`, or `"bernoulli"`. Notably,
   with exception of `"neg_binom2"`, all the other families are
   parameterized such that eSVD is fitting the dot product to be the
-  canonical parameter of these expoential-family distributions. For
+  natural parameter of these exponential-family distributions (see the
+  "Natural parameter" line at the top of each `src/family_*.cpp`). For
   `"neg_binom2"`, the dot product is the log-mean of the distribution
   (i.e., similar to the canonical parameterization of the Poisson
   family).
@@ -75,13 +76,13 @@ opt_esvd(
 
 - library_multipler:
 
-  Vector of positive numerics of length \\n\\. It is the multiplier such
-  that the variance of cell `i`'s entries is the mean of cell `i`'s
-  entries times the square-root of cell `i`'s value in
-  `library_multipler` (entry-wise). This is used as an alternative
-  interpretation of how library-size affects a cell's gene expression
-  (instead of using the library size as a covariate to be regressed
-  out).
+  Vector of positive numerics of length \\n\\: the per-cell multiplier
+  \\s_i\\ in the likelihood, entering by family (for example, the
+  Poisson mean is \\s_i e^{\theta\_{ij}}\\, and the Gaussian has mean
+  \\s_i\theta\_{ij}\\ and variance \\s_i\gamma_j^2\\); `"neg_binom2"`
+  ignores it. This is used as an alternative interpretation of how
+  library-size affects a cell's gene expression (instead of using the
+  library size as a covariate to be regressed out).
 
 - max_iter:
 
@@ -89,22 +90,28 @@ opt_esvd(
 
 - nuisance_vec:
 
-  Vector of non-negative numerics (or `NA`'s) of length \\p\\,
-  representing each gene's nuisance parameter when using an
-  exponential-family distribution that requires one. It is used only
-  when `family` is `"curved_gaussian"` or `"neg_binom"` or
-  `"neg_binom2"`.
+  Vector of positive numerics of length \\p\\, representing each gene's
+  nuisance parameter when using an exponential-family distribution that
+  requires one: the standard deviation for `"gaussian"`, the mean
+  divided by the standard deviation (the inverse coefficient of
+  variation) for `"curved_gaussian"`, and the size (number of failures)
+  for `"neg_binom"` and `"neg_binom2"`. It is ignored by `"poisson"`,
+  `"exponential"` and `"bernoulli"`. The default `NULL` uses `1` for
+  every gene, which is a placeholder rather than an estimate; supply
+  your own values for the families that use it.
 
 - offset_variables:
 
   A vector of strings depicting which column names in
-  `input_obj$covariate` be treated as an offset during the optimization
+  `input_obj$covariates` be treated as an offset during the optimization
   (i.e., their coefficients will not change throughout the
   optimization).
 
 - tol:
 
-  Small positive number to differentiate between zero and non-zero.
+  Relative tolerance of the stopping rule: iteration stops once the
+  objective changes by at most `tol` times
+  `max(1, |previous objective|)`.
 
 - verbose:
 
@@ -116,5 +123,7 @@ opt_esvd(
 
 ## Value
 
-a `list` with elements `x_mat`, `y_mat`, `z_mat`, `library_multiplier`,
-`loss`, `nuisance_vec` and `param`.
+a `list` with elements `x_mat`, `y_mat`, `z_mat`, `covariates`,
+`library_multipler`, `loss` (the objective after every iteration),
+`nuisance_vec` and `param`. A warning is raised if any row or column
+update ended in a failed line search.

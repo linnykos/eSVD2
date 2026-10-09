@@ -7,8 +7,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <title>Neuron analysis for Layer 2/3 in ASD • eSVD2</title>
 <script src="../deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-<link href="../deps/bootstrap-5.3.1/bootstrap.min.css" rel="stylesheet">
-<script src="../deps/bootstrap-5.3.1/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
+<link href="../deps/bootstrap-5.3.8/bootstrap.min.css" rel="stylesheet">
+<script src="../deps/bootstrap-5.3.8/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
 <link href="../deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
 <script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><meta property="og:title" content="Neuron analysis for Layer 2/3 in ASD">
 </head>
@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">eSVD2</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.0.1.07</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.2.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -38,11 +38,13 @@
     <li><a class="dropdown-item" href="../articles/asd.html">Neuron analysis for Layer 2/3 in ASD</a></li>
   </ul>
 </li>
+<li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
       </ul>
 <ul class="navbar-nav">
 <li class="nav-item"><form class="form-inline" role="search">
  <input class="form-control" type="search" name="search-input" id="search-input" autocomplete="off" aria-label="Search site" placeholder="Search for" data-search-index="../search.json">
 </form></li>
+<li class="nav-item"><a class="external-link nav-link" href="https://github.com/linnykos/eSVD2/" aria-label="GitHub"><span class="fa fab fa-github fa-lg"></span></a></li>
       </ul>
 </div>
 
@@ -60,61 +62,126 @@
                         <h4 data-toc-skip class="author">Kevin Z.
 Lin</h4>
             
-            <h4 data-toc-skip class="date">2024-06-16</h4>
+            <h4 data-toc-skip class="date">2026-09-30</h4>
       
-
+      <small class="dont-index">Source: <a href="https://github.com/linnykos/eSVD2/blob/master/vignettes/articles/asd.Rmd" class="external-link"><code>vignettes/articles/asd.Rmd</code></a></small>
       <div class="d-none name"><code>asd.Rmd</code></div>
     </div>
 
     
     
-<p>For this vignette, we will be using a dataset that can be downloaded
-from <a href="https://www.dropbox.com/scl/fi/csyz62obxx8xj5gl5sgp4/asd_seurat.RData?rlkey=d7dlhqjesunal52u8z2iomjsg&amp;dl=0" class="external-link">https://www.dropbox.com/scl/fi/csyz62obxx8xj5gl5sgp4/asd_seurat.RData?rlkey=d7dlhqjesunal52u8z2iomjsg&amp;dl=0</a>.
-This file is called <code>asd_seurat.RData</code>, and contains the
-following variables:</p>
+<div class="section level2">
+<h2 id="overview">Overview<a class="anchor" aria-label="anchor" href="#overview"></a>
+</h2>
+<p>This article runs eSVD-DE (Lin, Qiu and Roeder, 2024) on a real
+cohort: the Layer 2/3 excitatory neurons of Velmeshev et al. (2019), 15
+donors with Autism Spectrum Disorder (ASD) against 16 control donors, on
+6,599 genes. It uses the wrapper <code><a href="../reference/eSVD_helper.html">eSVD2::eSVD_helper()</a></code>,
+which runs the whole method in one call, and then looks at what came
+out: the log2 fold change of each gene with its standard error, the
+volcano plots, and the diagnostic plots of the over-dispersion estimate.
+A section at the end explains what every tuning parameter of the wrapper
+changes inside the method.</p>
+<p>The data set is the one built in <a href="https://linnykos.github.io/eSVD2/articles/asd-preprocess.html">Neuron
+preprocessing for eSVD-DE tutorial</a> and can be downloaded from <a href="https://www.dropbox.com/scl/fi/csyz62obxx8xj5gl5sgp4/asd_seurat.RData?rlkey=d7dlhqjesunal52u8z2iomjsg&amp;dl=0" class="external-link">Dropbox</a>.
+The file is called <code>asd_seurat.RData</code> and contains three
+variables:</p>
 <ul>
 <li>
-<code>asd</code>: The Seurat object we will be analyzing, containing
-13,302 cells and 6,599 genes (all of which are deemed highly
-variable)</li>
+<code>asd</code>: the Seurat object we will be analyzing, 13,302
+cells and 6,599 genes (all deemed variable features)</li>
 <li>
-<code>date_of_run</code>: The date when <code>asd</code> was
+<code>date_of_run</code>: the date when <code>asd</code> was
 constructed</li>
 <li>
-<code>session_info</code>: The session info when <code>asd</code>
+<code>session_info</code>: the session info when <code>asd</code>
 was constructed</li>
 </ul>
 <p>Notably, this is <strong>not</strong> the version of the dataset used
-in the eSVD-DE paper. Instead, the intent of this vignette to show you
-how to perform an eSVD-DE analysis. That is, while the processed dataset
-in the paper is different from this vignette’s processed dataset, the
-procedure we showcase is here is intended as the typical usage of our
-method.</p>
-<p>If you wish to see how this data was preprocessed starting from
-publicly available data (or you cannot download the <code>.RData</code>
-file), please see <a href="https://linnykos.github.io/eSVD2/articles/asd-preprocess.html">https://linnykos.github.io/eSVD2/articles/asd-preprocess.html</a>.</p>
+in the eSVD-DE paper. The intent of this article is to show how to
+perform an eSVD-DE analysis, so the procedure is the typical usage of
+the method while the processed data differs from the paper’s.</p>
+<p>The fit takes about 30 minutes on one core, so the chunks that need
+it are not run when the site is built (<code>eval = FALSE</code>); their
+output is pasted in from a run on 2026-09-30 with eSVD2 1.2.0, and the
+figures are pre-rendered. The chunks that only need the packages do
+run.</p>
+<table class="table">
+<colgroup>
+<col width="33%">
+<col width="33%">
+<col width="33%">
+</colgroup>
+<thead><tr class="header">
+<th>Stage</th>
+<th>What it does</th>
+<th>Functions</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td>Load</td>
+<td>Load the Seurat object and look at the cohort</td>
+<td>
+<code><a href="https://rdrr.io/r/base/load.html" class="external-link">load()</a></code>, <code><a href="https://rdrr.io/r/base/table.html" class="external-link">table()</a></code>
+</td>
+</tr>
+<tr class="even">
+<td>Fit and test</td>
+<td>Filter the cohort, fit the model, estimate the over-dispersion,
+compute the posterior and test every gene</td>
+<td><code><a href="../reference/eSVD_helper.html">eSVD2::eSVD_helper()</a></code></td>
+</tr>
+<tr class="odd">
+<td>Report</td>
+<td>One row per gene: fold change, its standard error, p-value, FDR,
+nuisance status</td>
+<td><code><a href="../reference/report_results.html">eSVD2::report_results()</a></code></td>
+</tr>
+<tr class="even">
+<td>Fold change</td>
+<td>The fold change and its standard error, on their own and in volcano
+plots</td>
+<td>
+<code>ggplot2</code>,
+<code><a href="https://rdrr.io/pkg/EnhancedVolcano/man/EnhancedVolcano.html" class="external-link">EnhancedVolcano::EnhancedVolcano()</a></code>
+</td>
+</tr>
+<tr class="odd">
+<td>Diagnostics</td>
+<td>Check the over-dispersion estimate and the fit</td>
+<td>
+<code><a href="../reference/plot_nuisance.html">eSVD2::plot_nuisance()</a></code>,
+<code><a href="../reference/plot_fitted_vs_observed.html">eSVD2::plot_fitted_vs_observed()</a></code>,
+<code><a href="../reference/recompute_pvalue.html">eSVD2::recompute_pvalue()</a></code>
+</td>
+</tr>
+</tbody>
+</table>
 <p>Relevant citation:</p>
-<pre><code>Velmeshev, D., Schirmer, L., Jung, D., Haeussler, M., Perez, Y., Mayer, S., ... &amp; Kriegstein, A. R. (2019). Single-cell genomics identifies cell type–specific molecular changes in autism. Science, 364(6441), 685-689.</code></pre>
+<pre><code>Velmeshev, D., Schirmer, L., Jung, D., Haeussler, M., Perez, Y., Mayer, S., ... &amp; Kriegstein, A. R. (2019). Single-cell genomics identifies cell type-specific molecular changes in autism. Science, 364(6441), 685-689.</code></pre>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://satijalab.org/seurat" class="external-link">Seurat</a></span><span class="op">)</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://satijalab.github.io/seurat-object/" class="external-link">SeuratObject</a></span><span class="op">)</span></span>
+<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://linnykos.github.io/eSVD2/">eSVD2</a></span><span class="op">)</span></span>
+<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://ggplot2.tidyverse.org" class="external-link">ggplot2</a></span><span class="op">)</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/kevinblighe/EnhancedVolcano" class="external-link">EnhancedVolcano</a></span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">10</span><span class="op">)</span></span>
 <span><span class="va">date_of_run</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Sys.time.html" class="external-link">Sys.time</a></span><span class="op">(</span><span class="op">)</span></span>
-<span><span class="va">session_info</span> <span class="op">&lt;-</span> <span class="fu">devtools</span><span class="fu">::</span><span class="fu"><a href="https://sessioninfo.r-lib.org/reference/session_info.html" class="external-link">session_info</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
+<span><span class="va">session_info</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/utils/sessionInfo.html" class="external-link">sessionInfo</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
+</div>
 <div class="section level2">
 <h2 id="loading-the-data">Loading the data<a class="anchor" aria-label="anchor" href="#loading-the-data"></a>
 </h2>
-<p>We first load the data. We can use the <code><a href="https://rdrr.io/r/base/table.html" class="external-link">table()</a></code> function
-to roughly see how many cells each donor contributes and how many donors
-were classified to be <code>ASD</code> or <code>Control</code>.</p>
+<p>We first load the data. We can use <code><a href="https://rdrr.io/r/base/table.html" class="external-link">table()</a></code> to see how
+many cells each donor contributes and which donors are <code>ASD</code>
+or <code>Control</code>.</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/load.html" class="external-link">load</a></span><span class="op">(</span><span class="st">"asd_seurat.RData"</span><span class="op">)</span></span>
 <span><span class="va">asd</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/table.html" class="external-link">table</a></span><span class="op">(</span><span class="va">asd</span><span class="op">$</span><span class="va">individual</span>, <span class="va">asd</span><span class="op">$</span><span class="va">diagnosis</span><span class="op">)</span></span></code></pre></div>
-<pre><code>An object of class Seurat 
-6599 features across 13302 samples within 1 assay 
+<pre><code>An object of class Seurat
+6599 features across 13302 samples within 1 assay
 Active assay: RNA (6599 features, 6599 variable features)
  2 layers present: counts, data</code></pre>
 <pre><code>            ASD Control
@@ -149,486 +216,938 @@ indiv_5976    0     106
 indiv_5978  264       0
 indiv_6032    0     289
 indiv_6033  528       0</code></pre>
+<p>The metadata also has each cell’s brain region (<code>region</code>),
+each donor’s age and sex, and the capture batch (<code>Capbatch</code>)
+and sequencing batch (<code>Seqbatch</code>) of each cell.</p>
+<blockquote>
+<p><strong>Two of these covariates are redundant, and the model refuses
+them.</strong> In these cells each capture batch lies within one
+sequencing batch, and each capture batch comes from one region (the ACC
+cells are exactly capture batches CB3, CB4, CB8 and CB9). Indicators for
+<code>region</code>, <code>Seqbatch</code> and <code>Capbatch</code>
+together are therefore collinear. eSVD2 1.0 fit such a design anyway
+(its ridge-penalized start spreads the coefficient over the collinear
+columns, and batch columns were never reparameterized); from version
+1.2.0 <code><a href="../reference/initialize_esvd.html">eSVD2::initialize_esvd()</a></code> stops and names the
+redundant columns. Below we adjust for <code>sex</code> and
+<code>Capbatch</code>, which span the same space as the full set;
+<code>region</code> and <code>Seqbatch</code> are accounted for through
+the capture batch.</p>
+</blockquote>
 </div>
 <div class="section level2">
-<h2 id="using-esvd-de">Using eSVD-DE<a class="anchor" aria-label="anchor" href="#using-esvd-de"></a>
+<h2 id="running-esvd-de-in-one-call">Running eSVD-DE in one call<a class="anchor" aria-label="anchor" href="#running-esvd-de-in-one-call"></a>
 </h2>
-<p>We will be testing for differential expression in the mean between
-the 15 donors with ASD and the 16 control donors, among the 6599
-genes.</p>
+<p>We test for differential expression in the mean between the 15 ASD
+donors and the 16 control donors among the 6,599 genes. The whole method
+is one call to <code><a href="../reference/eSVD_helper.html">eSVD2::eSVD_helper()</a></code>. The arguments name the
+columns of <code>asd@meta.data</code> to use:</p>
 <ul>
 <li>
-<strong>Step 0 (Formatting the covariates):</strong> Before we use
-eSVD-DE, we want to reformat all the covariates. Typically, it is a good
-idea to set all the categorical covariates to be <code>factor</code>
-variables where the last level has the smallest size. This is because
-that last level will be the one that does not get its own indicator
-column during the one-hot encoding when using
-<code><a href="../reference/format_covariates.html">eSVD2::format_covariates()</a></code>.</li>
+<code>id_var</code>: the donor, the unit of inference;</li>
+<li>
+<code>case_control_var</code> and <code>case_control_levels</code>:
+the diagnosis, <strong>control first, then case</strong> (reversing them
+flips the sign of every fold change);</li>
+<li>
+<code>categorical_vars</code> and <code>numerical_vars</code>: the
+covariates to adjust for;</li>
+<li>
+<code>batch_var_prefix</code>: a regular expression naming which of
+the categorical covariates are batch variables. Their coefficients are
+held apart from the reparameterization of the fit (see the last
+section).</li>
 </ul>
+<p>Everything else is at its default, including <code>k = 30</code>
+latent dimensions and the cap on the over-dispersion,
+<code>cap_multiplier = 10</code>. On a single core of a 2023 MacBook Pro
+(Apple M2 Max, 32 Gb RAM) this took about 30 minutes. With
+<code>verbose = 1</code> the wrapper prints the stage it is in.</p>
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">gene_vec</span> <span class="op">&lt;-</span> <span class="fu">Seurat</span><span class="fu">::</span><span class="fu"><a href="https://satijalab.github.io/seurat-object/reference/VariableFeatures.html" class="external-link">VariableFeatures</a></span><span class="op">(</span><span class="va">asd</span><span class="op">[[</span><span class="st">"RNA"</span><span class="op">]</span><span class="op">]</span><span class="op">)</span></span>
-<span><span class="va">mat</span> <span class="op">&lt;-</span> <span class="fu">SeuratObject</span><span class="fu">::</span><span class="fu"><a href="https://satijalab.github.io/seurat-object/reference/Layers.html" class="external-link">LayerData</a></span><span class="op">(</span><span class="va">asd</span>,</span>
-<span>                               layer <span class="op">=</span> <span class="st">"counts"</span>,</span>
-<span>                               assay <span class="op">=</span> <span class="st">"RNA"</span>,</span>
-<span>                               features <span class="op">=</span> <span class="va">gene_vec</span><span class="op">)</span></span>
-<span><span class="va">mat</span> <span class="op">&lt;-</span> <span class="fu">Matrix</span><span class="fu">::</span><span class="fu">t</span><span class="op">(</span><span class="va">mat</span><span class="op">)</span></span>
-<span><span class="va">covariate_df</span> <span class="op">&lt;-</span> <span class="va">asd</span><span class="op">@</span><span class="va">meta.data</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"individual"</span>,</span>
-<span>                                  <span class="st">"region"</span>,</span>
-<span>                                  <span class="st">"age"</span>,</span>
-<span>                                  <span class="st">"sex"</span>,</span>
-<span>                                  <span class="st">"diagnosis"</span>,</span>
-<span>                                  <span class="st">"Seqbatch"</span>,</span>
-<span>                                  <span class="st">"Capbatch"</span><span class="op">)</span><span class="op">]</span></span>
-<span></span>
-<span><span class="va">factor_variables</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"region"</span>, <span class="st">"diagnosis"</span>, <span class="st">"sex"</span>, <span class="st">"Seqbatch"</span>, <span class="st">"Capbatch"</span><span class="op">)</span></span>
-<span><span class="kw">for</span> <span class="op">(</span><span class="va">variable</span> <span class="kw">in</span> <span class="va">factor_variables</span><span class="op">)</span> <span class="op">{</span></span>
-<span>  <span class="va">covariate_df</span><span class="op">[</span>, <span class="va">variable</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/factor.html" class="external-link">factor</a></span><span class="op">(</span><span class="va">covariate_df</span><span class="op">[</span>, <span class="va">variable</span><span class="op">]</span>, levels <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sort.html" class="external-link">sort</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/table.html" class="external-link">table</a></span><span class="op">(</span><span class="va">covariate_df</span><span class="op">[</span>, <span class="va">variable</span><span class="op">]</span><span class="op">)</span>, decreasing <span class="op">=</span> <span class="cn">T</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="op">}</span></span>
-<span></span>
-<span><span class="va">covariate_df</span><span class="op">[</span>, <span class="st">"diagnosis"</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/factor.html" class="external-link">factor</a></span><span class="op">(</span><span class="va">covariate_df</span><span class="op">[</span>, <span class="st">"diagnosis"</span><span class="op">]</span>, levels <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Control"</span>, <span class="st">"ASD"</span><span class="op">)</span><span class="op">)</span></span>
-<span></span>
-<span><span class="va">covariates</span> <span class="op">&lt;-</span> <span class="fu">eSVD2</span><span class="fu">::</span><span class="fu"><a href="../reference/format_covariates.html">format_covariates</a></span><span class="op">(</span></span>
-<span>  dat <span class="op">=</span> <span class="va">mat</span>,</span>
-<span>  covariate_df <span class="op">=</span> <span class="va">covariate_df</span>,</span>
-<span>  rescale_numeric_variables <span class="op">=</span> <span class="st">"age"</span></span>
-<span><span class="op">)</span></span></code></pre></div>
-<ul>
-<li>
-<strong>Step 1 (Initializing the eSVD object):</strong> First, we
-initialize the object of class <code>eSVD</code>, which we will call
-<code>eSVD_obj</code>. This is done using the
-<code><a href="../reference/initialize_esvd.html">eSVD2::initialize_esvd()</a></code> function. All the following
-operations will use <code>eSVD_obj</code> for all calculations through
-the usage of this method. This is where we pass the main inputs
-<code>dat</code>, <code>covariates</code>, and
-<code>metadata_individual</code>. Notice that after
-<code><a href="../reference/initialize_esvd.html">eSVD2::initialize_esvd()</a></code> (and later, after
-<code><a href="../reference/opt_esvd.html">eSVD2::opt_esvd()</a></code>) we always call
-<code><a href="../reference/reparameterization_esvd_covariates.html">eSVD2::reparameterization_esvd_covariates()</a></code> to ensure that
-the fit remains identifiable.</li>
-</ul>
-<p>Empirically, we have found it useful to set
-<code>omitted_variables</code> as the <code>Log_UMI</code> and the batch
-variables. This means that when eSVD2 reparameterizes the variables, it
-does not fiddle with the coefficient for <code>Log_UMI</code>. We found
-this beneficial since the coefficient for specifically the covariate
-<code>Log_UMI</code> bears a special meaning (as it impacts the
-normalization of the sequencing depth most directly), and we do not wish
-to “mix” covariates correlated with <code>Log_UMI</code> too early. We
-have also found it useful to keep the batch variables separate since
-some datasets we have analyzed have donor covariates that are very
-correlated with the batch variable, and keeping these two aspects (i.e.,
-the biological effect of donor covariates, and the artifical effect of
-the sequencing batches) seperate to be beneficial. (Overall, this is not
-a strict recommendation, however, we have found this practice to be
-beneficial in almost all instances we have used eSVD2, so we ourselves
-have not tried deviating from this convention.)</p>
-<p>On a single core of a 2023 Macbook Pro (Apple M2 Max, 32 Gb RAM),
-this took roughly 7 minutes.</p>
-<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">time_start1</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Sys.time.html" class="external-link">Sys.time</a></span><span class="op">(</span><span class="op">)</span></span>
-<span><span class="va">eSVD_obj</span> <span class="op">&lt;-</span> <span class="fu">eSVD2</span><span class="fu">::</span><span class="fu"><a href="../reference/initialize_esvd.html">initialize_esvd</a></span><span class="op">(</span></span>
-<span>  dat <span class="op">=</span> <span class="va">mat</span>,</span>
-<span>  covariates <span class="op">=</span> <span class="va">covariates</span><span class="op">[</span>, <span class="op">-</span><span class="fu"><a href="https://rdrr.io/r/base/grep.html" class="external-link">grep</a></span><span class="op">(</span><span class="st">"individual"</span>, <span class="fu"><a href="https://rdrr.io/r/base/colnames.html" class="external-link">colnames</a></span><span class="op">(</span><span class="va">covariates</span><span class="op">)</span><span class="op">)</span><span class="op">]</span>,</span>
-<span>  metadata_individual <span class="op">=</span> <span class="va">covariate_df</span><span class="op">[</span>, <span class="st">"individual"</span><span class="op">]</span>,</span>
-<span>  case_control_variable <span class="op">=</span> <span class="st">"diagnosis_ASD"</span>,</span>
-<span>  bool_intercept <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<code class="sourceCode R"><span><span class="va">time_start</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Sys.time.html" class="external-link">Sys.time</a></span><span class="op">(</span><span class="op">)</span></span>
+<span><span class="va">eSVD_obj</span> <span class="op">&lt;-</span> <span class="fu">eSVD2</span><span class="fu">::</span><span class="fu"><a href="../reference/eSVD_helper.html">eSVD_helper</a></span><span class="op">(</span></span>
+<span>  batch_var_prefix <span class="op">=</span> <span class="st">"Capbatch"</span>,</span>
+<span>  case_control_levels <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Control"</span>, <span class="st">"ASD"</span><span class="op">)</span>,</span>
+<span>  case_control_var <span class="op">=</span> <span class="st">"diagnosis"</span>,</span>
+<span>  categorical_vars <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"sex"</span>, <span class="st">"Capbatch"</span><span class="op">)</span>,</span>
+<span>  id_var <span class="op">=</span> <span class="st">"individual"</span>,</span>
+<span>  numerical_vars <span class="op">=</span> <span class="st">"age"</span>,</span>
+<span>  seurat_obj <span class="op">=</span> <span class="va">asd</span>,</span>
 <span>  k <span class="op">=</span> <span class="fl">30</span>,</span>
-<span>  lambda <span class="op">=</span> <span class="fl">0.1</span>,</span>
-<span>  metadata_case_control <span class="op">=</span> <span class="va">covariates</span><span class="op">[</span>, <span class="st">"diagnosis_ASD"</span><span class="op">]</span>,</span>
 <span>  verbose <span class="op">=</span> <span class="fl">1</span></span>
 <span><span class="op">)</span></span>
-<span><span class="va">time_end1</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Sys.time.html" class="external-link">Sys.time</a></span><span class="op">(</span><span class="op">)</span></span>
-<span></span>
-<span><span class="va">omitted_variables</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/colnames.html" class="external-link">colnames</a></span><span class="op">(</span><span class="va">eSVD_obj</span><span class="op">$</span><span class="va">covariates</span><span class="op">)</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/grep.html" class="external-link">grep</a></span><span class="op">(</span><span class="st">"Seqbatch"</span>, <span class="fu"><a href="https://rdrr.io/r/base/colnames.html" class="external-link">colnames</a></span><span class="op">(</span><span class="va">eSVD_obj</span><span class="op">$</span><span class="va">covariates</span><span class="op">)</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/grep.html" class="external-link">grep</a></span><span class="op">(</span><span class="st">"Capbatch"</span>, <span class="fu"><a href="https://rdrr.io/r/base/colnames.html" class="external-link">colnames</a></span><span class="op">(</span><span class="va">eSVD_obj</span><span class="op">$</span><span class="va">covariates</span><span class="op">)</span><span class="op">)</span><span class="op">)</span><span class="op">]</span></span>
-<span><span class="va">eSVD_obj</span> <span class="op">&lt;-</span> <span class="fu">eSVD2</span><span class="fu">::</span><span class="fu"><a href="../reference/reparameterization_esvd_covariates.html">reparameterization_esvd_covariates</a></span><span class="op">(</span></span>
-<span>  input_obj <span class="op">=</span> <span class="va">eSVD_obj</span>,</span>
-<span>  fit_name <span class="op">=</span> <span class="st">"fit_Init"</span>,</span>
-<span>  omitted_variables <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Log_UMI"</span>, <span class="va">omitted_variables</span><span class="op">)</span></span>
-<span><span class="op">)</span></span></code></pre></div>
-<ul>
-<li>
-<strong>Step 2 (Fitting the eSVD object):</strong> We now fit the
-eSVD. Typically, we recommend fitting twice (i.e., calling
-<code><a href="../reference/opt_esvd.html">eSVD2::opt_esvd()</a></code> twice) due to the non-convex nature of
-the objective function. In the first call of
-<code><a href="../reference/opt_esvd.html">eSVD2::opt_esvd()</a></code>, hold all the coefficients to all the
-covariates aside from the case-control covariate (here, denoted as
-<code>"CC"</code> so we remove as much of the case-control covariate
-effect as possible. Then, in the second call of
-<code><a href="../reference/opt_esvd.html">eSVD2::opt_esvd()</a></code>, we allow all the coefficients to be
-optimized.</li>
-</ul>
-<p>Note that in the last fit of <code><a href="../reference/opt_esvd.html">eSVD2::opt_esvd()</a></code>, we do
-not set any <code>omitted_variables</code>. This is our typical
-recommendation – it is good to allow all coefficients to be
-reparameterized right before the optimization is all done.</p>
-<p>On a single core of a 2023 Macbook Pro (Apple M2 Max, 32 Gb RAM), for
-this vignette’s dataset, the first fit (i.e., call of
-<code><a href="../reference/opt_esvd.html">eSVD2::opt_esvd()</a></code>) took roughly 7 minutes (for 11
-iterations). The second fit took roughly 4 minutes (for 15
-iterations).</p>
-<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">time_start2</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Sys.time.html" class="external-link">Sys.time</a></span><span class="op">(</span><span class="op">)</span></span>
-<span><span class="va">eSVD_obj</span> <span class="op">&lt;-</span> <span class="fu">eSVD2</span><span class="fu">::</span><span class="fu"><a href="../reference/opt_esvd.html">opt_esvd</a></span><span class="op">(</span></span>
-<span>  input_obj <span class="op">=</span> <span class="va">eSVD_obj</span>,</span>
-<span>  l2pen <span class="op">=</span> <span class="fl">0.1</span>,</span>
-<span>  max_iter <span class="op">=</span> <span class="fl">100</span>,</span>
-<span>  offset_variables <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sets.html" class="external-link">setdiff</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/colnames.html" class="external-link">colnames</a></span><span class="op">(</span><span class="va">eSVD_obj</span><span class="op">$</span><span class="va">covariates</span><span class="op">)</span>, <span class="st">"diagnosis_ASD"</span><span class="op">)</span>,</span>
-<span>  tol <span class="op">=</span> <span class="fl">1e-6</span>,</span>
-<span>  verbose <span class="op">=</span> <span class="fl">1</span>,</span>
-<span>  fit_name <span class="op">=</span> <span class="st">"fit_First"</span>,</span>
-<span>  fit_previous <span class="op">=</span> <span class="st">"fit_Init"</span></span>
-<span><span class="op">)</span></span>
-<span><span class="va">time_end2</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Sys.time.html" class="external-link">Sys.time</a></span><span class="op">(</span><span class="op">)</span></span>
-<span><span class="va">eSVD_obj</span> <span class="op">&lt;-</span> <span class="fu">eSVD2</span><span class="fu">::</span><span class="fu"><a href="../reference/reparameterization_esvd_covariates.html">reparameterization_esvd_covariates</a></span><span class="op">(</span></span>
-<span>  input_obj <span class="op">=</span> <span class="va">eSVD_obj</span>,</span>
-<span>  fit_name <span class="op">=</span> <span class="st">"fit_First"</span>,</span>
-<span>  omitted_variables <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Log_UMI"</span>, <span class="va">omitted_variables</span><span class="op">)</span></span>
-<span><span class="op">)</span></span>
-<span></span>
-<span><span class="va">time_start3</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Sys.time.html" class="external-link">Sys.time</a></span><span class="op">(</span><span class="op">)</span></span>
-<span><span class="va">eSVD_obj</span> <span class="op">&lt;-</span> <span class="fu">eSVD2</span><span class="fu">::</span><span class="fu"><a href="../reference/opt_esvd.html">opt_esvd</a></span><span class="op">(</span></span>
-<span>  input_obj <span class="op">=</span> <span class="va">eSVD_obj</span>,</span>
-<span>  l2pen <span class="op">=</span> <span class="fl">0.1</span>,</span>
-<span>  max_iter <span class="op">=</span> <span class="fl">100</span>,</span>
-<span>  offset_variables <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  tol <span class="op">=</span> <span class="fl">1e-6</span>,</span>
-<span>  verbose <span class="op">=</span> <span class="fl">1</span>,</span>
-<span>  fit_name <span class="op">=</span> <span class="st">"fit_Second"</span>,</span>
-<span>  fit_previous <span class="op">=</span> <span class="st">"fit_First"</span></span>
-<span><span class="op">)</span></span>
-<span><span class="va">time_end3</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Sys.time.html" class="external-link">Sys.time</a></span><span class="op">(</span><span class="op">)</span></span>
-<span><span class="va">eSVD_obj</span> <span class="op">&lt;-</span> <span class="fu">eSVD2</span><span class="fu">::</span><span class="fu"><a href="../reference/reparameterization_esvd_covariates.html">reparameterization_esvd_covariates</a></span><span class="op">(</span></span>
-<span>  input_obj <span class="op">=</span> <span class="va">eSVD_obj</span>,</span>
-<span>  fit_name <span class="op">=</span> <span class="st">"fit_Second"</span>,</span>
-<span>  omitted_variables <span class="op">=</span> <span class="va">omitted_variables</span></span>
-<span><span class="op">)</span></span></code></pre></div>
-<ul>
-<li>
-<strong>Step 3 (Estimating the nuisance (i.e., over-dispersion)
-parameters):</strong> After fitting the eSVD, we need to estimate the
-nuisance parameters. Since we are modeling the data via a negative
-binomial, this nuisance parameter is the over-dispersion parameter. This
-is done via the <code><a href="../reference/estimate_nuisance.html">eSVD2::estimate_nuisance()</a></code> function.</li>
-</ul>
-<p>On a single core of a 2023 Macbook Pro (Apple M2 Max, 32 Gb RAM),
-this took roughly 9 minutes.</p>
-<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">time_start4</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Sys.time.html" class="external-link">Sys.time</a></span><span class="op">(</span><span class="op">)</span></span>
-<span><span class="va">eSVD_obj</span> <span class="op">&lt;-</span> <span class="fu">eSVD2</span><span class="fu">::</span><span class="fu"><a href="../reference/estimate_nuisance.html">estimate_nuisance</a></span><span class="op">(</span></span>
-<span>  input_obj <span class="op">=</span> <span class="va">eSVD_obj</span>,</span>
-<span>  bool_covariates_as_library <span class="op">=</span> <span class="cn">TRUE</span>,</span>
-<span>  bool_library_includes_interept <span class="op">=</span> <span class="cn">TRUE</span>,</span>
-<span>  bool_use_log <span class="op">=</span> <span class="cn">FALSE</span>,</span>
-<span>  verbose <span class="op">=</span> <span class="fl">1</span></span>
-<span><span class="op">)</span></span>
-<span><span class="va">time_end4</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Sys.time.html" class="external-link">Sys.time</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
-<ul>
-<li>
-<strong>Step 4 (Computing the posterior):</strong> With the
-over-disperison parameter estimated, we are now ready to compute the
-posterior mean and variance of each cell’s gene expression value. This
-posterior distribution is to balance out the fitted eSVD denoised value
-against the covariate-adjusted library size. This step ensures that even
-though we pooled all the genes to denoise the single-cell expression
-matrix, we do not later inflate the Type-1 error. This is done via the
-<code><a href="../reference/compute_posterior.html">eSVD2::compute_posterior()</a></code> function.</li>
-</ul>
-<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">eSVD_obj</span> <span class="op">&lt;-</span> <span class="fu">eSVD2</span><span class="fu">::</span><span class="fu"><a href="../reference/compute_posterior.html">compute_posterior</a></span><span class="op">(</span></span>
-<span>  input_obj <span class="op">=</span> <span class="va">eSVD_obj</span>,</span>
-<span>  bool_adjust_covariates <span class="op">=</span> <span class="cn">FALSE</span>,</span>
-<span>  alpha_max <span class="op">=</span> <span class="fl">2</span> <span class="op">*</span> <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">max</a></span><span class="op">(</span><span class="va">mat</span><span class="op">@</span><span class="va">x</span><span class="op">)</span>,</span>
-<span>  bool_covariates_as_library <span class="op">=</span> <span class="cn">TRUE</span>,</span>
-<span>  bool_stabilize_underdispersion <span class="op">=</span> <span class="cn">TRUE</span>,</span>
-<span>  library_min <span class="op">=</span> <span class="fl">0.1</span>,</span>
-<span>  pseudocount <span class="op">=</span> <span class="fl">0</span></span>
-<span><span class="op">)</span></span></code></pre></div>
-<ul>
-<li>
-<strong>Step 5 (Computing the test statistics):</strong> Now we can
-compute the test statistics using the
-<code><a href="../reference/compute_test_statistic.html">eSVD2::compute_test_statistic()</a></code> function.</li>
-</ul>
-<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">eSVD_obj</span> <span class="op">&lt;-</span> <span class="fu">eSVD2</span><span class="fu">::</span><span class="fu"><a href="../reference/compute_test_statistic.html">compute_test_statistic</a></span><span class="op">(</span>input_obj <span class="op">=</span> <span class="va">eSVD_obj</span>, verbose <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span></code></pre></div>
-<ul>
-<li>
-<strong>Step 6 (Computing the p-values):</strong> Lastly, we can
-compute the p-values via the <code><a href="../reference/compute_pvalue.html">eSVD2::compute_pvalue()</a></code>
-function.</li>
-</ul>
-<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">eSVD_obj</span> <span class="op">&lt;-</span> <span class="fu">eSVD2</span><span class="fu">::</span><span class="fu"><a href="../reference/compute_pvalue.html">compute_pvalue</a></span><span class="op">(</span>input_obj <span class="op">=</span> <span class="va">eSVD_obj</span><span class="op">)</span></span>
+<span><span class="va">time_end</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Sys.time.html" class="external-link">Sys.time</a></span><span class="op">(</span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/save.html" class="external-link">save</a></span><span class="op">(</span><span class="va">eSVD_obj</span>, <span class="va">session_info</span>, <span class="va">date_of_run</span>,</span>
 <span>     file <span class="op">=</span> <span class="st">"asd_esvd.RData"</span><span class="op">)</span></span></code></pre></div>
+<p>The result is an <code>eSVD</code> object. With the default
+<code>bool_diet = TRUE</code> it holds the final fit
+(<code>fit_Second</code>: the latent vectors, the coefficients and the
+per-gene nuisance estimates), the per-gene results, and
+<code>param</code>, the record of every setting, but not the counts or
+the covariates. It is about 17 Mb in memory. <code>gene_status</code>
+says which genes were analyzed; here every gene was, because the
+preprocessing already removed the all-zero genes.</p>
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">eSVD_obj</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/table.html" class="external-link">table</a></span><span class="op">(</span><span class="va">eSVD_obj</span><span class="op">$</span><span class="va">gene_status</span><span class="op">)</span></span></code></pre></div>
+<pre><code> [1] "param"         "latest_Fit"    "case_control"  "individual"   
+ [5] "fit_Second"    "teststat_vec"  "case_mean"     "control_mean" 
+ [9] "case_var"      "control_var"   "log2fc_vec"    "log2fc_se_vec"
+[13] "pvalue_list"   "gene_status"  </code></pre>
+<pre><code>analyzed all_zero 
+    6599        0 </code></pre>
 </div>
 <div class="section level2">
-<h2 id="plotting-the-p-values">Plotting the p-values<a class="anchor" aria-label="anchor" href="#plotting-the-p-values"></a>
+<h2 id="reporting-the-results">Reporting the results<a class="anchor" aria-label="anchor" href="#reporting-the-results"></a>
 </h2>
-<p>To visualize the p-values, we can plot a volcano plot where the
-x-axis is our estimated log fold change (based on the global case donor
-mean, where each donor’s specific mean is first computed, minus the
-global control donor mean) and the y-axis the negative log 10 p-value.
-The dotted horizontal line denotes the FDR cutoff.</p>
-<p>To give this volcano plot some biological interpretation, we show
-where the genes found in Gandal et al. (see <a href="https://www.nature.com/articles/s41586-022-05377-7" class="external-link">https://www.nature.com/articles/s41586-022-05377-7</a>)
-on the volcano plot as well. That study was based on the bulk sequencing
-of brain regions, where possibly many cell types are involved in the DEG
-analysis. Nonetheless, we would expect a good number of DEGs from Gandal
-et al. to be highly significant in our analysis, which is what our
-volcano plot shows.</p>
+<p><code><a href="../reference/report_results.html">eSVD2::report_results()</a></code> collects the results into a data
+frame with one row per gene: the log2 fold change (<code>logFC</code>,
+the log2 of the ratio of the case donors’ mean to the control donors’
+mean), its standard error (<code>logFC_se</code>), the p-value on three
+scales (<code>log10pvalue</code> is minus its log10, which keeps the
+ranking when <code>pvalue</code> underflows to 0), the
+Benjamini-Hochberg adjusted p-value (<code>pvalue_adj</code>) and
+<code>nuisance_status</code>, what the over-dispersion estimate did with
+the gene (see the diagnostics section). Ranking by
+<code>log10pvalue</code> gives the most significant genes.</p>
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">result_df</span> <span class="op">&lt;-</span> <span class="fu">eSVD2</span><span class="fu">::</span><span class="fu"><a href="../reference/report_results.html">report_results</a></span><span class="op">(</span><span class="va">eSVD_obj</span><span class="op">)</span></span>
+<span><span class="va">result_df</span> <span class="op">&lt;-</span> <span class="va">result_df</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/order.html" class="external-link">order</a></span><span class="op">(</span><span class="va">result_df</span><span class="op">$</span><span class="va">log10pvalue</span>, decreasing <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span>, <span class="op">]</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="fu">utils</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">result_df</span>, <span class="fl">15</span><span class="op">)</span>, digits <span class="op">=</span> <span class="fl">3</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">result_df</span><span class="op">$</span><span class="va">pvalue_adj</span> <span class="op">&lt;=</span> <span class="fl">0.05</span><span class="op">)</span></span></code></pre></div>
+<pre><code>              genes  logFC logFC_se log10pvalue   pvalue pvalue_adj nuisance_status
+TTF2           TTF2 -0.815    0.259        9.51 3.11e-10   2.05e-06          capped
+CIRBP         CIRBP -0.540    0.181        8.89 1.29e-09   4.24e-06          capped
+SLITRK4     SLITRK4  0.579    0.223        8.68 2.11e-09   4.64e-06          capped
+LINC00657 LINC00657  0.496    0.205        7.81 1.55e-08   2.55e-05          capped
+ATP2B1       ATP2B1  0.233    0.105        7.29 5.17e-08   6.23e-05       estimated
+SERINC1     SERINC1  0.429    0.189        7.25 5.66e-08   6.23e-05          capped
+QTRT1         QTRT1 -0.633    0.247        7.06 8.68e-08   8.19e-05          capped
+GABRG2       GABRG2  0.412    0.187        6.90 1.26e-07   1.04e-04       estimated
+SSX2IP       SSX2IP  0.295    0.137        6.79 1.63e-07   1.19e-04          capped
+FAM171B     FAM171B  0.308    0.143        6.70 1.98e-07   1.30e-04          capped
+CAMK2N1     CAMK2N1  0.486    0.207        6.56 2.75e-07   1.48e-04       estimated
+MX2             MX2 -1.392    0.533        6.54 2.90e-07   1.48e-04          capped
+DPYSL2       DPYSL2  0.221    0.106        6.54 2.91e-07   1.48e-04       estimated
+GABRB2       GABRB2  0.264    0.129        6.46 3.47e-07   1.64e-04       estimated
+SAT2           SAT2 -0.659    0.267        6.29 5.10e-07   2.12e-04          capped</code></pre>
+<pre><code>[1] 243</code></pre>
+<p>243 of the 6,599 genes are significant at FDR 0.05 (336 at FDR 0.10).
+The most significant gene, <code>TTF2</code>, is lower in the ASD donors
+by a factor of about 1.8 (a log2 fold change of -0.81); 22 of the 30
+most significant genes are higher in ASD. Notice the last column: most
+of the top genes had their over-dispersion capped, which the diagnostics
+section returns to.</p>
+</div>
+<div class="section level2">
+<h2 id="the-log-fold-change-and-its-standard-error">The log fold change and its standard error<a class="anchor" aria-label="anchor" href="#the-log-fold-change-and-its-standard-error"></a>
+</h2>
+<p>From version 1.2.0 every analysis reports, for each gene, the log2
+fold change between the case and the control donors and a standard error
+for it. Both are stored on the object as
+<code>eSVD_obj$log2fc_vec</code> and
+<code>eSVD_obj$log2fc_se_vec</code>, and <code><a href="../reference/report_results.html">report_results()</a></code>
+copies them into <code>logFC</code> and <code>logFC_se</code>. Three
+things to know about the standard error:</p>
+<ul>
+<li>It is a delta-method standard error of
+<code>log2(case_mean / control_mean)</code>, built from the two per-arm
+variances that the test statistic divides by, and it is divided by the
+number of <strong>donors</strong> in each arm, not the number of cells.
+That puts it on the same footing as the standard error of a pseudobulk
+method such as DESeq2, dreamlet or NEBULA.</li>
+<li>
+<code>logFC / logFC_se</code> is not the statistic behind
+<code>pvalue</code>. The test is computed on the linear scale and
+calibrated with an empirical null across genes, so a gene’s p-value and
+its fold-change interval do not have to agree exactly.</li>
+<li>It accounts for the variation between donors and within donors given
+the fit, but not for the uncertainty of the fit itself. See
+<code><a href="../reference/compute_log_fold_change.html">?eSVD2::compute_log_fold_change</a></code> for the details.</li>
+</ul>
+<p>The first figure draws the standard error against the gene’s mean
+count, colored by <code>nuisance_status</code>. The standard error falls
+with the mean count, from about 10 on the log2 scale for the rarest
+genes to about 0.1 for the most expressed, and at a given count it
+depends little on whether the rate was estimated or capped. The genes at
+the boundary (no finite maximum-likelihood rate) have a larger standard
+error for their count than the others.</p>
 <div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">pvalue_vec</span> <span class="op">&lt;-</span> <span class="fl">10</span> <span class="op">^</span> <span class="op">(</span><span class="op">-</span><span class="va">eSVD_obj</span><span class="op">$</span><span class="va">pvalue_list</span><span class="op">$</span><span class="va">log10pvalue</span><span class="op">)</span></span>
-<span><span class="va">tmp_df</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
-<span>  gene <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">eSVD_obj</span><span class="op">$</span><span class="va">pvalue_list</span><span class="op">$</span><span class="va">log10pvalue</span><span class="op">)</span>,</span>
-<span>  lfc <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">log2</a></span><span class="op">(</span><span class="va">eSVD_obj</span><span class="op">$</span><span class="va">case_mean</span><span class="op">)</span> <span class="op">-</span> <span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">log2</a></span><span class="op">(</span><span class="va">eSVD_obj</span><span class="op">$</span><span class="va">control_mean</span><span class="op">)</span>,</span>
-<span>  pvalue <span class="op">=</span> <span class="va">pvalue_vec</span></span>
+<code class="sourceCode R"><span><span class="va">fit</span> <span class="op">&lt;-</span> <span class="va">eSVD_obj</span><span class="op">[[</span><span class="va">eSVD_obj</span><span class="op">$</span><span class="va">latest_Fit</span><span class="op">]</span><span class="op">]</span></span>
+<span><span class="va">se_df</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
+<span>  gene <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">eSVD_obj</span><span class="op">$</span><span class="va">log2fc_se_vec</span><span class="op">)</span>,</span>
+<span>  mean_count <span class="op">=</span> <span class="va">fit</span><span class="op">$</span><span class="va">gene_mean_count_vec</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">eSVD_obj</span><span class="op">$</span><span class="va">log2fc_se_vec</span><span class="op">)</span><span class="op">]</span>,</span>
+<span>  log2fc_se <span class="op">=</span> <span class="va">eSVD_obj</span><span class="op">$</span><span class="va">log2fc_se_vec</span>,</span>
+<span>  nuisance_status <span class="op">=</span> <span class="va">fit</span><span class="op">$</span><span class="va">nuisance_status</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">eSVD_obj</span><span class="op">$</span><span class="va">log2fc_se_vec</span><span class="op">)</span><span class="op">]</span></span>
 <span><span class="op">)</span></span>
-<span><span class="va">pCutoff</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">max</a></span><span class="op">(</span><span class="va">pvalue_vec</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/which.html" class="external-link">which</a></span><span class="op">(</span><span class="va">eSVD_obj</span><span class="op">$</span><span class="va">pvalue_list</span><span class="op">$</span><span class="va">fdr_vec</span> <span class="op">&lt;=</span> <span class="fl">0.05</span><span class="op">)</span><span class="op">]</span><span class="op">)</span></span>
+<span><span class="va">plot1</span> <span class="op">&lt;-</span> <span class="fu">ggplot2</span><span class="fu">::</span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggplot.html" class="external-link">ggplot</a></span><span class="op">(</span><span class="va">se_df</span>, <span class="fu">ggplot2</span><span class="fu">::</span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/aes.html" class="external-link">aes</a></span><span class="op">(</span>x <span class="op">=</span> <span class="va">mean_count</span>,</span>
+<span>                                             y <span class="op">=</span> <span class="va">log2fc_se</span>,</span>
+<span>                                             color <span class="op">=</span> <span class="va">nuisance_status</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">plot1</span> <span class="op">&lt;-</span> <span class="va">plot1</span> <span class="op">+</span> <span class="fu">ggplot2</span><span class="fu">::</span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/geom_point.html" class="external-link">geom_point</a></span><span class="op">(</span>alpha <span class="op">=</span> <span class="fl">0.4</span>, size <span class="op">=</span> <span class="fl">0.8</span><span class="op">)</span></span>
+<span><span class="va">plot1</span> <span class="op">&lt;-</span> <span class="va">plot1</span> <span class="op">+</span> <span class="fu">ggplot2</span><span class="fu">::</span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/scale_continuous.html" class="external-link">scale_x_log10</a></span><span class="op">(</span><span class="op">)</span> <span class="op">+</span> <span class="fu">ggplot2</span><span class="fu">::</span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/scale_continuous.html" class="external-link">scale_y_log10</a></span><span class="op">(</span><span class="op">)</span></span>
+<span><span class="va">plot1</span> <span class="op">&lt;-</span> <span class="va">plot1</span> <span class="op">+</span> <span class="fu">ggplot2</span><span class="fu">::</span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html" class="external-link">labs</a></span><span class="op">(</span>x <span class="op">=</span> <span class="st">"Mean count of the gene"</span>,</span>
+<span>                               y <span class="op">=</span> <span class="st">"Standard error of log2 fold change"</span>,</span>
+<span>                               color <span class="op">=</span> <span class="st">"Nuisance status"</span><span class="op">)</span></span>
+<span><span class="va">plot1</span> <span class="op">&lt;-</span> <span class="va">plot1</span> <span class="op">+</span> <span class="fu">ggplot2</span><span class="fu">::</span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggtheme.html" class="external-link">theme_bw</a></span><span class="op">(</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">plot1</span><span class="op">)</span></span></code></pre></div>
+<div class="figure" style="text-align: center">
+<img src="logfc_se.png" class="r-plt" alt="Standard error of the log2 fold change against the gene's mean count" width="600px"><p class="caption">
+Standard error of the log2 fold change against the gene’s mean count
+</p>
+</div>
+<p>The second figure is a forest plot of the 30 most significant genes:
+the log2 fold change with an interval of plus or minus two standard
+errors, with the genes that Gandal et al. (2022) found differentially
+expressed in bulk ASD cortex in a different color. Eleven of the 30 are
+Gandal et al. genes. For these 30 genes the interval excludes zero, but
+that is not true of the significant genes as a whole: for 87 percent of
+the 243 genes at FDR 0.05, the interval of plus or minus two standard
+errors covers zero. The two answer different questions. The p-value
+comes from the Welch statistic after the empirical null has recentered
+and rescaled it across genes (here the null was estimated to have mean
+-0.15 and standard deviation 0.42 on the Gaussian scale, so the
+statistics are spread more tightly than a standard normal and the
+calibration makes more genes significant), while the interval takes the
+fold change and its standard error at face value.</p>
+<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="st">"gandal_df"</span>, package <span class="op">=</span> <span class="st">"eSVD2"</span><span class="op">)</span></span>
+<span><span class="va">gandal_genes</span> <span class="op">&lt;-</span> <span class="va">gandal_df</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/which.html" class="external-link">which</a></span><span class="op">(</span><span class="va">gandal_df</span><span class="op">[</span>, <span class="st">"WholeCortex_ASD_FDR"</span><span class="op">]</span> <span class="op">&lt;=</span> <span class="fl">0.05</span><span class="op">)</span>,</span>
+<span>                          <span class="st">"external_gene_name"</span><span class="op">]</span></span>
+<span><span class="va">gandal_genes</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://generics.r-lib.org/reference/setops.html" class="external-link">intersect</a></span><span class="op">(</span><span class="va">gandal_genes</span>, <span class="va">result_df</span><span class="op">$</span><span class="va">genes</span><span class="op">)</span></span>
 <span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="st">"gandal_df"</span>, package <span class="op">=</span> <span class="st">"eSVD2"</span><span class="op">)</span></span>
-<span><span class="va">gandal_genes</span> <span class="op">&lt;-</span> <span class="va">gandal_df</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/which.html" class="external-link">which</a></span><span class="op">(</span><span class="va">gandal_df</span><span class="op">[</span>, <span class="st">"WholeCortex_ASD_FDR"</span><span class="op">]</span> <span class="op">&lt;=</span> <span class="fl">0.05</span><span class="op">)</span>, <span class="st">"external_gene_name"</span><span class="op">]</span></span>
-<span><span class="va">gandal_genes</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://generics.r-lib.org/reference/setops.html" class="external-link">intersect</a></span><span class="op">(</span><span class="va">gandal_genes</span>, <span class="va">tmp_df</span><span class="op">$</span><span class="va">gene</span><span class="op">)</span></span>
+<span><span class="va">top_df</span> <span class="op">&lt;-</span> <span class="va">result_df</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq_len</a></span><span class="op">(</span><span class="fl">30</span><span class="op">)</span>, <span class="op">]</span></span>
+<span><span class="va">top_df</span><span class="op">$</span><span class="va">gene_set</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/ifelse.html" class="external-link">ifelse</a></span><span class="op">(</span><span class="va">top_df</span><span class="op">$</span><span class="va">genes</span> <span class="op"><a href="https://rdrr.io/r/base/match.html" class="external-link">%in%</a></span> <span class="va">gandal_genes</span>,</span>
+<span>                          <span class="st">"Gandal et al."</span>, <span class="st">"other"</span><span class="op">)</span></span>
+<span><span class="va">top_df</span><span class="op">$</span><span class="va">genes</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/factor.html" class="external-link">factor</a></span><span class="op">(</span><span class="va">top_df</span><span class="op">$</span><span class="va">genes</span>, levels <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/rev.html" class="external-link">rev</a></span><span class="op">(</span><span class="va">top_df</span><span class="op">$</span><span class="va">genes</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">plot1</span> <span class="op">&lt;-</span> <span class="fu">ggplot2</span><span class="fu">::</span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggplot.html" class="external-link">ggplot</a></span><span class="op">(</span><span class="va">top_df</span>, <span class="fu">ggplot2</span><span class="fu">::</span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/aes.html" class="external-link">aes</a></span><span class="op">(</span>x <span class="op">=</span> <span class="va">genes</span>,</span>
+<span>                                              y <span class="op">=</span> <span class="va">logFC</span>,</span>
+<span>                                              color <span class="op">=</span> <span class="va">gene_set</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">plot1</span> <span class="op">&lt;-</span> <span class="va">plot1</span> <span class="op">+</span> <span class="fu">ggplot2</span><span class="fu">::</span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/geom_abline.html" class="external-link">geom_hline</a></span><span class="op">(</span>yintercept <span class="op">=</span> <span class="fl">0</span>, linetype <span class="op">=</span> <span class="st">"dashed"</span>,</span>
+<span>                                     color <span class="op">=</span> <span class="st">"gray50"</span><span class="op">)</span></span>
+<span><span class="va">plot1</span> <span class="op">&lt;-</span> <span class="va">plot1</span> <span class="op">+</span> <span class="fu">ggplot2</span><span class="fu">::</span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/geom_linerange.html" class="external-link">geom_pointrange</a></span><span class="op">(</span></span>
+<span>  <span class="fu">ggplot2</span><span class="fu">::</span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/aes.html" class="external-link">aes</a></span><span class="op">(</span>ymin <span class="op">=</span> <span class="va">logFC</span> <span class="op">-</span> <span class="fl">2</span> <span class="op">*</span> <span class="va">logFC_se</span>, ymax <span class="op">=</span> <span class="va">logFC</span> <span class="op">+</span> <span class="fl">2</span> <span class="op">*</span> <span class="va">logFC_se</span><span class="op">)</span></span>
+<span><span class="op">)</span></span>
+<span><span class="va">plot1</span> <span class="op">&lt;-</span> <span class="va">plot1</span> <span class="op">+</span> <span class="fu">ggplot2</span><span class="fu">::</span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/coord_flip.html" class="external-link">coord_flip</a></span><span class="op">(</span><span class="op">)</span></span>
+<span><span class="va">plot1</span> <span class="op">&lt;-</span> <span class="va">plot1</span> <span class="op">+</span> <span class="fu">ggplot2</span><span class="fu">::</span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/scale_manual.html" class="external-link">scale_color_manual</a></span><span class="op">(</span></span>
+<span>  values <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Gandal et al."</span> <span class="op">=</span> <span class="st">"coral"</span>, <span class="st">"other"</span> <span class="op">=</span> <span class="st">"navy"</span><span class="op">)</span></span>
+<span><span class="op">)</span></span>
+<span><span class="va">plot1</span> <span class="op">&lt;-</span> <span class="va">plot1</span> <span class="op">+</span> <span class="fu">ggplot2</span><span class="fu">::</span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html" class="external-link">labs</a></span><span class="op">(</span></span>
+<span>  x <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  y <span class="op">=</span> <span class="st">"log2 fold change (ASD over control), +/- 2 SE"</span>,</span>
+<span>  color <span class="op">=</span> <span class="cn">NULL</span></span>
+<span><span class="op">)</span></span>
+<span><span class="va">plot1</span> <span class="op">&lt;-</span> <span class="va">plot1</span> <span class="op">+</span> <span class="fu">ggplot2</span><span class="fu">::</span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggtheme.html" class="external-link">theme_bw</a></span><span class="op">(</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">plot1</span><span class="op">)</span></span></code></pre></div>
+<div class="figure" style="text-align: center">
+<img src="logfc_forest.png" class="r-plt" alt="The 30 most significant genes: log2 fold change with +/- 2 standard errors" width="500px"><p class="caption">
+The 30 most significant genes: log2 fold change with +/- 2 standard
+errors
+</p>
+</div>
+</div>
+<div class="section level2">
+<h2 id="volcano-plots">Volcano plots<a class="anchor" aria-label="anchor" href="#volcano-plots"></a>
+</h2>
+<p>To visualize the p-values, we plot a volcano plot where the x-axis is
+the stored log2 fold change and the y-axis the negative log10 p-value.
+The dotted horizontal line is the p-value at the FDR cutoff of 0.05.</p>
+<p>To give the volcano plot some biological interpretation, we mark the
+genes found in Gandal et al. (see <a href="https://www.nature.com/articles/s41586-022-05377-7" class="external-link">https://www.nature.com/articles/s41586-022-05377-7</a>).
+That study was based on bulk sequencing of brain regions, where possibly
+many cell types are involved in the DEG analysis. Nonetheless, we would
+expect a good number of the DEGs of Gandal et al. to be highly
+significant in our analysis, which is what the volcano plot shows: 83 of
+the 1,322 Gandal et al. genes present are significant at FDR 0.05 (6.3
+percent, against 3.7 percent of all genes), and 11 of the 30 most
+significant genes are among them.</p>
+<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">volcano_df</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
+<span>  gene <span class="op">=</span> <span class="va">result_df</span><span class="op">$</span><span class="va">genes</span>,</span>
+<span>  lfc <span class="op">=</span> <span class="va">result_df</span><span class="op">$</span><span class="va">logFC</span>,</span>
+<span>  pvalue <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">pmax</a></span><span class="op">(</span><span class="va">result_df</span><span class="op">$</span><span class="va">pvalue</span>, <span class="fl">1e-300</span><span class="op">)</span> <span class="co"># EnhancedVolcano needs p &gt; 0</span></span>
+<span><span class="op">)</span></span>
+<span><span class="va">pCutoff</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">max</a></span><span class="op">(</span><span class="va">volcano_df</span><span class="op">$</span><span class="va">pvalue</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/which.html" class="external-link">which</a></span><span class="op">(</span><span class="va">result_df</span><span class="op">$</span><span class="va">pvalue_adj</span> <span class="op">&lt;=</span> <span class="fl">0.05</span><span class="op">)</span><span class="op">]</span><span class="op">)</span></span>
 <span></span>
-<span><span class="va">tmp_df2</span> <span class="op">&lt;-</span> <span class="va">tmp_df</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/which.html" class="external-link">which</a></span><span class="op">(</span><span class="op">!</span><span class="va">tmp_df</span><span class="op">$</span><span class="va">gene</span> <span class="op"><a href="https://rdrr.io/r/base/match.html" class="external-link">%in%</a></span> <span class="va">gandal_genes</span><span class="op">)</span>,</span>
-<span>                    <span class="fu"><a href="https://rdrr.io/r/base/which.html" class="external-link">which</a></span><span class="op">(</span><span class="va">tmp_df</span><span class="op">$</span><span class="va">gene</span> <span class="op"><a href="https://rdrr.io/r/base/match.html" class="external-link">%in%</a></span> <span class="va">gandal_genes</span><span class="op">)</span><span class="op">)</span>, <span class="op">]</span></span>
-<span></span>
-<span><span class="va">colCustom</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">sapply</a></span><span class="op">(</span><span class="va">tmp_df2</span><span class="op">$</span><span class="va">gene</span>, <span class="kw">function</span><span class="op">(</span><span class="va">gene</span><span class="op">)</span> <span class="op">{</span></span>
+<span><span class="va">volcano_df2</span> <span class="op">&lt;-</span> <span class="va">volcano_df</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/which.html" class="external-link">which</a></span><span class="op">(</span><span class="op">!</span><span class="va">volcano_df</span><span class="op">$</span><span class="va">gene</span> <span class="op"><a href="https://rdrr.io/r/base/match.html" class="external-link">%in%</a></span> <span class="va">gandal_genes</span><span class="op">)</span>,</span>
+<span>                            <span class="fu"><a href="https://rdrr.io/r/base/which.html" class="external-link">which</a></span><span class="op">(</span><span class="va">volcano_df</span><span class="op">$</span><span class="va">gene</span> <span class="op"><a href="https://rdrr.io/r/base/match.html" class="external-link">%in%</a></span> <span class="va">gandal_genes</span><span class="op">)</span><span class="op">)</span>, <span class="op">]</span></span>
+<span><span class="va">colCustom</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">sapply</a></span><span class="op">(</span><span class="va">volcano_df2</span><span class="op">$</span><span class="va">gene</span>, <span class="kw">function</span><span class="op">(</span><span class="va">gene</span><span class="op">)</span><span class="op">{</span></span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/ifelse.html" class="external-link">ifelse</a></span><span class="op">(</span><span class="va">gene</span> <span class="op"><a href="https://rdrr.io/r/base/match.html" class="external-link">%in%</a></span> <span class="va">gandal_genes</span>, <span class="st">"coral"</span>, <span class="st">"navy"</span><span class="op">)</span></span>
 <span><span class="op">}</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">colCustom</span><span class="op">)</span><span class="op">[</span><span class="va">colCustom</span> <span class="op">==</span> <span class="st">"coral"</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="st">"Gandal et al."</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">colCustom</span><span class="op">)</span><span class="op">[</span><span class="va">colCustom</span> <span class="op">==</span> <span class="st">"navy"</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="st">"others"</span></span>
 <span></span>
-<span><span class="co"># png(</span></span>
-<span><span class="co">#   "volcano.png",</span></span>
-<span><span class="co">#   width = 1500,</span></span>
-<span><span class="co">#   height = 2000,</span></span>
-<span><span class="co">#   res = 300,</span></span>
-<span><span class="co">#   units = "px"</span></span>
-<span><span class="co"># )</span></span>
 <span><span class="fu">EnhancedVolcano</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/EnhancedVolcano/man/EnhancedVolcano.html" class="external-link">EnhancedVolcano</a></span><span class="op">(</span></span>
-<span>  <span class="va">tmp_df2</span>,</span>
-<span>  lab <span class="op">=</span> <span class="va">tmp_df2</span><span class="op">$</span><span class="va">gene</span>,</span>
+<span>  <span class="va">volcano_df2</span>,</span>
+<span>  lab <span class="op">=</span> <span class="va">volcano_df2</span><span class="op">$</span><span class="va">gene</span>,</span>
 <span>  selectLab <span class="op">=</span> <span class="va">gandal_genes</span>,</span>
 <span>  colCustom <span class="op">=</span> <span class="va">colCustom</span>,</span>
 <span>  x <span class="op">=</span> <span class="st">"lfc"</span>,</span>
 <span>  y <span class="op">=</span> <span class="st">"pvalue"</span>,</span>
-<span>  ylim <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">max</a></span><span class="op">(</span><span class="va">eSVD_obj</span><span class="op">$</span><span class="va">pvalue_list</span><span class="op">$</span><span class="va">log10pvalue</span><span class="op">)</span><span class="op">)</span>,</span>
+<span>  ylim <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">max</a></span><span class="op">(</span><span class="va">result_df</span><span class="op">$</span><span class="va">log10pvalue</span><span class="op">)</span><span class="op">)</span>,</span>
 <span>  labSize <span class="op">=</span> <span class="fl">3</span>,</span>
 <span>  pCutoff <span class="op">=</span> <span class="va">pCutoff</span>,</span>
 <span>  FCcutoff <span class="op">=</span> <span class="fl">0</span>,</span>
 <span>  drawConnectors <span class="op">=</span> <span class="cn">TRUE</span></span>
-<span><span class="op">)</span></span>
-<span><span class="co"># graphics.off()</span></span></code></pre></div>
+<span><span class="op">)</span></span></code></pre></div>
 <div class="figure" style="text-align: center">
-<img src="https://github.com/linnykos/eSVD2/blob/master/vignettes/volcano.png?raw=true" class="r-plt" alt="Volcano plot the eSVD-DE analysis, highlighting the Gandal et al. genes" width="600px"><p class="caption">
-Volcano plot the eSVD-DE analysis, highlighting the Gandal et al. genes
+<img src="volcano.png" class="r-plt" alt="Volcano plot of the eSVD-DE analysis, highlighting the Gandal et al. genes" width="600px"><p class="caption">
+Volcano plot of the eSVD-DE analysis, highlighting the Gandal et
+al. genes
 </p>
 </div>
-<p>Alternatively, you can make the volcano plot that specifically
-highlights the housekeeping genes, which can act as a rough “negative
-control”. That is, we would not expect many of the housekeeping genes to
-be significantly different between case and control donors. This is what
-we see in our volcano plot.</p>
-<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
+<p>Alternatively, we can highlight the housekeeping genes, which act as
+a rough negative control: we would not expect many of them to differ
+between case and control donors. 16 of the 942 housekeeping genes
+present are significant at FDR 0.05 (1.7 percent, against 3.7 percent of
+all genes).</p>
+<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="st">"housekeeping_df"</span>, package <span class="op">=</span> <span class="st">"eSVD2"</span><span class="op">)</span></span>
-<span><span class="va">hk_genes</span> <span class="op">&lt;-</span> <span class="va">housekeeping_df</span><span class="op">[</span>, <span class="st">"Gene"</span><span class="op">]</span></span>
-<span><span class="va">hk_genes</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://generics.r-lib.org/reference/setops.html" class="external-link">intersect</a></span><span class="op">(</span><span class="va">hk_genes</span>, <span class="va">tmp_df</span><span class="op">$</span><span class="va">gene</span><span class="op">)</span></span>
+<span><span class="va">hk_genes</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://generics.r-lib.org/reference/setops.html" class="external-link">intersect</a></span><span class="op">(</span><span class="va">housekeeping_df</span><span class="op">[</span>, <span class="st">"Gene"</span><span class="op">]</span>, <span class="va">result_df</span><span class="op">$</span><span class="va">genes</span><span class="op">)</span></span>
 <span></span>
-<span><span class="va">tmp_df2</span> <span class="op">&lt;-</span> <span class="va">tmp_df</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/which.html" class="external-link">which</a></span><span class="op">(</span><span class="op">!</span><span class="va">tmp_df</span><span class="op">$</span><span class="va">gene</span> <span class="op"><a href="https://rdrr.io/r/base/match.html" class="external-link">%in%</a></span> <span class="va">hk_genes</span><span class="op">)</span>,</span>
-<span>                    <span class="fu"><a href="https://rdrr.io/r/base/which.html" class="external-link">which</a></span><span class="op">(</span><span class="va">tmp_df</span><span class="op">$</span><span class="va">gene</span> <span class="op"><a href="https://rdrr.io/r/base/match.html" class="external-link">%in%</a></span> <span class="va">hk_genes</span><span class="op">)</span><span class="op">)</span>, <span class="op">]</span></span>
-<span></span>
-<span><span class="va">colCustom</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">sapply</a></span><span class="op">(</span><span class="va">tmp_df2</span><span class="op">$</span><span class="va">gene</span>, <span class="kw">function</span><span class="op">(</span><span class="va">gene</span><span class="op">)</span> <span class="op">{</span></span>
+<span><span class="va">volcano_df2</span> <span class="op">&lt;-</span> <span class="va">volcano_df</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/which.html" class="external-link">which</a></span><span class="op">(</span><span class="op">!</span><span class="va">volcano_df</span><span class="op">$</span><span class="va">gene</span> <span class="op"><a href="https://rdrr.io/r/base/match.html" class="external-link">%in%</a></span> <span class="va">hk_genes</span><span class="op">)</span>,</span>
+<span>                            <span class="fu"><a href="https://rdrr.io/r/base/which.html" class="external-link">which</a></span><span class="op">(</span><span class="va">volcano_df</span><span class="op">$</span><span class="va">gene</span> <span class="op"><a href="https://rdrr.io/r/base/match.html" class="external-link">%in%</a></span> <span class="va">hk_genes</span><span class="op">)</span><span class="op">)</span>, <span class="op">]</span></span>
+<span><span class="va">colCustom</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">sapply</a></span><span class="op">(</span><span class="va">volcano_df2</span><span class="op">$</span><span class="va">gene</span>, <span class="kw">function</span><span class="op">(</span><span class="va">gene</span><span class="op">)</span><span class="op">{</span></span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/ifelse.html" class="external-link">ifelse</a></span><span class="op">(</span><span class="va">gene</span> <span class="op"><a href="https://rdrr.io/r/base/match.html" class="external-link">%in%</a></span> <span class="va">hk_genes</span>, <span class="st">"darkolivegreen1"</span>, <span class="st">"navy"</span><span class="op">)</span></span>
 <span><span class="op">}</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">colCustom</span><span class="op">)</span><span class="op">[</span><span class="va">colCustom</span> <span class="op">==</span> <span class="st">"darkolivegreen1"</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="st">"Housekeeping genes"</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">colCustom</span><span class="op">)</span><span class="op">[</span><span class="va">colCustom</span> <span class="op">==</span> <span class="st">"navy"</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="st">"others"</span></span>
 <span></span>
-<span><span class="co"># png(</span></span>
-<span><span class="co">#   "volcano_hk.png",</span></span>
-<span><span class="co">#   width = 1500,</span></span>
-<span><span class="co">#   height = 2000,</span></span>
-<span><span class="co">#   res = 300,</span></span>
-<span><span class="co">#   units = "px"</span></span>
-<span><span class="co"># )</span></span>
 <span><span class="fu">EnhancedVolcano</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/EnhancedVolcano/man/EnhancedVolcano.html" class="external-link">EnhancedVolcano</a></span><span class="op">(</span></span>
-<span>  <span class="va">tmp_df2</span>,</span>
-<span>  lab <span class="op">=</span> <span class="va">tmp_df2</span><span class="op">$</span><span class="va">gene</span>,</span>
+<span>  <span class="va">volcano_df2</span>,</span>
+<span>  lab <span class="op">=</span> <span class="va">volcano_df2</span><span class="op">$</span><span class="va">gene</span>,</span>
 <span>  selectLab <span class="op">=</span> <span class="va">hk_genes</span>,</span>
 <span>  colCustom <span class="op">=</span> <span class="va">colCustom</span>,</span>
 <span>  x <span class="op">=</span> <span class="st">"lfc"</span>,</span>
 <span>  y <span class="op">=</span> <span class="st">"pvalue"</span>,</span>
-<span>  ylim <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">max</a></span><span class="op">(</span><span class="va">eSVD_obj</span><span class="op">$</span><span class="va">pvalue_list</span><span class="op">$</span><span class="va">log10pvalue</span><span class="op">)</span><span class="op">)</span>,</span>
+<span>  ylim <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">max</a></span><span class="op">(</span><span class="va">result_df</span><span class="op">$</span><span class="va">log10pvalue</span><span class="op">)</span><span class="op">)</span>,</span>
 <span>  labSize <span class="op">=</span> <span class="fl">3</span>,</span>
 <span>  pCutoff <span class="op">=</span> <span class="va">pCutoff</span>,</span>
 <span>  FCcutoff <span class="op">=</span> <span class="fl">0</span>,</span>
 <span>  drawConnectors <span class="op">=</span> <span class="cn">TRUE</span></span>
-<span><span class="op">)</span></span>
-<span><span class="co"># graphics.off()</span></span></code></pre></div>
+<span><span class="op">)</span></span></code></pre></div>
 <div class="figure" style="text-align: center">
-<img src="https://github.com/linnykos/eSVD2/blob/master/vignettes/volcano_hk.png?raw=true" class="r-plt" alt="Volcano plot the eSVD-DE analysis, highlighting the housekeeping genes" width="600px"><p class="caption">
-Volcano plot the eSVD-DE analysis, highlighting the housekeeping genes
+<img src="volcano_hk.png" class="r-plt" alt="Volcano plot of the eSVD-DE analysis, highlighting the housekeeping genes" width="600px"><p class="caption">
+Volcano plot of the eSVD-DE analysis, highlighting the housekeeping
+genes
 </p>
 </div>
 </div>
 <div class="section level2">
+<h2 id="diagnostics-of-the-over-dispersion">Diagnostics of the over-dispersion<a class="anchor" aria-label="anchor" href="#diagnostics-of-the-over-dispersion"></a>
+</h2>
+<p>The over-dispersion of each gene decides how much that gene’s
+posterior follows the fit rather than the observed counts, so it is
+worth a look before the results are used. The estimate is stored as a
+Gamma <em>rate</em> (<code>nuisance_vec</code> in the fit), the
+reciprocal of the over-dispersion: a larger rate means counts closer to
+Poisson around the fit. <strong>No gene’s rate is allowed above
+<code>cap_multiplier</code> (default 10) times the median of its library
+size.</strong> A gene whose counts are no more variable around the fit
+than a Poisson has no finite maximum-likelihood rate; without the cap it
+would get an enormous rate and an inflated test statistic. What the
+estimate did with each gene is its <code>nuisance_status</code>:
+<code>estimated</code> (the maximum-likelihood rate was kept),
+<code>capped</code> (a finite rate existed but was above the cap),
+<code>boundary</code> (no finite rate existed; the gene is set to the
+cap) or <code>failed</code>.</p>
+<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/table.html" class="external-link">table</a></span><span class="op">(</span><span class="va">fit</span><span class="op">$</span><span class="va">nuisance_status</span><span class="op">)</span></span>
+<span><span class="va">eSVD_obj</span><span class="op">$</span><span class="va">param</span><span class="op">$</span><span class="va">nuisance_num_capped</span></span></code></pre></div>
+<pre><code>estimated    capped  boundary    failed 
+     1767      4576       256         0 </code></pre>
+<pre><code>[1] 4832</code></pre>
+<p><strong>On this cohort the cap acts on most genes</strong>: 4,576 are
+capped and 256 are at the boundary, 73 percent of the genes, where in
+the simulated data on which the default of 10 was chosen about 11
+percent were. The share falls with expression, from about 80 percent in
+the lowest third of the genes by mean count to 60 percent in the highest
+third, and the boundary genes are almost all lowly expressed. Among the
+243 significant genes, 164 are capped or at the boundary. In other
+words, around a rank-30 fit the counts of most of these genes are close
+to Poisson, and it is the cap rather than the likelihood that sets their
+rate. Whether the default cap is right for a cohort like this, or
+whether a smaller <code>k</code> would leave more over-dispersion in the
+residual, is a question this article does not settle; the end of this
+section shows how far the results move with the cap.</p>
+<p><strong>The rate of each gene against three summaries of the
+gene.</strong> <code><a href="../reference/plot_nuisance.html">eSVD2::plot_nuisance()</a></code> draws the rate
+divided by the gene’s median library size, which puts every gene in the
+same units, against the gene’s mean count, its significance or its
+sparsity. The dashed line is the cap, and the genes it acted on sit on
+it; the most significant genes are labeled. What to look for: most genes
+should be below the line, the genes at the line should be the lowly
+expressed and sparse ones, and they should not make up the most
+significant genes. It needs neither the counts nor the covariates, so it
+works on the diet object as is.</p>
+<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">plot1</span> <span class="op">&lt;-</span> <span class="fu">eSVD2</span><span class="fu">::</span><span class="fu"><a href="../reference/plot_nuisance.html">plot_nuisance</a></span><span class="op">(</span>input_obj <span class="op">=</span> <span class="va">eSVD_obj</span>,</span>
+<span>                              x_axis <span class="op">=</span> <span class="st">"mean_expression"</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">plot1</span><span class="op">)</span></span>
+<span><span class="va">plot1</span> <span class="op">&lt;-</span> <span class="fu">eSVD2</span><span class="fu">::</span><span class="fu"><a href="../reference/plot_nuisance.html">plot_nuisance</a></span><span class="op">(</span>input_obj <span class="op">=</span> <span class="va">eSVD_obj</span>,</span>
+<span>                              x_axis <span class="op">=</span> <span class="st">"log10pvalue"</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">plot1</span><span class="op">)</span></span>
+<span><span class="va">plot1</span> <span class="op">&lt;-</span> <span class="fu">eSVD2</span><span class="fu">::</span><span class="fu"><a href="../reference/plot_nuisance.html">plot_nuisance</a></span><span class="op">(</span>input_obj <span class="op">=</span> <span class="va">eSVD_obj</span>,</span>
+<span>                              x_axis <span class="op">=</span> <span class="st">"sparsity"</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">plot1</span><span class="op">)</span></span></code></pre></div>
+<div class="figure" style="text-align: center">
+<img src="nuisance_mean_expression.png" class="r-plt" alt="Each gene's nuisance rate, in units of its median library size, against its mean count" width="600px"><p class="caption">
+Each gene’s nuisance rate, in units of its median library size, against
+its mean count
+</p>
+</div>
+<div class="figure" style="text-align: center">
+<img src="nuisance_log10pvalue.png" class="r-plt" alt="The same rates against each gene's -log10 p-value" width="600px"><p class="caption">
+The same rates against each gene’s -log10 p-value
+</p>
+</div>
+<div class="figure" style="text-align: center">
+<img src="nuisance_sparsity.png" class="r-plt" alt="The same rates against each gene's sparsity (the share of cells with a zero count)" width="600px"><p class="caption">
+The same rates against each gene’s sparsity (the share of cells with a
+zero count)
+</p>
+</div>
+<p>The pattern here is not the one the diagnostic asks for. The genes at
+the cap are the well-expressed ones, and every one of the ten most
+significant genes is at the cap; the genes below the line are the rarely
+expressed ones, whose rate falls with the mean count. The estimate is in
+units of the gene’s median library size, which is tiny for a gene seen
+in few cells, so those low rates are the genes for which the counts do
+carry information about the over-dispersion. The message of the three
+plots is that the choice of <code>cap_multiplier</code> matters on this
+cohort.</p>
+<p><strong>The fitted count against the observed count.</strong> In
+<code><a href="../reference/plot_fitted_vs_observed.html">eSVD2::plot_fitted_vs_observed()</a></code> each point is one cell and
+one gene (a random sample of <code>max_points</code> pairs), and a point
+is red when its count is more than <code>num_sd = 3</code> standard
+deviations from its fit, the standard deviation being the one the model
+implies for that gene’s over-dispersion. The points should follow the
+dashed line, and only a small share should be red: on counts drawn from
+the model at their true rates, 1 to 2 percent of pairs are beyond 3
+standard deviations (a count is right-skewed), a rate ten times too
+large gives about 5 percent, and a rate ten times too small under 0.1
+percent. Because the diet object has no counts, we pass the Seurat
+object; the counts and covariates are rebuilt from it and checked
+against the fit.</p>
+<div class="sourceCode" id="cb21"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">plot1</span> <span class="op">&lt;-</span> <span class="fu">eSVD2</span><span class="fu">::</span><span class="fu"><a href="../reference/plot_fitted_vs_observed.html">plot_fitted_vs_observed</a></span><span class="op">(</span>input_obj <span class="op">=</span> <span class="va">eSVD_obj</span>,</span>
+<span>                                        seurat_obj <span class="op">=</span> <span class="va">asd</span>,</span>
+<span>                                        max_points <span class="op">=</span> <span class="fl">50000</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">plot1</span><span class="op">$</span><span class="va">data</span><span class="op">$</span><span class="va">bool_outside</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">plot1</span><span class="op">)</span></span></code></pre></div>
+<pre><code>[1] 0.01612</code></pre>
+<div class="figure" style="text-align: center">
+<img src="fitted_vs_observed.png" class="r-plt" alt="Fitted against observed counts for 50,000 random cell-gene pairs; red points are beyond 3 standard deviations" width="600px"><p class="caption">
+Fitted against observed counts for 50,000 random cell-gene pairs; red
+points are beyond 3 standard deviations
+</p>
+</div>
+<p>The argument <code>genes</code> draws every cell of the genes named,
+one panel per gene, and <code>bool_draw_bars = TRUE</code> adds each
+point’s interval of 3 standard deviations around its fit. Bars that are
+too short to reach the line mean the over-dispersion is underestimated
+for that gene; bars that reach far past it for nearly every point mean
+it is overestimated. Here we draw the two most significant genes, the
+most expressed housekeeping gene and the most significant gene whose
+rate was capped.</p>
+<div class="sourceCode" id="cb23"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">capped_genes</span> <span class="op">&lt;-</span> <span class="va">result_df</span><span class="op">$</span><span class="va">genes</span><span class="op">[</span><span class="va">result_df</span><span class="op">$</span><span class="va">nuisance_status</span> <span class="op"><a href="https://rdrr.io/r/base/match.html" class="external-link">%in%</a></span></span>
+<span>                                  <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"capped"</span>, <span class="st">"boundary"</span><span class="op">)</span><span class="op">]</span></span>
+<span><span class="va">hk_top</span> <span class="op">&lt;-</span> <span class="va">hk_genes</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/which.min.html" class="external-link">which.max</a></span><span class="op">(</span><span class="va">fit</span><span class="op">$</span><span class="va">gene_mean_count_vec</span><span class="op">[</span><span class="va">hk_genes</span><span class="op">]</span><span class="op">)</span><span class="op">]</span></span>
+<span><span class="va">genes_panel</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="va">result_df</span><span class="op">$</span><span class="va">genes</span><span class="op">[</span><span class="fl">1</span><span class="op">:</span><span class="fl">2</span><span class="op">]</span>, <span class="va">hk_top</span>, <span class="va">capped_genes</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span><span class="op">)</span></span>
+<span><span class="va">genes_panel</span></span>
+<span><span class="va">plot1</span> <span class="op">&lt;-</span> <span class="fu">eSVD2</span><span class="fu">::</span><span class="fu"><a href="../reference/plot_fitted_vs_observed.html">plot_fitted_vs_observed</a></span><span class="op">(</span>input_obj <span class="op">=</span> <span class="va">eSVD_obj</span>,</span>
+<span>                                        seurat_obj <span class="op">=</span> <span class="va">asd</span>,</span>
+<span>                                        genes <span class="op">=</span> <span class="va">genes_panel</span>,</span>
+<span>                                        bool_draw_bars <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">plot1</span><span class="op">)</span></span></code></pre></div>
+<pre><code>[1] "TTF2"   "CIRBP"  "ATP2B1" "TMSB10"</code></pre>
+<div class="figure" style="text-align: center">
+<img src="fitted_vs_observed_genes.png" class="r-plt" alt="Fitted against observed counts for four genes, every cell, with 3-standard-deviation bars" width="700px"><p class="caption">
+Fitted against observed counts for four genes, every cell, with
+3-standard-deviation bars
+</p>
+</div>
+<p>Because a capped gene’s rate is the largest the cap allows, its
+standard deviation is close to the Poisson one, and <code>TTF2</code>
+and <code>CIRBP</code> (both capped) have the shortest bars;
+<code>ATP2B1</code>, an estimated gene with a rate of 5 times its median
+library size, has wider ones, as does the housekeeping gene
+<code>TMSB10</code> (rate 7.4). In all four panels the bars reach the
+line for nearly every cell, and 0.84 percent of the 53,208 cells are
+beyond 3 standard deviations, so the variance the model assigns to these
+genes describes their counts.</p>
+<p><strong>Redoing the test at another cap.</strong> The factorization
+does not depend on the cap, so the test can be redone at another
+<code>cap_multiplier</code> without fitting again, with
+<code><a href="../reference/recompute_pvalue.html">eSVD2::recompute_pvalue()</a></code>. <code>cap_multiplier = 1</code>
+is close to the behavior of the version of eSVD2 that accompanied the
+paper, and <code>Inf</code> removes the cap. As with the
+fitted-versus-observed plot, the diet object needs the Seurat object to
+rebuild the counts.</p>
+<div class="sourceCode" id="cb25"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">cap_summary</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">lapply</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">10</span>, <span class="cn">Inf</span><span class="op">)</span>, <span class="kw">function</span><span class="op">(</span><span class="va">cap</span><span class="op">)</span><span class="op">{</span></span>
+<span>  <span class="kw">if</span><span class="op">(</span><span class="va">cap</span> <span class="op">==</span> <span class="fl">10</span><span class="op">)</span><span class="op">{</span></span>
+<span>    <span class="va">obj</span> <span class="op">&lt;-</span> <span class="va">eSVD_obj</span></span>
+<span>  <span class="op">}</span> <span class="kw">else</span> <span class="op">{</span></span>
+<span>    <span class="va">obj</span> <span class="op">&lt;-</span> <span class="fu">eSVD2</span><span class="fu">::</span><span class="fu"><a href="../reference/recompute_pvalue.html">recompute_pvalue</a></span><span class="op">(</span>input_obj <span class="op">=</span> <span class="va">eSVD_obj</span>,</span>
+<span>                                   cap_multiplier <span class="op">=</span> <span class="va">cap</span>,</span>
+<span>                                   seurat_obj <span class="op">=</span> <span class="va">asd</span><span class="op">)</span></span>
+<span>  <span class="op">}</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
+<span>    cap_multiplier <span class="op">=</span> <span class="va">cap</span>,</span>
+<span>    num_capped <span class="op">=</span> <span class="va">obj</span><span class="op">$</span><span class="va">param</span><span class="op">$</span><span class="va">nuisance_num_capped</span>,</span>
+<span>    num_fdr05 <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">obj</span><span class="op">$</span><span class="va">pvalue_list</span><span class="op">$</span><span class="va">fdr_vec</span> <span class="op">&lt;=</span> <span class="fl">0.05</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span>,</span>
+<span>    cor_teststat <span class="op">=</span> <span class="fu">stats</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/r/stats/cor.html" class="external-link">cor</a></span><span class="op">(</span><span class="va">eSVD_obj</span><span class="op">$</span><span class="va">teststat_vec</span>, <span class="va">obj</span><span class="op">$</span><span class="va">teststat_vec</span>,</span>
+<span>                              use <span class="op">=</span> <span class="st">"complete.obs"</span><span class="op">)</span></span>
+<span>  <span class="op">)</span></span>
+<span><span class="op">}</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/do.call.html" class="external-link">do.call</a></span><span class="op">(</span><span class="va">rbind</span>, <span class="va">cap_summary</span><span class="op">)</span></span></code></pre></div>
+<pre><code>  cap_multiplier num_capped num_fdr05 cor_teststat
+1              1       6537       516    0.9715284
+2             10       4832       243    1.0000000
+3            Inf          0       307    0.8807407</code></pre>
+<p>With <code>cap_multiplier = 1</code> nearly every gene is capped
+(6,537) and 516 genes are significant at FDR 0.05. Without a cap 307
+are, but only 143 of those are among the 243 of the default, and the
+Welch statistics correlate at 0.88 with the default’s. The number of
+discoveries is therefore not monotone in the cap, and the set of
+discoveries moves with it. In the simulations behind the default, the
+false discoveries were flat for <code>cap_multiplier</code> between 1
+and 10; this cohort is a reminder that on real data the cap is a tuning
+parameter to report alongside the results.</p>
+</div>
+<div class="section level2">
+<h2 id="what-each-tuning-parameter-does">What each tuning parameter does<a class="anchor" aria-label="anchor" href="#what-each-tuning-parameter-does"></a>
+</h2>
+<p><code><a href="../reference/eSVD_helper.html">eSVD2::eSVD_helper()</a></code> passes most of its arguments to
+<code><a href="../reference/eSVD.html">eSVD2::eSVD()</a></code>, which runs the stages of the method in
+order. This section walks through the arguments stage by stage and says
+what each one changes inside the method. The model is worth keeping in
+mind: the count of gene
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>j</mi><annotation encoding="application/x-tex">j</annotation></semantics></math>
+in cell
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>i</mi><annotation encoding="application/x-tex">i</annotation></semantics></math>
+is modeled as
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>A</mi><mrow><mi>j</mi><mi>i</mi></mrow></msub><mo>∣</mo><msub><mi>λ</mi><mrow><mi>j</mi><mi>i</mi></mrow></msub><mo>∼</mo><mtext mathvariant="normal">Poisson</mtext><mo stretchy="false" form="prefix">(</mo><msub><mi>ℓ</mi><mrow><mi>j</mi><mi>i</mi></mrow></msub><msub><mi>λ</mi><mrow><mi>j</mi><mi>i</mi></mrow></msub><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">A_{ji} \mid \lambda_{ji} \sim \text{Poisson}(\ell_{ji} \lambda_{ji})</annotation></semantics></math>
+with
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>λ</mi><mrow><mi>j</mi><mi>i</mi></mrow></msub><mo>∼</mo><mtext mathvariant="normal">Gamma</mtext><mo stretchy="false" form="prefix">(</mo><mtext mathvariant="normal">mean</mtext><mo>=</mo><msub><mi>μ</mi><mrow><mi>j</mi><mi>i</mi></mrow></msub><mo>,</mo><mtext mathvariant="normal">var</mtext><mo>=</mo><msub><mi>μ</mi><mrow><mi>j</mi><mi>i</mi></mrow></msub><mi>/</mi><msub><mi>β</mi><mi>j</mi></msub><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\lambda_{ji} \sim \text{Gamma}(\text{mean} = \mu_{ji}, \text{var} = \mu_{ji} / \beta_j)</annotation></semantics></math>,
+where
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>μ</mi><mrow><mi>j</mi><mi>i</mi></mrow></msub><mo>=</mo><mrow><mi mathvariant="normal">exp</mi><mo>⁡</mo></mrow><mo stretchy="false" form="prefix">(</mo><msubsup><mi>Y</mi><mi>j</mi><mi>⊤</mi></msubsup><msub><mi>X</mi><mi>i</mi></msub><mo>+</mo><msub><mi>Z</mi><mrow><mi>j</mi><mo>,</mo><mi>c</mi><mi>c</mi></mrow></msub><msub><mi>C</mi><mrow><mi>i</mi><mo>,</mo><mi>c</mi><mi>c</mi></mrow></msub><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\mu_{ji} = \exp(Y_j^\top X_i + Z_{j,cc} C_{i,cc})</annotation></semantics></math>
+is the low-rank “predictable” expression plus the case-control effect,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>ℓ</mi><mrow><mi>j</mi><mi>i</mi></mrow></msub><annotation encoding="application/x-tex">\ell_{ji}</annotation></semantics></math>
+is the covariate-adjusted library size, and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>β</mi><mi>j</mi></msub><annotation encoding="application/x-tex">\beta_j</annotation></semantics></math>
+is the gene’s nuisance rate (the reciprocal of its over-dispersion). The
+defaults are the values in parentheses; the analysis above used every
+default (<code>k = 30</code> was passed explicitly, and 30 is also its
+default).</p>
+<div class="section level3">
+<h3 id="which-cells-and-individuals-are-analyzed-esvd_helper-only">Which cells and individuals are analyzed (<code>eSVD_helper()</code>
+only)<a class="anchor" aria-label="anchor" href="#which-cells-and-individuals-are-analyzed-esvd_helper-only"></a>
+</h3>
+<p>These five thresholds are applied by
+<code><a href="../reference/filter_cohort.html">eSVD2::filter_cohort()</a></code> before anything is fitted.
+<code><a href="../reference/eSVD.html">eSVD2::eSVD()</a></code> itself refuses a cohort that violates them
+rather than filtering it, so a mistake here fails loudly.</p>
+<ul>
+<li>
+<code>min_cells_per_id</code> (3): every individual with fewer cells
+is dropped, with a warning naming them. An individual with one or two
+cells has no usable within-individual variance, and that variance is
+what the test divides by. It must be <code>0</code> (off) or at least
+<code>3</code>.</li>
+<li>
+<code>min_cells</code> (20), <code>min_cells_casecontrol</code>
+(20), <code>min_ids</code> (4), <code>min_ids_per_arm</code> (2): if the
+cohort left after the drop has this many cells or fewer, either arm has
+this many cells or fewer, this many individuals or fewer, or either arm
+has fewer than this many individuals, the cohort is rejected and
+<code><a href="../reference/eSVD_helper.html">eSVD_helper()</a></code> returns <code>NA</code> with a warning saying
+which threshold fired. Two individuals per arm is the smallest number
+for which the Welch degrees of freedom exist.</li>
+</ul>
+<p><code><a href="../reference/eSVD_helper.html">eSVD_helper()</a></code> also removes every gene whose counts are
+all zero in the filtered cohort, fits the rest, and puts the removed
+genes back with <code>NA</code> estimates and a p-value of 1;
+<code>eSVD_obj$gene_status</code> records which is which.</p>
+</div>
+<div class="section level3">
+<h3 id="which-covariates-enter-the-model">Which covariates enter the model<a class="anchor" aria-label="anchor" href="#which-covariates-enter-the-model"></a>
+</h3>
+<ul>
+<li>
+<code>id_var</code>: the column naming each cell’s individual. The
+individual is the unit of inference: the test compares the case
+individuals with the control individuals, never cells with cells. The
+individual is <strong>not</strong> added as a covariate (its indicators
+would be collinear with every individual-level covariate).</li>
+<li>
+<code>case_control_var</code> and <code>case_control_levels</code>:
+the column holding the diagnosis and its two levels, <strong>control
+first, then case</strong>. The case indicator becomes the covariate
+whose coefficient
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>Z</mi><mrow><mi>j</mi><mo>,</mo><mi>c</mi><mi>c</mi></mrow></msub><annotation encoding="application/x-tex">Z_{j,cc}</annotation></semantics></math>
+is the case-control effect; reversing the levels flips the sign of every
+fold change and statistic.</li>
+<li>
+<code>categorical_vars</code>: each is one-hot encoded with its most
+frequent level as the reference (that level gets no column); a variable
+with a single level is dropped. The resulting columns must be linearly
+independent, or <code><a href="../reference/initialize_esvd.html">initialize_esvd()</a></code> stops and names the
+redundant ones (see the callout above).</li>
+<li>
+<code>numerical_vars</code>: each is divided by its root mean
+square, so that a covariate recorded in years and one recorded in months
+give the same fit.</li>
+<li>
+<code>batch_var_prefix</code>: a regular expression; the covariates
+whose names match it are treated as batch variables. Their coefficients
+are estimated like any other, but they are left out of the
+reparameterization step (next paragraph), so the latent factors are
+never made orthogonal to them.</li>
+<li>
+<code>Log_UMI</code>, the log of each cell’s total count, is always
+added as a covariate. It is the only covariate whose coefficient is left
+out of the first two reparameterizations (it is freed before the last
+one), because it carries the sequencing depth and we do not want it
+mixed with correlated covariates early in the fit.</li>
+</ul>
+<p>The reparameterization
+(<code><a href="../reference/reparameterization_esvd_covariates.html">eSVD2::reparameterization_esvd_covariates()</a></code>) runs after
+the initialization and after each round of optimization. It makes the
+cell latent vectors
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>X</mi><annotation encoding="application/x-tex">X</annotation></semantics></math>
+orthogonal to the covariates
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>C</mi><annotation encoding="application/x-tex">C</annotation></semantics></math>
+and then to each other, by moving whatever part of
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>X</mi><msup><mi>Y</mi><mi>⊤</mi></msup></mrow><annotation encoding="application/x-tex">XY^\top</annotation></semantics></math>
+is explained by
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>C</mi><annotation encoding="application/x-tex">C</annotation></semantics></math>
+into
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>Z</mi><msup><mi>C</mi><mi>⊤</mi></msup></mrow><annotation encoding="application/x-tex">ZC^\top</annotation></semantics></math>.
+Without it the split between “low-rank structure” and “covariate
+effects” is not identifiable, and the case-control coefficient could be
+absorbed by the latent factors.</p>
+</div>
+<div class="section level3">
+<h3 id="the-low-rank-fit">The low-rank fit<a class="anchor" aria-label="anchor" href="#the-low-rank-fit"></a>
+</h3>
+<ul>
+<li>
+<code>k</code> (30): the number of latent dimensions, that is, the
+rank of the predictable expression
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>X</mi><msup><mi>Y</mi><mi>⊤</mi></msup></mrow><annotation encoding="application/x-tex">XY^\top</annotation></semantics></math>
+across genes. It is the one parameter we suggest thinking about for a
+new dataset. Too small, and structure that is shared across genes (cell
+states, continuous gradients) ends up in the residual, where it inflates
+the nuisance rate and the within-individual variance. Too large, and the
+fit follows noise, which the posterior below partly undoes but not
+entirely. It must not exceed the number of genes.</li>
+<li>
+<code>bool_intercept</code> (<code>TRUE</code>): whether each gene
+gets its own intercept. Leave it on.</li>
+<li>
+<code>lambda</code> (0.1): the ridge penalty of the per-gene Poisson
+regression that gives the starting coefficients
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>Z</mi><annotation encoding="application/x-tex">Z</annotation></semantics></math>
+(<code><a href="../reference/initialize_esvd.html">eSVD2::initialize_esvd()</a></code>; the starting
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>X</mi><annotation encoding="application/x-tex">X</annotation></semantics></math>
+and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>Y</mi><annotation encoding="application/x-tex">Y</annotation></semantics></math>
+come from an SVD of the residual on the <code>log1p</code> scale). It
+changes only the starting point, but the objective is not convex, so a
+different start can reach a different fit.</li>
+<li>
+<code>l2pen</code> (0.1): the L2 penalty on
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>X</mi><annotation encoding="application/x-tex">X</annotation></semantics></math>,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>Y</mi><annotation encoding="application/x-tex">Y</annotation></semantics></math>
+and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>Z</mi><annotation encoding="application/x-tex">Z</annotation></semantics></math>
+during the alternating Newton optimization
+(<code><a href="../reference/opt_esvd.html">eSVD2::opt_esvd()</a></code>). Larger values shrink the latent
+vectors and coefficients toward zero and make the fit smoother and the
+optimization better conditioned.</li>
+<li>
+<code>max_iter</code> (100) and <code>tol</code> (1e-6): each round
+of <code><a href="../reference/opt_esvd.html">opt_esvd()</a></code> alternates between updating the cells’ latent
+vectors and the genes’ latent vectors and coefficients until the
+objective changes by less than <code>tol</code> (relative to its size)
+or <code>max_iter</code> passes are used. <code><a href="../reference/eSVD.html">eSVD()</a></code> runs two
+rounds: in the first every covariate coefficient except the case-control
+one is held at its initial value, so that the latent factors and the
+case-control effect absorb as much as they can; in the second all
+coefficients are free.</li>
+</ul>
+</div>
+<div class="section level3">
+<h3 id="the-nuisance-over-dispersion-estimate">The nuisance (over-dispersion) estimate<a class="anchor" aria-label="anchor" href="#the-nuisance-over-dispersion-estimate"></a>
+</h3>
+<p><code><a href="../reference/estimate_nuisance.html">eSVD2::estimate_nuisance()</a></code> estimates one rate
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>β</mi><mi>j</mi></msub><annotation encoding="application/x-tex">\beta_j</annotation></semantics></math>
+per gene by maximum likelihood, given the fit. The rate is the
+reciprocal of the over-dispersion, so a larger rate means counts closer
+to Poisson around the fit.</p>
+<ul>
+<li>
+<code>cap_multiplier</code> (10): no gene’s rate may exceed this
+many times the median over cells of its library size, and
+<code>Inf</code> removes the bound. A gene whose counts are no more
+variable around the fit than a Poisson has no finite maximum-likelihood
+rate; without a bound it would receive an enormous rate, its posterior
+(below) would follow the fit exactly, and its test statistic would be
+inflated. The bound is a calibration device rather than an estimate, and
+<code>nuisance_status</code> says which genes it acted on. The
+factorization does not depend on it, so
+<code><a href="../reference/recompute_pvalue.html">eSVD2::recompute_pvalue()</a></code> can change it afterwards without
+fitting again.</li>
+<li>
+<code>bool_covariates_as_library</code> (<code>TRUE</code>): whether
+the effects of the donor covariates (every covariate except the
+case-control one) count as part of the library size
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>ℓ</mi><mrow><mi>j</mi><mi>i</mi></mrow></msub><annotation encoding="application/x-tex">\ell_{ji}</annotation></semantics></math>,
+and so as part of the depth that the posterior and the test adjust for,
+or as part of the expression
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>μ</mi><mrow><mi>j</mi><mi>i</mi></mrow></msub><annotation encoding="application/x-tex">\mu_{ji}</annotation></semantics></math>
+that is being compared. With <code>TRUE</code>, a difference in sex or
+batch is treated like a difference in depth and is removed; the
+case-control effect stays in
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>μ</mi><mrow><mi>j</mi><mi>i</mi></mrow></msub><annotation encoding="application/x-tex">\mu_{ji}</annotation></semantics></math>
+either way. The same value is used by the nuisance estimate, the
+posterior and the test, so that all three see the same library.</li>
+<li>
+<code>bool_library_includes_interept</code> (<code>TRUE</code>):
+whether the gene’s intercept is part of the library size as well. With
+<code>TRUE</code> the rate is measured relative to the gene’s typical
+count, which is what the cap’s units assume.</li>
+<li>
+<code>bool_use_log</code> (<code>FALSE</code>): whether the rate is
+optimized on the log scale. This changes the numerical route, not the
+estimand; the log route is a fallback for genes where the first route
+fails.</li>
+</ul>
+</div>
+<div class="section level3">
+<h3 id="the-posterior">The posterior<a class="anchor" aria-label="anchor" href="#the-posterior"></a>
+</h3>
+<p>For each cell and gene, <code><a href="../reference/compute_posterior.html">eSVD2::compute_posterior()</a></code> (or
+the fused <code><a href="../reference/compute_test_per_gene.html">eSVD2::compute_test_per_gene()</a></code> when
+<code>bool_diet = TRUE</code>) combines the count with the fit through
+the Gamma-Poisson posterior: the posterior mean is
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">(</mo><msub><mi>A</mi><mrow><mi>j</mi><mi>i</mi></mrow></msub><mo>+</mo><msub><mi>β</mi><mi>j</mi></msub><msub><mi>μ</mi><mrow><mi>j</mi><mi>i</mi></mrow></msub><mo stretchy="false" form="postfix">)</mo><mi>/</mi><mo stretchy="false" form="prefix">(</mo><msub><mi>ℓ</mi><mrow><mi>j</mi><mi>i</mi></mrow></msub><mo>+</mo><msub><mi>β</mi><mi>j</mi></msub><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">(A_{ji} + \beta_j \mu_{ji}) / (\ell_{ji} + \beta_j)</annotation></semantics></math>,
+a weighted average of the observed count per unit of depth and the
+fitted expression, where the weight on the fit is the rate. This is what
+stops the pooling across genes from inflating the Type-1 error: a gene
+with a small rate (a lot of over-dispersion) trusts its own counts, and
+a gene with a large rate trusts the fit, at most
+<code>cap_multiplier</code> times as much as the observed depth.</p>
+<ul>
+<li>
+<code>alpha_max</code> (<code>NULL</code>, meaning twice the largest
+count): a ceiling on the fitted expression
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>μ</mi><mrow><mi>j</mi><mi>i</mi></mrow></msub><annotation encoding="application/x-tex">\mu_{ji}</annotation></semantics></math>
+before it enters the posterior, so that a cell where the fit diverged
+cannot dominate an individual’s mean.</li>
+<li>
+<code>library_min</code> (0.1): a floor on the library size
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>ℓ</mi><mrow><mi>j</mi><mi>i</mi></mrow></msub><annotation encoding="application/x-tex">\ell_{ji}</annotation></semantics></math>,
+so that a cell with a very small fitted depth does not get an enormous
+posterior variance.</li>
+<li>
+<code>pseudocount</code> (0): a constant added to every count before
+the posterior.</li>
+<li>
+<code>bool_stabilize_underdispersion</code> (<code>TRUE</code>): if
+the geometric mean of the rates is above 1 (in the units of the library
+size), every gene’s rate is divided by that mean so that the geometric
+mean becomes 1. This keeps the posterior from collapsing onto the fit
+for every gene at once when the rates are large across the board; it
+changes every gene’s posterior by the same factor, and only the relative
+rates matter for the ranking of genes.</li>
+<li>
+<code>bool_adjust_covariates</code> (<code>FALSE</code>):
+experimental; divides the posterior mean by the donor covariates’
+effects. It cannot be combined with
+<code>bool_covariates_as_library = TRUE</code>, and we have not found a
+case where it helps.</li>
+</ul>
+</div>
+<div class="section level3">
+<h3 id="the-test">The test<a class="anchor" aria-label="anchor" href="#the-test"></a>
+</h3>
+<p><code><a href="../reference/compute_test_statistic.html">eSVD2::compute_test_statistic()</a></code> averages the posterior
+means and variances of each individual’s cells, treats each arm as a
+mixture of its individuals, and forms a Welch two-sample statistic for
+the difference in mean expression between the case and the control
+individuals. <code><a href="../reference/compute_pvalue.html">eSVD2::compute_pvalue()</a></code> turns it into a
+p-value with Welch degrees of freedom, maps it to a Gaussian scale, fits
+an empirical null across genes (<code>locfdr</code>), and adjusts with
+Benjamini-Hochberg.</p>
+<ul>
+<li>
+<code>min_cells_per_individual</code> (3): an individual with fewer
+cells is an error at the test, not a silently noisy statistic.
+<code><a href="../reference/eSVD_helper.html">eSVD_helper()</a></code> already dropped such individuals with
+<code>min_cells_per_id</code>, so it only matters when
+<code><a href="../reference/eSVD.html">eSVD()</a></code> is called directly; <code>0</code> disables the
+check.</li>
+</ul>
+</div>
+<div class="section level3">
+<h3 id="what-is-kept">What is kept<a class="anchor" aria-label="anchor" href="#what-is-kept"></a>
+</h3>
+<ul>
+<li>
+<code>bool_diet</code> (<code>TRUE</code>): compute the posterior,
+the statistic and the p-value one gene at a time without ever holding
+the cell-by-gene posterior matrices, and drop the counts, the covariates
+and the two intermediate fits from the returned object. The final fit
+and every per-gene result are kept. A diet object cannot draw
+<code><a href="../reference/plot_fitted_vs_observed.html">plot_fitted_vs_observed()</a></code> or run
+<code><a href="../reference/recompute_pvalue.html">recompute_pvalue()</a></code> on its own; pass the Seurat object to
+them, and the counts and covariates are rebuilt and checked against the
+fit.</li>
+<li>
+<code>intermediate_save</code> (<code>NULL</code>): a file path at
+which the object is saved after each stage, for a run that may not
+finish.</li>
+<li>
+<code>verbose</code> (0): <code>1</code> prints the stage being run,
+<code>2</code> the iterations within it.</li>
+</ul>
+</div>
+</div>
+<div class="section level2">
+<h2 id="what-we-glossed-over">What we glossed over<a class="anchor" aria-label="anchor" href="#what-we-glossed-over"></a>
+</h2>
+<ul>
+<li>
+<strong>The choice of <code>k</code>.</strong> We used the default
+of 30 latent dimensions, as in the paper. The last section says what it
+trades off; we have not swept it on this cohort.</li>
+<li>
+<strong>The covariates.</strong> The full set of the metadata
+(<code>region</code>, <code>Seqbatch</code>, <code>Capbatch</code>) is
+collinear in these cells, and we kept the capture batch. Whether region
+should be adjusted for as biology rather than absorbed by the batch is a
+modeling choice this article does not settle.</li>
+<li>
+<strong>The stage-by-stage pipeline.</strong>
+<code><a href="../reference/eSVD_helper.html">eSVD_helper()</a></code> calls
+<code><a href="../reference/format_covariates.html">eSVD2::format_covariates()</a></code>,
+<code><a href="../reference/initialize_esvd.html">eSVD2::initialize_esvd()</a></code>, two rounds of
+<code><a href="../reference/opt_esvd.html">eSVD2::opt_esvd()</a></code> with
+<code><a href="../reference/reparameterization_esvd_covariates.html">eSVD2::reparameterization_esvd_covariates()</a></code> after each,
+<code><a href="../reference/estimate_nuisance.html">eSVD2::estimate_nuisance()</a></code>, and then the posterior and the
+test. The package vignette <a href="https://linnykos.github.io/eSVD2/articles/eSVD2.html">eSVD-DE
+Overview</a> runs those calls one at a time on simulated data. We ran
+that pipeline on this cohort as well, with the same settings: its Welch
+statistics correlate with the wrapper’s at 0.9999, and 243 of its 245
+genes at FDR 0.05 are the wrapper’s 243.</li>
+<li>
+<strong>The empirical null.</strong>
+<code><a href="../reference/compute_pvalue.html">eSVD2::compute_pvalue()</a></code> calibrates the Gaussianized
+statistics with <code>locfdr</code>;
+<code>eSVD_obj$pvalue_list$method</code> records which estimator ran
+(<code>locfdr</code> here).</li>
+</ul>
+</div>
+<div class="section level2">
+<h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a>
+</h2>
+<ul>
+<li>Velmeshev, D., Schirmer, L., Jung, D., Haeussler, M., Perez, Y.,
+Mayer, S., … &amp; Kriegstein, A. R. (2019). Single-cell genomics
+identifies cell type-specific molecular changes in autism.
+<em>Science</em>, 364(6441), 685-689. <a href="https://doi.org/10.1126/science.aav8130" class="external-link">doi:10.1126/science.aav8130</a>
+</li>
+<li>Gandal, M. J., Haney, J. R., Wamsley, B., Yap, C. X., Parhami, S.,
+Emani, P. S., … &amp; Geschwind, D. H. (2022). Broad transcriptomic
+dysregulation occurs across the cerebral cortex in ASD. <em>Nature</em>,
+611(7936), 532-539. <a href="https://doi.org/10.1038/s41586-022-05377-7" class="external-link">doi:10.1038/s41586-022-05377-7</a>
+</li>
+<li>Lin, K. Z., Qiu, Y., &amp; Roeder, K. (2024). eSVD-DE: cohort-wide
+differential expression in single-cell RNA-seq data using
+exponential-family embeddings. <em>BMC Bioinformatics</em>, 25, 113. <a href="https://doi.org/10.1186/s12859-024-05724-7" class="external-link">doi:10.1186/s12859-024-05724-7</a>
+</li>
+</ul>
+</div>
+<div class="section level2">
 <h2 id="setup">Setup<a class="anchor" aria-label="anchor" href="#setup"></a>
 </h2>
-<p>The following shows the suggested package versions that the developer
-(GitHub username: linnykos) used when developing the eSVD2 package.</p>
-<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu">devtools</span><span class="fu">::</span><span class="fu"><a href="https://sessioninfo.r-lib.org/reference/session_info.html" class="external-link">session_info</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
-<pre><code><span><span class="co">## <span style="color: #00BBBB; font-weight: bold;">─ Session info ───────────────────────────────────────────────────────────────</span></span></span>
-<span><span class="co">##  <span style="color: #555555; font-style: italic;">setting </span> <span style="color: #555555; font-style: italic;">value</span></span></span>
-<span><span class="co">##  version  R version 4.5.3 (2026-03-11)</span></span>
-<span><span class="co">##  os       Ubuntu 24.04.4 LTS</span></span>
-<span><span class="co">##  system   x86_64, linux-gnu</span></span>
-<span><span class="co">##  ui       X11</span></span>
-<span><span class="co">##  language en</span></span>
-<span><span class="co">##  collate  C.UTF-8</span></span>
-<span><span class="co">##  ctype    C.UTF-8</span></span>
-<span><span class="co">##  tz       UTC</span></span>
-<span><span class="co">##  date     2026-04-13</span></span>
-<span><span class="co">##  pandoc   3.1.11 @ /opt/hostedtoolcache/pandoc/3.1.11/x64/ (via rmarkdown)</span></span>
-<span><span class="co">##  quarto   NA</span></span>
+<p>The following is the R session in which this page was built. The
+website is built by GitHub Actions, so this is the session of that build
+machine, not of the run on 2026-09-30 (eSVD2 1.2.0) whose output and
+figures are pasted in above. The chunks that do run here only attach the
+packages, so the versions below show what the page was built with, not
+what produced the results.</p>
+<div class="sourceCode" id="cb27"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/sessionInfo.html" class="external-link">sessionInfo</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
+<pre><code><span><span class="co">## R version 4.6.1 (2026-06-24)</span></span>
+<span><span class="co">## Platform: x86_64-pc-linux-gnu</span></span>
+<span><span class="co">## Running under: Ubuntu 24.04.5 LTS</span></span>
 <span><span class="co">## </span></span>
-<span><span class="co">## <span style="color: #00BBBB; font-weight: bold;">─ Packages ───────────────────────────────────────────────────────────────────</span></span></span>
-<span><span class="co">##  <span style="color: #555555; font-style: italic;">package         </span> <span style="color: #555555; font-style: italic;">*</span> <span style="color: #555555; font-style: italic;">version </span> <span style="color: #555555; font-style: italic;">date (UTC)</span> <span style="color: #555555; font-style: italic;">lib</span> <span style="color: #555555; font-style: italic;">source</span></span></span>
-<span><span class="co">##  abind              1.4-8    <span style="color: #555555;">2024-09-12</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  bslib              0.10.0   <span style="color: #555555;">2026-01-26</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  cachem             1.1.0    <span style="color: #555555;">2024-05-16</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  cli                3.6.6    <span style="color: #555555;">2026-04-09</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  cluster            2.1.8.2  <span style="color: #555555;">2026-02-05</span> <span style="color: #555555;">[3]</span> <span style="color: #555555;">CRAN (R 4.5.3)</span></span></span>
-<span><span class="co">##  codetools          0.2-20   <span style="color: #555555;">2024-03-31</span> <span style="color: #555555;">[3]</span> <span style="color: #555555;">CRAN (R 4.5.3)</span></span></span>
-<span><span class="co">##  cowplot            1.2.0    <span style="color: #555555;">2025-07-07</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  data.table         1.18.2.1 <span style="color: #555555;">2026-01-27</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  deldir             2.0-4    <span style="color: #555555;">2024-02-28</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  desc               1.4.3    <span style="color: #555555;">2023-12-10</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  devtools           2.5.0    <span style="color: #555555;">2026-03-14</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  digest             0.6.39   <span style="color: #555555;">2025-11-19</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  dotCall64          1.2      <span style="color: #555555;">2024-10-04</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  dplyr              1.2.1    <span style="color: #555555;">2026-04-03</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  ellipsis           0.3.3    <span style="color: #555555;">2026-04-04</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  EnhancedVolcano  * 1.28.2   <span style="color: #555555;">2025-12-04</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">Bioconduc~</span></span></span>
-<span><span class="co">##  evaluate           1.0.5    <span style="color: #555555;">2025-08-27</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  farver             2.1.2    <span style="color: #555555;">2024-05-13</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  fastDummies        1.7.5    <span style="color: #555555;">2025-01-20</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  fastmap            1.2.0    <span style="color: #555555;">2024-05-15</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  fitdistrplus       1.2-6    <span style="color: #555555;">2026-01-24</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  fs                 2.0.1    <span style="color: #555555;">2026-03-24</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  future             1.70.0   <span style="color: #555555;">2026-03-14</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  future.apply       1.20.2   <span style="color: #555555;">2026-02-20</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  generics           0.1.4    <span style="color: #555555;">2025-05-09</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  ggplot2          * 4.0.2    <span style="color: #555555;">2026-02-03</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  ggrepel          * 0.9.8    <span style="color: #555555;">2026-03-17</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  ggridges           0.5.7    <span style="color: #555555;">2025-08-27</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  globals            0.19.1   <span style="color: #555555;">2026-03-13</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  glue               1.8.0    <span style="color: #555555;">2024-09-30</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  goftest            1.2-3    <span style="color: #555555;">2021-10-07</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  gridExtra          2.3      <span style="color: #555555;">2017-09-09</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  gtable             0.3.6    <span style="color: #555555;">2024-10-25</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  htmltools          0.5.9    <span style="color: #555555;">2025-12-04</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  htmlwidgets        1.6.4    <span style="color: #555555;">2023-12-06</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  httpuv             1.6.17   <span style="color: #555555;">2026-03-18</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  httr               1.4.8    <span style="color: #555555;">2026-02-13</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  ica                1.0-3    <span style="color: #555555;">2022-07-08</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  igraph             2.2.3    <span style="color: #555555;">2026-04-07</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  irlba              2.3.7    <span style="color: #555555;">2026-01-30</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  jquerylib          0.1.4    <span style="color: #555555;">2021-04-26</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  jsonlite           2.0.0    <span style="color: #555555;">2025-03-27</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  KernSmooth         2.23-26  <span style="color: #555555;">2025-01-01</span> <span style="color: #555555;">[3]</span> <span style="color: #555555;">CRAN (R 4.5.3)</span></span></span>
-<span><span class="co">##  knitr              1.51     <span style="color: #555555;">2025-12-20</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  later              1.4.8    <span style="color: #555555;">2026-03-05</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  lattice            0.22-9   <span style="color: #555555;">2026-02-09</span> <span style="color: #555555;">[3]</span> <span style="color: #555555;">CRAN (R 4.5.3)</span></span></span>
-<span><span class="co">##  lazyeval           0.2.3    <span style="color: #555555;">2026-04-04</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  lifecycle          1.0.5    <span style="color: #555555;">2026-01-08</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  listenv            0.10.1   <span style="color: #555555;">2026-03-10</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  lmtest             0.9-40   <span style="color: #555555;">2022-03-21</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  magrittr           2.0.5    <span style="color: #555555;">2026-04-04</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  MASS               7.3-65   <span style="color: #555555;">2025-02-28</span> <span style="color: #555555;">[3]</span> <span style="color: #555555;">CRAN (R 4.5.3)</span></span></span>
-<span><span class="co">##  Matrix             1.7-4    <span style="color: #555555;">2025-08-28</span> <span style="color: #555555;">[3]</span> <span style="color: #555555;">CRAN (R 4.5.3)</span></span></span>
-<span><span class="co">##  matrixStats        1.5.0    <span style="color: #555555;">2025-01-07</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  memoise            2.0.1    <span style="color: #555555;">2021-11-26</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  mime               0.13     <span style="color: #555555;">2025-03-17</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  miniUI             0.1.2    <span style="color: #555555;">2025-04-17</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  nlme               3.1-168  <span style="color: #555555;">2025-03-31</span> <span style="color: #555555;">[3]</span> <span style="color: #555555;">CRAN (R 4.5.3)</span></span></span>
-<span><span class="co">##  otel               0.2.0    <span style="color: #555555;">2025-08-29</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  parallelly         1.46.1   <span style="color: #555555;">2026-01-08</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  patchwork          1.3.2    <span style="color: #555555;">2025-08-25</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  pbapply            1.7-4    <span style="color: #555555;">2025-07-20</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  pillar             1.11.1   <span style="color: #555555;">2025-09-17</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  pkgbuild           1.4.8    <span style="color: #555555;">2025-05-26</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  pkgconfig          2.0.3    <span style="color: #555555;">2019-09-22</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  pkgdown            2.2.0    <span style="color: #555555;">2025-11-06</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  pkgload            1.5.1    <span style="color: #555555;">2026-04-01</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  plotly             4.12.0   <span style="color: #555555;">2026-01-24</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  plyr               1.8.9    <span style="color: #555555;">2023-10-02</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  png                0.1-9    <span style="color: #555555;">2026-03-15</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  polyclip           1.10-7   <span style="color: #555555;">2024-07-23</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  progressr          0.19.0   <span style="color: #555555;">2026-03-31</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  promises           1.5.0    <span style="color: #555555;">2025-11-01</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  purrr              1.2.2    <span style="color: #555555;">2026-04-10</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  R6                 2.6.1    <span style="color: #555555;">2025-02-15</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  ragg               1.5.2    <span style="color: #555555;">2026-03-23</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  RANN               2.6.2    <span style="color: #555555;">2024-08-25</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  RColorBrewer       1.1-3    <span style="color: #555555;">2022-04-03</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  Rcpp               1.1.1    <span style="color: #555555;">2026-01-10</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  RcppAnnoy          0.0.23   <span style="color: #555555;">2026-01-12</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  RcppHNSW           0.6.0    <span style="color: #555555;">2024-02-04</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  reshape2           1.4.5    <span style="color: #555555;">2025-11-12</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  reticulate         1.46.0   <span style="color: #555555;">2026-04-09</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  rlang              1.2.0    <span style="color: #555555;">2026-04-06</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  rmarkdown          2.31     <span style="color: #555555;">2026-03-26</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  ROCR               1.0-12   <span style="color: #555555;">2026-01-23</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  RSpectra           0.16-2   <span style="color: #555555;">2024-07-18</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  Rtsne              0.17     <span style="color: #555555;">2023-12-07</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  S7                 0.2.1    <span style="color: #555555;">2025-11-14</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  sass               0.4.10   <span style="color: #555555;">2025-04-11</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  scales             1.4.0    <span style="color: #555555;">2025-04-24</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  scattermore        1.2      <span style="color: #555555;">2023-06-12</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  sctransform        0.4.3    <span style="color: #555555;">2026-01-10</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  sessioninfo        1.2.3    <span style="color: #555555;">2025-02-05</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  Seurat           * 5.4.0    <span style="color: #555555;">2025-12-14</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  SeuratObject     * 5.4.0    <span style="color: #555555;">2026-04-11</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  shiny              1.13.0   <span style="color: #555555;">2026-02-20</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  sp               * 2.2-1    <span style="color: #555555;">2026-02-13</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  spam               2.11-3   <span style="color: #555555;">2026-01-08</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  spatstat.data      3.1-9    <span style="color: #555555;">2025-10-18</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  spatstat.explore   3.8-0    <span style="color: #555555;">2026-03-22</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  spatstat.geom      3.7-3    <span style="color: #555555;">2026-03-23</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  spatstat.random    3.4-5    <span style="color: #555555;">2026-03-22</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  spatstat.sparse    3.1-0    <span style="color: #555555;">2024-06-21</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  spatstat.univar    3.1-7    <span style="color: #555555;">2026-03-18</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  spatstat.utils     3.2-2    <span style="color: #555555;">2026-03-10</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  stringi            1.8.7    <span style="color: #555555;">2025-03-27</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  stringr            1.6.0    <span style="color: #555555;">2025-11-04</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  survival           3.8-6    <span style="color: #555555;">2026-01-16</span> <span style="color: #555555;">[3]</span> <span style="color: #555555;">CRAN (R 4.5.3)</span></span></span>
-<span><span class="co">##  systemfonts        1.3.2    <span style="color: #555555;">2026-03-05</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  tensor             1.5.1    <span style="color: #555555;">2025-06-17</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  textshaping        1.0.5    <span style="color: #555555;">2026-03-06</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  tibble             3.3.1    <span style="color: #555555;">2026-01-11</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  tidyr              1.3.2    <span style="color: #555555;">2025-12-19</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  tidyselect         1.2.1    <span style="color: #555555;">2024-03-11</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  usethis            3.2.1    <span style="color: #555555;">2025-09-06</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  uwot               0.2.4    <span style="color: #555555;">2025-11-10</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  vctrs              0.7.3    <span style="color: #555555;">2026-04-11</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  viridisLite        0.4.3    <span style="color: #555555;">2026-02-04</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  withr              3.0.2    <span style="color: #555555;">2024-10-28</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  xfun               0.57     <span style="color: #555555;">2026-03-20</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  xtable             1.8-8    <span style="color: #555555;">2026-02-22</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  yaml               2.3.12   <span style="color: #555555;">2025-12-10</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">##  zoo                1.8-15   <span style="color: #555555;">2025-12-15</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
+<span><span class="co">## Matrix products: default</span></span>
+<span><span class="co">## BLAS:   /usr/lib/x86_64-linux-gnu/openblas-pthread/libblas.so.3 </span></span>
+<span><span class="co">## LAPACK: /usr/lib/x86_64-linux-gnu/openblas-pthread/libopenblasp-r0.3.26.so;  LAPACK version 3.12.0</span></span>
 <span><span class="co">## </span></span>
-<span><span class="co">## <span style="color: #555555;"> [1] /home/runner/work/_temp/Library</span></span></span>
-<span><span class="co">## <span style="color: #555555;"> [2] /opt/R/4.5.3/lib/R/site-library</span></span></span>
-<span><span class="co">## <span style="color: #555555;"> [3] /opt/R/4.5.3/lib/R/library</span></span></span>
-<span><span class="co">##  <span style="color: #BBBBBB; background-color: #BB0000;">*</span> ── Packages attached to the search path.</span></span>
+<span><span class="co">## locale:</span></span>
+<span><span class="co">##  [1] LC_CTYPE=C.UTF-8       LC_NUMERIC=C           LC_TIME=C.UTF-8       </span></span>
+<span><span class="co">##  [4] LC_COLLATE=C.UTF-8     LC_MONETARY=C.UTF-8    LC_MESSAGES=C.UTF-8   </span></span>
+<span><span class="co">##  [7] LC_PAPER=C.UTF-8       LC_NAME=C              LC_ADDRESS=C          </span></span>
+<span><span class="co">## [10] LC_TELEPHONE=C         LC_MEASUREMENT=C.UTF-8 LC_IDENTIFICATION=C   </span></span>
 <span><span class="co">## </span></span>
-<span><span class="co">## <span style="color: #00BBBB; font-weight: bold;">──────────────────────────────────────────────────────────────────────────────</span></span></span></code></pre>
+<span><span class="co">## time zone: UTC</span></span>
+<span><span class="co">## tzcode source: system (glibc)</span></span>
+<span><span class="co">## </span></span>
+<span><span class="co">## attached base packages:</span></span>
+<span><span class="co">## [1] stats     graphics  grDevices utils     datasets  methods   base     </span></span>
+<span><span class="co">## </span></span>
+<span><span class="co">## other attached packages:</span></span>
+<span><span class="co">## [1] EnhancedVolcano_1.30.0 ggrepel_0.9.8          ggplot2_4.0.3         </span></span>
+<span><span class="co">## [4] eSVD2_1.2.0            Seurat_5.6.0           SeuratObject_5.4.0    </span></span>
+<span><span class="co">## [7] sp_2.2-3              </span></span>
+<span><span class="co">## </span></span>
+<span><span class="co">## loaded via a namespace (and not attached):</span></span>
+<span><span class="co">##   [1] deldir_2.0-4           pbapply_1.7-5          gridExtra_2.3.1       </span></span>
+<span><span class="co">##   [4] rlang_1.3.0            magrittr_2.0.5         RcppAnnoy_0.0.23      </span></span>
+<span><span class="co">##   [7] otel_0.2.0             spatstat.geom_3.8-3    matrixStats_1.5.0     </span></span>
+<span><span class="co">##  [10] ggridges_0.5.7         compiler_4.6.1         png_0.1-9             </span></span>
+<span><span class="co">##  [13] systemfonts_1.3.2      vctrs_0.7.3            reshape2_1.4.5        </span></span>
+<span><span class="co">##  [16] stringr_1.6.0          pkgconfig_2.0.3        fastmap_1.2.0         </span></span>
+<span><span class="co">##  [19] promises_1.5.0         rmarkdown_2.32         ragg_1.5.2            </span></span>
+<span><span class="co">##  [22] purrr_1.2.2            xfun_0.61              cachem_1.1.0          </span></span>
+<span><span class="co">##  [25] jsonlite_2.0.0         goftest_1.2-3          later_1.4.8           </span></span>
+<span><span class="co">##  [28] spatstat.utils_3.2-5   irlba_2.4.1            parallel_4.6.1        </span></span>
+<span><span class="co">##  [31] cluster_2.1.8.2        R6_2.6.1               ica_1.0-3             </span></span>
+<span><span class="co">##  [34] spatstat.data_3.1-9    bslib_0.12.0           stringi_1.8.9         </span></span>
+<span><span class="co">##  [37] RColorBrewer_1.1-3     reticulate_1.47.0      spatstat.univar_3.2-0 </span></span>
+<span><span class="co">##  [40] parallelly_1.48.0      lmtest_0.9-40          jquerylib_0.1.4       </span></span>
+<span><span class="co">##  [43] scattermore_1.2        Rcpp_1.1.2             knitr_1.52            </span></span>
+<span><span class="co">##  [46] tensor_1.5.1           future.apply_1.20.2    zoo_1.9-1             </span></span>
+<span><span class="co">##  [49] sctransform_0.4.3      httpuv_1.6.17          Matrix_1.7-5          </span></span>
+<span><span class="co">##  [52] splines_4.6.1          igraph_2.3.4           tidyselect_1.2.1      </span></span>
+<span><span class="co">##  [55] abind_1.4-8            yaml_2.3.12            spatstat.random_3.5-2 </span></span>
+<span><span class="co">##  [58] spatstat.explore_3.8-3 codetools_0.2-20       miniUI_0.1.2          </span></span>
+<span><span class="co">##  [61] listenv_1.1.0          lattice_0.22-9         tibble_3.3.1          </span></span>
+<span><span class="co">##  [64] plyr_1.8.9             withr_3.0.3            shiny_1.14.0          </span></span>
+<span><span class="co">##  [67] S7_0.2.2               ROCR_1.0-12            evaluate_1.0.5        </span></span>
+<span><span class="co">##  [70] Rtsne_0.17             future_1.76.0          fastDummies_1.7.6     </span></span>
+<span><span class="co">##  [73] desc_1.4.3             survival_3.8-6         polyclip_1.10-7       </span></span>
+<span><span class="co">##  [76] fitdistrplus_1.2-6     pillar_1.11.1          KernSmooth_2.23-26    </span></span>
+<span><span class="co">##  [79] plotly_4.12.1          generics_0.1.4         RcppHNSW_0.7.0        </span></span>
+<span><span class="co">##  [82] scales_1.4.0           globals_0.19.1         xtable_1.8-8          </span></span>
+<span><span class="co">##  [85] glue_1.8.1             tools_4.6.1            data.table_1.18.6.1   </span></span>
+<span><span class="co">##  [88] RSpectra_0.16-2        RANN_2.6.3             fs_2.1.0              </span></span>
+<span><span class="co">##  [91] dotCall64_1.2          cowplot_1.2.0          grid_4.6.1            </span></span>
+<span><span class="co">##  [94] tidyr_1.3.2            nlme_3.1-169           patchwork_1.3.2       </span></span>
+<span><span class="co">##  [97] cli_3.6.6              spatstat.sparse_3.2-0  textshaping_1.0.5     </span></span>
+<span><span class="co">## [100] spam_2.11-4            viridisLite_0.4.3      dplyr_1.2.1           </span></span>
+<span><span class="co">## [103] uwot_0.2.5             gtable_0.3.6           sass_0.4.10           </span></span>
+<span><span class="co">## [106] digest_0.6.39          progressr_1.0.0        htmlwidgets_1.6.4     </span></span>
+<span><span class="co">## [109] farver_2.1.2           htmltools_0.5.9        pkgdown_2.2.1         </span></span>
+<span><span class="co">## [112] lifecycle_1.0.5        httr_1.4.9             mime_0.13             </span></span>
+<span><span class="co">## [115] MASS_7.3-65</span></span></code></pre>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>
@@ -641,7 +1160,7 @@ Volcano plot the eSVD-DE analysis, highlighting the housekeeping genes
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.1.</p>
 </div>
 
     </footer>

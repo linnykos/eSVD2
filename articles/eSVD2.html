@@ -7,8 +7,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <title>eSVD-DE Overview • eSVD2</title>
 <script src="../deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-<link href="../deps/bootstrap-5.3.1/bootstrap.min.css" rel="stylesheet">
-<script src="../deps/bootstrap-5.3.1/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
+<link href="../deps/bootstrap-5.3.8/bootstrap.min.css" rel="stylesheet">
+<script src="../deps/bootstrap-5.3.8/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
 <link href="../deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
 <script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><meta property="og:title" content="eSVD-DE Overview">
 </head>
@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">eSVD2</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.0.1.07</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.2.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -38,11 +38,13 @@
     <li><a class="dropdown-item" href="../articles/asd.html">Neuron analysis for Layer 2/3 in ASD</a></li>
   </ul>
 </li>
+<li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
       </ul>
 <ul class="navbar-nav">
 <li class="nav-item"><form class="form-inline" role="search">
  <input class="form-control" type="search" name="search-input" id="search-input" autocomplete="off" aria-label="Search site" placeholder="Search for" data-search-index="../search.json">
 </form></li>
+<li class="nav-item"><a class="external-link nav-link" href="https://github.com/linnykos/eSVD2/" aria-label="GitHub"><span class="fa fab fa-github fa-lg"></span></a></li>
       </ul>
 </div>
 
@@ -62,7 +64,7 @@ Lin</h4>
             
             <h4 data-toc-skip class="date">2024-06-15</h4>
       
-
+      <small class="dont-index">Source: <a href="https://github.com/linnykos/eSVD2/blob/master/vignettes/eSVD2.Rmd" class="external-link"><code>vignettes/eSVD2.Rmd</code></a></small>
       <div class="d-none name"><code>eSVD2.Rmd</code></div>
     </div>
 
@@ -74,10 +76,11 @@ Lin</h4>
 <p>The simulations here are meant to be portable, toy-examples of eSVD2,
 with the intent to demonstrate that an installation of eSVD2 was
 successful.</p>
-<p>A successful installation of <code>eSVD2</code> is required for this.
-See the last section of this README of all the system/package
-dependencies used when creating these simulations. Both simulations
-should complete in less than 2 minutes.</p>
+<p>This vignette was rendered with <code>eSVD2</code> version 1.2.0. A
+successful installation of <code>eSVD2</code> is required for this. See
+the last section of this vignette for the session information used when
+it was rendered. The whole vignette should complete in less than 2
+minutes.</p>
 </div>
 <div class="section level2">
 <h2 id="overview">Overview<a class="anchor" aria-label="anchor" href="#overview"></a>
@@ -108,7 +111,11 @@ individual.</li>
 </ul>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://linnykos.github.io/eSVD2/">eSVD2</a></span><span class="op">)</span></span>
-<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://satijalab.org/seurat" class="external-link">Seurat</a></span><span class="op">)</span></span></code></pre></div>
+<span><span class="co"># Seurat is only used for the UMAP below; every eSVD2 step runs without it.</span></span>
+<span><span class="va">has_seurat</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/ns-load.html" class="external-link">requireNamespace</a></span><span class="op">(</span><span class="st">"Seurat"</span>, quietly <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
+<span><span class="co"># ggplot2 and ggrepel are only used for the diagnostic plots at the end.</span></span>
+<span><span class="va">has_ggplot</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/ns-load.html" class="external-link">requireNamespace</a></span><span class="op">(</span><span class="st">"ggplot2"</span>, quietly <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span> <span class="op">&amp;&amp;</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/ns-load.html" class="external-link">requireNamespace</a></span><span class="op">(</span><span class="st">"ggrepel"</span>, quietly <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="simulating-data">Simulating data<a class="anchor" aria-label="anchor" href="#simulating-data"></a>
@@ -122,7 +129,7 @@ via the <code><a href="../reference/generate_null.html">eSVD2::generate_null()</
 <span><span class="va">metadata_individual</span> <span class="op">&lt;-</span> <span class="va">res</span><span class="op">$</span><span class="va">metadata_individual</span></span>
 <span><span class="va">obs_mat</span> <span class="op">&lt;-</span> <span class="va">res</span><span class="op">$</span><span class="va">obs_mat</span></span></code></pre></div>
 <p>If you have Seurat also installed, you can run the following lines as
-well,</p>
+well (the chunk is skipped otherwise),</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">10</span><span class="op">)</span></span>
 <span><span class="va">meta_data</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span><span class="va">covariates</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"CC"</span>, <span class="st">"Sex"</span>, <span class="st">"Age"</span><span class="op">)</span><span class="op">]</span><span class="op">)</span></span>
@@ -131,7 +138,7 @@ well,</p>
 <span><span class="fu">Seurat</span><span class="fu">::</span><span class="fu"><a href="https://satijalab.github.io/seurat-object/reference/VariableFeatures.html" class="external-link">VariableFeatures</a></span><span class="op">(</span><span class="va">seurat_obj</span><span class="op">)</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/colnames.html" class="external-link">rownames</a></span><span class="op">(</span><span class="va">seurat_obj</span><span class="op">)</span></span>
 <span><span class="va">seurat_obj</span> <span class="op">&lt;-</span> <span class="fu">Seurat</span><span class="fu">::</span><span class="fu"><a href="https://satijalab.org/seurat/reference/NormalizeData.html" class="external-link">NormalizeData</a></span><span class="op">(</span><span class="va">seurat_obj</span><span class="op">)</span></span>
 <span><span class="va">seurat_obj</span> <span class="op">&lt;-</span> <span class="fu">Seurat</span><span class="fu">::</span><span class="fu"><a href="https://satijalab.org/seurat/reference/ScaleData.html" class="external-link">ScaleData</a></span><span class="op">(</span><span class="va">seurat_obj</span><span class="op">)</span></span>
-<span><span class="va">seurat_obj</span> <span class="op">&lt;-</span> <span class="fu">Seurat</span><span class="fu">::</span><span class="fu"><a href="https://satijalab.org/seurat/reference/RunPCA.html" class="external-link">RunPCA</a></span><span class="op">(</span><span class="va">seurat_obj</span>, verbose <span class="op">=</span> <span class="cn">F</span><span class="op">)</span></span>
+<span><span class="va">seurat_obj</span> <span class="op">&lt;-</span> <span class="fu">Seurat</span><span class="fu">::</span><span class="fu"><a href="https://satijalab.org/seurat/reference/RunPCA.html" class="external-link">RunPCA</a></span><span class="op">(</span><span class="va">seurat_obj</span>, verbose <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
 <span><span class="va">seurat_obj</span> <span class="op">&lt;-</span> <span class="fu">Seurat</span><span class="fu">::</span><span class="fu"><a href="https://satijalab.org/seurat/reference/RunUMAP.html" class="external-link">RunUMAP</a></span><span class="op">(</span><span class="va">seurat_obj</span>, dims <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">5</span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu">Seurat</span><span class="fu">::</span><span class="fu"><a href="https://satijalab.org/seurat/reference/DimPlot.html" class="external-link">DimPlot</a></span><span class="op">(</span><span class="va">seurat_obj</span>, reduction <span class="op">=</span> <span class="st">"umap"</span>, group.by <span class="op">=</span> <span class="st">"CC"</span><span class="op">)</span></span></code></pre></div>
@@ -178,7 +185,7 @@ deviating from this convention.)</p>
 <span>  covariates <span class="op">=</span> <span class="va">covariates</span>,</span>
 <span>  metadata_individual <span class="op">=</span> <span class="va">metadata_individual</span>,</span>
 <span>  case_control_variable <span class="op">=</span> <span class="st">"CC"</span>,</span>
-<span>  bool_intercept <span class="op">=</span> <span class="cn">T</span>,</span>
+<span>  bool_intercept <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  k <span class="op">=</span> <span class="fl">5</span>,</span>
 <span>  lambda <span class="op">=</span> <span class="fl">0.1</span>,</span>
 <span>  verbose <span class="op">=</span> <span class="fl">0</span></span>
@@ -263,6 +270,7 @@ is done via the <code><a href="../reference/estimate_nuisance.html">eSVD2::estim
 <span>  bool_covariates_as_library <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  bool_library_includes_interept <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  bool_use_log <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>  cap_multiplier <span class="op">=</span> <span class="fl">10</span>,</span>
 <span>  min_val <span class="op">=</span> <span class="fl">1e-4</span>,</span>
 <span>  verbose <span class="op">=</span> <span class="fl">0</span></span>
 <span><span class="op">)</span></span>
@@ -270,6 +278,21 @@ is done via the <code><a href="../reference/estimate_nuisance.html">eSVD2::estim
 <span><span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">eSVD_obj</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] "dat"          "covariates"   "param"        "fit_Init"     "latest_Fit"  </span></span>
 <span><span class="co">#&gt; [6] "case_control" "individual"   "fit_First"    "fit_Second"</span></span></code></pre></div>
+<p>The value stored in <code>eSVD_obj$fit_Second$nuisance_vec</code> is
+the Gamma <em>rate</em>, the reciprocal of the over-dispersion, so a
+larger value means less over-dispersion. <strong>No gene’s rate is
+allowed above <code>cap_multiplier</code> times the median of its
+library size.</strong> A gene whose counts are no more variable around
+the fit than a Poisson has no finite maximum-likelihood rate, and
+without the cap its test statistic is inflated. The function records
+what it did with each gene, and how many genes the cap acted on.</p>
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/table.html" class="external-link">table</a></span><span class="op">(</span><span class="va">eSVD_obj</span><span class="op">$</span><span class="va">fit_Second</span><span class="op">$</span><span class="va">nuisance_status</span><span class="op">)</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; estimated    capped  boundary    failed </span></span>
+<span><span class="co">#&gt;       952        48         0         0</span></span>
+<span><span class="va">eSVD_obj</span><span class="op">$</span><span class="va">param</span><span class="op">$</span><span class="va">nuisance_num_capped</span></span>
+<span><span class="co">#&gt; [1] 48</span></span></code></pre></div>
 <ul>
 <li>
 <strong>Step 4 (Computing the posterior):</strong> With the
@@ -281,7 +304,7 @@ though we pooled all the genes to denoise the single-cell expression
 matrix, we do not later inflate the Type-1 error. This is done via the
 <code><a href="../reference/compute_posterior.html">eSVD2::compute_posterior()</a></code> function.</li>
 </ul>
-<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">10</span><span class="op">)</span></span>
 <span><span class="va">eSVD_obj</span> <span class="op">&lt;-</span> <span class="fu">eSVD2</span><span class="fu">::</span><span class="fu"><a href="../reference/compute_posterior.html">compute_posterior</a></span><span class="op">(</span></span>
 <span>  input_obj <span class="op">=</span> <span class="va">eSVD_obj</span>,</span>
@@ -302,34 +325,37 @@ matrix, we do not later inflate the Type-1 error. This is done via the
 compute the test statistics using the
 <code><a href="../reference/compute_test_statistic.html">eSVD2::compute_test_statistic()</a></code> function.</li>
 </ul>
-<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">10</span><span class="op">)</span></span>
 <span><span class="va">eSVD_obj</span> <span class="op">&lt;-</span> <span class="fu">eSVD2</span><span class="fu">::</span><span class="fu"><a href="../reference/compute_test_statistic.html">compute_test_statistic</a></span><span class="op">(</span>input_obj <span class="op">=</span> <span class="va">eSVD_obj</span>, verbose <span class="op">=</span> <span class="fl">0</span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">eSVD_obj</span><span class="op">)</span></span>
-<span><span class="co">#&gt;  [1] "dat"          "covariates"   "param"        "fit_Init"     "latest_Fit"  </span></span>
-<span><span class="co">#&gt;  [6] "case_control" "individual"   "fit_First"    "fit_Second"   "teststat_vec"</span></span>
-<span><span class="co">#&gt; [11] "case_mean"    "control_mean"</span></span></code></pre></div>
+<span><span class="co">#&gt;  [1] "dat"           "covariates"    "param"         "fit_Init"     </span></span>
+<span><span class="co">#&gt;  [5] "latest_Fit"    "case_control"  "individual"    "fit_First"    </span></span>
+<span><span class="co">#&gt;  [9] "fit_Second"    "teststat_vec"  "case_mean"     "control_mean" </span></span>
+<span><span class="co">#&gt; [13] "case_var"      "control_var"   "log2fc_vec"    "log2fc_se_vec"</span></span></code></pre></div>
 <ul>
 <li>
 <strong>Step 6 (Computing the p-values):</strong> Lastly, we can
 compute the p-values via the <code><a href="../reference/compute_pvalue.html">eSVD2::compute_pvalue()</a></code>
 function.</li>
 </ul>
-<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">10</span><span class="op">)</span></span>
 <span><span class="va">eSVD_obj</span> <span class="op">&lt;-</span> <span class="fu">eSVD2</span><span class="fu">::</span><span class="fu"><a href="../reference/compute_pvalue.html">compute_pvalue</a></span><span class="op">(</span>input_obj <span class="op">=</span> <span class="va">eSVD_obj</span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">eSVD_obj</span><span class="op">)</span></span>
-<span><span class="co">#&gt;  [1] "dat"          "covariates"   "param"        "fit_Init"     "latest_Fit"  </span></span>
-<span><span class="co">#&gt;  [6] "case_control" "individual"   "fit_First"    "fit_Second"   "teststat_vec"</span></span>
-<span><span class="co">#&gt; [11] "case_mean"    "control_mean" "pvalue_list"</span></span></code></pre></div>
+<span><span class="co">#&gt;  [1] "dat"           "covariates"    "param"         "fit_Init"     </span></span>
+<span><span class="co">#&gt;  [5] "latest_Fit"    "case_control"  "individual"    "fit_First"    </span></span>
+<span><span class="co">#&gt;  [9] "fit_Second"    "teststat_vec"  "case_mean"     "control_mean" </span></span>
+<span><span class="co">#&gt; [13] "case_var"      "control_var"   "log2fc_vec"    "log2fc_se_vec"</span></span>
+<span><span class="co">#&gt; [17] "pvalue_list"</span></span></code></pre></div>
 <p>To visualize the p-values, we can plot the theoretical quantiles
 against the observed quantiles. We see that despite the UMAP above
 showing strong differences between the case and control cells, the
 p-values are all uniformly distributed. This shows that we do not
 inflate the Type-1 error.</p>
-<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">pvalue_vec</span> <span class="op">&lt;-</span> <span class="fl">10</span> <span class="op">^</span> <span class="op">(</span><span class="op">-</span><span class="va">eSVD_obj</span><span class="op">$</span><span class="va">pvalue_list</span><span class="op">$</span><span class="va">log10pvalue</span><span class="op">)</span></span>
 <span><span class="fu">graphics</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span></span>
 <span>  x <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sort.html" class="external-link">sort</a></span><span class="op">(</span><span class="va">pvalue_vec</span><span class="op">)</span>,</span>
@@ -347,169 +373,192 @@ inflate the Type-1 error.</p>
 <span>  lwd <span class="op">=</span> <span class="fl">2</span></span>
 <span><span class="op">)</span></span></code></pre></div>
 <p><img src="eSVD2_files/figure-html/unnamed-chunk-11-1.png" class="r-plt" alt="" width="576"></p>
+<ul>
+<li>
+<strong>Step 7 (Reporting the results):</strong> The function
+<code><a href="../reference/report_results.html">eSVD2::report_results()</a></code> collects the results into a data
+frame with one row per gene. The column <code>logFC</code> is the log2
+fold change between the case and the control individuals, and
+<code>logFC_se</code> is its standard error, also on the log2 scale.
+Both are computed during Step 5 and are stored in
+<code>eSVD_obj$log2fc_vec</code> and
+<code>eSVD_obj$log2fc_se_vec</code>.</li>
+</ul>
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">result_df</span> <span class="op">&lt;-</span> <span class="fu">eSVD2</span><span class="fu">::</span><span class="fu"><a href="../reference/report_results.html">report_results</a></span><span class="op">(</span><span class="va">eSVD_obj</span><span class="op">)</span></span>
+<span><span class="fu">utils</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">result_df</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/order.html" class="external-link">order</a></span><span class="op">(</span><span class="va">result_df</span><span class="op">$</span><span class="va">log10pvalue</span>, decreasing <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span>, <span class="op">]</span><span class="op">)</span></span>
+<span><span class="co">#&gt;           genes     logFC  logFC_se log10pvalue       pvalue   pvalue_adj</span></span>
+<span><span class="co">#&gt; gene_4   gene_4 -1.424179 0.2391974    8.775406 1.677234e-09 1.643850e-06</span></span>
+<span><span class="co">#&gt; gene_2   gene_2  1.402981 0.2388398    8.483108 3.287700e-09 1.643850e-06</span></span>
+<span><span class="co">#&gt; gene_7   gene_7 -1.496344 0.2701915    8.173464 6.707123e-09 2.235708e-06</span></span>
+<span><span class="co">#&gt; gene_8   gene_8  1.231841 0.2777484    6.206151 6.220846e-07 1.555211e-04</span></span>
+<span><span class="co">#&gt; gene_6   gene_6 -1.529188 0.3718676    5.785213 1.639786e-06 3.279573e-04</span></span>
+<span><span class="co">#&gt; gene_10 gene_10  1.444870 0.3517191    5.524298 2.990211e-06 4.983685e-04</span></span>
+<span><span class="co">#&gt;         nuisance_status</span></span>
+<span><span class="co">#&gt; gene_4        estimated</span></span>
+<span><span class="co">#&gt; gene_2        estimated</span></span>
+<span><span class="co">#&gt; gene_7        estimated</span></span>
+<span><span class="co">#&gt; gene_8        estimated</span></span>
+<span><span class="co">#&gt; gene_6        estimated</span></span>
+<span><span class="co">#&gt; gene_10       estimated</span></span></code></pre></div>
+<p>The standard error is divided by the number of individuals in each
+arm and not by the number of cells, so it is on the same footing as the
+standard error from a pseudobulk analysis. Multiply <code>logFC</code>
+and <code>logFC_se</code> by <code>log(2)</code> to move both to the
+natural-log scale. Note that <code>logFC / logFC_se</code> is not the
+statistic behind the p-value, which is computed on the linear scale and
+calibrated with an empirical null. See
+<code><a href="../reference/compute_log_fold_change.html">?eSVD2::compute_log_fold_change</a></code> for what the standard error
+does and does not account for.</p>
+</div>
+<div class="section level2">
+<h2 id="diagnostics-of-the-over-dispersion">Diagnostics of the over-dispersion<a class="anchor" aria-label="anchor" href="#diagnostics-of-the-over-dispersion"></a>
+</h2>
+<p>The over-dispersion decides how much each cell’s posterior follows
+the fit, so it is worth a look before the results are used. The two
+functions below draw what Step 3 estimated. They need the packages
+<code>ggplot2</code> and <code>ggrepel</code>.</p>
+<p><strong>The rate of each gene, against three summaries of the
+gene.</strong> <code><a href="../reference/plot_nuisance.html">eSVD2::plot_nuisance()</a></code> draws the rate
+divided by the gene’s median library size, which puts every gene in the
+same units. The dashed line is the cap, and the genes it acted on sit on
+it. Most genes should be below the line. Where genes are at the line,
+they should be the lowly expressed and sparse ones, and they should not
+make up the most significant genes.</p>
+<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">plot1</span> <span class="op">&lt;-</span> <span class="fu">eSVD2</span><span class="fu">::</span><span class="fu"><a href="../reference/plot_nuisance.html">plot_nuisance</a></span><span class="op">(</span>input_obj <span class="op">=</span> <span class="va">eSVD_obj</span>,</span>
+<span>                              x_axis <span class="op">=</span> <span class="st">"mean_expression"</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">plot1</span><span class="op">)</span></span></code></pre></div>
+<p><img src="eSVD2_files/figure-html/plot_nuisance_expression-1.png" class="r-plt" alt="" width="672"></p>
+<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">plot1</span> <span class="op">&lt;-</span> <span class="fu">eSVD2</span><span class="fu">::</span><span class="fu"><a href="../reference/plot_nuisance.html">plot_nuisance</a></span><span class="op">(</span>input_obj <span class="op">=</span> <span class="va">eSVD_obj</span>,</span>
+<span>                              x_axis <span class="op">=</span> <span class="st">"log10pvalue"</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">plot1</span><span class="op">)</span></span></code></pre></div>
+<p><img src="eSVD2_files/figure-html/plot_nuisance_pvalue-1.png" class="r-plt" alt="" width="672"></p>
+<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">plot1</span> <span class="op">&lt;-</span> <span class="fu">eSVD2</span><span class="fu">::</span><span class="fu"><a href="../reference/plot_nuisance.html">plot_nuisance</a></span><span class="op">(</span>input_obj <span class="op">=</span> <span class="va">eSVD_obj</span>,</span>
+<span>                              x_axis <span class="op">=</span> <span class="st">"sparsity"</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">plot1</span><span class="op">)</span></span></code></pre></div>
+<p><img src="eSVD2_files/figure-html/plot_nuisance_sparsity-1.png" class="r-plt" alt="" width="672"></p>
+<p><strong>The fitted count against the observed count.</strong> In
+<code><a href="../reference/plot_fitted_vs_observed.html">eSVD2::plot_fitted_vs_observed()</a></code> each point is one cell and
+one gene, and a point is red when its count is more than 3 standard
+deviations from its fit, the standard deviation being the one the model
+implies for that gene’s over-dispersion. The points should follow the
+dashed line, and only a small share should be red. With
+<code>bool_draw_bars = TRUE</code> each point carries the interval of 3
+standard deviations around its fit: bars that are too short to reach the
+line mean the over-dispersion is underestimated, and bars that reach far
+past it for nearly every point mean it is overestimated.</p>
+<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">plot1</span> <span class="op">&lt;-</span> <span class="fu">eSVD2</span><span class="fu">::</span><span class="fu"><a href="../reference/plot_fitted_vs_observed.html">plot_fitted_vs_observed</a></span><span class="op">(</span>input_obj <span class="op">=</span> <span class="va">eSVD_obj</span>,</span>
+<span>                                        max_points <span class="op">=</span> <span class="fl">5000</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">plot1</span><span class="op">)</span></span></code></pre></div>
+<p><img src="eSVD2_files/figure-html/plot_fitted_all-1.png" class="r-plt" alt="" width="672"></p>
+<p>The argument <code>genes</code> draws every cell of the genes named,
+one panel per gene.</p>
+<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">plot1</span> <span class="op">&lt;-</span> <span class="fu">eSVD2</span><span class="fu">::</span><span class="fu"><a href="../reference/plot_fitted_vs_observed.html">plot_fitted_vs_observed</a></span><span class="op">(</span>input_obj <span class="op">=</span> <span class="va">eSVD_obj</span>,</span>
+<span>                                        genes <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/colnames.html" class="external-link">colnames</a></span><span class="op">(</span><span class="va">obs_mat</span><span class="op">)</span><span class="op">[</span><span class="fl">1</span><span class="op">:</span><span class="fl">2</span><span class="op">]</span>,</span>
+<span>                                        bool_draw_bars <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">plot1</span><span class="op">)</span></span></code></pre></div>
+<p><img src="eSVD2_files/figure-html/plot_fitted_genes-1.png" class="r-plt" alt="" width="672"></p>
+<p><strong>Redoing the test at another cap.</strong> The factorization
+does not depend on the cap, so the test can be redone at another
+<code>cap_multiplier</code> without fitting again.
+<code>cap_multiplier = 1</code> is close to the behavior of the version
+of <code>eSVD2</code> that accompanied the paper, and <code>Inf</code>
+removes the cap.</p>
+<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">eSVD_obj_cap1</span> <span class="op">&lt;-</span> <span class="fu">eSVD2</span><span class="fu">::</span><span class="fu"><a href="../reference/recompute_pvalue.html">recompute_pvalue</a></span><span class="op">(</span>input_obj <span class="op">=</span> <span class="va">eSVD_obj</span>,</span>
+<span>                                         cap_multiplier <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
+<span><span class="va">eSVD_obj_cap1</span><span class="op">$</span><span class="va">param</span><span class="op">$</span><span class="va">nuisance_num_capped</span></span>
+<span><span class="co">#&gt; [1] 461</span></span>
+<span><span class="fu">stats</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/r/stats/cor.html" class="external-link">cor</a></span><span class="op">(</span><span class="va">eSVD_obj</span><span class="op">$</span><span class="va">teststat_vec</span>, <span class="va">eSVD_obj_cap1</span><span class="op">$</span><span class="va">teststat_vec</span><span class="op">)</span></span>
+<span><span class="co">#&gt; [1] 0.9739539</span></span></code></pre></div>
+<blockquote>
+<p><strong>When the object has no counts.</strong>
+<code><a href="../reference/eSVD.html">eSVD2::eSVD()</a></code> and <code><a href="../reference/eSVD_helper.html">eSVD2::eSVD_helper()</a></code> return
+an object without the count matrix by default
+(<code>bool_diet = TRUE</code>). For such an object, pass the Seurat
+object the analysis was run on as <code>seurat_obj</code> to
+<code><a href="../reference/recompute_pvalue.html">eSVD2::recompute_pvalue()</a></code> and to
+<code><a href="../reference/plot_fitted_vs_observed.html">eSVD2::plot_fitted_vs_observed()</a></code>.
+<code><a href="../reference/plot_nuisance.html">eSVD2::plot_nuisance()</a></code> needs no counts.</p>
+</blockquote>
 </div>
 <div class="section level2">
 <h2 id="setup">Setup<a class="anchor" aria-label="anchor" href="#setup"></a>
 </h2>
-<p>The following shows the suggested package versions that the developer
-(GitHub username: linnykos) used when developing the eSVD2 package.</p>
-<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu">devtools</span><span class="fu">::</span><span class="fu"><a href="https://sessioninfo.r-lib.org/reference/session_info.html" class="external-link">session_info</a></span><span class="op">(</span><span class="op">)</span></span>
-<span><span class="co">#&gt; <span style="color: #00BBBB; font-weight: bold;">─ Session info ───────────────────────────────────────────────────────────────</span></span></span>
-<span><span class="co">#&gt;  <span style="color: #555555; font-style: italic;">setting </span> <span style="color: #555555; font-style: italic;">value</span></span></span>
-<span><span class="co">#&gt;  version  R version 4.5.3 (2026-03-11)</span></span>
-<span><span class="co">#&gt;  os       Ubuntu 24.04.4 LTS</span></span>
-<span><span class="co">#&gt;  system   x86_64, linux-gnu</span></span>
-<span><span class="co">#&gt;  ui       X11</span></span>
-<span><span class="co">#&gt;  language en</span></span>
-<span><span class="co">#&gt;  collate  C.UTF-8</span></span>
-<span><span class="co">#&gt;  ctype    C.UTF-8</span></span>
-<span><span class="co">#&gt;  tz       UTC</span></span>
-<span><span class="co">#&gt;  date     2026-04-13</span></span>
-<span><span class="co">#&gt;  pandoc   3.1.11 @ /opt/hostedtoolcache/pandoc/3.1.11/x64/ (via rmarkdown)</span></span>
-<span><span class="co">#&gt;  quarto   NA</span></span>
+<p>The session information when this vignette was rendered.</p>
+<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/sessionInfo.html" class="external-link">sessionInfo</a></span><span class="op">(</span><span class="op">)</span></span>
+<span><span class="co">#&gt; R version 4.6.1 (2026-06-24)</span></span>
+<span><span class="co">#&gt; Platform: x86_64-pc-linux-gnu</span></span>
+<span><span class="co">#&gt; Running under: Ubuntu 24.04.5 LTS</span></span>
 <span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; <span style="color: #00BBBB; font-weight: bold;">─ Packages ───────────────────────────────────────────────────────────────────</span></span></span>
-<span><span class="co">#&gt;  <span style="color: #555555; font-style: italic;">package         </span> <span style="color: #555555; font-style: italic;">*</span> <span style="color: #555555; font-style: italic;">version </span> <span style="color: #555555; font-style: italic;">date (UTC)</span> <span style="color: #555555; font-style: italic;">lib</span> <span style="color: #555555; font-style: italic;">source</span></span></span>
-<span><span class="co">#&gt;  abind              1.4-8    <span style="color: #555555;">2024-09-12</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  bslib              0.10.0   <span style="color: #555555;">2026-01-26</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  cachem             1.1.0    <span style="color: #555555;">2024-05-16</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  cli                3.6.6    <span style="color: #555555;">2026-04-09</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  cluster            2.1.8.2  <span style="color: #555555;">2026-02-05</span> <span style="color: #555555;">[3]</span> <span style="color: #555555;">CRAN (R 4.5.3)</span></span></span>
-<span><span class="co">#&gt;  codetools          0.2-20   <span style="color: #555555;">2024-03-31</span> <span style="color: #555555;">[3]</span> <span style="color: #555555;">CRAN (R 4.5.3)</span></span></span>
-<span><span class="co">#&gt;  cowplot            1.2.0    <span style="color: #555555;">2025-07-07</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  data.table         1.18.2.1 <span style="color: #555555;">2026-01-27</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  deldir             2.0-4    <span style="color: #555555;">2024-02-28</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  desc               1.4.3    <span style="color: #555555;">2023-12-10</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  devtools           2.5.0    <span style="color: #555555;">2026-03-14</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  digest             0.6.39   <span style="color: #555555;">2025-11-19</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  dotCall64          1.2      <span style="color: #555555;">2024-10-04</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  dplyr              1.2.1    <span style="color: #555555;">2026-04-03</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  ellipsis           0.3.3    <span style="color: #555555;">2026-04-04</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  eSVD2            * 1.0.1.07 <span style="color: #555555;">2026-04-13</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">local</span></span></span>
-<span><span class="co">#&gt;  evaluate           1.0.5    <span style="color: #555555;">2025-08-27</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  farver             2.1.2    <span style="color: #555555;">2024-05-13</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  fastDummies        1.7.5    <span style="color: #555555;">2025-01-20</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  fastmap            1.2.0    <span style="color: #555555;">2024-05-15</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  fitdistrplus       1.2-6    <span style="color: #555555;">2026-01-24</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  foreach            1.5.2    <span style="color: #555555;">2022-02-02</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  fs                 2.0.1    <span style="color: #555555;">2026-03-24</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  future             1.70.0   <span style="color: #555555;">2026-03-14</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  future.apply       1.20.2   <span style="color: #555555;">2026-02-20</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  generics           0.1.4    <span style="color: #555555;">2025-05-09</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  ggplot2            4.0.2    <span style="color: #555555;">2026-02-03</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  ggrepel            0.9.8    <span style="color: #555555;">2026-03-17</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  ggridges           0.5.7    <span style="color: #555555;">2025-08-27</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  glmnet             4.1-10   <span style="color: #555555;">2025-07-17</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  globals            0.19.1   <span style="color: #555555;">2026-03-13</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  glue               1.8.0    <span style="color: #555555;">2024-09-30</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  gmp                0.7-5.1  <span style="color: #555555;">2026-02-09</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  goftest            1.2-3    <span style="color: #555555;">2021-10-07</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  gridExtra          2.3      <span style="color: #555555;">2017-09-09</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  gtable             0.3.6    <span style="color: #555555;">2024-10-25</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  htmltools          0.5.9    <span style="color: #555555;">2025-12-04</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  htmlwidgets        1.6.4    <span style="color: #555555;">2023-12-06</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  httpuv             1.6.17   <span style="color: #555555;">2026-03-18</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  httr               1.4.8    <span style="color: #555555;">2026-02-13</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  ica                1.0-3    <span style="color: #555555;">2022-07-08</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  igraph             2.2.3    <span style="color: #555555;">2026-04-07</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  irlba              2.3.7    <span style="color: #555555;">2026-01-30</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  iterators          1.0.14   <span style="color: #555555;">2022-02-05</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  jquerylib          0.1.4    <span style="color: #555555;">2021-04-26</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  jsonlite           2.0.0    <span style="color: #555555;">2025-03-27</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  KernSmooth         2.23-26  <span style="color: #555555;">2025-01-01</span> <span style="color: #555555;">[3]</span> <span style="color: #555555;">CRAN (R 4.5.3)</span></span></span>
-<span><span class="co">#&gt;  knitr              1.51     <span style="color: #555555;">2025-12-20</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  labeling           0.4.3    <span style="color: #555555;">2023-08-29</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  later              1.4.8    <span style="color: #555555;">2026-03-05</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  lattice            0.22-9   <span style="color: #555555;">2026-02-09</span> <span style="color: #555555;">[3]</span> <span style="color: #555555;">CRAN (R 4.5.3)</span></span></span>
-<span><span class="co">#&gt;  lazyeval           0.2.3    <span style="color: #555555;">2026-04-04</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  lifecycle          1.0.5    <span style="color: #555555;">2026-01-08</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  listenv            0.10.1   <span style="color: #555555;">2026-03-10</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  lmtest             0.9-40   <span style="color: #555555;">2022-03-21</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  locfdr             1.1-8    <span style="color: #555555;">2015-07-15</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  magrittr           2.0.5    <span style="color: #555555;">2026-04-04</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  MASS               7.3-65   <span style="color: #555555;">2025-02-28</span> <span style="color: #555555;">[3]</span> <span style="color: #555555;">CRAN (R 4.5.3)</span></span></span>
-<span><span class="co">#&gt;  Matrix             1.7-4    <span style="color: #555555;">2025-08-28</span> <span style="color: #555555;">[3]</span> <span style="color: #555555;">CRAN (R 4.5.3)</span></span></span>
-<span><span class="co">#&gt;  matrixStats        1.5.0    <span style="color: #555555;">2025-01-07</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  memoise            2.0.1    <span style="color: #555555;">2021-11-26</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  mime               0.13     <span style="color: #555555;">2025-03-17</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  miniUI             0.1.2    <span style="color: #555555;">2025-04-17</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  nlme               3.1-168  <span style="color: #555555;">2025-03-31</span> <span style="color: #555555;">[3]</span> <span style="color: #555555;">CRAN (R 4.5.3)</span></span></span>
-<span><span class="co">#&gt;  otel               0.2.0    <span style="color: #555555;">2025-08-29</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  parallelly         1.46.1   <span style="color: #555555;">2026-01-08</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  patchwork          1.3.2    <span style="color: #555555;">2025-08-25</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  pbapply            1.7-4    <span style="color: #555555;">2025-07-20</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  pillar             1.11.1   <span style="color: #555555;">2025-09-17</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  pkgbuild           1.4.8    <span style="color: #555555;">2025-05-26</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  pkgconfig          2.0.3    <span style="color: #555555;">2019-09-22</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  pkgdown            2.2.0    <span style="color: #555555;">2025-11-06</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  pkgload            1.5.1    <span style="color: #555555;">2026-04-01</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  plotly             4.12.0   <span style="color: #555555;">2026-01-24</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  plyr               1.8.9    <span style="color: #555555;">2023-10-02</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  png                0.1-9    <span style="color: #555555;">2026-03-15</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  polyclip           1.10-7   <span style="color: #555555;">2024-07-23</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  progressr          0.19.0   <span style="color: #555555;">2026-03-31</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  promises           1.5.0    <span style="color: #555555;">2025-11-01</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  purrr              1.2.2    <span style="color: #555555;">2026-04-10</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  R6                 2.6.1    <span style="color: #555555;">2025-02-15</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  ragg               1.5.2    <span style="color: #555555;">2026-03-23</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  RANN               2.6.2    <span style="color: #555555;">2024-08-25</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  RColorBrewer       1.1-3    <span style="color: #555555;">2022-04-03</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  Rcpp             * 1.1.1    <span style="color: #555555;">2026-01-10</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  RcppAnnoy          0.0.23   <span style="color: #555555;">2026-01-12</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  RcppHNSW           0.6.0    <span style="color: #555555;">2024-02-04</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  reshape2           1.4.5    <span style="color: #555555;">2025-11-12</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  reticulate         1.46.0   <span style="color: #555555;">2026-04-09</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  rlang              1.2.0    <span style="color: #555555;">2026-04-06</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  rmarkdown          2.31     <span style="color: #555555;">2026-03-26</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  Rmpfr              1.1-2    <span style="color: #555555;">2025-10-27</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  ROCR               1.0-12   <span style="color: #555555;">2026-01-23</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  RSpectra           0.16-2   <span style="color: #555555;">2024-07-18</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  Rtsne              0.17     <span style="color: #555555;">2023-12-07</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  S7                 0.2.1    <span style="color: #555555;">2025-11-14</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  sass               0.4.10   <span style="color: #555555;">2025-04-11</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  scales             1.4.0    <span style="color: #555555;">2025-04-24</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  scattermore        1.2      <span style="color: #555555;">2023-06-12</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  sctransform        0.4.3    <span style="color: #555555;">2026-01-10</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  sessioninfo        1.2.3    <span style="color: #555555;">2025-02-05</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  Seurat           * 5.4.0    <span style="color: #555555;">2025-12-14</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  SeuratObject     * 5.4.0    <span style="color: #555555;">2026-04-11</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  shape              1.4.6.1  <span style="color: #555555;">2024-02-23</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  shiny              1.13.0   <span style="color: #555555;">2026-02-20</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  sp               * 2.2-1    <span style="color: #555555;">2026-02-13</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  spam               2.11-3   <span style="color: #555555;">2026-01-08</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  spatstat.data      3.1-9    <span style="color: #555555;">2025-10-18</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  spatstat.explore   3.8-0    <span style="color: #555555;">2026-03-22</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  spatstat.geom      3.7-3    <span style="color: #555555;">2026-03-23</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  spatstat.random    3.4-5    <span style="color: #555555;">2026-03-22</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  spatstat.sparse    3.1-0    <span style="color: #555555;">2024-06-21</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  spatstat.univar    3.1-7    <span style="color: #555555;">2026-03-18</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  spatstat.utils     3.2-2    <span style="color: #555555;">2026-03-10</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  stringi            1.8.7    <span style="color: #555555;">2025-03-27</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  stringr            1.6.0    <span style="color: #555555;">2025-11-04</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  survival           3.8-6    <span style="color: #555555;">2026-01-16</span> <span style="color: #555555;">[3]</span> <span style="color: #555555;">CRAN (R 4.5.3)</span></span></span>
-<span><span class="co">#&gt;  systemfonts        1.3.2    <span style="color: #555555;">2026-03-05</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  tensor             1.5.1    <span style="color: #555555;">2025-06-17</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  textshaping        1.0.5    <span style="color: #555555;">2026-03-06</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  tibble             3.3.1    <span style="color: #555555;">2026-01-11</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  tidyr              1.3.2    <span style="color: #555555;">2025-12-19</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  tidyselect         1.2.1    <span style="color: #555555;">2024-03-11</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  usethis            3.2.1    <span style="color: #555555;">2025-09-06</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  uwot               0.2.4    <span style="color: #555555;">2025-11-10</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  vctrs              0.7.3    <span style="color: #555555;">2026-04-11</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  viridisLite        0.4.3    <span style="color: #555555;">2026-02-04</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  withr              3.0.2    <span style="color: #555555;">2024-10-28</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  xfun               0.57     <span style="color: #555555;">2026-03-20</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  xtable             1.8-8    <span style="color: #555555;">2026-02-22</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  yaml               2.3.12   <span style="color: #555555;">2025-12-10</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
-<span><span class="co">#&gt;  zoo                1.8-15   <span style="color: #555555;">2025-12-15</span> <span style="color: #555555;">[1]</span> <span style="color: #BB00BB; font-weight: bold;">RSPM</span></span></span>
+<span><span class="co">#&gt; Matrix products: default</span></span>
+<span><span class="co">#&gt; BLAS:   /usr/lib/x86_64-linux-gnu/openblas-pthread/libblas.so.3 </span></span>
+<span><span class="co">#&gt; LAPACK: /usr/lib/x86_64-linux-gnu/openblas-pthread/libopenblasp-r0.3.26.so;  LAPACK version 3.12.0</span></span>
 <span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; <span style="color: #555555;"> [1] /home/runner/work/_temp/Library</span></span></span>
-<span><span class="co">#&gt; <span style="color: #555555;"> [2] /opt/R/4.5.3/lib/R/site-library</span></span></span>
-<span><span class="co">#&gt; <span style="color: #555555;"> [3] /opt/R/4.5.3/lib/R/library</span></span></span>
-<span><span class="co">#&gt;  <span style="color: #BBBBBB; background-color: #BB0000;">*</span> ── Packages attached to the search path.</span></span>
+<span><span class="co">#&gt; locale:</span></span>
+<span><span class="co">#&gt;  [1] LC_CTYPE=C.UTF-8       LC_NUMERIC=C           LC_TIME=C.UTF-8       </span></span>
+<span><span class="co">#&gt;  [4] LC_COLLATE=C.UTF-8     LC_MONETARY=C.UTF-8    LC_MESSAGES=C.UTF-8   </span></span>
+<span><span class="co">#&gt;  [7] LC_PAPER=C.UTF-8       LC_NAME=C              LC_ADDRESS=C          </span></span>
+<span><span class="co">#&gt; [10] LC_TELEPHONE=C         LC_MEASUREMENT=C.UTF-8 LC_IDENTIFICATION=C   </span></span>
 <span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; <span style="color: #00BBBB; font-weight: bold;">──────────────────────────────────────────────────────────────────────────────</span></span></span></code></pre></div>
+<span><span class="co">#&gt; time zone: UTC</span></span>
+<span><span class="co">#&gt; tzcode source: system (glibc)</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; attached base packages:</span></span>
+<span><span class="co">#&gt; [1] stats     graphics  grDevices utils     datasets  methods   base     </span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; other attached packages:</span></span>
+<span><span class="co">#&gt; [1] eSVD2_1.2.0</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; loaded via a namespace (and not attached):</span></span>
+<span><span class="co">#&gt;   [1] deldir_2.0-4           pbapply_1.7-5          gridExtra_2.3.1       </span></span>
+<span><span class="co">#&gt;   [4] rlang_1.3.0            magrittr_2.0.5         RcppAnnoy_0.0.23      </span></span>
+<span><span class="co">#&gt;   [7] otel_0.2.0             spatstat.geom_3.8-3    matrixStats_1.5.0     </span></span>
+<span><span class="co">#&gt;  [10] ggridges_0.5.7         compiler_4.6.1         png_0.1-9             </span></span>
+<span><span class="co">#&gt;  [13] systemfonts_1.3.2      vctrs_0.7.3            reshape2_1.4.5        </span></span>
+<span><span class="co">#&gt;  [16] stringr_1.6.0          shape_1.4.6.1          pkgconfig_2.0.3       </span></span>
+<span><span class="co">#&gt;  [19] fastmap_1.2.0          labeling_0.4.3         promises_1.5.0        </span></span>
+<span><span class="co">#&gt;  [22] rmarkdown_2.32         ragg_1.5.2             purrr_1.2.2           </span></span>
+<span><span class="co">#&gt;  [25] glmnet_5.1             xfun_0.61              cachem_1.1.0          </span></span>
+<span><span class="co">#&gt;  [28] jsonlite_2.0.0         goftest_1.2-3          later_1.4.8           </span></span>
+<span><span class="co">#&gt;  [31] spatstat.utils_3.2-5   irlba_2.4.1            parallel_4.6.1        </span></span>
+<span><span class="co">#&gt;  [34] cluster_2.1.8.2        R6_2.6.1               ica_1.0-3             </span></span>
+<span><span class="co">#&gt;  [37] spatstat.data_3.1-9    bslib_0.12.0           stringi_1.8.9         </span></span>
+<span><span class="co">#&gt;  [40] RColorBrewer_1.1-3     reticulate_1.47.0      spatstat.univar_3.2-0 </span></span>
+<span><span class="co">#&gt;  [43] parallelly_1.48.0      lmtest_0.9-40          jquerylib_0.1.4       </span></span>
+<span><span class="co">#&gt;  [46] scattermore_1.2        iterators_1.0.14       Rcpp_1.1.2            </span></span>
+<span><span class="co">#&gt;  [49] knitr_1.52             tensor_1.5.1           future.apply_1.20.2   </span></span>
+<span><span class="co">#&gt;  [52] zoo_1.9-1              sctransform_0.4.3      httpuv_1.6.17         </span></span>
+<span><span class="co">#&gt;  [55] Matrix_1.7-5           splines_4.6.1          igraph_2.3.4          </span></span>
+<span><span class="co">#&gt;  [58] tidyselect_1.2.1       abind_1.4-8            yaml_2.3.12           </span></span>
+<span><span class="co">#&gt;  [61] spatstat.random_3.5-2  spatstat.explore_3.8-3 codetools_0.2-20      </span></span>
+<span><span class="co">#&gt;  [64] miniUI_0.1.2           listenv_1.1.0          lattice_0.22-9        </span></span>
+<span><span class="co">#&gt;  [67] tibble_3.3.1           plyr_1.8.9             withr_3.0.3           </span></span>
+<span><span class="co">#&gt;  [70] shiny_1.14.0           S7_0.2.2               ROCR_1.0-12           </span></span>
+<span><span class="co">#&gt;  [73] evaluate_1.0.5         Rtsne_0.17             future_1.76.0         </span></span>
+<span><span class="co">#&gt;  [76] fastDummies_1.7.6      desc_1.4.3             survival_3.8-6        </span></span>
+<span><span class="co">#&gt;  [79] polyclip_1.10-7        fitdistrplus_1.2-6     pillar_1.11.1         </span></span>
+<span><span class="co">#&gt;  [82] Seurat_5.6.0           KernSmooth_2.23-26     foreach_1.5.2         </span></span>
+<span><span class="co">#&gt;  [85] plotly_4.12.1          generics_0.1.4         RcppHNSW_0.7.0        </span></span>
+<span><span class="co">#&gt;  [88] sp_2.2-3               ggplot2_4.0.3          scales_1.4.0          </span></span>
+<span><span class="co">#&gt;  [91] globals_0.19.1         xtable_1.8-8           glue_1.8.1            </span></span>
+<span><span class="co">#&gt;  [94] tools_4.6.1            data.table_1.18.6.1    RSpectra_0.16-2       </span></span>
+<span><span class="co">#&gt;  [97] RANN_2.6.3             fs_2.1.0               dotCall64_1.2         </span></span>
+<span><span class="co">#&gt; [100] cowplot_1.2.0          grid_4.6.1             tidyr_1.3.2           </span></span>
+<span><span class="co">#&gt; [103] nlme_3.1-169           patchwork_1.3.2        cli_3.6.6             </span></span>
+<span><span class="co">#&gt; [106] spatstat.sparse_3.2-0  textshaping_1.0.5      spam_2.11-4           </span></span>
+<span><span class="co">#&gt; [109] viridisLite_0.4.3      dplyr_1.2.1            uwot_0.2.5            </span></span>
+<span><span class="co">#&gt; [112] gtable_0.3.6           sass_0.4.10            digest_0.6.39         </span></span>
+<span><span class="co">#&gt; [115] progressr_1.0.0        ggrepel_0.9.8          htmlwidgets_1.6.4     </span></span>
+<span><span class="co">#&gt; [118] SeuratObject_5.4.0     farver_2.1.2           htmltools_0.5.9       </span></span>
+<span><span class="co">#&gt; [121] pkgdown_2.2.1          lifecycle_1.0.5        httr_1.4.9            </span></span>
+<span><span class="co">#&gt; [124] locfdr_1.1-8           mime_0.13              MASS_7.3-65</span></span></code></pre></div>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>
@@ -522,7 +571,7 @@ inflate the Type-1 error.</p>
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.1.</p>
 </div>
 
     </footer>

@@ -1,10 +1,11 @@
 # Initialize eSVD
 
-For each gene, this function estimates two ridge-regression penalized
-GLMs (using the Poisson model) – one using the `case_control_variable`
-and one without, and both sets of coefficients as well as the p-value
-(according to a deviance test) is returned. This p-value is on the
-log10-scale.
+For each gene, this function fits one ridge-penalized Poisson GLM of the
+counts on `covariates` (with `offset_variables` as offsets;
+[`stats::glm`](https://rdrr.io/r/stats/glm.html) when at most one
+covariate is left to estimate) to obtain `z_mat`, and then takes a
+rank-`k` SVD of `log1p(dat)` minus the fitted covariate effects to
+obtain `x_mat` and `y_mat`. The result is stored as `fit_Init`.
 
 ## Usage
 
@@ -13,7 +14,7 @@ initialize_esvd(
   dat,
   covariates,
   metadata_individual,
-  bool_intercept = F,
+  bool_intercept = FALSE,
   case_control_variable = NULL,
   k = 30,
   lambda = 0.01,
@@ -64,9 +65,10 @@ initialize_esvd(
 
 - lambda:
 
-  Penalty of the `mixed_effect_variables` when using
+  Ridge penalty used by
   [`glmnet::glmnet`](https://glmnet.stanford.edu/reference/glmnet.html)
-  to initialize the coefficients.
+  on every covariate that is neither the intercept nor an offset; must
+  lie in \\\[10^{-4}, 10^4\]\\.
 
 - library_size_variable:
 
@@ -92,5 +94,29 @@ initialize_esvd(
 
 ## Value
 
-`eSVD` object with elements `dat`, `covariates`, `initial_Reg` and
-`param`
+`eSVD` object with elements `dat`, `covariates`, `param`, `fit_Init` (an
+`eSVD_Fit` with `x_mat`, `y_mat`, `z_mat`), `latest_Fit` (`"fit_Init"`),
+`case_control` and `individual`
+
+## Examples
+
+``` r
+set.seed(10)
+sim <- generate_null(cell_per_person = 15, num_genes = 40,
+                     num_individuals = 8)
+esvd_obj <- initialize_esvd(dat = sim$obs_mat,
+                            covariates = sim$covariates,
+                            metadata_individual = sim$metadata_individual,
+                            case_control_variable = "CC",
+                            bool_intercept = TRUE,
+                            k = 2,
+                            lambda = 0.1)
+esvd_obj <- reparameterization_esvd_covariates(input_obj = esvd_obj,
+                                               fit_name = "fit_Init",
+                                               omitted_variables = "Log_UMI")
+names(esvd_obj)
+#> [1] "dat"          "covariates"   "param"        "fit_Init"     "latest_Fit"  
+#> [6] "case_control" "individual"  
+dim(esvd_obj$fit_Init$x_mat)
+#> [1] 120   2
+```

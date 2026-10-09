@@ -15,11 +15,11 @@ compute_posterior(
   library_size_variable,
   nuisance_vec,
   alpha_max = 1000,
-  bool_adjust_covariates = F,
-  bool_covariates_as_library = T,
-  bool_library_includes_interept = T,
-  bool_return_components = F,
-  bool_stabilize_underdispersion = T,
+  bool_adjust_covariates = FALSE,
+  bool_covariates_as_library = TRUE,
+  bool_library_includes_interept = TRUE,
+  bool_return_components = FALSE,
+  bool_stabilize_underdispersion = TRUE,
   library_min = 0.1,
   nuisance_lower_quantile = 0.01,
   pseudocount = 0,
@@ -62,11 +62,15 @@ compute_posterior(
 - nuisance_vec:
 
   Vector of non-negative numerics of length `ncol(input_obj)`, such as
-  the output of `estimate_nuisance.default`.
+  the output of `estimate_nuisance.default`. These are Gamma *rates*
+  \\\beta_j = 1/\gamma_j\\: the posterior mean is \\(A\_{ji} +
+  \mu\_{ji}\beta_j)/(\ell\_{ji} + \beta_j)\\, so a larger value pulls
+  the posterior harder towards the fitted mean.
 
 - alpha_max:
 
-  Maximum value of numerator when computing posterior, default is `1e3`.
+  Upper bound on the fitted mean without the library, \\\mu\_{ji}\\,
+  before it forms the prior \\\mu\_{ji}\beta_j\\, default is `1e3`.
 
 - bool_adjust_covariates:
 
@@ -89,14 +93,18 @@ compute_posterior(
 - bool_return_components:
 
   Boolean to return the numerator and denominator of the posterior terms
-  as well (which will themselves by matrices that are cell-by-gene
-  matrices), default is `FALSE`.
+  as well (themselves cell-by-gene matrices), default is `FALSE`.
 
 - bool_stabilize_underdispersion:
 
-  Boolean to stabilize the over-dispersion parameter, specifically to
-  rescale all the over-dispersions the global mean over-disperion is
-  less than 1, default is `TRUE`.
+  Boolean, default `TRUE`. `nuisance_vec` holds Gamma *rates*, which
+  share the units of the library size, so a geometric mean above 1 means
+  less over-dispersion than a unit rate in those units (not
+  under-dispersion: a finite rate is always over-dispersed). When that
+  happens (`mean(log10(nuisance_vec)) > 0`), every gene's rate, capped
+  ones included, is divided by the one geometric mean so that
+  `mean(log10(nuisance_vec))` becomes 0; otherwise the rates are left
+  alone.
 
 - library_min:
 
@@ -106,7 +114,7 @@ compute_posterior(
 - nuisance_lower_quantile:
 
   All the nuisance values that are smaller than this quantile are set to
-  this quantile.
+  this quantile; one number in \\\[0, 1\]\\, or `NULL` for no floor.
 
 - pseudocount:
 

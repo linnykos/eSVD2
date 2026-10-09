@@ -1,6 +1,6 @@
-# Internal data loader function
+# Print a data loader
 
-Internal data loader function
+Print a data loader
 
 ## Usage
 
@@ -13,12 +13,12 @@ print(x, ...)
 
 - x:
 
-  object
+  An `esvd_data_loader`, from `data_loader`.
 
 - ...:
 
-  additional arguments
+  Ignored.
 
 ## Value
 
-description
+`x`, invisibly; called for its printed one-line description.

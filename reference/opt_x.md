@@ -65,3 +65,9 @@ opt_x(
 - ...:
 
   Additional parameters
+
+## Value
+
+The optimized \`\[X C\]\` matrix, n by (k + r), with the C columns
+unchanged. It carries an integer attribute \`num_linesearch_failed\`,
+the number of rows whose Newton line search found no descent step.

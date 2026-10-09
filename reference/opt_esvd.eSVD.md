@@ -23,7 +23,8 @@ opt_esvd(
 
 - input_obj:
 
-  `eSVD` object outputed from `apply_initial_threshold`.
+  `eSVD` object output from `initialize_esvd` (or an earlier
+  `opt_esvd`).
 
 - fit_name:
 
@@ -47,13 +48,15 @@ opt_esvd(
 - offset_variables:
 
   A vector of strings depicting which column names in
-  `input_obj$covariate` be treated as an offset during the optimization
+  `input_obj$covariates` be treated as an offset during the optimization
   (i.e., their coefficients will not change throughout the
   optimization).
 
 - tol:
 
-  Small positive number to differentiate between zero and non-zero.
+  Relative tolerance of the stopping rule: iteration stops once the
+  objective changes by at most `tol` times
+  `max(1, |previous objective|)`.
 
 - verbose:
 
@@ -67,3 +70,33 @@ opt_esvd(
 
 `eSVD` object with added elements with name to whatever `fit_name` was
 set to.
+
+## Examples
+
+``` r
+set.seed(10)
+sim <- generate_null(cell_per_person = 15, num_genes = 40,
+                     num_individuals = 8)
+esvd_obj <- initialize_esvd(dat = sim$obs_mat,
+                            covariates = sim$covariates,
+                            metadata_individual = sim$metadata_individual,
+                            case_control_variable = "CC",
+                            bool_intercept = TRUE,
+                            k = 2,
+                            lambda = 0.1)
+esvd_obj <- reparameterization_esvd_covariates(input_obj = esvd_obj,
+                                               fit_name = "fit_Init",
+                                               omitted_variables = "Log_UMI")
+esvd_obj <- opt_esvd(input_obj = esvd_obj,
+                     max_iter = 5,
+                     offset_variables = setdiff(colnames(esvd_obj$covariates), "CC"),
+                     fit_name = "fit_First",
+                     fit_previous = "fit_Init")
+esvd_obj <- reparameterization_esvd_covariates(input_obj = esvd_obj,
+                                               fit_name = "fit_First",
+                                               omitted_variables = "Log_UMI")
+esvd_obj$latest_Fit
+#> [1] "fit_First"
+esvd_obj$fit_First$loss
+#> [1] -0.7940044 -0.8235692 -0.8328533 -0.8387476 -0.8419992
+```

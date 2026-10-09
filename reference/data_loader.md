@@ -1,6 +1,8 @@
-# Internal data loader function
+# Internal data loader
 
-Internal data loader function
+Wraps a dense `matrix` or a `dgCMatrix` in a C++ iterator used by the
+optimizer. The pointer is only valid in the R session that created it; a
+restored copy (e.g. from `readRDS`) errors when used.
 
 ## Usage
 
@@ -12,8 +14,8 @@ data_loader(mat)
 
 - mat:
 
-  matrix
+  `matrix` (integer or double) or `dgCMatrix`, cells by genes.
 
 ## Value
 
-pointer
+An external pointer of class `esvd_data_loader`.

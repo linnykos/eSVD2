@@ -34,7 +34,7 @@ gandal_df
 ``` r
 if (FALSE) { # \dontrun{
 # How the data was loaded
-df <- openxlsx::read.xlsx("/Users/kevinlin/Downloads/41586_2022_5377_MOESM5_ESM.xlsx",
+df <- openxlsx::read.xlsx("41586_2022_5377_MOESM5_ESM.xlsx",
                           sheet = "DEGene_Statistics")
 gandal_df <- df[,c("external_gene_name", "WholeCortex_ASD_logFC", "WholeCortex_ASD_FDR")]
 usethis::use_data(gandal_df)

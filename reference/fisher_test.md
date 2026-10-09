@@ -35,3 +35,18 @@ genes in `all_genes` but not in `set2_genes`, `set_overlap_len` for the
 number of genes in both `set1_genes` and `set2_genes`, `set1_len` for
 number of genes in `set1_genes`, and `set2_len` for number of genes in
 `set2_genes`.
+
+## Examples
+
+``` r
+all_genes <- paste0("gene", 1:1000)
+set1_genes <- paste0("gene", 1:50)
+set2_genes <- paste0("gene", c(1:20, 501:530))
+res <- fisher_test(set1_genes = set1_genes,
+                   set2_genes = set2_genes,
+                   all_genes = all_genes)
+res$pvalue
+#> [1] 2.661076e-15
+res$set_overlap_len
+#> [1] 20
+```

@@ -55,7 +55,7 @@ sfari_df
 
 ## Source
 
-\<https://www.science.org/doi/10.1126/science.aav8130\>
+\<https://gene.sfari.org/database/human-gene/\>
 
 ## Examples
 

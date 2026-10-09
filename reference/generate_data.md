@@ -24,24 +24,38 @@ generate_data(
 - family:
 
   A character string, one of `"gaussian"`, `"exponential"`, `"poisson"`,
-  `"neg_binom"`, `"curved_gaussian"`, and `"bernoulli"`.
+  `"neg_binom"`, `"neg_binom2"`, `"curved_gaussian"`, and `"bernoulli"`.
 
 - nuisance_param_vec:
 
   Either `NA` or a single numeric or a length-\\p\\ vector of numerics
-  representing nuisance parameters (for `family = "neg_binom"` and
-  `family = "curved_gausian"`). It is only required if
-  `family %in% c("neg_binom", "curved_gaussian")`.
+  representing nuisance parameters. It is required if `family` is
+  `"gaussian"`, `"curved_gaussian"`, `"neg_binom"` or `"neg_binom2"`,
+  and ignored otherwise.
 
 - library_size_vec:
 
-  Either `NA` or a length-\\n\\ vector of numerics
+  A single positive numeric (recycled to every cell; default `1`) or a
+  length-\\n\\ vector of positive numerics.
 
 - tol:
 
   Small positive value to determine the smallest possible value in the
-  output matrix, useful for only `family = "curved_gaussian"`.
+  output matrix, applied only when `family` is `"gaussian"` or
+  `"curved_gaussian"`.
 
 ## Value
 
-The generated data matrix
+The generated data matrix, of the same dimension as `nat_mat`
+
+## Examples
+
+``` r
+set.seed(10)
+x_mat <- matrix(stats::rnorm(20 * 2), nrow = 20, ncol = 2)
+y_mat <- matrix(stats::rnorm(10 * 2), nrow = 10, ncol = 2)
+nat_mat <- tcrossprod(x_mat, y_mat)
+dat <- generate_data(nat_mat = nat_mat, family = "poisson")
+dim(dat)
+#> [1] 20 10
+```

@@ -6,10 +6,10 @@ The simulations here are meant to be portable, toy-examples of eSVD2,
 with the intent to demonstrate that an installation of eSVD2 was
 successful.
 
-A successful installation of `eSVD2` is required for this. See the last
-section of this README of all the system/package dependencies used when
-creating these simulations. Both simulations should complete in less
-than 2 minutes.
+This vignette was rendered with `eSVD2` version 1.2.0. A successful
+installation of `eSVD2` is required for this. See the last section of
+this vignette for the session information used when it was rendered. The
+whole vignette should complete in less than 2 minutes.
 
 ## Overview
 
@@ -30,8 +30,13 @@ procedure starts with primarily 3 inputs,
   which cell originates from which individual.
 
 ``` r
+
 library(eSVD2)
-library(Seurat)
+# Seurat is only used for the UMAP below; every eSVD2 step runs without it.
+has_seurat <- requireNamespace("Seurat", quietly = TRUE)
+# ggplot2 and ggrepel are only used for the diagnostic plots at the end.
+has_ggplot <- requireNamespace("ggplot2", quietly = TRUE) &&
+  requireNamespace("ggrepel", quietly = TRUE)
 ```
 
 ## Simulating data
@@ -42,6 +47,7 @@ via the
 function.
 
 ``` r
+
 set.seed(10)
 res <- eSVD2::generate_null()
 covariates <- res$covariates
@@ -50,9 +56,10 @@ obs_mat <- res$obs_mat
 ```
 
 If you have Seurat also installed, you can run the following lines as
-well,
+well (the chunk is skipped otherwise),
 
 ``` r
+
 set.seed(10)
 meta_data <- data.frame(covariates[, c("CC", "Sex", "Age")])
 meta_data$Individual <- metadata_individual
@@ -60,7 +67,7 @@ seurat_obj <- Seurat::CreateSeuratObject(counts = Matrix::t(obs_mat), meta.data 
 Seurat::VariableFeatures(seurat_obj) <- rownames(seurat_obj)
 seurat_obj <- Seurat::NormalizeData(seurat_obj)
 seurat_obj <- Seurat::ScaleData(seurat_obj)
-seurat_obj <- Seurat::RunPCA(seurat_obj, verbose = F)
+seurat_obj <- Seurat::RunPCA(seurat_obj, verbose = FALSE)
 seurat_obj <- Seurat::RunUMAP(seurat_obj, dims = 1:5)
 
 Seurat::DimPlot(seurat_obj, reduction = "umap", group.by = "CC")
@@ -103,13 +110,14 @@ from this convention.)
 This typically looks like the following.
 
 ``` r
+
 set.seed(10)
 eSVD_obj <- eSVD2::initialize_esvd(
   dat = obs_mat,
   covariates = covariates,
   metadata_individual = metadata_individual,
   case_control_variable = "CC",
-  bool_intercept = T,
+  bool_intercept = TRUE,
   k = 5,
   lambda = 0.1,
   verbose = 0
@@ -145,6 +153,7 @@ recommendation – it is good to allow all coefficients to be
 reparameterized right before the optimization is all done.
 
 ``` r
+
 set.seed(10)
 eSVD_obj <- eSVD2::opt_esvd(
   input_obj = eSVD_obj,
@@ -194,12 +203,14 @@ names(eSVD_obj)
   function.
 
 ``` r
+
 set.seed(10)
 eSVD_obj <- eSVD2::estimate_nuisance(
   input_obj = eSVD_obj,
   bool_covariates_as_library = TRUE,
   bool_library_includes_interept = TRUE,
   bool_use_log = FALSE,
+  cap_multiplier = 10,
   min_val = 1e-4,
   verbose = 0
 )
@@ -207,6 +218,24 @@ eSVD_obj <- eSVD2::estimate_nuisance(
 names(eSVD_obj)
 #> [1] "dat"          "covariates"   "param"        "fit_Init"     "latest_Fit"  
 #> [6] "case_control" "individual"   "fit_First"    "fit_Second"
+```
+
+The value stored in `eSVD_obj$fit_Second$nuisance_vec` is the Gamma
+*rate*, the reciprocal of the over-dispersion, so a larger value means
+less over-dispersion. **No gene’s rate is allowed above `cap_multiplier`
+times the median of its library size.** A gene whose counts are no more
+variable around the fit than a Poisson has no finite maximum-likelihood
+rate, and without the cap its test statistic is inflated. The function
+records what it did with each gene, and how many genes the cap acted on.
+
+``` r
+
+table(eSVD_obj$fit_Second$nuisance_status)
+#> 
+#> estimated    capped  boundary    failed 
+#>       952        48         0         0
+eSVD_obj$param$nuisance_num_capped
+#> [1] 48
 ```
 
 - **Step 4 (Computing the posterior):** With the over-disperison
@@ -220,6 +249,7 @@ names(eSVD_obj)
   function.
 
 ``` r
+
 set.seed(10)
 eSVD_obj <- eSVD2::compute_posterior(
   input_obj = eSVD_obj,
@@ -242,13 +272,15 @@ names(eSVD_obj)
   function.
 
 ``` r
+
 set.seed(10)
 eSVD_obj <- eSVD2::compute_test_statistic(input_obj = eSVD_obj, verbose = 0)
 
 names(eSVD_obj)
-#>  [1] "dat"          "covariates"   "param"        "fit_Init"     "latest_Fit"  
-#>  [6] "case_control" "individual"   "fit_First"    "fit_Second"   "teststat_vec"
-#> [11] "case_mean"    "control_mean"
+#>  [1] "dat"           "covariates"    "param"         "fit_Init"     
+#>  [5] "latest_Fit"    "case_control"  "individual"    "fit_First"    
+#>  [9] "fit_Second"    "teststat_vec"  "case_mean"     "control_mean" 
+#> [13] "case_var"      "control_var"   "log2fc_vec"    "log2fc_se_vec"
 ```
 
 - **Step 6 (Computing the p-values):** Lastly, we can compute the
@@ -257,13 +289,16 @@ names(eSVD_obj)
   function.
 
 ``` r
+
 set.seed(10)
 eSVD_obj <- eSVD2::compute_pvalue(input_obj = eSVD_obj)
 
 names(eSVD_obj)
-#>  [1] "dat"          "covariates"   "param"        "fit_Init"     "latest_Fit"  
-#>  [6] "case_control" "individual"   "fit_First"    "fit_Second"   "teststat_vec"
-#> [11] "case_mean"    "control_mean" "pvalue_list"
+#>  [1] "dat"           "covariates"    "param"         "fit_Init"     
+#>  [5] "latest_Fit"    "case_control"  "individual"    "fit_First"    
+#>  [9] "fit_Second"    "teststat_vec"  "case_mean"     "control_mean" 
+#> [13] "case_var"      "control_var"   "log2fc_vec"    "log2fc_se_vec"
+#> [17] "pvalue_list"
 ```
 
 To visualize the p-values, we can plot the theoretical quantiles against
@@ -273,6 +308,7 @@ all uniformly distributed. This shows that we do not inflate the Type-1
 error.
 
 ``` r
+
 pvalue_vec <- 10 ^ (-eSVD_obj$pvalue_list$log10pvalue)
 graphics::plot(
   x = sort(pvalue_vec),
@@ -293,166 +329,218 @@ graphics::lines(
 
 ![](eSVD2_files/figure-html/unnamed-chunk-11-1.png)
 
-## Setup
-
-The following shows the suggested package versions that the developer
-(GitHub username: linnykos) used when developing the eSVD2 package.
+- **Step 7 (Reporting the results):** The function
+  [`eSVD2::report_results()`](https://linnykos.github.io/eSVD2/reference/report_results.md)
+  collects the results into a data frame with one row per gene. The
+  column `logFC` is the log2 fold change between the case and the
+  control individuals, and `logFC_se` is its standard error, also on the
+  log2 scale. Both are computed during Step 5 and are stored in
+  `eSVD_obj$log2fc_vec` and `eSVD_obj$log2fc_se_vec`.
 
 ``` r
-devtools::session_info()
-#> ─ Session info ───────────────────────────────────────────────────────────────
-#>  setting  value
-#>  version  R version 4.5.3 (2026-03-11)
-#>  os       Ubuntu 24.04.4 LTS
-#>  system   x86_64, linux-gnu
-#>  ui       X11
-#>  language en
-#>  collate  C.UTF-8
-#>  ctype    C.UTF-8
-#>  tz       UTC
-#>  date     2026-04-13
-#>  pandoc   3.1.11 @ /opt/hostedtoolcache/pandoc/3.1.11/x64/ (via rmarkdown)
-#>  quarto   NA
+
+result_df <- eSVD2::report_results(eSVD_obj)
+utils::head(result_df[order(result_df$log10pvalue, decreasing = TRUE), ])
+#>           genes     logFC  logFC_se log10pvalue       pvalue   pvalue_adj
+#> gene_4   gene_4 -1.424179 0.2391974    8.775406 1.677234e-09 1.643850e-06
+#> gene_2   gene_2  1.402981 0.2388398    8.483108 3.287700e-09 1.643850e-06
+#> gene_7   gene_7 -1.496344 0.2701915    8.173464 6.707123e-09 2.235708e-06
+#> gene_8   gene_8  1.231841 0.2777484    6.206151 6.220846e-07 1.555211e-04
+#> gene_6   gene_6 -1.529188 0.3718676    5.785213 1.639786e-06 3.279573e-04
+#> gene_10 gene_10  1.444870 0.3517191    5.524298 2.990211e-06 4.983685e-04
+#>         nuisance_status
+#> gene_4        estimated
+#> gene_2        estimated
+#> gene_7        estimated
+#> gene_8        estimated
+#> gene_6        estimated
+#> gene_10       estimated
+```
+
+The standard error is divided by the number of individuals in each arm
+and not by the number of cells, so it is on the same footing as the
+standard error from a pseudobulk analysis. Multiply `logFC` and
+`logFC_se` by `log(2)` to move both to the natural-log scale. Note that
+`logFC / logFC_se` is not the statistic behind the p-value, which is
+computed on the linear scale and calibrated with an empirical null. See
+[`?eSVD2::compute_log_fold_change`](https://linnykos.github.io/eSVD2/reference/compute_log_fold_change.md)
+for what the standard error does and does not account for.
+
+## Diagnostics of the over-dispersion
+
+The over-dispersion decides how much each cell’s posterior follows the
+fit, so it is worth a look before the results are used. The two
+functions below draw what Step 3 estimated. They need the packages
+`ggplot2` and `ggrepel`.
+
+**The rate of each gene, against three summaries of the gene.**
+[`eSVD2::plot_nuisance()`](https://linnykos.github.io/eSVD2/reference/plot_nuisance.md)
+draws the rate divided by the gene’s median library size, which puts
+every gene in the same units. The dashed line is the cap, and the genes
+it acted on sit on it. Most genes should be below the line. Where genes
+are at the line, they should be the lowly expressed and sparse ones, and
+they should not make up the most significant genes.
+
+``` r
+
+plot1 <- eSVD2::plot_nuisance(input_obj = eSVD_obj,
+                              x_axis = "mean_expression")
+plot(plot1)
+```
+
+![](eSVD2_files/figure-html/plot_nuisance_expression-1.png)
+
+``` r
+
+plot1 <- eSVD2::plot_nuisance(input_obj = eSVD_obj,
+                              x_axis = "log10pvalue")
+plot(plot1)
+```
+
+![](eSVD2_files/figure-html/plot_nuisance_pvalue-1.png)
+
+``` r
+
+plot1 <- eSVD2::plot_nuisance(input_obj = eSVD_obj,
+                              x_axis = "sparsity")
+plot(plot1)
+```
+
+![](eSVD2_files/figure-html/plot_nuisance_sparsity-1.png)
+
+**The fitted count against the observed count.** In
+[`eSVD2::plot_fitted_vs_observed()`](https://linnykos.github.io/eSVD2/reference/plot_fitted_vs_observed.md)
+each point is one cell and one gene, and a point is red when its count
+is more than 3 standard deviations from its fit, the standard deviation
+being the one the model implies for that gene’s over-dispersion. The
+points should follow the dashed line, and only a small share should be
+red. With `bool_draw_bars = TRUE` each point carries the interval of 3
+standard deviations around its fit: bars that are too short to reach the
+line mean the over-dispersion is underestimated, and bars that reach far
+past it for nearly every point mean it is overestimated.
+
+``` r
+
+plot1 <- eSVD2::plot_fitted_vs_observed(input_obj = eSVD_obj,
+                                        max_points = 5000)
+plot(plot1)
+```
+
+![](eSVD2_files/figure-html/plot_fitted_all-1.png)
+
+The argument `genes` draws every cell of the genes named, one panel per
+gene.
+
+``` r
+
+plot1 <- eSVD2::plot_fitted_vs_observed(input_obj = eSVD_obj,
+                                        genes = colnames(obs_mat)[1:2],
+                                        bool_draw_bars = TRUE)
+plot(plot1)
+```
+
+![](eSVD2_files/figure-html/plot_fitted_genes-1.png)
+
+**Redoing the test at another cap.** The factorization does not depend
+on the cap, so the test can be redone at another `cap_multiplier`
+without fitting again. `cap_multiplier = 1` is close to the behavior of
+the version of `eSVD2` that accompanied the paper, and `Inf` removes the
+cap.
+
+``` r
+
+eSVD_obj_cap1 <- eSVD2::recompute_pvalue(input_obj = eSVD_obj,
+                                         cap_multiplier = 1)
+eSVD_obj_cap1$param$nuisance_num_capped
+#> [1] 461
+stats::cor(eSVD_obj$teststat_vec, eSVD_obj_cap1$teststat_vec)
+#> [1] 0.9739539
+```
+
+> **When the object has no counts.**
+> [`eSVD2::eSVD()`](https://linnykos.github.io/eSVD2/reference/eSVD.md)
+> and
+> [`eSVD2::eSVD_helper()`](https://linnykos.github.io/eSVD2/reference/eSVD_helper.md)
+> return an object without the count matrix by default
+> (`bool_diet = TRUE`). For such an object, pass the Seurat object the
+> analysis was run on as `seurat_obj` to
+> [`eSVD2::recompute_pvalue()`](https://linnykos.github.io/eSVD2/reference/recompute_pvalue.md)
+> and to
+> [`eSVD2::plot_fitted_vs_observed()`](https://linnykos.github.io/eSVD2/reference/plot_fitted_vs_observed.md).
+> [`eSVD2::plot_nuisance()`](https://linnykos.github.io/eSVD2/reference/plot_nuisance.md)
+> needs no counts.
+
+## Setup
+
+The session information when this vignette was rendered.
+
+``` r
+
+sessionInfo()
+#> R version 4.6.1 (2026-06-24)
+#> Platform: x86_64-pc-linux-gnu
+#> Running under: Ubuntu 24.04.5 LTS
 #> 
-#> ─ Packages ───────────────────────────────────────────────────────────────────
-#>  package          * version  date (UTC) lib source
-#>  abind              1.4-8    2024-09-12 [1] RSPM
-#>  bslib              0.10.0   2026-01-26 [1] RSPM
-#>  cachem             1.1.0    2024-05-16 [1] RSPM
-#>  cli                3.6.6    2026-04-09 [1] RSPM
-#>  cluster            2.1.8.2  2026-02-05 [3] CRAN (R 4.5.3)
-#>  codetools          0.2-20   2024-03-31 [3] CRAN (R 4.5.3)
-#>  cowplot            1.2.0    2025-07-07 [1] RSPM
-#>  data.table         1.18.2.1 2026-01-27 [1] RSPM
-#>  deldir             2.0-4    2024-02-28 [1] RSPM
-#>  desc               1.4.3    2023-12-10 [1] RSPM
-#>  devtools           2.5.0    2026-03-14 [1] RSPM
-#>  digest             0.6.39   2025-11-19 [1] RSPM
-#>  dotCall64          1.2      2024-10-04 [1] RSPM
-#>  dplyr              1.2.1    2026-04-03 [1] RSPM
-#>  ellipsis           0.3.3    2026-04-04 [1] RSPM
-#>  eSVD2            * 1.0.1.07 2026-04-13 [1] local
-#>  evaluate           1.0.5    2025-08-27 [1] RSPM
-#>  farver             2.1.2    2024-05-13 [1] RSPM
-#>  fastDummies        1.7.5    2025-01-20 [1] RSPM
-#>  fastmap            1.2.0    2024-05-15 [1] RSPM
-#>  fitdistrplus       1.2-6    2026-01-24 [1] RSPM
-#>  foreach            1.5.2    2022-02-02 [1] RSPM
-#>  fs                 2.0.1    2026-03-24 [1] RSPM
-#>  future             1.70.0   2026-03-14 [1] RSPM
-#>  future.apply       1.20.2   2026-02-20 [1] RSPM
-#>  generics           0.1.4    2025-05-09 [1] RSPM
-#>  ggplot2            4.0.2    2026-02-03 [1] RSPM
-#>  ggrepel            0.9.8    2026-03-17 [1] RSPM
-#>  ggridges           0.5.7    2025-08-27 [1] RSPM
-#>  glmnet             4.1-10   2025-07-17 [1] RSPM
-#>  globals            0.19.1   2026-03-13 [1] RSPM
-#>  glue               1.8.0    2024-09-30 [1] RSPM
-#>  gmp                0.7-5.1  2026-02-09 [1] RSPM
-#>  goftest            1.2-3    2021-10-07 [1] RSPM
-#>  gridExtra          2.3      2017-09-09 [1] RSPM
-#>  gtable             0.3.6    2024-10-25 [1] RSPM
-#>  htmltools          0.5.9    2025-12-04 [1] RSPM
-#>  htmlwidgets        1.6.4    2023-12-06 [1] RSPM
-#>  httpuv             1.6.17   2026-03-18 [1] RSPM
-#>  httr               1.4.8    2026-02-13 [1] RSPM
-#>  ica                1.0-3    2022-07-08 [1] RSPM
-#>  igraph             2.2.3    2026-04-07 [1] RSPM
-#>  irlba              2.3.7    2026-01-30 [1] RSPM
-#>  iterators          1.0.14   2022-02-05 [1] RSPM
-#>  jquerylib          0.1.4    2021-04-26 [1] RSPM
-#>  jsonlite           2.0.0    2025-03-27 [1] RSPM
-#>  KernSmooth         2.23-26  2025-01-01 [3] CRAN (R 4.5.3)
-#>  knitr              1.51     2025-12-20 [1] RSPM
-#>  labeling           0.4.3    2023-08-29 [1] RSPM
-#>  later              1.4.8    2026-03-05 [1] RSPM
-#>  lattice            0.22-9   2026-02-09 [3] CRAN (R 4.5.3)
-#>  lazyeval           0.2.3    2026-04-04 [1] RSPM
-#>  lifecycle          1.0.5    2026-01-08 [1] RSPM
-#>  listenv            0.10.1   2026-03-10 [1] RSPM
-#>  lmtest             0.9-40   2022-03-21 [1] RSPM
-#>  locfdr             1.1-8    2015-07-15 [1] RSPM
-#>  magrittr           2.0.5    2026-04-04 [1] RSPM
-#>  MASS               7.3-65   2025-02-28 [3] CRAN (R 4.5.3)
-#>  Matrix             1.7-4    2025-08-28 [3] CRAN (R 4.5.3)
-#>  matrixStats        1.5.0    2025-01-07 [1] RSPM
-#>  memoise            2.0.1    2021-11-26 [1] RSPM
-#>  mime               0.13     2025-03-17 [1] RSPM
-#>  miniUI             0.1.2    2025-04-17 [1] RSPM
-#>  nlme               3.1-168  2025-03-31 [3] CRAN (R 4.5.3)
-#>  otel               0.2.0    2025-08-29 [1] RSPM
-#>  parallelly         1.46.1   2026-01-08 [1] RSPM
-#>  patchwork          1.3.2    2025-08-25 [1] RSPM
-#>  pbapply            1.7-4    2025-07-20 [1] RSPM
-#>  pillar             1.11.1   2025-09-17 [1] RSPM
-#>  pkgbuild           1.4.8    2025-05-26 [1] RSPM
-#>  pkgconfig          2.0.3    2019-09-22 [1] RSPM
-#>  pkgdown            2.2.0    2025-11-06 [1] RSPM
-#>  pkgload            1.5.1    2026-04-01 [1] RSPM
-#>  plotly             4.12.0   2026-01-24 [1] RSPM
-#>  plyr               1.8.9    2023-10-02 [1] RSPM
-#>  png                0.1-9    2026-03-15 [1] RSPM
-#>  polyclip           1.10-7   2024-07-23 [1] RSPM
-#>  progressr          0.19.0   2026-03-31 [1] RSPM
-#>  promises           1.5.0    2025-11-01 [1] RSPM
-#>  purrr              1.2.2    2026-04-10 [1] RSPM
-#>  R6                 2.6.1    2025-02-15 [1] RSPM
-#>  ragg               1.5.2    2026-03-23 [1] RSPM
-#>  RANN               2.6.2    2024-08-25 [1] RSPM
-#>  RColorBrewer       1.1-3    2022-04-03 [1] RSPM
-#>  Rcpp             * 1.1.1    2026-01-10 [1] RSPM
-#>  RcppAnnoy          0.0.23   2026-01-12 [1] RSPM
-#>  RcppHNSW           0.6.0    2024-02-04 [1] RSPM
-#>  reshape2           1.4.5    2025-11-12 [1] RSPM
-#>  reticulate         1.46.0   2026-04-09 [1] RSPM
-#>  rlang              1.2.0    2026-04-06 [1] RSPM
-#>  rmarkdown          2.31     2026-03-26 [1] RSPM
-#>  Rmpfr              1.1-2    2025-10-27 [1] RSPM
-#>  ROCR               1.0-12   2026-01-23 [1] RSPM
-#>  RSpectra           0.16-2   2024-07-18 [1] RSPM
-#>  Rtsne              0.17     2023-12-07 [1] RSPM
-#>  S7                 0.2.1    2025-11-14 [1] RSPM
-#>  sass               0.4.10   2025-04-11 [1] RSPM
-#>  scales             1.4.0    2025-04-24 [1] RSPM
-#>  scattermore        1.2      2023-06-12 [1] RSPM
-#>  sctransform        0.4.3    2026-01-10 [1] RSPM
-#>  sessioninfo        1.2.3    2025-02-05 [1] RSPM
-#>  Seurat           * 5.4.0    2025-12-14 [1] RSPM
-#>  SeuratObject     * 5.4.0    2026-04-11 [1] RSPM
-#>  shape              1.4.6.1  2024-02-23 [1] RSPM
-#>  shiny              1.13.0   2026-02-20 [1] RSPM
-#>  sp               * 2.2-1    2026-02-13 [1] RSPM
-#>  spam               2.11-3   2026-01-08 [1] RSPM
-#>  spatstat.data      3.1-9    2025-10-18 [1] RSPM
-#>  spatstat.explore   3.8-0    2026-03-22 [1] RSPM
-#>  spatstat.geom      3.7-3    2026-03-23 [1] RSPM
-#>  spatstat.random    3.4-5    2026-03-22 [1] RSPM
-#>  spatstat.sparse    3.1-0    2024-06-21 [1] RSPM
-#>  spatstat.univar    3.1-7    2026-03-18 [1] RSPM
-#>  spatstat.utils     3.2-2    2026-03-10 [1] RSPM
-#>  stringi            1.8.7    2025-03-27 [1] RSPM
-#>  stringr            1.6.0    2025-11-04 [1] RSPM
-#>  survival           3.8-6    2026-01-16 [3] CRAN (R 4.5.3)
-#>  systemfonts        1.3.2    2026-03-05 [1] RSPM
-#>  tensor             1.5.1    2025-06-17 [1] RSPM
-#>  textshaping        1.0.5    2026-03-06 [1] RSPM
-#>  tibble             3.3.1    2026-01-11 [1] RSPM
-#>  tidyr              1.3.2    2025-12-19 [1] RSPM
-#>  tidyselect         1.2.1    2024-03-11 [1] RSPM
-#>  usethis            3.2.1    2025-09-06 [1] RSPM
-#>  uwot               0.2.4    2025-11-10 [1] RSPM
-#>  vctrs              0.7.3    2026-04-11 [1] RSPM
-#>  viridisLite        0.4.3    2026-02-04 [1] RSPM
-#>  withr              3.0.2    2024-10-28 [1] RSPM
-#>  xfun               0.57     2026-03-20 [1] RSPM
-#>  xtable             1.8-8    2026-02-22 [1] RSPM
-#>  yaml               2.3.12   2025-12-10 [1] RSPM
-#>  zoo                1.8-15   2025-12-15 [1] RSPM
+#> Matrix products: default
+#> BLAS:   /usr/lib/x86_64-linux-gnu/openblas-pthread/libblas.so.3 
+#> LAPACK: /usr/lib/x86_64-linux-gnu/openblas-pthread/libopenblasp-r0.3.26.so;  LAPACK version 3.12.0
 #> 
-#>  [1] /home/runner/work/_temp/Library
-#>  [2] /opt/R/4.5.3/lib/R/site-library
-#>  [3] /opt/R/4.5.3/lib/R/library
-#>  * ── Packages attached to the search path.
+#> locale:
+#>  [1] LC_CTYPE=C.UTF-8       LC_NUMERIC=C           LC_TIME=C.UTF-8       
+#>  [4] LC_COLLATE=C.UTF-8     LC_MONETARY=C.UTF-8    LC_MESSAGES=C.UTF-8   
+#>  [7] LC_PAPER=C.UTF-8       LC_NAME=C              LC_ADDRESS=C          
+#> [10] LC_TELEPHONE=C         LC_MEASUREMENT=C.UTF-8 LC_IDENTIFICATION=C   
 #> 
-#> ──────────────────────────────────────────────────────────────────────────────
+#> time zone: UTC
+#> tzcode source: system (glibc)
+#> 
+#> attached base packages:
+#> [1] stats     graphics  grDevices utils     datasets  methods   base     
+#> 
+#> other attached packages:
+#> [1] eSVD2_1.2.0
+#> 
+#> loaded via a namespace (and not attached):
+#>   [1] deldir_2.0-4           pbapply_1.7-5          gridExtra_2.3.1       
+#>   [4] rlang_1.3.0            magrittr_2.0.5         RcppAnnoy_0.0.23      
+#>   [7] otel_0.2.0             spatstat.geom_3.8-3    matrixStats_1.5.0     
+#>  [10] ggridges_0.5.7         compiler_4.6.1         png_0.1-9             
+#>  [13] systemfonts_1.3.2      vctrs_0.7.3            reshape2_1.4.5        
+#>  [16] stringr_1.6.0          shape_1.4.6.1          pkgconfig_2.0.3       
+#>  [19] fastmap_1.2.0          labeling_0.4.3         promises_1.5.0        
+#>  [22] rmarkdown_2.32         ragg_1.5.2             purrr_1.2.2           
+#>  [25] glmnet_5.1             xfun_0.61              cachem_1.1.0          
+#>  [28] jsonlite_2.0.0         goftest_1.2-3          later_1.4.8           
+#>  [31] spatstat.utils_3.2-5   irlba_2.4.1            parallel_4.6.1        
+#>  [34] cluster_2.1.8.2        R6_2.6.1               ica_1.0-3             
+#>  [37] spatstat.data_3.1-9    bslib_0.12.0           stringi_1.8.9         
+#>  [40] RColorBrewer_1.1-3     reticulate_1.47.0      spatstat.univar_3.2-0 
+#>  [43] parallelly_1.48.0      lmtest_0.9-40          jquerylib_0.1.4       
+#>  [46] scattermore_1.2        iterators_1.0.14       Rcpp_1.1.2            
+#>  [49] knitr_1.52             tensor_1.5.1           future.apply_1.20.2   
+#>  [52] zoo_1.9-1              sctransform_0.4.3      httpuv_1.6.17         
+#>  [55] Matrix_1.7-5           splines_4.6.1          igraph_2.3.4          
+#>  [58] tidyselect_1.2.1       abind_1.4-8            yaml_2.3.12           
+#>  [61] spatstat.random_3.5-2  spatstat.explore_3.8-3 codetools_0.2-20      
+#>  [64] miniUI_0.1.2           listenv_1.1.0          lattice_0.22-9        
+#>  [67] tibble_3.3.1           plyr_1.8.9             withr_3.0.3           
+#>  [70] shiny_1.14.0           S7_0.2.2               ROCR_1.0-12           
+#>  [73] evaluate_1.0.5         Rtsne_0.17             future_1.76.0         
+#>  [76] fastDummies_1.7.6      desc_1.4.3             survival_3.8-6        
+#>  [79] polyclip_1.10-7        fitdistrplus_1.2-6     pillar_1.11.1         
+#>  [82] Seurat_5.6.0           KernSmooth_2.23-26     foreach_1.5.2         
+#>  [85] plotly_4.12.1          generics_0.1.4         RcppHNSW_0.7.0        
+#>  [88] sp_2.2-3               ggplot2_4.0.3          scales_1.4.0          
+#>  [91] globals_0.19.1         xtable_1.8-8           glue_1.8.1            
+#>  [94] tools_4.6.1            data.table_1.18.6.1    RSpectra_0.16-2       
+#>  [97] RANN_2.6.3             fs_2.1.0               dotCall64_1.2         
+#> [100] cowplot_1.2.0          grid_4.6.1             tidyr_1.3.2           
+#> [103] nlme_3.1-169           patchwork_1.3.2        cli_3.6.6             
+#> [106] spatstat.sparse_3.2-0  textshaping_1.0.5      spam_2.11-4           
+#> [109] viridisLite_0.4.3      dplyr_1.2.1            uwot_0.2.5            
+#> [112] gtable_0.3.6           sass_0.4.10            digest_0.6.39         
+#> [115] progressr_1.0.0        ggrepel_0.9.8          htmlwidgets_1.6.4     
+#> [118] SeuratObject_5.4.0     farver_2.1.2           htmltools_0.5.9       
+#> [121] pkgdown_2.2.1          lifecycle_1.0.5        httr_1.4.9            
+#> [124] locfdr_1.1-8           mime_0.13              MASS_7.3-65
 ```

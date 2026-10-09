@@ -2,6 +2,8 @@
 
 ## All functions
 
+- [`compute_log_fold_change()`](https://linnykos.github.io/eSVD2/reference/compute_log_fold_change.md)
+  : Compute the log2 fold change and its standard error
 - [`compute_posterior()`](https://linnykos.github.io/eSVD2/reference/compute_posterior.md)
   : Compute posterior according to Gamma-Poisson model
 - [`compute_posterior(`*`<default>`*`)`](https://linnykos.github.io/eSVD2/reference/compute_posterior.default.md)
@@ -20,20 +22,19 @@
   : Compute test statistics for matrices
 - [`compute_test_statistic(`*`<eSVD>`*`)`](https://linnykos.github.io/eSVD2/reference/compute_test_statistic.eSVD.md)
   : Compute test statistics for eSVD object
-- [`data_loader()`](https://linnykos.github.io/eSVD2/reference/data_loader.md)
-  : Internal data loader function
-- [`.compute_df()`](https://linnykos.github.io/eSVD2/reference/dot-compute_df.md)
-  : Compute the degree of freedom
-- [`.reparameterize()`](https://linnykos.github.io/eSVD2/reference/dot-reparameterize.md)
-  : Function to reparameterize two matrices
+- [`eSVD()`](https://linnykos.github.io/eSVD2/reference/eSVD.md) : Run
+  the full eSVD-DE pipeline on a Seurat object
+- [`eSVD_helper()`](https://linnykos.github.io/eSVD2/reference/eSVD_helper.md)
+  : Run eSVD-DE on a Seurat object, with cohort filtering and gene
+  status
 - [`estimate_nuisance()`](https://linnykos.github.io/eSVD2/reference/estimate_nuisance.md)
   : Estimate nuisance values
 - [`estimate_nuisance(`*`<default>`*`)`](https://linnykos.github.io/eSVD2/reference/estimate_nuisance.default.md)
   : Estimate nuisance values for matrix or sparse matrices.
 - [`estimate_nuisance(`*`<eSVD>`*`)`](https://linnykos.github.io/eSVD2/reference/estimate_nuisance.eSVD.md)
   : Estimate nuisance values for eSVD objects (i.e., over-dispersion)
-- [`esvd_family()`](https://linnykos.github.io/eSVD2/reference/esvd_family.md)
-  : Internal Constructor for distribution family
+- [`filter_cohort()`](https://linnykos.github.io/eSVD2/reference/filter_cohort.md)
+  : Filter a cohort before running eSVD-DE
 - [`fisher_test()`](https://linnykos.github.io/eSVD2/reference/fisher_test.md)
   : Fisher's exact test
 - [`format_covariates()`](https://linnykos.github.io/eSVD2/reference/format_covariates.md)
@@ -56,12 +57,13 @@
   : Optimize eSVD for matrices or sparse matrices.
 - [`opt_esvd(`*`<eSVD>`*`)`](https://linnykos.github.io/eSVD2/reference/opt_esvd.eSVD.md)
   : Optimize eSVD for eSVD objects
-- [`opt_x()`](https://linnykos.github.io/eSVD2/reference/opt_x.md) :
-  Optimize X given C, Y and Z
-- [`opt_yz()`](https://linnykos.github.io/eSVD2/reference/opt_yz.md) :
-  Optimize Y and Z given X and C
-- [`print(`*`<esvd_data_loader>`*`)`](https://linnykos.github.io/eSVD2/reference/print.esvd_data_loader.md)
-  : Internal data loader function
+- [`plot_fitted_vs_observed()`](https://linnykos.github.io/eSVD2/reference/plot_fitted_vs_observed.md)
+  : Plot the fitted count against the observed count
+- [`plot_nuisance()`](https://linnykos.github.io/eSVD2/reference/plot_nuisance.md)
+  : Plot each gene's nuisance rate against a summary of the gene
+- [`recompute_pvalue()`](https://linnykos.github.io/eSVD2/reference/recompute_pvalue.md)
+  : Redo the test at another cap on the nuisance rate, without fitting
+  again
 - [`reparameterization_esvd_covariates()`](https://linnykos.github.io/eSVD2/reference/reparameterization_esvd_covariates.md)
   : Reparameterize eSVD object
 - [`report_results()`](https://linnykos.github.io/eSVD2/reference/report_results.md)
