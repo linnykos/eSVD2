@@ -658,15 +658,14 @@ passes most of its arguments to
 [`eSVD2::eSVD()`](https://linnykos.github.io/eSVD2/reference/eSVD.md),
 which runs the stages of the method in order. This section walks through
 the arguments stage by stage and says what each one changes inside the
-method. The model is worth keeping in mind: the count of gene $`j`$ in
-cell $`i`$ is modeled as
-$`A_{ji} \mid \lambda_{ji} \sim \text{Poisson}(\ell_{ji} \lambda_{ji})`$
-with
-$`\lambda_{ji} \sim \text{Gamma}(\text{mean} = \mu_{ji}, \text{var} = \mu_{ji} / \beta_j)`$,
-where $`\mu_{ji} = \exp(Y_j^\top X_i + Z_{j,cc} C_{i,cc})`$ is the
+method. The model is worth keeping in mind: the count of gene j in cell
+i is modeled as A\_{ji} \mid \lambda\_{ji} \sim
+\text{Poisson}(\ell\_{ji} \lambda\_{ji}) with \lambda\_{ji} \sim
+\text{Gamma}(\text{mean} = \mu\_{ji}, \text{var} = \mu\_{ji} / \beta_j),
+where \mu\_{ji} = \exp(Y_j^\top X_i + Z\_{j,cc} C\_{i,cc}) is the
 low-rank “predictable” expression plus the case-control effect,
-$`\ell_{ji}`$ is the covariate-adjusted library size, and $`\beta_j`$ is
-the gene’s nuisance rate (the reciprocal of its over-dispersion). The
+\ell\_{ji} is the covariate-adjusted library size, and \beta_j is the
+gene’s nuisance rate (the reciprocal of its over-dispersion). The
 defaults are the values in parentheses; the analysis above used every
 default (`k = 30` was passed explicitly, and 30 is also its default).
 
@@ -708,7 +707,7 @@ which.
   individual-level covariate).
 - `case_control_var` and `case_control_levels`: the column holding the
   diagnosis and its two levels, **control first, then case**. The case
-  indicator becomes the covariate whose coefficient $`Z_{j,cc}`$ is the
+  indicator becomes the covariate whose coefficient Z\_{j,cc} is the
   case-control effect; reversing the levels flips the sign of every fold
   change and statistic.
 - `categorical_vars`: each is one-hot encoded with its most frequent
@@ -734,32 +733,32 @@ which.
 The reparameterization
 ([`eSVD2::reparameterization_esvd_covariates()`](https://linnykos.github.io/eSVD2/reference/reparameterization_esvd_covariates.md))
 runs after the initialization and after each round of optimization. It
-makes the cell latent vectors $`X`$ orthogonal to the covariates $`C`$
-and then to each other, by moving whatever part of $`XY^\top`$ is
-explained by $`C`$ into $`ZC^\top`$. Without it the split between
-“low-rank structure” and “covariate effects” is not identifiable, and
-the case-control coefficient could be absorbed by the latent factors.
+makes the cell latent vectors X orthogonal to the covariates C and then
+to each other, by moving whatever part of XY^\top is explained by C into
+ZC^\top. Without it the split between “low-rank structure” and
+“covariate effects” is not identifiable, and the case-control
+coefficient could be absorbed by the latent factors.
 
 ### The low-rank fit
 
 - `k` (30): the number of latent dimensions, that is, the rank of the
-  predictable expression $`XY^\top`$ across genes. It is the one
-  parameter we suggest thinking about for a new dataset. Too small, and
-  structure that is shared across genes (cell states, continuous
-  gradients) ends up in the residual, where it inflates the nuisance
-  rate and the within-individual variance. Too large, and the fit
-  follows noise, which the posterior below partly undoes but not
-  entirely. It must not exceed the number of genes.
+  predictable expression XY^\top across genes. It is the one parameter
+  we suggest thinking about for a new dataset. Too small, and structure
+  that is shared across genes (cell states, continuous gradients) ends
+  up in the residual, where it inflates the nuisance rate and the
+  within-individual variance. Too large, and the fit follows noise,
+  which the posterior below partly undoes but not entirely. It must not
+  exceed the number of genes.
 - `bool_intercept` (`TRUE`): whether each gene gets its own intercept.
   Leave it on.
 - `lambda` (0.1): the ridge penalty of the per-gene Poisson regression
-  that gives the starting coefficients $`Z`$
+  that gives the starting coefficients Z
   ([`eSVD2::initialize_esvd()`](https://linnykos.github.io/eSVD2/reference/initialize_esvd.md);
-  the starting $`X`$ and $`Y`$ come from an SVD of the residual on the
-  `log1p` scale). It changes only the starting point, but the objective
-  is not convex, so a different start can reach a different fit.
-- `l2pen` (0.1): the L2 penalty on $`X`$, $`Y`$ and $`Z`$ during the
-  alternating Newton optimization
+  the starting X and Y come from an SVD of the residual on the `log1p`
+  scale). It changes only the starting point, but the objective is not
+  convex, so a different start can reach a different fit.
+- `l2pen` (0.1): the L2 penalty on X, Y and Z during the alternating
+  Newton optimization
   ([`eSVD2::opt_esvd()`](https://linnykos.github.io/eSVD2/reference/opt_esvd.md)).
   Larger values shrink the latent vectors and coefficients toward zero
   and make the fit smoother and the optimization better conditioned.
@@ -777,7 +776,7 @@ the case-control coefficient could be absorbed by the latent factors.
 ### The nuisance (over-dispersion) estimate
 
 [`eSVD2::estimate_nuisance()`](https://linnykos.github.io/eSVD2/reference/estimate_nuisance.md)
-estimates one rate $`\beta_j`$ per gene by maximum likelihood, given the
+estimates one rate \beta_j per gene by maximum likelihood, given the
 fit. The rate is the reciprocal of the over-dispersion, so a larger rate
 means counts closer to Poisson around the fit.
 
@@ -793,13 +792,13 @@ means counts closer to Poisson around the fit.
   can change it afterwards without fitting again.
 - `bool_covariates_as_library` (`TRUE`): whether the effects of the
   donor covariates (every covariate except the case-control one) count
-  as part of the library size $`\ell_{ji}`$, and so as part of the depth
+  as part of the library size \ell\_{ji}, and so as part of the depth
   that the posterior and the test adjust for, or as part of the
-  expression $`\mu_{ji}`$ that is being compared. With `TRUE`, a
-  difference in sex or batch is treated like a difference in depth and
-  is removed; the case-control effect stays in $`\mu_{ji}`$ either way.
-  The same value is used by the nuisance estimate, the posterior and the
-  test, so that all three see the same library.
+  expression \mu\_{ji} that is being compared. With `TRUE`, a difference
+  in sex or batch is treated like a difference in depth and is removed;
+  the case-control effect stays in \mu\_{ji} either way. The same value
+  is used by the nuisance estimate, the posterior and the test, so that
+  all three see the same library.
 - `bool_library_includes_interept` (`TRUE`): whether the gene’s
   intercept is part of the library size as well. With `TRUE` the rate is
   measured relative to the gene’s typical count, which is what the cap’s
@@ -815,22 +814,22 @@ For each cell and gene,
 (or the fused
 [`eSVD2::compute_test_per_gene()`](https://linnykos.github.io/eSVD2/reference/compute_test_per_gene.md)
 when `bool_diet = TRUE`) combines the count with the fit through the
-Gamma-Poisson posterior: the posterior mean is
-$`(A_{ji} + \beta_j \mu_{ji}) / (\ell_{ji} + \beta_j)`$, a weighted
-average of the observed count per unit of depth and the fitted
-expression, where the weight on the fit is the rate. This is what stops
-the pooling across genes from inflating the Type-1 error: a gene with a
-small rate (a lot of over-dispersion) trusts its own counts, and a gene
-with a large rate trusts the fit, at most `cap_multiplier` times as much
-as the observed depth.
+Gamma-Poisson posterior: the posterior mean is (A\_{ji} + \beta_j
+\mu\_{ji}) / (\ell\_{ji} + \beta_j), a weighted average of the observed
+count per unit of depth and the fitted expression, where the weight on
+the fit is the rate. This is what stops the pooling across genes from
+inflating the Type-1 error: a gene with a small rate (a lot of
+over-dispersion) trusts its own counts, and a gene with a large rate
+trusts the fit, at most `cap_multiplier` times as much as the observed
+depth.
 
 - `alpha_max` (`NULL`, meaning twice the largest count): a ceiling on
-  the fitted expression $`\mu_{ji}`$ before it enters the posterior, so
+  the fitted expression \mu\_{ji} before it enters the posterior, so
   that a cell where the fit diverged cannot dominate an individual’s
   mean.
-- `library_min` (0.1): a floor on the library size $`\ell_{ji}`$, so
-  that a cell with a very small fitted depth does not get an enormous
-  posterior variance.
+- `library_min` (0.1): a floor on the library size \ell\_{ji}, so that a
+  cell with a very small fitted depth does not get an enormous posterior
+  variance.
 - `pseudocount` (0): a constant added to every count before the
   posterior.
 - `bool_stabilize_underdispersion` (`TRUE`): if the geometric mean of

@@ -6,7 +6,8 @@
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <title>Neuron analysis for Layer 2/3 in ASD • eSVD2</title>
-<script src="../deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<!-- katex math --><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" integrity="sha384-nB0miv6/jRmo5UMMR1wu3Gz6NLsoTkbqJghGIsx//Rlm+ZU03BU6SQNC66uf4l5+" crossorigin="anonymous">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" integrity="sha384-7zkQWkzuo3B5mTepMUcHkMB5jZaolc2xDwL6VFqjFALcbeS9Ggm/Yr2r3Dy4lfFg" crossorigin="anonymous"></script><script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js" integrity="sha384-43gviWU0YVjaDtb/GhzOouOXtZMP/7XUzwPTstBeZFe/+rCMvRwr4yROQP43s0Xk" crossorigin="anonymous" onload="renderMathInElement(document.body);"></script><script src="../katex-auto.js"></script><script src="../deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <link href="../deps/bootstrap-5.3.8/bootstrap.min.css" rel="stylesheet">
 <script src="../deps/bootstrap-5.3.8/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
 <link href="../deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
@@ -724,24 +725,15 @@ parameter to report alongside the results.</p>
 <code><a href="../reference/eSVD.html">eSVD2::eSVD()</a></code>, which runs the stages of the method in
 order. This section walks through the arguments stage by stage and says
 what each one changes inside the method. The model is worth keeping in
-mind: the count of gene
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>j</mi><annotation encoding="application/x-tex">j</annotation></semantics></math>
-in cell
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>i</mi><annotation encoding="application/x-tex">i</annotation></semantics></math>
-is modeled as
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>A</mi><mrow><mi>j</mi><mi>i</mi></mrow></msub><mo>∣</mo><msub><mi>λ</mi><mrow><mi>j</mi><mi>i</mi></mrow></msub><mo>∼</mo><mtext mathvariant="normal">Poisson</mtext><mo stretchy="false" form="prefix">(</mo><msub><mi>ℓ</mi><mrow><mi>j</mi><mi>i</mi></mrow></msub><msub><mi>λ</mi><mrow><mi>j</mi><mi>i</mi></mrow></msub><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">A_{ji} \mid \lambda_{ji} \sim \text{Poisson}(\ell_{ji} \lambda_{ji})</annotation></semantics></math>
-with
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>λ</mi><mrow><mi>j</mi><mi>i</mi></mrow></msub><mo>∼</mo><mtext mathvariant="normal">Gamma</mtext><mo stretchy="false" form="prefix">(</mo><mtext mathvariant="normal">mean</mtext><mo>=</mo><msub><mi>μ</mi><mrow><mi>j</mi><mi>i</mi></mrow></msub><mo>,</mo><mtext mathvariant="normal">var</mtext><mo>=</mo><msub><mi>μ</mi><mrow><mi>j</mi><mi>i</mi></mrow></msub><mi>/</mi><msub><mi>β</mi><mi>j</mi></msub><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\lambda_{ji} \sim \text{Gamma}(\text{mean} = \mu_{ji}, \text{var} = \mu_{ji} / \beta_j)</annotation></semantics></math>,
-where
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>μ</mi><mrow><mi>j</mi><mi>i</mi></mrow></msub><mo>=</mo><mrow><mi mathvariant="normal">exp</mi><mo>⁡</mo></mrow><mo stretchy="false" form="prefix">(</mo><msubsup><mi>Y</mi><mi>j</mi><mi>⊤</mi></msubsup><msub><mi>X</mi><mi>i</mi></msub><mo>+</mo><msub><mi>Z</mi><mrow><mi>j</mi><mo>,</mo><mi>c</mi><mi>c</mi></mrow></msub><msub><mi>C</mi><mrow><mi>i</mi><mo>,</mo><mi>c</mi><mi>c</mi></mrow></msub><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\mu_{ji} = \exp(Y_j^\top X_i + Z_{j,cc} C_{i,cc})</annotation></semantics></math>
-is the low-rank “predictable” expression plus the case-control effect,
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>ℓ</mi><mrow><mi>j</mi><mi>i</mi></mrow></msub><annotation encoding="application/x-tex">\ell_{ji}</annotation></semantics></math>
-is the covariate-adjusted library size, and
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>β</mi><mi>j</mi></msub><annotation encoding="application/x-tex">\beta_j</annotation></semantics></math>
-is the gene’s nuisance rate (the reciprocal of its over-dispersion). The
-defaults are the values in parentheses; the analysis above used every
-default (<code>k = 30</code> was passed explicitly, and 30 is also its
-default).</p>
+mind: the count of gene <span class="math inline">j</span> in cell <span class="math inline">i</span> is modeled as <span class="math inline">A_{ji} \mid \lambda_{ji} \sim
+\text{Poisson}(\ell_{ji} \lambda_{ji})</span> with <span class="math inline">\lambda_{ji} \sim \text{Gamma}(\text{mean} =
+\mu_{ji}, \text{var} = \mu_{ji} / \beta_j)</span>, where <span class="math inline">\mu_{ji} = \exp(Y_j^\top X_i + Z_{j,cc}
+C_{i,cc})</span> is the low-rank “predictable” expression plus the
+case-control effect, <span class="math inline">\ell_{ji}</span> is the
+covariate-adjusted library size, and <span class="math inline">\beta_j</span> is the gene’s nuisance rate (the
+reciprocal of its over-dispersion). The defaults are the values in
+parentheses; the analysis above used every default (<code>k = 30</code>
+was passed explicitly, and 30 is also its default).</p>
 <div class="section level3">
 <h3 id="which-cells-and-individuals-are-analyzed-esvd_helper-only">Which cells and individuals are analyzed (<code>eSVD_helper()</code>
 only)<a class="anchor" aria-label="anchor" href="#which-cells-and-individuals-are-analyzed-esvd_helper-only"></a>
@@ -786,10 +778,9 @@ would be collinear with every individual-level covariate).</li>
 <code>case_control_var</code> and <code>case_control_levels</code>:
 the column holding the diagnosis and its two levels, <strong>control
 first, then case</strong>. The case indicator becomes the covariate
-whose coefficient
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>Z</mi><mrow><mi>j</mi><mo>,</mo><mi>c</mi><mi>c</mi></mrow></msub><annotation encoding="application/x-tex">Z_{j,cc}</annotation></semantics></math>
-is the case-control effect; reversing the levels flips the sign of every
-fold change and statistic.</li>
+whose coefficient <span class="math inline">Z_{j,cc}</span> is the
+case-control effect; reversing the levels flips the sign of every fold
+change and statistic.</li>
 <li>
 <code>categorical_vars</code>: each is one-hot encoded with its most
 frequent level as the reference (that level gets no column); a variable
@@ -816,19 +807,13 @@ mixed with correlated covariates early in the fit.</li>
 <p>The reparameterization
 (<code><a href="../reference/reparameterization_esvd_covariates.html">eSVD2::reparameterization_esvd_covariates()</a></code>) runs after
 the initialization and after each round of optimization. It makes the
-cell latent vectors
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>X</mi><annotation encoding="application/x-tex">X</annotation></semantics></math>
-orthogonal to the covariates
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>C</mi><annotation encoding="application/x-tex">C</annotation></semantics></math>
-and then to each other, by moving whatever part of
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>X</mi><msup><mi>Y</mi><mi>⊤</mi></msup></mrow><annotation encoding="application/x-tex">XY^\top</annotation></semantics></math>
-is explained by
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>C</mi><annotation encoding="application/x-tex">C</annotation></semantics></math>
-into
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>Z</mi><msup><mi>C</mi><mi>⊤</mi></msup></mrow><annotation encoding="application/x-tex">ZC^\top</annotation></semantics></math>.
-Without it the split between “low-rank structure” and “covariate
-effects” is not identifiable, and the case-control coefficient could be
-absorbed by the latent factors.</p>
+cell latent vectors <span class="math inline">X</span> orthogonal to the
+covariates <span class="math inline">C</span> and then to each other, by
+moving whatever part of <span class="math inline">XY^\top</span> is
+explained by <span class="math inline">C</span> into <span class="math inline">ZC^\top</span>. Without it the split between
+“low-rank structure” and “covariate effects” is not identifiable, and
+the case-control coefficient could be absorbed by the latent
+factors.</p>
 </div>
 <div class="section level3">
 <h3 id="the-low-rank-fit">The low-rank fit<a class="anchor" aria-label="anchor" href="#the-low-rank-fit"></a>
@@ -836,38 +821,29 @@ absorbed by the latent factors.</p>
 <ul>
 <li>
 <code>k</code> (30): the number of latent dimensions, that is, the
-rank of the predictable expression
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>X</mi><msup><mi>Y</mi><mi>⊤</mi></msup></mrow><annotation encoding="application/x-tex">XY^\top</annotation></semantics></math>
-across genes. It is the one parameter we suggest thinking about for a
-new dataset. Too small, and structure that is shared across genes (cell
-states, continuous gradients) ends up in the residual, where it inflates
-the nuisance rate and the within-individual variance. Too large, and the
-fit follows noise, which the posterior below partly undoes but not
-entirely. It must not exceed the number of genes.</li>
+rank of the predictable expression <span class="math inline">XY^\top</span> across genes. It is the one parameter
+we suggest thinking about for a new dataset. Too small, and structure
+that is shared across genes (cell states, continuous gradients) ends up
+in the residual, where it inflates the nuisance rate and the
+within-individual variance. Too large, and the fit follows noise, which
+the posterior below partly undoes but not entirely. It must not exceed
+the number of genes.</li>
 <li>
 <code>bool_intercept</code> (<code>TRUE</code>): whether each gene
 gets its own intercept. Leave it on.</li>
 <li>
 <code>lambda</code> (0.1): the ridge penalty of the per-gene Poisson
-regression that gives the starting coefficients
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>Z</mi><annotation encoding="application/x-tex">Z</annotation></semantics></math>
-(<code><a href="../reference/initialize_esvd.html">eSVD2::initialize_esvd()</a></code>; the starting
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>X</mi><annotation encoding="application/x-tex">X</annotation></semantics></math>
-and
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>Y</mi><annotation encoding="application/x-tex">Y</annotation></semantics></math>
-come from an SVD of the residual on the <code>log1p</code> scale). It
-changes only the starting point, but the objective is not convex, so a
-different start can reach a different fit.</li>
+regression that gives the starting coefficients <span class="math inline">Z</span> (<code><a href="../reference/initialize_esvd.html">eSVD2::initialize_esvd()</a></code>; the
+starting <span class="math inline">X</span> and <span class="math inline">Y</span> come from an SVD of the residual on the
+<code>log1p</code> scale). It changes only the starting point, but the
+objective is not convex, so a different start can reach a different
+fit.</li>
 <li>
-<code>l2pen</code> (0.1): the L2 penalty on
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>X</mi><annotation encoding="application/x-tex">X</annotation></semantics></math>,
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>Y</mi><annotation encoding="application/x-tex">Y</annotation></semantics></math>
-and
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>Z</mi><annotation encoding="application/x-tex">Z</annotation></semantics></math>
-during the alternating Newton optimization
-(<code><a href="../reference/opt_esvd.html">eSVD2::opt_esvd()</a></code>). Larger values shrink the latent
-vectors and coefficients toward zero and make the fit smoother and the
-optimization better conditioned.</li>
+<code>l2pen</code> (0.1): the L2 penalty on <span class="math inline">X</span>, <span class="math inline">Y</span> and
+<span class="math inline">Z</span> during the alternating Newton
+optimization (<code><a href="../reference/opt_esvd.html">eSVD2::opt_esvd()</a></code>). Larger values shrink the
+latent vectors and coefficients toward zero and make the fit smoother
+and the optimization better conditioned.</li>
 <li>
 <code>max_iter</code> (100) and <code>tol</code> (1e-6): each round
 of <code><a href="../reference/opt_esvd.html">opt_esvd()</a></code> alternates between updating the cells’ latent
@@ -883,11 +859,9 @@ coefficients are free.</li>
 <div class="section level3">
 <h3 id="the-nuisance-over-dispersion-estimate">The nuisance (over-dispersion) estimate<a class="anchor" aria-label="anchor" href="#the-nuisance-over-dispersion-estimate"></a>
 </h3>
-<p><code><a href="../reference/estimate_nuisance.html">eSVD2::estimate_nuisance()</a></code> estimates one rate
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>β</mi><mi>j</mi></msub><annotation encoding="application/x-tex">\beta_j</annotation></semantics></math>
-per gene by maximum likelihood, given the fit. The rate is the
-reciprocal of the over-dispersion, so a larger rate means counts closer
-to Poisson around the fit.</p>
+<p><code><a href="../reference/estimate_nuisance.html">eSVD2::estimate_nuisance()</a></code> estimates one rate <span class="math inline">\beta_j</span> per gene by maximum likelihood, given
+the fit. The rate is the reciprocal of the over-dispersion, so a larger
+rate means counts closer to Poisson around the fit.</p>
 <ul>
 <li>
 <code>cap_multiplier</code> (10): no gene’s rate may exceed this
@@ -904,17 +878,14 @@ fitting again.</li>
 <li>
 <code>bool_covariates_as_library</code> (<code>TRUE</code>): whether
 the effects of the donor covariates (every covariate except the
-case-control one) count as part of the library size
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>ℓ</mi><mrow><mi>j</mi><mi>i</mi></mrow></msub><annotation encoding="application/x-tex">\ell_{ji}</annotation></semantics></math>,
-and so as part of the depth that the posterior and the test adjust for,
-or as part of the expression
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>μ</mi><mrow><mi>j</mi><mi>i</mi></mrow></msub><annotation encoding="application/x-tex">\mu_{ji}</annotation></semantics></math>
-that is being compared. With <code>TRUE</code>, a difference in sex or
-batch is treated like a difference in depth and is removed; the
-case-control effect stays in
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>μ</mi><mrow><mi>j</mi><mi>i</mi></mrow></msub><annotation encoding="application/x-tex">\mu_{ji}</annotation></semantics></math>
-either way. The same value is used by the nuisance estimate, the
-posterior and the test, so that all three see the same library.</li>
+case-control one) count as part of the library size <span class="math inline">\ell_{ji}</span>, and so as part of the depth that
+the posterior and the test adjust for, or as part of the expression
+<span class="math inline">\mu_{ji}</span> that is being compared. With
+<code>TRUE</code>, a difference in sex or batch is treated like a
+difference in depth and is removed; the case-control effect stays in
+<span class="math inline">\mu_{ji}</span> either way. The same value is
+used by the nuisance estimate, the posterior and the test, so that all
+three see the same library.</li>
 <li>
 <code>bool_library_includes_interept</code> (<code>TRUE</code>):
 whether the gene’s intercept is part of the library size as well. With
@@ -933,26 +904,22 @@ fails.</li>
 <p>For each cell and gene, <code><a href="../reference/compute_posterior.html">eSVD2::compute_posterior()</a></code> (or
 the fused <code><a href="../reference/compute_test_per_gene.html">eSVD2::compute_test_per_gene()</a></code> when
 <code>bool_diet = TRUE</code>) combines the count with the fit through
-the Gamma-Poisson posterior: the posterior mean is
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">(</mo><msub><mi>A</mi><mrow><mi>j</mi><mi>i</mi></mrow></msub><mo>+</mo><msub><mi>β</mi><mi>j</mi></msub><msub><mi>μ</mi><mrow><mi>j</mi><mi>i</mi></mrow></msub><mo stretchy="false" form="postfix">)</mo><mi>/</mi><mo stretchy="false" form="prefix">(</mo><msub><mi>ℓ</mi><mrow><mi>j</mi><mi>i</mi></mrow></msub><mo>+</mo><msub><mi>β</mi><mi>j</mi></msub><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">(A_{ji} + \beta_j \mu_{ji}) / (\ell_{ji} + \beta_j)</annotation></semantics></math>,
-a weighted average of the observed count per unit of depth and the
-fitted expression, where the weight on the fit is the rate. This is what
-stops the pooling across genes from inflating the Type-1 error: a gene
-with a small rate (a lot of over-dispersion) trusts its own counts, and
-a gene with a large rate trusts the fit, at most
+the Gamma-Poisson posterior: the posterior mean is <span class="math inline">(A_{ji} + \beta_j \mu_{ji}) / (\ell_{ji} +
+\beta_j)</span>, a weighted average of the observed count per unit of
+depth and the fitted expression, where the weight on the fit is the
+rate. This is what stops the pooling across genes from inflating the
+Type-1 error: a gene with a small rate (a lot of over-dispersion) trusts
+its own counts, and a gene with a large rate trusts the fit, at most
 <code>cap_multiplier</code> times as much as the observed depth.</p>
 <ul>
 <li>
 <code>alpha_max</code> (<code>NULL</code>, meaning twice the largest
-count): a ceiling on the fitted expression
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>μ</mi><mrow><mi>j</mi><mi>i</mi></mrow></msub><annotation encoding="application/x-tex">\mu_{ji}</annotation></semantics></math>
-before it enters the posterior, so that a cell where the fit diverged
-cannot dominate an individual’s mean.</li>
+count): a ceiling on the fitted expression <span class="math inline">\mu_{ji}</span> before it enters the posterior, so
+that a cell where the fit diverged cannot dominate an individual’s
+mean.</li>
 <li>
-<code>library_min</code> (0.1): a floor on the library size
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>ℓ</mi><mrow><mi>j</mi><mi>i</mi></mrow></msub><annotation encoding="application/x-tex">\ell_{ji}</annotation></semantics></math>,
-so that a cell with a very small fitted depth does not get an enormous
-posterior variance.</li>
+<code>library_min</code> (0.1): a floor on the library size <span class="math inline">\ell_{ji}</span>, so that a cell with a very small
+fitted depth does not get an enormous posterior variance.</li>
 <li>
 <code>pseudocount</code> (0): a constant added to every count before
 the posterior.</li>

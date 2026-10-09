@@ -35,7 +35,12 @@ Name the machine specifically enough that another collaborator can tell
 whether it is reachable to them. **A missing row means unknown; only an
 explicit *(not present)* row means known-absent.**
 
-## Project Status (as of 2026-10-08)
+## Project Status (as of 2026-10-09)
+
+**Reference-page math now renders on the pkgdown site** (session 29,
+uncommitted): `_pkgdown.yml` sets `template: math-rendering: katex`.
+Only the reference page `compute_log_fold_change` has been rebuilt
+locally; the rest of `docs/` updates on the next full build or on push.
 
 **Every user-facing version string says 1.2.0** (sessions 24 and 25,
 uncommitted): README (including a fresh `session_info()` from running
@@ -158,6 +163,13 @@ untested until `master` is pushed.
   eSVD2 in the system library. A single article is
   `pkgdown::build_article("articles/<name>")` (prefix required). `docs/`
   is `.gitignore`d; `gh-pages` is deployed by the GitHub Action.
+
+- **Roxygen math is written as `\eqn{}` / `\deqn{}`, and the site
+  renders it only because `_pkgdown.yml` sets `math-rendering: katex`.**
+  Without that setting, pkgdown 2.2.1 prints the raw `\(...\)` /
+  `$$...$$` delimiters. Keep the macros within what KaTeX supports. R’s
+  local HTML help renders math only if the `katex` R package is
+  installed, and it is not on this machine.
 
 - **Packages only the website needs go in `Config/Needs/website`**
   (`bioc::` prefix for Bioconductor), never `Suggests`. The CI runner

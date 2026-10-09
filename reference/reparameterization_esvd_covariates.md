@@ -59,5 +59,5 @@ esvd_obj <- reparameterization_esvd_covariates(input_obj = esvd_obj,
 # x_mat is now orthogonal to the retained covariates
 max(abs(crossprod(esvd_obj$fit_Init$x_mat,
                   esvd_obj$covariates[, "Sex"])))
-#> [1] 1.361133e-13
+#> [1] 1.14353e-13
 ```
