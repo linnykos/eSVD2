@@ -44,4 +44,5 @@ VignetteBuilder: knitr
 NeedsCompilation: yes
 URL: https://linnykos.github.io/eSVD2/, https://github.com/linnykos/eSVD2
 BugReports: https://github.com/linnykos/eSVD2/issues
+Config/Needs/website: bioc::EnhancedVolcano
 RoxygenNote: 7.3.3

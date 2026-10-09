@@ -5,6 +5,10 @@ date: "2026-09-30"
 output:
   rmarkdown::html_vignette:
     df_print: "kable"
+vignette: >
+  %\VignetteIndexEntry{Neuron analysis for Layer 2/3 in ASD}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
 ---
 
 ```{r setup, include=FALSE}
@@ -858,8 +862,11 @@ genes at FDR 0.05 are the wrapper's 243.
 
 # Setup
 
-The following shows the package versions that the developer (GitHub username:
-linnykos) used when this article was rendered.
+The following is the R session in which this page was built. The website is
+built by GitHub Actions, so this is the session of that build machine, not of
+the run on 2026-09-30 (eSVD2 1.2.0) whose output and figures are pasted in
+above. The chunks that do run here only attach the packages, so the versions
+below show what the page was built with, not what produced the results.
 
 ```{r session_info}
 sessionInfo()

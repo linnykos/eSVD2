@@ -5,6 +5,10 @@ date: "2026-09-30"
 output:
   rmarkdown::html_vignette:
     df_print: "kable"
+vignette: >
+  %\VignetteIndexEntry{Neuron preprocessing for eSVD-DE tutorial}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
 ---
 
 ```{r setup, include=FALSE}
@@ -346,8 +350,11 @@ knitr::include_graphics("asd-umap.png")
 
 # Setup
 
-The following shows the package versions that the developer (GitHub username:
-linnykos) used when this article was rendered.
+The following is the R session in which this page was built. The website is
+built by GitHub Actions, so this is the session of that build machine, not of
+the run on 2026-09-30 (eSVD2 1.2.0, Seurat 5.5.1) whose output is pasted in
+above. Every chunk that does the preprocessing has `eval = FALSE`, so the
+packages it uses do not appear below.
 
 ```{r session_info}
 sessionInfo()

@@ -75,6 +75,13 @@ time", which is the check failing to reach a time server), tests
 gives **2110 pass / 0 fail / 0 warnings / 0 skip**: 298 `test_that` blocks in
 28 files.
 
+**The full pkgdown site rebuilds locally with no warnings (sessions 26
+and 27, uncommitted).** The GitHub Action had failed on `asd.Rmd` for want
+of `EnhancedVolcano`, now declared in `Config/Needs/website`; both ASD
+articles carry a `\VignetteIndexEntry`, and their closing session info
+is labelled as the build machine's (session 28). The CI fix is untested until
+`master` is pushed.
+
 **What stands between the package and a submission**:
 
 - deciding what the real-data result of session 22 means for the default cap;
@@ -83,7 +90,7 @@ gives **2110 pass / 0 fail / 0 warnings / 0 skip**: 298 `test_that` blocks in
 - `Authors@R`;
 - the misspelled argument names;
 - the rank-deficiency refusal, which now bites the ASD article's own design;
-- a Windows/Linux check, one sanitizer run, and a pkgdown rebuild.
+- a Windows/Linux check and one sanitizer run.
 
 `CRAN_READINESS.md` §0.3 is the list.
 
@@ -110,10 +117,15 @@ gives **2110 pass / 0 fail / 0 warnings / 0 skip**: 298 `test_that` blocks in
 - **The +/- 2 SE interval of the log2FC covers zero for 87% of the
   significant genes** on this cohort; the empirical null there has mean
   -0.15 and SD 0.42, so the calibration drives significance.
-- **pkgdown articles are built with `pkgdown::build_article("articles/<name>")`**
-  (the `articles/` prefix is required) with the devel library first on
-  `.libPaths()` and RStudio's pandoc on `PATH`. `docs/` is `.gitignore`d
-  in this clone.
+- **The pkgdown site builds with `pkgdown::build_site(preview = FALSE,
+  install = TRUE, new_process = TRUE)`** with RStudio's pandoc on `PATH`;
+  `install = TRUE` sidesteps the stale eSVD2 in the system library. A single
+  article is `pkgdown::build_article("articles/<name>")` (prefix required).
+  `docs/` is `.gitignore`d; `gh-pages` is deployed by the GitHub Action.
+- **Packages only the website needs go in `Config/Needs/website`**
+  (`bioc::` prefix for Bioconductor), never `Suggests`. The CI runner has
+  only `Suggests` plus that field; any package an evaluated article chunk
+  attaches must be in one of them.
 
 - **The cap is applied in R, in one place, `.apply_nuisance_cap()`**, used by
   `estimate_nuisance()` and by `recompute_pvalue()`; `gamma_rate` stays a
@@ -466,8 +478,7 @@ gives **2110 pass / 0 fail / 0 warnings / 0 skip**: 298 `test_that` blocks in
     `rhub::rhub_check()`) and one ASan/UBSan run.
 18. The suggested tests in `CRAN_READINESS.md` §0.4, including T-LFC-20 and
     T-POST-14 (whether `alpha_max` ever binds).
-19. Rebuild the whole pkgdown site (`docs/`) so it lists the four new
-    functions; only the two ASD articles were rebuilt in session 22, and
-    `docs/` is not tracked here.
+19. Commit and push `master` so the GitHub Action redeploys the public
+    pkgdown site; confirm the `EnhancedVolcano` fix there.
 20. Optional: `.compute_df()` could read the stored `case_var` /
     `control_var`; the `.split_individuals_by_arm()` refactor.

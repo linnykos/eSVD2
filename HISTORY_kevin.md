@@ -956,3 +956,23 @@ would write first.
 - Decided (Kevin): `_pkgdown.yml` gets `development: mode: release` rather than a hardcoded version string, so the navbar version is taken from DESCRIPTION and never drifts.
 - Resolved: the "before 1.1.0" wording in `R/` and the tests stays (Kevin).
 - `eSVD2.Rmd`'s YAML `date` is still 2024-06-15.
+
+### [2026-10-08] (Session 26 — full pkgdown site rebuilt locally)
+- Rebuilt all of `docs/` with `pkgdown::build_site(preview = FALSE, install = TRUE, new_process = TRUE)` (pkgdown 2.2.1, RStudio's pandoc 3.6.3 on `PATH`) from `master` at `a88796a`: 41 reference pages including `eSVD_helper`, `plot_nuisance`, `plot_fitted_vs_observed`, `recompute_pvalue`, `compute_log_fold_change`; three articles; news; navbar shows 1.2.0.
+- `install = TRUE` installs the working tree into a temporary library, so the old eSVD2 1.0.1.2 in the system library no longer needs working around for a site build.
+- Only warnings: the two ASD articles lack `\VignetteIndexEntry` (expected for pkgdown articles); pkgdown also added redirects from `articles/articles/*.html`.
+- The public site at linnykos.github.io/eSVD2 is unchanged until `master` is pushed, because `.github/workflows/pkgdown.yaml` rebuilds and deploys to `gh-pages` on push; `docs/` itself is `.gitignore`d.
+
+### [2026-10-08] (Session 27 — GitHub pkgdown build fixed: EnhancedVolcano and VignetteIndexEntry)
+- The GitHub Action failed on `asd.Rmd`'s evaluated `libraries` chunk because `EnhancedVolcano` (Bioconductor, not in `Suggests`) was not installed; it passed locally only because this machine has it.
+- Decided: declare it as `Config/Needs/website: bioc::EnhancedVolcano` in DESCRIPTION rather than in `Suggests`, so CRAN never sees it while `setup-r-dependencies` (`needs: website`) installs it; `pak::local_deps(dependencies = "Config/Needs/website")` resolves it to 1.28.2.
+- The `libraries` chunk stays evaluated because the article's closing `sessionInfo()` relies on the packages being attached.
+- Both ASD articles got the same `vignette:` YAML block as `eSVD2.Rmd`; `^vignettes/articles$` is `.Rbuildignore`d, so this cannot make R CMD build index them.
+- With the index entries present the local rebuild has no warnings, and pkgdown no longer writes the `articles/articles/*.html` redirects.
+- Open: the CI-built articles print the runner's `sessionInfo()` while the text says it is the developer's; not changed.
+- Not verified on GitHub until pushed; `R CMD check` not rerun for a Config-field-only DESCRIPTION change.
+
+### [2026-10-08] (Session 28 — ASD articles' closing session info reworded)
+- Resolved (Kevin chose rewording over a pasted static session info): both ASD articles now say the closing `sessionInfo()` is the build machine's (GitHub Actions), not the 2026-09-30 run whose output is pasted in.
+- `asd-preprocess.Rmd`'s wording also says its preprocessing packages are absent from that session info, because its `libraries` chunk is `eval = FALSE` and only base packages are attached.
+- The new paragraphs name only versions already stated in the articles (eSVD2 1.2.0; Seurat 5.5.1 for the preprocessing); the R version of the 2026-09-30 run is not recorded in them.
