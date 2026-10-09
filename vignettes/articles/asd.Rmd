@@ -249,7 +249,7 @@ over-dispersion capped, which the diagnostics section returns to.
 
 # The log fold change and its standard error
 
-From version 1.1.0 every analysis reports, for each gene, the log2 fold
+From version 1.2.0 every analysis reports, for each gene, the log2 fold
 change between the case and the control donors and a standard error for it.
 Both are stored on the object as `eSVD_obj$log2fc_vec` and
 `eSVD_obj$log2fc_se_vec`, and `report_results()` copies them into `logFC`

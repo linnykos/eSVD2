@@ -23,6 +23,13 @@ Name the machine specifically enough that another collaborator can tell whether 
 
 ## Project Status (as of 2026-10-08)
 
+**Every user-facing version string says 1.2.0** (sessions 24 and 25,
+uncommitted): README (including a fresh `session_info()` from running
+`eSVD2.Rmd` under 1.2.0), `eSVD2.Rmd` (inline `packageVersion`),
+`asd-preprocess.Rmd`, NEWS, and `_pkgdown.yml` (`development: mode:
+release`). The "before 1.1.0" wording in `R/` and the tests is deliberate
+(Kevin). `eSVD2.Rmd`'s YAML date is still 2024-06-15.
+
 **Goal: get `eSVD2` onto CRAN.** Correctness first; efficiency is explicitly out
 of scope for now.
 
@@ -56,8 +63,7 @@ It is written against 1.0.1.07, the `master` branch of April 2026, because
 git at `f6c26aa`. Facts it fixed on the way: `report_results()` goes from
 four columns to seven relative to master (not five to six), and
 `compute_test_per_gene()`'s `library_min` default moved from 0.01 to 0.1,
-which no earlier NEWS entry recorded. `README.md` still says the current
-version is 1.1.0. The rendered `vignettes/eSVD2.html` and
+which no earlier NEWS entry recorded. The rendered `vignettes/eSVD2.html` and
 `vignettes/articles/{asd,asd-preprocess}.html` are local viewing copies,
 ignored by both `.gitignore` and `.Rbuildignore`, built from a scratch
 install of the working tree (eSVD2 1.2.0, pandoc 3.6.3).
@@ -455,8 +461,7 @@ gives **2110 pass / 0 fail / 0 warnings / 0 skip**: 298 `test_that` blocks in
     committed in `d49e402` without a recorded vet.
 16b. Make `sparse_na` work as NEWS says, or reword the NEWS item.
 16c. Review the consolidated `NEWS.md` (session 23): whether to keep one
-    1.2.0 section or restore the 1.1.0 / 1.0.2 milestones, and update the
-    version line in `README.md` to 1.2.0.
+    1.2.0 section or restore the 1.1.0 / 1.0.2 milestones.
 17. Windows / Linux checks (`devtools::check_win_devel()`,
     `rhub::rhub_check()`) and one ASan/UBSan run.
 18. The suggested tests in `CRAN_READINESS.md` §0.4, including T-LFC-20 and

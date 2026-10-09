@@ -22,7 +22,7 @@ comment = "#>"
 
 The simulations here are meant to be portable, toy-examples of eSVD2, with the intent to demonstrate that an installation of eSVD2 was successful.
 
-A successful installation of `eSVD2` is required for this. See the last section of this vignette for the session information used when it was rendered. The whole vignette should complete in less than 2 minutes.
+This vignette was rendered with `eSVD2` version `r utils::packageVersion("eSVD2")`. A successful installation of `eSVD2` is required for this. See the last section of this vignette for the session information used when it was rendered. The whole vignette should complete in less than 2 minutes.
 
 # Overview
 

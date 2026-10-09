@@ -1,7 +1,7 @@
 # eSVD2 1.2.0
 
 The first version intended for CRAN. Everything below is relative to
-1.0.1.07, the version on the `master` branch (April 2026) and the last one
+1.0.1.07, the version on the `master` branch from April 2026 and the last one
 installed from GitHub. The development versions 1.0.2 and 1.1.0 in between
 were never released; their changes are folded in here.
 
@@ -198,7 +198,8 @@ New errors that name the cause, in place of failures far downstream:
 
 # eSVD2 1.0.1.07
 
-The `master` branch on GitHub (April 2026): small fixes on top of 1.0.0.
+The `master` branch on GitHub from April 2026 until 1.2.0: small fixes on top
+of 1.0.0.
 
 # eSVD2 1.0.0
 

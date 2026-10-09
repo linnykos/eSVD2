@@ -942,3 +942,17 @@ would write first.
 - Rendering recipe that works on this machine: `git archive devel` into the scratchpad, `R CMD INSTALL --library=<scratch>/lib`, then `rmarkdown::render()` with that library first on `.libPaths()` and `RSTUDIO_PANDOC` set to RStudio's `quarto/bin/tools/aarch64`; the system library still holds eSVD2 1.0.1.2 and has no pandoc.
 - The two articles render in about a second because every heavy chunk is `eval = FALSE`; their only warning is the missing `\VignetteIndexEntry`, expected for pkgdown articles.
 - Open: whether Kevin prefers the single consolidated section or the per-milestone history in `NEWS.md` (item 16c).
+
+### [2026-10-08] (Session 24 — version strings set to 1.2.0 before merging `devel` into `master`)
+- README's current-version line and its "checked under R 4.5.1" line, and `asd.Rmd`'s "From version 1.1.0" (the log fold change section), now say 1.2.0, because 1.1.0 was never released.
+- NEWS's two references to `master` as 1.0.1.07 now say "from April 2026 (until 1.2.0)", since they would be false once the merge lands.
+- Decided to leave the "before 1.1.0" wording in `R/report_results.R`, `R/compute_log_fold_change.R`, `R/nuisance.R` and three test comments: it describes which objects lack the stored fold change, and 1.0.1.07 < 1.1.0 keeps it true.
+- The README's `session_info()` block (eSVD2 1.0.0, R 4.3.2, June 2024) was kept as a historical record.
+
+### [2026-10-08] (Session 25 — README session info and vignette version lines for 1.2.0)
+- README's `session_info()` block was regenerated from a real run: `git archive HEAD` installed to a scratch library, then `knitr::knit()` of `eSVD2.Rmd` (no pandoc needed) with devtools attached, then `devtools::session_info()`; the vignette ran cleanly under 1.2.0 with R 4.5.1 and Seurat 5.5.1.
+- The scratch library path in that block was replaced by a placeholder, "<local library holding eSVD2 1.2.0, installed from devel>"; everything else is verbatim.
+- `eSVD2.Rmd` prints its version inline with `utils::packageVersion("eSVD2")`, because it is executed at build time; `asd-preprocess.Rmd` states 1.2.0 in prose, because its heavy chunks are `eval = FALSE`.
+- Decided (Kevin): `_pkgdown.yml` gets `development: mode: release` rather than a hardcoded version string, so the navbar version is taken from DESCRIPTION and never drifts.
+- Resolved: the "before 1.1.0" wording in `R/` and the tests stays (Kevin).
+- `eSVD2.Rmd`'s YAML `date` is still 2024-06-15.
