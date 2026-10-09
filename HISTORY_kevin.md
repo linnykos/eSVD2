@@ -976,3 +976,10 @@ would write first.
 - Resolved (Kevin chose rewording over a pasted static session info): both ASD articles now say the closing `sessionInfo()` is the build machine's (GitHub Actions), not the 2026-09-30 run whose output is pasted in.
 - `asd-preprocess.Rmd`'s wording also says its preprocessing packages are absent from that session info, because its `libraries` chunk is `eval = FALSE` and only base packages are attached.
 - The new paragraphs name only versions already stated in the articles (eSVD2 1.2.0; Seurat 5.5.1 for the preprocessing); the R version of the 2026-09-30 run is not recorded in them.
+
+### [2026-10-09] (Session 29 — KaTeX math rendering on the pkgdown site)
+- Kevin reported raw LaTeX in the `compute_log_fold_change` reference page; the roxygen source was already valid `\eqn{}`/`\deqn{}`, so no `.R` or `.Rd` change was needed.
+- Cause: pkgdown emits `\(...\)` and `$$...$$` delimiters but loads no math engine unless `template: math-rendering` is set.
+- Decided: `katex` rather than `mathjax`, because it is lighter and every macro used across `man/` (`\widehat`, `\mathrm`, `\bar`, `\frac`, `\sqrt`, `\mid`, `\sim`, ...) is supported.
+- Verified by rebuilding only that page (`build_reference(topics = ..., devel = TRUE)` with `RSTUDIO_PANDOC` pointing at RStudio's pandoc), which now loads KaTeX 0.16.11 from jsDelivr; not viewed in a browser.
+- `_pkgdown.yml` is `.Rbuildignore`d, so R CMD check is unaffected and was not rerun.

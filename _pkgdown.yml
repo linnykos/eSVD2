@@ -1,6 +1,9 @@
 url: https://linnykos.github.io/eSVD2/
 template:
   bootstrap: 5
+  # Rd \eqn{} / \deqn{} are emitted with \( \) and $$ delimiters; without a
+  # math engine the reference pages show the raw LaTeX.
+  math-rendering: katex
 
 # The navbar shows the version in DESCRIPTION; `release` labels it as a
 # released version rather than a development one.
