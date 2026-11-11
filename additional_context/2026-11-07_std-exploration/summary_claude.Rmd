@@ -1,0 +1,594 @@
+---
+title: "A Wald-usable log fold change and standard error for eSVD-DE"
+author: "Kevin Z. Lin (drafted by Claude)"
+date: "2026-11-07"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 3
+    number_sections: true
+    theme: flatly
+    highlight: tango
+    math_method:
+      engine: mathjax
+      url: "https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-chtml-full.js"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+```
+
+```{r libraries}
+library(ggplot2)
+library(knitr)
+```
+
+```{r read_outputs}
+output_dir <- file.path(getwd(), "output")
+.read <- function(name){
+  utils::read.csv(file.path(output_dir, paste0(name, ".csv")),
+                  stringsAsFactors = FALSE)
+}
+recentred_df <- .read("01_sign-agreement-recentered")
+cross_df <- .read("01_sign-agreement-cross-method")
+lfc_cross_df <- .read("01_lfc-cross-method")
+null_status_df <- .read("01_null-by-status")
+deg_status_df <- .read("01_deg-by-status")
+gene_level_df <- .read("02_gene-level")
+summary02_df <- .read("02_summary")
+scenario02_df <- .read("02_scenario")
+decomposition_df <- .read("03_decomposition")
+summary03_df <- .read("03_summary")
+
+candidate_vec <- c("stored", "null_rescaled", "between", "between_plus",
+                   "jackknife", "deshrunk", "raw", "raw_null", "deseq2")
+candidate_label_vec <- c(stored = "stored (1.2.0)",
+                         null_rescaled = "A: null-rescaled",
+                         between = "B: between-donor",
+                         between_plus = "between + within/cells",
+                         jackknife = "D: donor jackknife",
+                         deshrunk = "between / weight",
+                         raw = "unshrunk donor means",
+                         raw_null = "unshrunk + empirical null",
+                         deseq2 = "DESeq2 pseudobulk")
+# Okabe-Ito hues (no yellow, which does not read on white) plus two grays,
+# one fixed colour per candidate.
+candidate_color_vec <- c(stored = "#000000",
+                         null_rescaled = "#E69F00",
+                         between = "#56B4E9",
+                         between_plus = "#009E73",
+                         jackknife = "#999999",
+                         deshrunk = "#CC79A7",
+                         raw = "#D55E00",
+                         raw_null = "#0072B2",
+                         deseq2 = "#555555")
+scenario_vec <- c("baseline", "wide_nuisance", "small_cohort", "many_cells",
+                  "asymmetric", "overfit_k", "large_cohort")
+dataset_label_vec <- c(prater = "Prater", gabitto = "Gabitto", sun = "Sun",
+                       green = "Green")
+method_label_vec <- c(deseq2 = "DESeq2", dreamlet = "Dreamlet",
+                      nebula = "NEBULA", esvd = "eSVD-DE")
+
+fmt <- function(x, digits = 2){formatC(x, digits = digits, format = "f")}
+pct <- function(x, digits = 0){paste0(formatC(100 * x, digits = digits,
+                                               format = "f"), "%")}
+.label_candidates <- function(df){
+  df$candidate <- factor(candidate_label_vec[df$candidate],
+                         levels = candidate_label_vec)
+  df
+}
+.pull <- function(df, ...){
+  conditions <- list(...)
+  bool_vec <- rep(TRUE, nrow(df))
+  for(name in names(conditions)) bool_vec <- bool_vec & df[[name]] == conditions[[name]]
+  df[bool_vec, ]
+}
+```
+
+# Overview {-}
+
+Companion to `Writeup50_esvd-wald-se_claude.md` in the Was2CoDE analysis repository, which asked how eSVD-DE's stored (logFC, SE, p-value) could become the Wald triple that Figure 4 of Writeup50 is built from, and to Kevin's question of 2026-11-07: whether eSVD-DE's lower sign agreement in `Writeup50_sign-agreement.png` (about 60% for the pairs that involve Prater) comes from correcting the p-value with an empirical null while leaving the log fold change uncorrected. The code is in this folder (`README.md` lists it); every number below is read from `output/*.csv`.
+
+| Section | Question | Evidence |
+|---|---|---|
+| 1 | Does recentering the logFC change the sign agreement on Tati's cohorts, and if not, what does? | The Writeup50 tables and Tati's diet objects, no refit |
+| 2 | What does the stored SE measure, and why is the between-donor SE too small as well? | The posterior formula, checked on the simulated fits |
+| 3 | Which candidate SE equals the SD of the logFC over replicate cohorts? | 7 scenarios x 30 replicate cohorts, each refitted |
+| 4 | Which candidate triple recovers the slope, rho, k and r of Figure 4? | 3 scenarios x 20 pairs of cohorts with known k and r |
+| 5 | What to change in eSVD2, and what to run on the real cohorts | |
+
+# The real cohorts: recentering is not the issue
+
+## Recentering the log fold change
+
+```{r recentred_table}
+recentred_wide <- stats::reshape(
+  recentred_df[, c("cohort_a", "cohort_b", "variant", "frac_same_sign")],
+  idvar = c("cohort_a", "cohort_b"), timevar = "variant", direction = "wide")
+recentred_wide$num_discovery <- recentred_df$num_discovery[
+  match(paste(recentred_wide$cohort_a, recentred_wide$cohort_b),
+        paste(recentred_df$cohort_a, recentred_df$cohort_b))]
+recentred_wide$pair <- paste(dataset_label_vec[recentred_wide$cohort_a], "→",
+                             dataset_label_vec[recentred_wide$cohort_b])
+show_df <- recentred_wide[, c("pair", "num_discovery",
+                              "frac_same_sign.stored",
+                              "frac_same_sign.null_shift",
+                              "frac_same_sign.median",
+                              "frac_same_sign.trimmed_mean")]
+kable(show_df, digits = 3, row.names = FALSE,
+      col.names = c("A → B", "DEGs of A", "Stored logFC",
+                    "logFC − null_mean × SE", "Median-centred",
+                    "Trimmed-mean-centred"),
+      caption = "Fraction of A's eSVD-DE DEGs with the same sign in B, with B's logFC recentred three ways. The DEG set of A is the stored one in every column.")
+max_change <- max(abs(recentred_wide$frac_same_sign.stored -
+                        recentred_wide[, c("frac_same_sign.null_shift",
+                                           "frac_same_sign.median",
+                                           "frac_same_sign.trimmed_mean")]))
+```
+
+The empirical null's mean is −0.05 to −0.11 in units of the Gaussianized statistic, which is a shift of `null_mean × SE` on the logFC scale, about 0.02 log~2~ at the median SE. Recentering B's logFC by that shift, by its median, or by its 5%-trimmed mean moves every same-sign fraction by at most `r fmt(max_change, 3)`, and the six pairs that involve Prater stay between `r pct(min(show_df$frac_same_sign.null_shift[grepl("Prater", show_df$pair)]))` and `r pct(max(show_df$frac_same_sign.null_shift[grepl("Prater", show_df$pair)]))`. The centre of eSVD-DE's logFC distribution is not displaced from the other methods' either: its median over all genes is within 0.02 of DESeq2's in every cohort (`output/01_lfc-cross-method.csv`). **An uncorrected offset in the log fold change is not what lowers the sign agreement.**
+
+## The same genes under every method
+
+```{r cross_table}
+prater_df <- cross_df[cross_df$cohort_b == "prater", ]
+prater_wide <- stats::reshape(
+  prater_df[, c("cohort_a", "method_a", "method_b", "frac_same_sign")],
+  idvar = c("cohort_a", "method_a"), timevar = "method_b", direction = "wide")
+prater_wide$num_discovery <- prater_df$num_discovery[
+  match(paste(prater_wide$cohort_a, prater_wide$method_a, "deseq2"),
+        paste(prater_df$cohort_a, prater_df$method_a, prater_df$method_b))]
+prater_wide <- prater_wide[order(match(prater_wide$cohort_a,
+                                       names(dataset_label_vec)),
+                                 match(prater_wide$method_a,
+                                       names(method_label_vec))), ]
+show_df <- data.frame(
+  discovery = dataset_label_vec[prater_wide$cohort_a],
+  method_a = method_label_vec[prater_wide$method_a],
+  num_discovery = prater_wide$num_discovery,
+  prater_wide[, paste0("frac_same_sign.", names(method_label_vec))])
+kable(show_df, digits = 2, row.names = FALSE,
+      col.names = c("Discovery A", "DEGs called by", "DEGs of A",
+                    paste0("Sign in Prater by ", method_label_vec)),
+      caption = "Prater as the replicate. Rows: the DEGs of a discovery cohort under one method. Columns: the fraction of those genes whose sign in Prater, under each method's logFC, matches the discovery sign.")
+esvd_deg_rows <- show_df[show_df$method_a == "eSVD-DE", ]
+deseq2_deg_rows <- show_df[show_df$method_a == "DESeq2", ]
+```
+
+Reading down a column, Prater's logFC under eSVD-DE agrees with Gabitto's DESeq2 DEGs for `r pct(deseq2_deg_rows$frac_same_sign.esvd[1])` of them, against `r pct(deseq2_deg_rows$frac_same_sign.deseq2[1])` under DESeq2's own logFC, so eSVD-DE's estimate in a 22-donor cohort is somewhat noisier for the same genes. Reading across the eSVD-DE rows, the genes eSVD-DE calls in Gabitto and in Sun keep their sign in Prater for only `r pct(min(esvd_deg_rows[1:2, paste0("frac_same_sign.", names(method_label_vec))]))` to `r pct(max(esvd_deg_rows[1:2, paste0("frac_same_sign.", names(method_label_vec))]))` of the genes **under any method's logFC in Prater**, where the genes DESeq2 or NEBULA call keep it for 70 to 82%. The larger part of the gap is therefore in which genes eSVD-DE calls, not in how Prater's logFC is estimated.
+
+## The genes eSVD-DE calls
+
+```{r deg_status_table}
+deg_wide <- stats::reshape(
+  deg_status_df[, c("dataset", "stratum", "cohort_b",
+                    "frac_same_sign_deseq2_b")],
+  idvar = c("dataset", "stratum"), timevar = "cohort_b", direction = "wide")
+first_df <- deg_status_df[!duplicated(paste(deg_status_df$dataset,
+                                            deg_status_df$stratum)), ]
+deg_wide <- merge(first_df[, c("dataset", "stratum", "num_genes", "num_deg",
+                               "median_abs_lfc_deg", "median_se_deg")],
+                  deg_wide, by = c("dataset", "stratum"))
+deg_wide <- deg_wide[order(match(deg_wide$dataset, names(dataset_label_vec)),
+                           deg_wide$stratum != "estimated"), ]
+show_df <- data.frame(
+  dataset = dataset_label_vec[deg_wide$dataset],
+  stratum = ifelse(deg_wide$stratum == "estimated", "estimated",
+                   "capped or boundary"),
+  deg_wide[, c("num_genes", "num_deg", "median_abs_lfc_deg", "median_se_deg")],
+  deg_wide[, paste0("frac_same_sign_deseq2_b.", names(dataset_label_vec))])
+kable(show_df, digits = 2, row.names = FALSE,
+      col.names = c("Cohort", "Nuisance status", "Genes", "DEGs",
+                    "Median |logFC| of DEGs", "Median SE of DEGs",
+                    paste0("Sign kept in ", dataset_label_vec, " (DESeq2)")),
+      caption = "eSVD-DE's DEGs split by the nuisance status of the gene, and the fraction whose sign under DESeq2 in each other cohort matches. A blank cell is the cohort itself.")
+gab_est <- show_df[show_df$dataset == "Gabitto" & show_df$stratum == "estimated", ]
+gab_cap <- show_df[show_df$dataset == "Gabitto" & show_df$stratum != "estimated", ]
+sun_est <- show_df[show_df$dataset == "Sun" & show_df$stratum == "estimated", ]
+```
+
+The DEGs that fail to replicate are small effects. Gabitto's `r gab_est$num_deg` DEGs with an estimated nuisance rate have a median |logFC| of `r fmt(gab_est$median_abs_lfc_deg)` and keep their DESeq2 sign in Prater `r pct(gab_est$frac_same_sign_deseq2_b.prater)` of the time, while its `r gab_cap$num_deg` DEGs with a capped rate have a median |logFC| of `r fmt(gab_cap$median_abs_lfc_deg)` and keep it `r pct(gab_cap$frac_same_sign_deseq2_b.prater)` of the time. Sun's estimated DEGs have a median |logFC| of `r fmt(sun_est$median_abs_lfc_deg)`, a quarter of Prater's own DEGs' `r fmt(show_df$median_abs_lfc_deg[show_df$dataset == "Prater" & show_df$stratum == "estimated"])`. A gene whose true effect is 0.2 to 0.4 log~2~ has a sign that a 22-donor cohort estimates with an SE of about 0.3 under any method, so a 60% agreement for such genes is what noise alone produces. Whether eSVD-DE is right to call them is a separate question that the sign agreement cannot answer; Section 3 measures its false discoveries in simulation.
+
+## The empirical null within nuisance strata
+
+```{r null_status_table}
+show_df <- null_status_df
+show_df$dataset <- dataset_label_vec[show_df$dataset]
+show_df$stratum <- c(all = "all", estimated = "estimated",
+                     capped_or_boundary = "capped or boundary")[show_df$stratum]
+kable(show_df[, c("dataset", "stratum", "num_genes", "null_mean", "null_sd",
+                  "sd_z", "median_abs_z", "median_se")],
+      digits = 3, row.names = FALSE,
+      col.names = c("Cohort", "Stratum", "Genes", "Null mean", "Null SD",
+                    "SD of z", "Median |z|", "Median stored SE"),
+      caption = "Efron's empirical null (locfdr) fitted to the Gaussianized statistics of all genes and within each nuisance-status stratum.")
+cap_rows <- null_status_df[null_status_df$stratum == "capped_or_boundary", ]
+est_rows <- null_status_df[null_status_df$stratum == "estimated", ]
+```
+
+The stored SE is miscalibrated by a different factor in the two strata. The null SD of the capped genes is `r fmt(min(cap_rows$null_sd))` to `r fmt(max(cap_rows$null_sd))` against `r fmt(min(est_rows$null_sd))` to `r fmt(max(est_rows$null_sd))` for the estimated genes, and in Gabitto and Green the capped genes' null is centred at `r fmt(cap_rows$null_mean[cap_rows$dataset == "gabitto"])` and `r fmt(cap_rows$null_mean[cap_rows$dataset == "green"])`. A single global `null_sd` under-corrects the capped genes, whose statistics are wider, and option A of the memo (rescaling by the global null) inherits this. Section 2.5 says why the two strata differ.
+
+# The candidates, defined
+
+Every candidate is a triple (log fold change, standard error, p-value) for one gene; the gene index is dropped throughout. The notation is the Writeup50 memo's.
+
+| Symbol | Meaning |
+|---|---|
+| $y_c$, $\ell_c$, $\mu_c$ | count, fitted library size and fitted (prior) mean of cell $c$, from the eSVD fit; $\ell_c = \exp(z_{\text{lib}}^\top C_{c,\text{lib}})$ includes the intercept, depth and the other covariates (`bool_covariates_as_library = TRUE`) |
+| $\beta$ | the gene's nuisance rate after the cap, the 1% floor and the recentering `compute_posterior()` applies |
+| $i = 1, \dots, n_a$ | the donors of arm $a$ ($a = 1$ case, $a = 0$ control); $c \in i$ the $k_i$ cells of donor $i$ |
+| $\bar x_a$, $\operatorname{var}_i$ | the mean over the donors of arm $a$, and the sample variance over them with divisor $n_a - 1$ |
+
+## The posterior and its two donor summaries
+
+The Gamma–Poisson posterior of cell $c$'s rate has mean and variance
+$$m_c = \frac{y_c + \mu_c \beta}{\ell_c + \beta} = w_c\, \frac{y_c}{\ell_c} + (1 - w_c)\, \mu_c, \qquad V_c = \frac{m_c}{\ell_c + \beta}, \qquad w_c = \frac{\ell_c}{\ell_c + \beta}. \tag{P}$$
+The weight $w_c$ is the share of the posterior mean that comes from the cell's own count; it is near 1 for a gene whose rate is small against the library (little shrinkage) and near $1/11$ for a gene at the cap $\beta = 10 \times \text{median}_c\, \ell_c$. Each donor is summarized three ways, by averaging over its cells:
+$$m_i = \frac{1}{k_i}\sum_{c \in i} m_c \ \text{(posterior donor mean)}, \qquad \bar V_i = \frac{1}{k_i}\sum_{c \in i} V_c \ \text{(mean posterior variance)}, \qquad r_i = \frac{1}{k_i}\sum_{c \in i} \frac{y_c}{\ell_c} \ \text{(unshrunk donor mean)}, \tag{D}$$
+and the gene's mean weight is $\bar w = \text{mean}_c\, w_c$ over all cells.
+
+## The common form of the log fold change and SE
+
+Every eSVD candidate except `raw` and `raw_null` uses the stored log fold change, the log ratio of the two arm means of the posterior donor means,
+$$\widehat\beta = \log_2 \frac{\bar m_1}{\bar m_0}, \tag{LFC}$$
+and every candidate SE is the delta-method SE of that ratio for some choice of per-arm variance $v_a$,
+$$s(v_1, v_0) = \frac{1}{\ln 2}\sqrt{\frac{v_1}{n_1\, \bar m_1^{\,2}} + \frac{v_0}{n_0\, \bar m_0^{\,2}}}. \tag{SE}$$
+The Welch statistic on the same two variances is $T = (\bar m_1 - \bar m_0) / \sqrt{v_1 / n_1 + v_0 / n_0}$, which equals $\widehat\beta / s$ to first order. The candidates differ only in $v_a$, in whether the triple is then recentred or rescaled by an empirical null, and in which p-value is attached. A Wald p-value below means $p = 2\Phi(-|\widehat\beta / s|)$.
+
+## The eight candidates
+
+**`stored` (eSVD2 1.2.0 as shipped).** The per-arm variance is the mixture variance of the donors' posteriors, the mean posterior variance plus the spread of the donor means (divisor $n_a$, no Bessel correction):
+$$v_a^{\text{stored}} = \underbrace{\frac{1}{n_a}\sum_i \bar V_i}_{\text{within}} + \underbrace{\frac{1}{n_a}\sum_i (m_i - \bar m_a)^2}_{\text{between}}, \qquad s^{\text{stored}} = s(v_1^{\text{stored}}, v_0^{\text{stored}}). \tag{1}$$
+Its p-value is not Wald: the Welch statistic is Gaussianized through its Welch–Satterthwaite degrees of freedom, $Z = \Phi^{-1}(F_{\text{df}}(T))$, Efron's empirical null $(\mu_0, \sigma_0)$ is fitted to the $Z$ of all genes by `locfdr`, and
+$$p^{\text{stored}} = 2\,\Phi\!\left(-\frac{|Z - \mu_0|}{\sigma_0}\right). \tag{1p}$$
+The within term is the posterior uncertainty of one cell's rate averaged over cells; it is never divided by $k_i$, so it does not fall as a donor contributes more cells, and it is the reason $Z$ has an SD of 0.45 to 0.76 across genes where a calibrated statistic has SD 1.
+
+**`null_rescaled` (option A of the memo).** The stored triple is moved onto the scale the empirical null implies, with no refit:
+$$\widetilde\beta = \widehat\beta - \mu_0\, s^{\text{stored}}, \qquad s^{\text{A}} = \sigma_0\, s^{\text{stored}}, \qquad p^{\text{A}} = 2\,\Phi\!\left(-\frac{|\widetilde\beta|}{s^{\text{A}}}\right), \tag{2}$$
+which reproduces $p^{\text{stored}}$ up to the $t$-to-Gaussian step because $\widehat\beta / s^{\text{stored}} \approx T$. One global factor $\sigma_0$ rescales every gene, so the rank order of the SEs across genes is that of $s^{\text{stored}}$.
+
+**`between` (option B).** Only the spread of the posterior donor means, with the Bessel correction:
+$$v_a^{\text{between}} = \operatorname{var}_i(m_i) = \frac{1}{n_a - 1}\sum_i (m_i - \bar m_a)^2, \qquad s^{\text{B}} = s(v_1^{\text{between}}, v_0^{\text{between}}). \tag{3}$$
+This is the SE of a two-sample comparison of denoised per-donor expression, the pseudobulk SE with posterior means in place of counts. Its Welch $t$ p-value (on the donor degrees of freedom) is also computed and agrees with the Wald one.
+
+**`between_plus`.** The between-donor variance plus the within term scaled as the posterior uncertainty of a donor mean would be, each donor's mean posterior variance divided by its cell count:
+$$v_a^{\text{between+}} = \operatorname{var}_i(m_i) + \frac{1}{n_a}\sum_i \frac{\bar V_i}{k_i}. \tag{4}$$
+
+**`jackknife` (option D, fit fixed).** The leave-one-donor-out SD of the log fold change, over all $n = n_1 + n_0$ donors, with the posterior held fixed:
+$$s^{\text{jack}} = \sqrt{\frac{n - 1}{n}\sum_{j=1}^{n}\left(\widehat\beta_{(-j)} - \frac{1}{n}\sum_{j'} \widehat\beta_{(-j')}\right)^2}, \tag{5}$$
+where $\widehat\beta_{(-j)}$ is (LFC) recomputed without donor $j$. It estimates the same quantity as (3) and is included as the check that (3) is computed right.
+
+**`deshrunk`.** The between-donor SE divided by the gene's mean shrinkage weight,
+$$s^{\text{deshrunk}} = \frac{s^{\text{B}}}{\bar w}. \tag{6}$$
+The argument for it is in the next subsection: the posterior pulls the donors of an arm toward each other by about $\bar w$ but does not pull the arms toward each other, so (3) is about $\bar w$ times the sampling SD of (LFC), and (6) undoes that factor. It needs only the fitted library sizes and the rate, so it can be computed from a diet object plus the count matrix.
+
+**`raw`.** The same construction as `between`, applied to the unshrunk donor means $r_i$ of (D) for both the estimate and the SE:
+$$\widehat\beta^{\,\text{raw}} = \log_2 \frac{\bar r_1}{\bar r_0}, \qquad v_a^{\text{raw}} = \operatorname{var}_i(r_i), \qquad s^{\text{raw}} = \frac{1}{\ln 2}\sqrt{\frac{v_1^{\text{raw}}}{n_1\, \bar r_1^{\,2}} + \frac{v_0^{\text{raw}}}{n_0\, \bar r_0^{\,2}}}. \tag{7}$$
+This is a pseudobulk-type comparison of depth-normalized expression in which the normalization is eSVD's fitted library (intercept, depth and covariates), not the cell total. In the simulations $\widehat\beta^{\,\text{raw}}$ and $\widehat\beta$ agree to within 0.01 on average, which is the shrinkage argument again.
+
+**`raw_null`.** Option A applied to `raw`: the empirical null $(\mu_0', \sigma_0')$ is fitted by `multtest()` to the Wald statistics $\widehat\beta^{\,\text{raw}} / s^{\text{raw}}$ of all genes of the cohort, and
+$$\widetilde\beta^{\,\text{raw}} = \widehat\beta^{\,\text{raw}} - \mu_0'\, s^{\text{raw}}, \qquad s^{\text{raw-null}} = \sigma_0'\, s^{\text{raw}}, \qquad p = 2\,\Phi\!\left(-\frac{|\widetilde\beta^{\,\text{raw}}|}{s^{\text{raw-null}}}\right). \tag{8}$$
+If (7) is calibrated, $\sigma_0'$ comes out near 1 and the rescaling is nearly idle, while $\mu_0'$ carries any shift shared by the log fold changes of the null genes, such as the one the depth adjustment produces when the DE is one-directional.
+
+**`deseq2` (reference).** DESeq2 on pseudobulk counts (one column per donor, design `~ CC`), reporting `log2FoldChange`, `lfcSE` and its Wald p-value: the triple Figure 4 was built for.
+
+## What the oracle and the Figure 4 terms are
+
+The **oracle** sampling SE of a gene is the SD of its estimate over the $R$ replicate cohorts drawn from one population and refitted,
+$$s^{\text{oracle}} = \sqrt{\frac{1}{R - 1}\sum_{\rho=1}^{R}\left(\widehat\beta^{(\rho)} - \bar{\widehat\beta}\right)^2}, \tag{O}$$
+computed for each candidate's own estimate; a candidate SE is calibrated when its mean over replicates equals (O) gene by gene. Two pooled checks are reported with it: the coverage of $\pm 2 s$ around the true log~2~ fold change $\beta$ (0.95 if calibrated), and the ratio $\sqrt{\text{mean}(\widehat\beta - \beta)^2 / \text{mean}(s^2)}$ (1 if calibrated).
+
+The **Figure 4 decomposition** (Writeup50) is computed on the genes whose SE is at or below the 95th percentile in both cohorts of a pair, exactly as the Writeup50 Rmd computes it:
+$$S_A^2 = \text{mean}_g(\widehat\beta_{A g}^2) - \text{mean}_g(s_{A g}^2), \qquad \rho_A = \frac{S_A^2}{\text{mean}_g(\widehat\beta_{A g}^2)}, \qquad k = \frac{S_A}{S_B}, \qquad r = \frac{\text{mean}_g(\widehat\beta_{A g}\, \widehat\beta_{B g})}{S_A S_B}, \tag{F4}$$
+with the slope of B on A through the origin, $\text{slope} = \text{mean}_g(\widehat\beta_{A g} \widehat\beta_{B g}) / \text{mean}_g(\widehat\beta_{A g}^2) = \rho_A\, r / k$. The identity $\text{mean}(\widehat\beta^2) = \text{mean}(\beta^2) + \text{mean}(s^2)$ is what (F4) assumes of the SE; in simulation the truth is $S_A^2 = \text{mean}_g(\beta_{A g}^2)$, $\rho_A = \text{mean}_g(\beta_{A g}^2) / \text{mean}_g(\widehat\beta_{A g}^2)$, and $k$ and $r$ from the population effects on the same genes.
+
+## Why the stored SE is too large and the between-donor SE too small
+
+Two things follow from (P) and (1).
+
+The within term of (1) is the posterior uncertainty of one cell's rate, averaged over cells and never divided by the cells per donor, so it does not shrink as a donor contributes more cells and it is not a sampling variance of anything at the donor level. It is most of the stored SE, which is why $Z$ has SD 0.45 to 0.76 instead of 1.
+
+The between term of (1), and so (3), is shrunk. Within an arm, the fit $\mu_c$ carries no donor identity beyond what the latent factors absorb, so the posterior donor means $m_i$ sit closer to each other than the unshrunk donor means $r_i$ do, by a factor of about $\bar w$. The arm contrast is not shrunk the same way: the fit's own case-control coefficient is estimated from the same donors, so $\bar m_1 - \bar m_0$ moves with the data as much as $\bar r_1 - \bar r_0$ does (in the simulations below the regression slope of the stored logFC on the truth is 1.0, the same as DESeq2's). A between-donor SE therefore understates the sampling variance by about the shrinkage weight, and the understatement is worst for the capped genes, where $\beta$ is large relative to $\ell$ and $\bar w$ is small. Dividing by $\bar w$, (6), undoes the one without touching the other, and so does computing the spread from the unshrunk donor means, (7).
+
+```{r shrinkage_figure, fig.width = 8, fig.height = 4}
+between_df <- gene_level_df[gene_level_df$candidate == "between", ]
+raw_df <- gene_level_df[gene_level_df$candidate == "raw", ]
+stopifnot(identical(between_df$gene, raw_df$gene),
+          identical(between_df$scenario, raw_df$scenario))
+shrink_df <- data.frame(scenario = between_df$scenario,
+                        weight = between_df$mean_shrink_weight,
+                        ratio = between_df$mean_se / raw_df$mean_se,
+                        frac_capped = between_df$frac_capped)
+shrink_df <- shrink_df[shrink_df$scenario %in% c("baseline", "wide_nuisance",
+                                                 "many_cells"), ]
+shrink_plot <- ggplot(shrink_df, aes(x = weight, y = ratio))
+shrink_plot <- shrink_plot + geom_abline(slope = 1, intercept = 0,
+                                         color = "gray60", linetype = "dashed")
+shrink_plot <- shrink_plot + geom_point(aes(color = frac_capped >= 0.5),
+                                        size = 1.2, alpha = 0.7)
+shrink_plot <- shrink_plot + scale_color_manual(
+  values = c(`FALSE` = "#0072B2", `TRUE` = "#D55E00"),
+  labels = c(`FALSE` = "usually estimated", `TRUE` = "usually capped"),
+  name = NULL)
+shrink_plot <- shrink_plot + facet_wrap(~ scenario)
+shrink_plot <- shrink_plot + labs(
+  x = "Mean shrinkage weight w of the gene",
+  y = "between-donor SE / unshrunk-donor-mean SE",
+  title = "The between-donor SE is the unshrunk SE times the shrinkage weight",
+  subtitle = "One point per gene; mean over the replicate cohorts. Dashed: y = x.")
+shrink_plot <- shrink_plot + theme_minimal(base_size = 11)
+shrink_plot <- shrink_plot + theme(legend.position = "bottom",
+                                   panel.grid.minor = element_blank())
+plot(shrink_plot)
+shrink_fit <- stats::coef(stats::lm(ratio ~ weight, data = shrink_df))
+```
+
+Across the genes of the three scenarios shown, the between-to-unshrunk SE ratio regressed on the weight has slope `r fmt(shrink_fit[2])` and intercept `r fmt(shrink_fit[2 - 1])`.
+
+# Replicate cohorts: which SE is the sampling SE
+
+```{r scenario_table}
+scenario_summary <- do.call(rbind, lapply(scenario_vec, function(scenario){
+  df <- scenario02_df[scenario02_df$scenario == scenario, ]
+  data.frame(scenario = scenario,
+             num_replicates = nrow(df),
+             secs = stats::median(df$esvd_secs),
+             frac_capped = mean(df$frac_capped),
+             weight = mean(df$median_shrink_weight),
+             null_mean = mean(df$null_mean),
+             null_sd = mean(df$null_sd),
+             raw_null_mean = mean(df$raw_null_mean),
+             raw_null_sd = mean(df$raw_null_sd),
+             slope_stored = mean(df$slope_stored),
+             slope_deseq2 = mean(df$slope_deseq2),
+             null_median_stored = mean(df$null_median_stored),
+             null_median_raw_null = mean(df$null_median_raw_null),
+             null_median_deseq2 = mean(df$null_median_deseq2),
+             rmse_stored = mean(df$rmse_stored),
+             rmse_raw_null = mean(df$rmse_raw_null),
+             rmse_deseq2 = mean(df$rmse_deseq2))
+}))
+kable(scenario_summary[, c("scenario", "num_replicates", "secs",
+                           "frac_capped", "weight", "null_mean", "null_sd",
+                           "raw_null_mean", "raw_null_sd")],
+      digits = 3, row.names = FALSE,
+      col.names = c("Scenario", "Replicates", "s per fit", "Capped",
+                    "Median w", "Null mean (stored)", "Null SD (stored)",
+                    "Null mean (unshrunk z)", "Null SD (unshrunk z)"),
+      caption = "The scenarios: fraction of genes with a capped or boundary rate, the median shrinkage weight, the empirical null eSVD2 fitted to its own Gaussianized statistic, and the empirical null fitted to the Wald statistic logFC / SE of the unshrunk donor means. Means over replicates. Baseline: 20 donors x 50 cells, 300 genes, 30 DE at +/- 0.8 (natural log), rates 2 to 8, k = 3.")
+```
+
+Design: `r max(scenario02_df$rep)` replicate cohorts per scenario, each a fresh draw of donors and cells from one fixed population truth, each refitted end to end (eSVD2 1.2.0, cap 10, defaults). The oracle SE of a gene is the SD of its logFC over the replicates. Each scenario changes one thing from the baseline (Section 3 table): rates spanning 0.5 to 200 so that many genes are capped as in the real cohorts (`wide_nuisance`), 10 donors (`small_cohort`), 200 cells per donor (`many_cells`), all 30 DE genes up in cases (`asymmetric`), `k = 10` fitted to a rank-3 truth (`overfit_k`), 40 donors (`large_cohort`).
+
+## The SE against the oracle
+
+```{r ratio_figure, fig.width = 10, fig.height = 6}
+ratio_df <- gene_level_df[is.finite(gene_level_df$oracle_sd) &
+                            gene_level_df$oracle_sd > 0 &
+                            is.finite(gene_level_df$mean_se), ]
+ratio_df$log2_ratio <- log2(ratio_df$mean_se / ratio_df$oracle_sd)
+ratio_df <- .label_candidates(ratio_df)
+ratio_df$scenario <- factor(ratio_df$scenario, levels = scenario_vec)
+ratio_plot <- ggplot(ratio_df, aes(x = candidate, y = log2_ratio,
+                                   color = candidate))
+ratio_plot <- ratio_plot + geom_hline(yintercept = 0, color = "gray60",
+                                      linetype = "dashed")
+ratio_plot <- ratio_plot + geom_boxplot(outlier.size = 0.4, linewidth = 0.4)
+ratio_plot <- ratio_plot + scale_color_manual(
+  values = stats::setNames(candidate_color_vec, candidate_label_vec),
+  guide = "none")
+ratio_plot <- ratio_plot + facet_wrap(~ scenario, ncol = 4)
+ratio_plot <- ratio_plot + coord_cartesian(ylim = c(-2.5, 3.5))
+ratio_plot <- ratio_plot + labs(
+  x = NULL, y = "log2( mean SE / oracle SD )",
+  title = "Each candidate SE against the SD of its logFC over replicate cohorts",
+  subtitle = "One box per candidate over the 300 genes. 0 is a calibrated SE; +1 is twice too large.")
+ratio_plot <- ratio_plot + theme_minimal(base_size = 10)
+ratio_plot <- ratio_plot + theme(axis.text.x = element_text(angle = 45,
+                                                            hjust = 1),
+                                 panel.grid.minor = element_blank())
+plot(ratio_plot)
+```
+
+```{r ratio_table}
+all_df <- summary02_df[summary02_df$stratum == "all", ]
+all_df <- .label_candidates(all_df)
+ratio_wide <- stats::reshape(
+  all_df[, c("scenario", "candidate", "median_se_over_oracle")],
+  idvar = "candidate", timevar = "scenario", direction = "wide")
+ratio_wide <- ratio_wide[order(ratio_wide$candidate), ]
+kable(ratio_wide[, c("candidate", paste0("median_se_over_oracle.",
+                                         scenario_vec))],
+      digits = 2, row.names = FALSE,
+      col.names = c("Candidate", scenario_vec),
+      caption = "Median over genes of (mean SE) / (oracle SD). 1 is calibrated.")
+spearman_wide <- stats::reshape(
+  all_df[, c("scenario", "candidate", "spearman_se_oracle")],
+  idvar = "candidate", timevar = "scenario", direction = "wide")
+spearman_wide <- spearman_wide[order(spearman_wide$candidate), ]
+kable(spearman_wide[, c("candidate", paste0("spearman_se_oracle.",
+                                            scenario_vec))],
+      digits = 2, row.names = FALSE,
+      col.names = c("Candidate", scenario_vec),
+      caption = "Spearman correlation across genes between the mean SE and the oracle SD. A gene-varying miscalibration shows here even when the median ratio is 1.")
+```
+
+```{r ratio_numbers}
+.ratio <- function(candidate, scenario){
+  all_df$median_se_over_oracle[all_df$candidate == candidate_label_vec[candidate] &
+                                 all_df$scenario == scenario]
+}
+.spearman <- function(candidate, scenario){
+  all_df$spearman_se_oracle[all_df$candidate == candidate_label_vec[candidate] &
+                              all_df$scenario == scenario]
+}
+.range_ratio <- function(candidate){
+  x <- sapply(scenario_vec, function(s){.ratio(candidate, s)})
+  paste0(fmt(min(x)), " to ", fmt(max(x)))
+}
+```
+
+**The stored SE is `r .range_ratio("stored")` times the sampling SD**, and the ratio is not a constant across genes: its Spearman correlation with the oracle is `r fmt(.spearman("stored", "baseline"))` in the baseline, the same as DESeq2's `r fmt(.spearman("deseq2", "baseline"))` only because both are dominated by expression level. Dividing by the empirical null's SD (option A) brings the median ratio to `r .range_ratio("null_rescaled")` and leaves the rank order untouched. **The between-donor SE (option B) is `r .range_ratio("between")` of the oracle**, with the jackknife agreeing with it to within 0.03 as expected of two estimates of the same fit-fixed quantity; its rank correlation with the oracle (`r fmt(.spearman("between", "baseline"))` in the baseline, `r fmt(.spearman("between", "many_cells"))` with 200 cells per donor) is the lowest of the candidates, because the shrinkage weight varies by gene. **Undoing the shrinkage repairs it**: the between-donor SE divided by the weight has a median ratio of `r .range_ratio("deshrunk")`, and the SE of the unshrunk donor means `r .range_ratio("raw")`, both with DESeq2's rank correlation. Adding the within term divided by the cells per donor (`between_plus`) recovers only part of the gap (`r .range_ratio("between_plus")`), because the within term is the posterior variance of a rate given the fit and the fit's own sampling variance is what is missing.
+
+## Coverage, calibration and the moments identity
+
+```{r coverage_table}
+show_df <- all_df[order(match(all_df$scenario, scenario_vec),
+                        all_df$candidate),
+                  c("scenario", "candidate", "coverage_2se", "calibration",
+                    "sd_z_null", "rho_moments", "rho_truth", "noise_ratio",
+                    "mean_num_false", "mean_power")]
+kable(show_df, digits = 2, row.names = FALSE,
+      col.names = c("Scenario", "Candidate", "Coverage of ±2 SE",
+                    "RMSE / RMS SE", "SD of z, null genes", "ρ (moments)",
+                    "ρ (truth)", "mean SE² / mean error²",
+                    "False discoveries", "Power"),
+      caption = "Pooled over genes and replicates. Coverage: the true log2 fold change within ±2 SE (0.95 if calibrated). RMSE / RMS SE: 1 if calibrated. ρ (moments) is 1 − mean(SE²)/mean(logFC²) on the 95%-SE-trimmed genes, ρ (truth) is mean(β²)/mean(logFC²) on the same genes. False discoveries and power: BH 0.05 on the candidate's own p-value (eSVD2's empirical-null p-value for `stored`, Wald otherwise), 270 null and 30 DE genes.")
+```
+
+```{r coverage_numbers}
+.cov <- function(candidate, scenario, column = "coverage_2se"){
+  all_df[[column]][all_df$candidate == candidate_label_vec[candidate] &
+                     all_df$scenario == scenario]
+}
+.range_cov <- function(candidate, column = "coverage_2se", digits = 2){
+  x <- sapply(scenario_vec, function(s){.cov(candidate, s, column)})
+  paste0(fmt(min(x), digits), " to ", fmt(max(x), digits))
+}
+```
+
+Three candidates are calibrated as a Wald SE: the null-rescaled stored SE (coverage `r .range_cov("null_rescaled")`, RMSE-to-SE ratio `r .range_cov("null_rescaled", "calibration")`), the unshrunk SE with the empirical null fitted to its own Wald statistics (`r .range_cov("raw_null")`, `r .range_cov("raw_null", "calibration")`), and DESeq2 (`r .range_cov("deseq2")`, `r .range_cov("deseq2", "calibration")`). The unshrunk SE on its own covers `r .range_cov("raw")`, the shortfall coming from the logFC's bias rather than from the SE (next subsection). The between-donor SE covers `r .range_cov("between")`.
+
+The moments reliability follows the same split. With a calibrated SE, ρ from `1 − mean(SE²)/mean(logFC²)` is within 0.04 of the truth in every scenario (unshrunk SE `r .range_cov("raw", "rho_moments")` against truth `r .range_cov("raw", "rho_truth")`); with the stored SE it is negative in `r sum(all_df$rho_moments[all_df$candidate == candidate_label_vec["stored"]] < 0)` of 7 scenarios, the real-data failure.
+
+As tests at BH 0.05 on their own p-value, with 270 null genes: eSVD2's stored empirical-null test makes `r .range_cov("stored", "mean_num_false", 1)` false discoveries, DESeq2 `r .range_cov("deseq2", "mean_num_false", 1)`, the unshrunk SE with the empirical null `r .range_cov("raw_null", "mean_num_false", 1)`, and option A `r .range_cov("null_rescaled", "mean_num_false", 1)`. The between-donor Wald test makes `r .range_cov("between", "mean_num_false", 0)`. The unshrunk SE as a plain Wald test makes `r .range_cov("raw", "mean_num_false", 1)`, with the `r fmt(.cov("raw", "asymmetric", "mean_num_false"), 0)` of the asymmetric scenario explained below. Power is 1 for every candidate at this effect size, so the differences are all in the false discoveries.
+
+## By nuisance status
+
+```{r status_table}
+status_df <- summary02_df[summary02_df$scenario == "wide_nuisance" &
+                            summary02_df$stratum != "all", ]
+status_df <- .label_candidates(status_df)
+status_df <- status_df[order(status_df$stratum, status_df$candidate), ]
+kable(status_df[, c("stratum", "candidate", "num_genes_usual",
+                    "median_se_over_oracle", "spearman_se_oracle",
+                    "coverage_2se", "calibration", "mean_num_false",
+                    "mean_power")],
+      digits = 2, row.names = FALSE,
+      col.names = c("Stratum", "Candidate", "Genes", "Median SE / oracle",
+                    "Spearman", "Coverage of ±2 SE", "RMSE / RMS SE",
+                    "False discoveries", "Power"),
+      caption = "The wide-nuisance scenario (rates 0.5 to 200) split by the gene's nuisance status. Genes: those usually (in at least half the replicates) in the stratum; the pooled columns use each replicate's own status.")
+```
+
+```{r status_numbers}
+.st <- function(candidate, stratum, column){
+  status_df[[column]][status_df$candidate == candidate_label_vec[candidate] &
+                        status_df$stratum == stratum]
+}
+```
+
+With `r pct(summary02_df$frac_stratum[summary02_df$scenario == "wide_nuisance" & summary02_df$stratum == "capped_or_boundary"][1])` of the genes capped, as in Green, the between-donor SE is `r fmt(.st("between", "estimated", "median_se_over_oracle"))` of the oracle for the estimated genes and `r fmt(.st("between", "capped_or_boundary", "median_se_over_oracle"))` for the capped ones, where the shrinkage weight is smallest; its false discoveries come mostly from the capped genes (`r fmt(.st("between", "capped_or_boundary", "mean_num_false"), 0)` of `r fmt(.st("between", "capped_or_boundary", "mean_num_false") + .st("between", "estimated", "mean_num_false"), 0)`). The unshrunk SE is at `r fmt(.st("raw", "estimated", "median_se_over_oracle"))` and `r fmt(.st("raw", "capped_or_boundary", "median_se_over_oracle"))` in the two strata, and its coverage with the empirical null is `r fmt(.st("raw_null", "estimated", "coverage_2se"))` and `r fmt(.st("raw_null", "capped_or_boundary", "coverage_2se"))`. The real cohorts' stratum difference in the null SD (Section 1.4) is thus the shrinkage weight at work on the stored SE's between term; a per-gene SE that undoes the shrinkage needs no stratum-specific null.
+
+## The log fold change itself
+
+```{r lfc_table}
+kable(scenario_summary[, c("scenario", "slope_stored", "slope_deseq2",
+                           "null_median_stored", "null_median_raw_null",
+                           "null_median_deseq2", "rmse_stored",
+                           "rmse_raw_null", "rmse_deseq2")],
+      digits = 3, row.names = FALSE,
+      col.names = c("Scenario", "Slope on truth (eSVD)", "(DESeq2)",
+                    "Null-gene median logFC (eSVD)",
+                    "(eSVD, shifted by its null)", "(DESeq2)",
+                    "RMSE (eSVD)", "(eSVD, shifted)", "(DESeq2)"),
+      caption = "The log fold change: regression slope on the true log2 fold change (1 is unattenuated), the median logFC of the 270 null genes (0 is unbiased), and the root-mean-square error over all genes. The shifted eSVD logFC is logFC − null_mean × SE with the null fitted to the unshrunk Wald statistics. Means over replicates.")
+asym <- scenario_summary[scenario_summary$scenario == "asymmetric", ]
+base <- scenario_summary[scenario_summary$scenario == "baseline", ]
+```
+
+eSVD-DE's logFC is not attenuated: its slope on the truth is `r fmt(min(scenario_summary$slope_stored), 3)` to `r fmt(max(scenario_summary$slope_stored), 3)`, the same as DESeq2's, which is the direct form of the argument of Section 2.5 that the posterior shrinks the donors toward each other and not the arms toward each other. Its error is `r pct(base$rmse_stored / base$rmse_deseq2 - 1)` above DESeq2's in the baseline and within `r pct(max(abs(scenario_summary$rmse_stored / scenario_summary$rmse_deseq2 - 1)[scenario_summary$scenario != "asymmetric"]))` elsewhere, except in the asymmetric scenario.
+
+**When the DE genes all go one way, the depth adjustment biases every gene.** With 30 of 300 genes up in cases by 0.8 on the natural-log scale, the case cells' totals rise, `Log_UMI` rises with them, and the null genes come out at a median logFC of `r fmt(asym$null_median_stored)` under eSVD-DE against `r fmt(asym$null_median_deseq2)` under DESeq2, whose median-of-ratios size factors resist a minority of DE genes. The error of eSVD-DE's logFC rises to `r fmt(asym$rmse_stored)` from `r fmt(base$rmse_stored)`, and a Wald test with a per-gene SE then calls `r fmt(.cov("raw", "asymmetric", "mean_num_false"), 0)` null genes. The empirical null sees this shift: its mean on the unshrunk Wald statistics is `r fmt(asym$raw_null_mean)` against `r fmt(base$raw_null_mean)` in the baseline. Subtracting `null_mean × SE` from the logFC brings the null genes back to `r fmt(asym$null_median_raw_null, 3)`, the error down to `r fmt(asym$rmse_raw_null)`, below DESeq2's `r fmt(asym$rmse_deseq2)`, and the false discoveries to `r fmt(.cov("raw_null", "asymmetric", "mean_num_false"), 1)`. This is the case for Kevin's suggestion of correcting the logFC as the p-value is corrected: the correction matters when the DE is asymmetric, and on the real cohorts it is about 0.02 log~2~ because their nulls are centred near zero.
+
+The same shift applied to the stored SE (option A, `null_mean × stored SE`) also removes the bias (null-gene median `r fmt(mean(scenario02_df$null_median_null_rescaled[scenario02_df$scenario == "asymmetric"]), 3)`), because the product `null_mean × SE` is the same shift in logFC units whichever SE scale the null was fitted on, as long as the two are fitted together.
+
+# Pairs of cohorts: recovering the Figure 4 terms
+
+```{r pairs_table}
+show_df <- .label_candidates(summary03_df)
+show_df <- show_df[order(match(show_df$scenario,
+                               c("equal", "small_b", "wide_nuisance")),
+                         show_df$candidate), ]
+show_df$slope <- paste0(fmt(show_df$slope_mean), " (", fmt(show_df$truth_slope), ")")
+show_df$rho <- paste0(fmt(show_df$rho_a_mean), " (", fmt(show_df$truth_rho_a), ")")
+show_df$k <- paste0(fmt(show_df$k_mean), " (", fmt(show_df$truth_k), ")")
+show_df$r <- paste0(fmt(show_df$r_mean), " (", fmt(show_df$truth_r), ")")
+kable(show_df[, c("scenario", "candidate", "frac_valid", "slope", "rho", "k",
+                  "r", "num_discovery_mean", "frac_discovery_true_mean",
+                  "frac_same_sign_mean", "frac_same_sign_truth_b_mean")],
+      digits = 2, row.names = FALSE,
+      col.names = c("Scenario", "Candidate", "S² > 0", "Slope (truth)",
+                    "ρ_A (truth)", "k (truth)", "r (truth)", "DEGs of A",
+                    "True among them", "Same sign in B",
+                    "Same sign as B's truth"),
+      caption = "Means over 20 replicate pairs. True k = 2 and r = 0.8 on the DE genes; the truth columns are the values on the trimmed universe of each pair. A: 20 donors. B: 20 donors (equal), 10 donors (small_b), or 20 donors with rates 0.5 to 200 (wide_nuisance). A term is undefined when S² < 0 (column S² > 0 is the fraction of pairs where both are positive).")
+```
+
+```{r pairs_numbers}
+.term <- function(candidate, scenario, term){
+  summary03_df[[term]][summary03_df$candidate == candidate &
+                         summary03_df$scenario == scenario]
+}
+# The largest absolute error over the scenarios.
+.k_error <- function(candidate){
+  x <- sapply(unique(summary03_df$scenario), function(s){
+    .term(candidate, s, "k_mean") - .term(candidate, s, "truth_k")
+  })
+  fmt(max(abs(x)))
+}
+.r_error <- function(candidate){
+  x <- sapply(unique(summary03_df$scenario), function(s){
+    .term(candidate, s, "r_mean") - .term(candidate, s, "truth_r")
+  })
+  fmt(max(abs(x)))
+}
+```
+
+Design: populations A and B share every gene's intercept, loadings and rate; their case-control effects on the 45 DE genes (of 300) are correlated at `r fmt(0.8, 1)` with a size ratio of 2, so that k and r are known. Each of 20 replicate pairs draws a fresh cohort from each population and refits both. The decomposition is computed as the Writeup50 Rmd computes it, on the genes whose SE is at or below the 95th percentile in both cohorts. The realized ρ~A~ is 0.87 to 0.93 in the first three scenarios, higher than the real cohorts' 0.4 to 0.65, which is why `weak_effects` halves the effect SD (ρ~A~ `r fmt(.term("deseq2", "weak_effects", "truth_rho_a"))`).
+
+**The stored triple cannot be decomposed**, in simulation as on the real cohorts: `mean(SE²)` exceeds `mean(logFC²)`, S² is negative, and k and r are undefined in all `r sum(summary03_df$candidate == "stored")` scenario rows. The slope, which uses no SE, is the same under every eSVD candidate and within 0.02 of DESeq2's.
+
+**Three candidates recover k and r.** The SE from the unshrunk donor means (`raw`) puts k within `r .k_error("raw")` and r within `r .r_error("raw")` of the truth across the four scenarios, the same accuracy as DESeq2 (k `r .k_error("deseq2")`, r `r .r_error("deseq2")`). The between-donor SE divided by the shrinkage weight (`deshrunk`) is nearly as good on k (within `r .k_error("deshrunk")`) and overstates r by up to `r fmt(max(sapply(unique(summary03_df$scenario), function(s){.term("deshrunk", s, "r_mean") - .term("deshrunk", s, "truth_r")})))`. The null-rescaled SE of option A matches them when the effects are strong but overstates r by `r fmt(.term("null_rescaled", "weak_effects", "r_mean") - .term("null_rescaled", "weak_effects", "truth_r"))` when they are weak (`r fmt(.term("null_rescaled", "weak_effects", "r_mean"))` against `r fmt(.term("null_rescaled", "weak_effects", "truth_r"))`), the direction of the r above 1 that the memo reported for Gabitto and Green: `locfdr`'s null SD is fit to the central genes, and when the DE genes are weak enough to sit among them the null SD, and so the rescaled SE, is too large, which understates S~A~ S~B~.
+
+**The between-donor SE (option B) and its jackknife twin fail in the other direction.** They understate k by `r fmt(-max(sapply(unique(summary03_df$scenario), function(s){.term("between", s, "k_mean") - .term("between", s, "truth_k")})))` to `r fmt(-min(sapply(unique(summary03_df$scenario), function(s){.term("between", s, "k_mean") - .term("between", s, "truth_k")})))` and r by `r fmt(-max(sapply(unique(summary03_df$scenario), function(s){.term("between", s, "r_mean") - .term("between", s, "truth_r")})))` to `r fmt(-min(sapply(unique(summary03_df$scenario), function(s){.term("between", s, "r_mean") - .term("between", s, "truth_r")})))`, and as a test they call `r fmt(.term("between", "equal", "num_discovery_mean"), 0)` DEGs in the equal scenario where 45 genes are DE and DESeq2 calls `r fmt(.term("deseq2", "equal", "num_discovery_mean"), 0)`, with `r pct(1 - .term("between", "equal", "frac_discovery_true_mean"))` of them false. Their lower sign agreement in B (`r pct(.term("between", "equal", "frac_same_sign_mean"))` against `r pct(.term("stored", "equal", "frac_same_sign_mean"))` for the stored list) is this: a list padded with null genes replicates at the coin-flip rate on the padding. The same mechanism is the Section 1 reading of the real Prater pairs, where eSVD-DE's non-replicating DEGs are its smallest effects.
+
+Adding the within term divided by the donor's cell count (`between_plus`) closes about half of the gap and is not worth the complication.
+
+# Conclusions and what to change
+
+1. **The sign-agreement gap is not an uncorrected logFC offset.** Recentering eSVD-DE's logFC by the empirical null, the median or a trimmed mean changes no same-sign fraction by more than 0.03 on Tati's cohorts, and the genes eSVD-DE calls in Gabitto and Sun fail to keep their sign in Prater under every method's logFC. Those genes are its smallest effects (median |logFC| 0.23 to 0.36), whose sign a 22-donor cohort cannot pin down. Whether they are true discoveries is the false-discovery question, which the simulations answer in eSVD2's favour at this effect size (its empirical-null test makes 2 to 3 false discoveries per 270 null genes against DESeq2's 1 to 4).
+
+2. **The stored SE is 3.4 to 5 times the sampling SD, and the between-donor SE of option B is 0.65 to 0.73 of it.** The first carries the posterior variance of a single cell's rate. The second is shrunk by the posterior's weight on the fit, which pulls the donors of an arm toward each other without pulling the arms toward each other. Both are gene-varying miscalibrations, so a global factor (option A) fixes the scale of the first but not its rank order, and the real cohorts' stratum-dependent null SD is the symptom.
+
+3. **The SE to report is the delta-method SE of the log ratio of arm means of the per-donor means of `A / library`** (the unshrunk donor means), or equivalently the between-donor SE divided by the gene's mean shrinkage weight. Either is calibrated to the replicate SD (median ratio 0.98 to 1.08) with DESeq2's rank correlation, recovers k within 0.05 and r within 0.03 in the cohort pairs, and gives a positive ρ in every scenario. Both need the count matrix and the stored fit, which a server job on the cleaned objects supplies in minutes per cohort.
+
+4. **The logFC should be shifted by the empirical null's mean, and the empirical null should be fitted to the new Wald statistic.** On the unshrunk Wald statistics the fitted null SD is 1.03 to 1.11, so the rescaling is nearly idle, and the fitted mean carries the depth adjustment's shift, which is small on the real cohorts and large when the DE is one-directional. For Figure 4's moments, the unrescaled SE is the safer choice: fitting `locfdr` among weak true effects inflates the null SD, and r came out 0.97 against a truth of 0.83 with the rescaled SE (0.83 with the plain one), the same overshoot the memo found for option A on Gabitto and Green.
+
+5. **What to implement in eSVD2.** `compute_test_statistic()` and `compute_test_per_gene()` store the between-donor variance of the posterior donor means and of the unshrunk donor means separately from the within term; `compute_log_fold_change()` takes which variance forms the SE; `report_results()` adds the Wald SE and the shifted logFC. Until then, the server recomputation above produces the same columns from Tati's fits without a package change.
+
+# What was not done {-}
+
+- **No refit of the real cohorts.** Options B, `deshrunk` and `raw` need the per-donor matrices, which the diet objects do not hold. A server job that loads each cleaned object with its stored fit and recomputes the posterior stage (minutes per cohort, per the memo) would give them.
+- **No covariates in the simulated cohorts** beyond the intercept and depth; the real fits adjust for sex, age and batch, which enter the library and the fit but not the Welch test.
+- **No split-half check** of the moments ρ; the oracle here is the replicate SD, which is the quantity split-half estimates.
+- **The empirical null was not refitted on the Wald statistics** of the candidates; the SD of the null genes' z is reported instead.
+- **k was 3 (true rank) except in one scenario**; the real fits use k = 30 on thousands of genes.
+
+# Session information {-}
+
+```{r session_info}
+print(Sys.time())
+utils::sessionInfo()
+```

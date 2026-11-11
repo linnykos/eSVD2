@@ -111,3 +111,12 @@ additional_context/overdispersion_brainstorm/output/master_extra_genes.csv
 # Locally rendered vignettes and articles (view only; rebuilt from the .Rmd)
 vignettes/*.html
 vignettes/articles/*.html
+
+# --- SE exploration (additional_context/2026-11-07_std-exploration) ---
+# Cached fits, per-gene tables and logs are rebuilt by run_all_claude.sh;
+# the scripts, README and the knitted summary stay tracked.
+additional_context/2026-11-07_std-exploration/cache/
+additional_context/2026-11-07_std-exploration/output/*.csv
+additional_context/2026-11-07_std-exploration/output/*.txt
+additional_context/2026-11-07_std-exploration/output/*.RData
+additional_context/2026-11-07_std-exploration/*_files/

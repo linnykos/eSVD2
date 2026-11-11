@@ -18,10 +18,35 @@ Resolves the location names declared in the master `CLAUDE.md` → *External Loc
 | `PAPER_DATA` | personal laptop (macOS) | `~/Downloads/rawMatrix/` (Velmeshev only) | Unzipped from `~/Downloads/rawMatrix.zip` (from cells.ucsc.edu/autism) on 2026-09-30; the processed `asd_seurat.RData` and the fitted `asd_esvd.RData` / `asd_esvd_stagewise.RData` of session 22 are in `~/Downloads/esvd_asd_tmp/`. All of it is disposable and can be regenerated from the articles. The other data sets are not downloaded |
 | `OVERDISPERSION_WIKI` | personal laptop (macOS), Dropbox | `~/Library/CloudStorage/Dropbox/Collaboration-and-People/amywatt/git/overdispersion_wiki` | Read only from this project. Start at `wiki/index.md`; pages are `wiki/pages/<slug>.md` |
 | `WAS2CODE_REPO` | personal laptop (macOS), Dropbox | `~/Library/CloudStorage/Dropbox/Collaboration-and-People/archive/tati/git/Was2CODE` | Under `archive/`, so treat as frozen. `R/esvd_helper.R` (60 lines) is the file being imported into `eSVD2`; copy it in rather than depending on this path |
+| `WAS2CODE_ANALYSIS_REPO` | personal laptop (macOS), Dropbox | `~/Library/CloudStorage/Dropbox/Collaboration-and-People/archive/tati/git/Was2CoDE_analysis` | Writeup50 lives under `code/kevin/Writeup50_processing-tati-results/`; its CSVs under `csv/kevin/Writeup50/`; its figures under `figures/kevin/Writeup50/`. Read only from this project |
+| `TATI_ESVD_OUT` | personal laptop (macOS), Dropbox | `~/Library/CloudStorage/Dropbox/Collaboration-and-People/archive/tati/out/tati` | `Writeup44` to `Writeup47` hold `<Writeup>_<cohort>_esvd.RData` (Prater, Gabitto, Sun, Green), diet `eSVD` objects of 1.2.0 at `$original`. Read only from this project |
 
 Name the machine specifically enough that another collaborator can tell whether it is reachable to them. **A missing row means unknown; only an explicit *(not present)* row means known-absent.**
 
-## Project Status (as of 2026-10-09)
+## Project Status (as of 2026-11-11)
+
+**An autoresearch loop on the logFC/SE reporting rule is in Phase 1
+(alignment), round 1 (session 31, uncommitted).** The memo is
+`additional_context/AUTORESEARCH_LFC-SE_MEMO_claude.md`; it proposes the
+score (Gaussian NLL of the true log2FC), a 144-cell bank of fitted cohort
+pairs, five directions with a ten-experiment queue, and ten questions for
+Kevin. Nothing is built; the next step is Kevin's answers, then the build
+of `autoresearch_lfcse/` in a later session.
+
+
+**Branch `2026-11-07_std` holds a standard-error exploration for the
+Was2CoDE Figure 4 (session 30, uncommitted):**
+`additional_context/2026-11-07_std-exploration/` with its knitted
+`summary_claude.html`. Its answer: the stored SE is 3.4 to 5 times the
+replicate-cohort SD and the between-donor SE of the memo's option B is
+0.65 to 0.73 times it (shrunk by the posterior weight); the SE of the
+unshrunk per-donor means, or the between-donor SE divided by the gene's
+shrinkage weight, is calibrated and recovers Figure 4's k and r; the logFC
+should be shifted by the empirical null's mean, which carries the depth
+adjustment's bias. Kevin's hypothesis that the sign-agreement gap is an
+uncorrected logFC offset was ruled out on Tati's tables. Nothing in `R/`
+changed. The package changes it recommends are listed under Open Questions.
+
 
 **Reference-page math now renders on the pkgdown site** (session 29,
 uncommitted): `_pkgdown.yml` sets `template: math-rendering: katex`.
@@ -100,6 +125,44 @@ is labelled as the build machine's (session 28). The CI fix is untested until
 `CRAN_READINESS.md` §0.3 is the list.
 
 ## Key Methodological Details
+
+- **A proper score on the truth rewards shrinking the logFC.** On the
+  cached exploration fits, thresholding non-significant genes to 0 gains 2
+  to 2.6 nats per gene where the non-DE genes are exactly null and loses
+  1.5 to 4.5 where effects are Gaussian. Any bank for scoring a Wald pair
+  needs genes with weak nonzero effects, an uncapped score, and an
+  attenuation check.
+- **With 10 donors the stored within term is worth keeping as a
+  stabilizer**: `null_rescaled` scores 0.08 nats per gene better than
+  `raw_null` there, and DESeq2 0.09 better.
+- **Posterior shrinkage shrinks donors toward each other, not arms toward
+  each other.** The per-cell posterior mean is `w * A/library + (1 - w) *
+  fit`, `w = library / (library + rate)`; the between-donor spread of the
+  donor means is about `w` times the unshrunk spread (regression slope 0.88
+  across genes), while the stored logFC's slope on the truth is 1.00 in
+  every simulated scenario. So a between-donor SE is `w` times too small,
+  worst for capped genes (`w` about 0.1 at the cap), and the SE of the
+  unshrunk donor means `A / library`, or between-donor SE / `w`, is the
+  calibrated one (median 0.98 to 1.12 of the replicate SD).
+- **The empirical null's mean is a logFC bias detector.** Fitted to the
+  unshrunk Wald statistics it has SD 1.03 to 1.11; its mean is -0.3 to -0.9
+  in symmetric scenarios and -1.75 when all DE genes go one way, where the
+  depth adjustment puts the null genes at logFC -0.17 and `logFC -
+  null_mean * SE` restores them to 0. On Tati's cohorts the shift is about
+  0.02 log2.
+- **`locfdr` overstates the null SD when true effects are weak**, which
+  makes option A (and any rescaled SE) overshoot Figure 4's r (0.97 against
+  0.83 in simulation; the memo's r > 1 for Gabitto-Green). The unrescaled
+  per-gene SE recovers r within 0.02.
+- **eSVD-DE's non-replicating real DEGs are its smallest effects**
+  (Gabitto/Sun estimated-rate DEGs, median |logFC| 0.23 to 0.36, sign kept
+  in Prater 55 to 65% under any method); its capped-rate DEGs replicate
+  at 93%. In simulation its empirical-null test makes 2 to 3 false
+  discoveries per 270 null genes against DESeq2's 1 to 4.
+- **The exploration loads 1.2.0 from `version_comparison/lib/devel`**
+  (the system library has 1.0.1.2); one 1000-cell x 300-gene fit takes
+  about 4 s, so replicate-cohort oracles are cheap.
+
 
 - **On the Velmeshev L2/3 cohort (13,302 cells, 6,599 genes, 15 vs 16
   donors, `k = 30`) the default cap binds on 73% of genes**: 4,576 capped,
@@ -426,6 +489,36 @@ is labelled as the build machine's (session 28). The CI fix is untested until
   no longer needed.
 
 ## Open Questions / Next Steps
+
+**Autoresearch (session 31):**
+
+0z. **Answer the ten questions of section 6 of
+    `AUTORESEARCH_LFC-SE_MEMO_claude.md`** (in a responses file
+    `additional_context/responses-to-memo_round1.txt` or live). The ones
+    that change the build: whether Figure 4's moment error enters the
+    score, the no-shrinkage rule and its gate, whether the p-value is on
+    trial, whether the logFC must use the fit, the baseline, and the
+    donor-SD levels (a ten-minute check on the ASD fit is proposed).
+    Commit the exploration on `2026-11-07_std` before any run branch is cut.
+
+**From the SE exploration (session 30), newest first:**
+
+0a. **Decide whether eSVD2 should store a Wald SE.** The summary recommends:
+    `compute_test_statistic()` and `compute_test_per_gene()` store the
+    between-donor variance of the posterior donor means and of the unshrunk
+    donor means (`A / library`) beside the within term; `compute_log_fold_change()`
+    takes which variance forms the SE; `report_results()` adds the Wald SE
+    and the null-shifted logFC. Also whether the shifted logFC should
+    become the reported `logFC`.
+0b. **Server job for Was2CoDE**: recompute the posterior stage from Tati's
+    stored fits (minutes per cohort) to get the unshrunk-donor-mean SE for
+    the four cohorts, then redo Figure 4b/4d with eSVD-DE included; check
+    the fitted null SD on the new Wald statistic is near 1 as in simulation.
+0c. Whether to run the exploration with covariates (sex, age, batch) in the
+    library, with k = 30, and with a split-half refit as a second oracle.
+0d. The 0.01 to 0.03 of leftover overshoot in r under the rescaled SEs:
+    live with it, or fit the null on a narrower central window.
+
 
 **Decisions for Kevin, newest first.** Q-LFC-2 and Q-LFC-3 are in
 `UNIT_TEST_PLAN.md` §2.18; the full list is `CRAN_READINESS.md` §0.3.
