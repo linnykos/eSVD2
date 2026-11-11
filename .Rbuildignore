@@ -29,3 +29,4 @@
 ^revdep$
 ^vignettes/articles$
 ^vignettes/.*\.html$
+^autoresearch_lfcse$

@@ -57,14 +57,15 @@ Paths below are relative to this file's directory and are the same for everyone.
 | `data/` | Shipped reference gene lists (`gandal_df`, `housekeeping_df`, `sfari_df`, `velmeshev_gene_df`). |
 | `tests/testthat/` | testthat suite. Fixtures live in `tests/assets/` and are loaded with `load("../assets/...")`. |
 | `vignettes/` | `eSVD2.Rmd` (self-contained toy runs), `asd.Rmd` / `asd-preprocess.Rmd` (need external downloads; heavy chunks are `eval = FALSE`). |
-| `additional_context/` | Reference PDFs + `summary.md` index + `CRAN_READINESS.md` (audit) + `UNIT_TEST_PLAN.md` (proposed test suite) + `OVERDISPERSION_BRAINSTORM.md` (options for bounding the nuisance rate) + `version_comparison/` and `overdispersion_brainstorm/` (simulation scripts and their summary tables) + `2026-11-07_std-exploration/` (the Wald-usable logFC/SE study for Was2CoDE's Figure 4; its `README.md` is the design memo, `summary_claude.html` the result) + `AUTORESEARCH_LFC-SE_MEMO_claude.md` (alignment memo, under review, for an autoresearch loop on the reported logFC and SE). **Excluded from the CRAN tarball** via `.Rbuildignore`. |
+| `additional_context/` | Reference PDFs + `summary.md` index + `CRAN_READINESS.md` (audit) + `UNIT_TEST_PLAN.md` (proposed test suite) + `OVERDISPERSION_BRAINSTORM.md` (options for bounding the nuisance rate) + `version_comparison/` and `overdispersion_brainstorm/` (simulation scripts and their summary tables) + `2026-11-07_std-exploration/` (the Wald-usable logFC/SE study for Was2CoDE's Figure 4; its `README.md` is the design memo, `summary_claude.html` the result) + `AUTORESEARCH_LFC-SE_MEMO_claude.md` (round-1 alignment memo for the autoresearch loop on the reported logFC and SE; the agreed version is `autoresearch_lfcse/notes/MEMO_claude.md`). **Excluded from the CRAN tarball** via `.Rbuildignore`. |
 | `oldcode/` | Superseded code, kept for reference; `.Rbuildignore`d. |
+| `autoresearch_lfcse/` | Autoresearch loop on the reported logFC and SE: one trial file (`report_rule_claude.R`), a fixed scorer and bank builder under `harness/`, and `notes/` (`MEMO_claude.md` is the agreed design, `BANK.md` the bank as built). Read its `README.md` first. Tracked in git, `.Rbuildignore`d; `output/` is `.gitignore`d. |
 
 **`.gitignore` vs `.Rbuildignore`.** These are deliberately different.
 `.gitignore` keeps build artifacts and session state out of *git history*.
 `.Rbuildignore` keeps collaboration material out of the *CRAN tarball* —
 `additional_context/`, `CLAUDE*.md`, `HISTORY_*.md`, `brainstorming_*.md`,
-`.claude/`, `.githooks/`, `oldcode/` are all tracked on GitHub but must
+`.claude/`, `.githooks/`, `oldcode/`, `autoresearch_lfcse/` are all tracked on GitHub but must
 never ship to CRAN. `docs/` (the rendered pkgdown site) is in both: it is
 `.gitignore`d here and rebuilt from the sources. **When you add a new top-level file or folder, decide
 explicitly which of the two it belongs in.**
@@ -86,6 +87,7 @@ Hostnames and URIs that are the same for everyone are fine here.
 | `OVERDISPERSION_WIKI` | Wiki on estimating overdispersion from single-cell data (estimators, count models, packages; about 100 pages with cited sources). Consulted for `additional_context/OVERDISPERSION_BRAINSTORM.md`. Belongs to another collaboration: **read only from this project.** | shared storage |
 | `WAS2CODE_REPO` | Clone of the Was2CODE project (Tati collaboration). Source of `R/esvd_helper.R`, the cohort-filtering wrapper being imported into `eSVD2` as §2.17 of `UNIT_TEST_PLAN.md`. Not required to develop the package once the file is imported. | per-person copy |
 | `WAS2CODE_ANALYSIS_REPO` | Clone of the Was2CoDE *analysis* repository (Tati collaboration): Kevin's Writeup50 (Figure 4 from summary statistics, the Wald-SE memo) and the per-cohort DE tables it reads. Consulted by `additional_context/2026-11-07_std-exploration/`. **Read only from this project.** | per-person copy |
+| `LFCSE_BANK` | The bank of `autoresearch_lfcse/` (`lfcse-bank-1`: 288 simulated cohort pairs, each fitted by eSVD2 1.2.0, about 1 GB). Root is the environment variable `ESVD2_BANK_DIR`, default `tools::R_user_dir("eSVD2", "cache")`. Regenerable with `autoresearch_lfcse/harness/prepare_claude.R`; never tracked in git and never kept in a cloud-synced folder. | per-person copy |
 | `TATI_ESVD_OUT` | Tati's fitted eSVD-DE objects for the four microglia cohorts (Prater, Gabitto, Sun, Green; Writeups 44 to 47), diet objects of 1.2.0. Read by `01_real-data-checks_claude.R` of the SE exploration. **Read only from this project.** | per-person copy |
 
 Git remote (same for everyone): `https://github.com/linnykos/eSVD2.git`.

@@ -15,24 +15,29 @@ Resolves the location names declared in the master `CLAUDE.md` → *External Loc
 | Location name | Machine | Path | Notes |
 |---|---|---|---|
 | `EXAMPLES_REPO` | — | *(not recorded)* | Clone of `linnykos/eSVD2_examples`; add a row when it is checked out somewhere |
-| `PAPER_DATA` | personal laptop (macOS) | `~/Downloads/rawMatrix/` (Velmeshev only) | Unzipped from `~/Downloads/rawMatrix.zip` (from cells.ucsc.edu/autism) on 2026-09-30; the processed `asd_seurat.RData` and the fitted `asd_esvd.RData` / `asd_esvd_stagewise.RData` of session 22 are in `~/Downloads/esvd_asd_tmp/`. All of it is disposable and can be regenerated from the articles. The other data sets are not downloaded |
+| `PAPER_DATA` | personal laptop (macOS) | `~/Downloads/rawMatrix/` (Velmeshev only) | Unzipped from `~/Downloads/rawMatrix.zip` (from cells.ucsc.edu/autism) on 2026-09-30; `~/Downloads/esvd_asd_tmp/` (the 1.2.0 fits of session 22) no longer exists as of 2026-11-11; the 2024 fit (`asd_esvd.RData`, eSVD2 1.0.x, `k = 30`, 1.4 GB, three minutes to load) and `asd_seurat.RData` are in the parent folder of the repository clone. All of it can be regenerated from the articles. The other data sets are not downloaded |
 | `OVERDISPERSION_WIKI` | personal laptop (macOS), Dropbox | `~/Library/CloudStorage/Dropbox/Collaboration-and-People/amywatt/git/overdispersion_wiki` | Read only from this project. Start at `wiki/index.md`; pages are `wiki/pages/<slug>.md` |
 | `WAS2CODE_REPO` | personal laptop (macOS), Dropbox | `~/Library/CloudStorage/Dropbox/Collaboration-and-People/archive/tati/git/Was2CODE` | Under `archive/`, so treat as frozen. `R/esvd_helper.R` (60 lines) is the file being imported into `eSVD2`; copy it in rather than depending on this path |
 | `WAS2CODE_ANALYSIS_REPO` | personal laptop (macOS), Dropbox | `~/Library/CloudStorage/Dropbox/Collaboration-and-People/archive/tati/git/Was2CoDE_analysis` | Writeup50 lives under `code/kevin/Writeup50_processing-tati-results/`; its CSVs under `csv/kevin/Writeup50/`; its figures under `figures/kevin/Writeup50/`. Read only from this project |
+| `LFCSE_BANK` | personal laptop (macOS) | `~/Library/Caches/org.R-project.R/R/eSVD2/lfcse-bank-1` | The default of `ESVD2_BANK_DIR` (unset on this machine). 699 MB; rebuilt in 47 minutes on 5 cores by `autoresearch_lfcse/harness/prepare_claude.R` |
 | `TATI_ESVD_OUT` | personal laptop (macOS), Dropbox | `~/Library/CloudStorage/Dropbox/Collaboration-and-People/archive/tati/out/tati` | `Writeup44` to `Writeup47` hold `<Writeup>_<cohort>_esvd.RData` (Prater, Gabitto, Sun, Green), diet `eSVD` objects of 1.2.0 at `$original`. Read only from this project |
 
 Name the machine specifically enough that another collaborator can tell whether it is reachable to them. **A missing row means unknown; only an explicit *(not present)* row means known-absent.**
 
 ## Project Status (as of 2026-11-11)
 
-**An autoresearch loop on the logFC/SE reporting rule is in Phase 1
-(alignment), round 1 (session 31, uncommitted).** The memo is
-`additional_context/AUTORESEARCH_LFC-SE_MEMO_claude.md`; it proposes the
-score (Gaussian NLL of the true log2FC), a 144-cell bank of fitted cohort
-pairs, five directions with a ten-experiment queue, and ten questions for
-Kevin. Nothing is built; the next step is Kevin's answers, then the build
-of `autoresearch_lfcse/` in a later session.
-
+**The autoresearch loop on the logFC/SE reporting rule has finished
+Phase 2 (build), committed on `2026-11-07_std` (session 32).** Kevin
+answered the ten questions of the memo
+(`additional_context/2026-11-11_autoresearch-response_round1.txt`); the
+agreed memo is `autoresearch_lfcse/notes/MEMO_claude.md`. The loop folder
+`autoresearch_lfcse/` holds the trial file (`report_rule_claude.R`,
+baseline `raw_null`), the generator, builder and scorer under `harness/`,
+four reference candidates, and `notes/BANK.md`. The bank `lfcse-bank-1`
+(`LFCSE_BANK`) is built: 144 dev and 144 test pairs of fitted cohorts, 47
+minutes on 5 cores, 699 MB, every fit succeeded. The baseline scores
+`status: ok` on both splits (dev 0.010, test 0.018 nats per gene; a scoring
+takes 23 seconds on 5 cores). No run has started.
 
 **Branch `2026-11-07_std` holds a standard-error exploration for the
 Was2CoDE Figure 4 (session 30, uncommitted):**
@@ -125,6 +130,32 @@ is labelled as the build machine's (session 28). The CI fix is untested until
 `CRAN_READINESS.md` §0.3 is the list.
 
 ## Key Methodological Details
+
+- **`Rscript` reads its script incrementally**: editing a `.R` file while
+  a long `Rscript` run of it is in progress corrupts the statements not yet
+  read (the bank build ended in a parse error after its manifests were
+  written; a `--resume` pass confirmed the manifests byte for byte). Leave
+  a running script's file alone; files it `source()`d are safe.
+- **The donor SD on real data is 0.2 to 0.5, not the exploration's 0.1.**
+  On the 2024 ASD fit the log-scale SD across donors of the donor mean of
+  `A / library`, less its sampling part, has quartiles 0.21, 0.34, 0.52
+  across genes (0.16, 0.24, 0.36 in the top tercile of expression). At
+  these levels the bank's scores are dominated by donors and donor SD
+  (0.75 to 0.8 nats each); every other factor moves the baseline by under
+  0.07, and the stored SE costs 0.21 nats against `raw_null`, not 0.82.
+- **In `lfcse-bank-1` the cap binds on 13% of genes at the wide rate
+  range**, not the half the memo expected (and 73% in real cohorts),
+  because the cohorts have 500 to 9,000 cells. Directions that rest on
+  capped genes are weakly tested by this bank.
+- **Figure 4's `k` and `r` are undefined for 20% of the bank's pairs**
+  (estimated signal not positive, nearly all at donor SD 0.5), so the
+  block's `k_err` and `r_err` are means over the rest and are noisy.
+- **A token scan cannot sandbox R code**: a name built at run time
+  (`lapply(x, paste0("read", "RDS"))`) or `dynGet()` passes it. The scorer
+  loads the trial file into an environment whose only ancestor is a
+  curated copy of base R rooted at `emptyenv()`, with its own `::`.
+  Arguments to a function that forks and empties the global environment
+  must be `force()`d first.
 
 - **A proper score on the truth rewards shrinking the logFC.** On the
   cached exploration fits, thresholding non-significant genes to 0 gains 2
@@ -490,16 +521,13 @@ is labelled as the build machine's (session 28). The CI fix is untested until
 
 ## Open Questions / Next Steps
 
-**Autoresearch (session 31):**
+**Autoresearch (session 32):**
 
-0z. **Answer the ten questions of section 6 of
-    `AUTORESEARCH_LFC-SE_MEMO_claude.md`** (in a responses file
-    `additional_context/responses-to-memo_round1.txt` or live). The ones
-    that change the build: whether Figure 4's moment error enters the
-    score, the no-shrinkage rule and its gate, whether the p-value is on
-    trial, whether the logFC must use the fit, the baseline, and the
-    donor-SD levels (a ten-minute check on the ASD fit is proposed).
-    Commit the exploration on `2026-11-07_std` before any run branch is cut.
+0x. **Start a run**: tag to agree; 8 cores (Kevin, 2026-11-11), 4 hours,
+    40 experiments. The 13% capped share of the bank is accepted. The
+    run's setup re-scores the baseline at the committed HEAD.
+0w. `null_rescaled` already scores 0.016 below the baseline on dev; the
+    loop's first kept commit may simply rediscover it.
 
 **From the SE exploration (session 30), newest first:**
 

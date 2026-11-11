@@ -1,0 +1,14 @@
+Responses to "additional_context/AUTORESEARCH_LFC-SE_MEMO_claude.md", 6. What I am uncertain about, stated plainly
+
+* 1: You do not need to incorporate Figure 4 terms into the score. I believe that with a good LFC and SE, Figure 4 will naturally "work" for eSVD
+* 2: Let's loosen the rule a bit to [0.9, 1.1], but otherwise, yes, let's keep this rule.
+* 3: Let's follow your recommendation: "Recommendation: no". We do not need to vet the p-value in this autoresearch.
+* 4: Yes, let's follow your recommendation: "Recommendation: yes, it must use the fitted library or the posterior"
+* 5: Yes, let's follow your recommendation: "Recommendation: raw_null"
+* 6: Yes, let's follow your recommendation: "Recommendation: before the build, a ten-minute check on the fitted ASD object in..."
+* 7: Yes, let's follow your recommendation: "Recommendation: 600 genes, rank fixed."
+* 8: Yes, let's follow your recommendation: "Recommendation: keep it, and do not add a cell in which most genes move one way."
+* 9: I would like to include Covariates as a two-level factor into the bank.
+* 10: I like your recommendations.
+
+Also, when we design the bank, please fit the eSVD model itself. That way, when we run the autoresearch (after the bank is made), no eSVD model is being refit. That way, the autoresearch can more rapidly iterate through ideas.

@@ -120,3 +120,8 @@ additional_context/2026-11-07_std-exploration/output/*.csv
 additional_context/2026-11-07_std-exploration/output/*.txt
 additional_context/2026-11-07_std-exploration/output/*.RData
 additional_context/2026-11-07_std-exploration/*_files/
+
+# --- autoresearch loop on the logFC/SE reporting rule (autoresearch_lfcse) ---
+# Scorer outputs and logs; the bank itself lives outside the repository.
+autoresearch_lfcse/output/
+autoresearch_lfcse/cache*/

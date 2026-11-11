@@ -1007,3 +1007,17 @@ would write first.
 - Proposed bank: 144 cells (donors 10/20/40, cells 50 equal or unequal, rates 2-8 or 0.5-200, effects sparse/sparse_up/dense, covariates none or sex+age, donor SD 0.1/0.3), one cohort pair per cell per split, 600 genes, k = r structure of script 03 so each example also gives Figure 4's terms; baseline `raw_null`.
 - Open: the memo's ten questions (section 6), chiefly whether Figure 4's moment error enters the score, whether the p-value is on trial, whether the logFC must use the fit, and the donor-SD levels (a check on the ASD fit is proposed).
 - Process note: plan mode was not entered, on the reading that the alignment memo is itself the plan awaiting approval.
+
+### [2026-11-11] (Session 32 — autoresearch: memo agreed, bank and harness built)
+- Kevin answered the ten questions in `additional_context/2026-11-11_autoresearch-response_round1.txt`: all recommendations accepted, the gate loosened from [0.95, 1.05] to [0.9, 1.1], Figure 4 terms kept out of the score, covariates kept as a factor, and the bank to hold the fitted models so no scoring refits; the bank build limited to 5 cores.
+- Resolved (question 6): donor SD levels are 0.2 and 0.5, the quartiles of a per-gene estimate on the ASD fit. The memo's 0.1 / 0.3 were replaced. The check ran on the 2024 fit (1.0.x) because `~/Downloads/esvd_asd_tmp/` was gone.
+- Decision (Claude's, for Kevin to confirm): the three cells x genes double matrices of the view are not stored (the bank would be near 20 GB with 25 GB free on the laptop); the scorer rebuilds them with the fit's own `compute_posterior` call, verified equal for all 576 cohorts.
+- Decision (Claude's): the DESeq2 reference adjusts for sex and age in the covariate cells (`~ Sex + Age + CC`); `sparse_up` takes absolute values of the correlated effects, which raises the population r to 0.85.
+- Built `lfcse-bank-1` in 47 minutes on 5 cores, 288 of 288 examples; baseline `raw_null` scores 0.010 (dev) and 0.018 (test), `status: ok`; reference rows in `notes/BANK.md`.
+- Open: the wide rate range caps 13% of genes, against the memo's "about half".
+- A fresh-context review found the token-scan tripwire bypassable (`dynGet`, run-time-built function names, backticked `::`); the scorer now uses an allowlist environment and seeds the child. The review confirmed generator math, seeds, score and no truth leak.
+- The build's final statements were corrupted because `prepare_claude.R` was edited while running; the manifests had been written and a `--resume` pass reproduced them byte for byte and ran the final assertion.
+- Not committed: the system rule is to commit only on request, so the skill's "commit the loop folder" step is left to Kevin.
+- Plan mode was not entered: Kevin's message said to proceed if the responses looked good, and the agreed memo served as the plan.
+- (Same session, later) Resolved: Kevin accepts the bank's 13% capped share and sets 8 cores for scoring and for the run.
+- (Same session, later) Kevin chose "commit only": the loop folder and state files are committed on `2026-11-07_std`; the run is for a later session.
