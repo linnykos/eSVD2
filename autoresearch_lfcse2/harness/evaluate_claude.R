@@ -16,6 +16,11 @@ rm(list = ls())
 #   ESVD2_BANK_DIR   root of the bank (default: R's user cache for eSVD2)
 #   ESVD2_CORES      examples scored in parallel (default 8, the memo's)
 #   ESVD2_BUDGET     wall-clock budget of a scoring, seconds (default 600)
+#   ESVD2_TRUTH      which truth the score uses: `marginal` (default; the log2
+#                    ratio of mean expression between the arms' populations,
+#                    cell-state shift included) or `direct` (the case-control
+#                    effect at fixed cell state). They differ only at
+#                    `state = donor_arm`; both scores are printed either way
 #   ESVD2_TRIAL      another file to score in place of the trial file, for
 #                    the reference rows of BANK.md; its table goes to
 #                    output/diagnostics/ and no run file is touched
@@ -37,6 +42,8 @@ num_cores <- as.integer(Sys.getenv("ESVD2_CORES", unset = "8"))
 budget_seconds <- as.numeric(Sys.getenv("ESVD2_BUDGET", unset = "600"))
 # Seconds one cohort's call of the trial function may take (memo, section 2).
 cohort_seconds <- 30
+truth_kind <- Sys.getenv("ESVD2_TRUTH", unset = "marginal")
+stopifnot(truth_kind %in% c("marginal", "direct"))
 # The first validity gate: the pooled slope of the reported logFC on the
 # truth over weak-effect genes must lie in this interval (memo, section 5).
 gate_range <- c(0.9, 1.1)
@@ -438,8 +445,11 @@ if(!is.function(trial_env$report_lfc_se)){
 .score_cohort <- function(value, truth, status_vec, mean_count_vec){
   lfc_vec <- value$log2fc
   se_vec <- value$se
-  truth_vec <- as.numeric(truth$truth_log2fc_vec)
-  class_vec <- truth$gene_class_vec
+  marginal_vec <- as.numeric(truth$truth_log2fc_vec)
+  direct_vec <- as.numeric(truth$population$cc_effect_vec) / log(2)
+  truth_vec <- if(truth_kind == "marginal") marginal_vec else direct_vec
+  class_vec <- .gene_class(stats::setNames(truth_vec,
+                                           names(truth$truth_log2fc_vec)))
   nll_vec <- .nll_vec(lfc_vec, se_vec, truth_vec)
   bool_null <- class_vec == "null"
   bool_weak <- class_vec == "weak"
@@ -484,6 +494,8 @@ if(!is.function(trial_env$report_lfc_se)){
   }
 
   c(score = mean(nll_vec),
+    score_marginal = mean(.nll_vec(lfc_vec, se_vec, marginal_vec)),
+    score_direct = mean(.nll_vec(lfc_vec, se_vec, direct_vec)),
     mse = mean((lfc_vec - truth_vec)^2),
     coverage_95 = mean(abs(lfc_vec - truth_vec) <=
                          stats::qnorm(0.975) * se_vec),
@@ -627,6 +639,9 @@ if(best_note != "") print(best_note)
 cat("---\n")
 line("score", fmt(mean(score_df$score)))
 line("score_se", fmt(se_of_mean(score_df$score)))
+line("truth", truth_kind)
+line("score_marginal", fmt(mean(score_df$score_marginal)))
+line("score_direct", fmt(mean(score_df$score_direct)))
 line("rmse", fmt(sqrt(mean(score_df$mse))))
 line("coverage_95", fmt(mean(score_df$coverage_95)))
 line("z_sd_null", fmt(mean(score_df$z_sd_null, na.rm = TRUE)))
