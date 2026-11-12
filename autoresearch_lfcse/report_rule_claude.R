@@ -111,19 +111,25 @@ report_lfc_se <- function(view){
   fit_mat <- design_mat %*% solve(crossprod(design_mat),
                                   crossprod(design_mat, log_mat))
   residual_df <- nrow(design_mat) - ncol(design_mat)
-  residual_sd <- sqrt(colSums((log_mat - fit_mat)^2) / residual_df)
-
-  # Precision weights (voom; Law et al. 2014). The square root of a gene's
-  # residual SD is smoothed against its mean log expected donor count; a
-  # donor's observation is given the weight 1 / trend^4 at its own expected
-  # count, so that a donor with few counts for a gene counts for less.
-  expected_mat <- fit_mat + log(library_sum_mat)
-  gene_size_vec <- colMeans(expected_mat)
-  trend_fit <- stats::smooth.spline(x = gene_size_vec, y = sqrt(residual_sd))
-  clamped_vec <- pmin(pmax(as.numeric(expected_mat), min(gene_size_vec)),
-                      max(gene_size_vec))
-  weight_mat <- matrix(1 / stats::predict(trend_fit, x = clamped_vec)$y^4,
-                       nrow = nrow(expected_mat))
+  # Precision weights from a two-part variance. A log donor mean varies by
+  # a donor term common to all observations plus a sampling term inversely
+  # proportional to the donor's expected count mu: variance = tau^2 +
+  # phi / mu. The two constants are fitted by least squares to the squared
+  # residuals (rescaled to be unbiased) over all donors and genes, and an
+  # observation gets the weight 1 / (tau^2 + phi / mu), so that a donor
+  # with few counts for a gene counts for less.
+  inverse_count_vec <- as.numeric(exp(-(fit_mat + log(library_sum_mat))))
+  squared_vec <- as.numeric((log_mat - fit_mat)^2) *
+    nrow(design_mat) / residual_df
+  slope <- stats::cov(squared_vec, inverse_count_vec) /
+    stats::var(inverse_count_vec)
+  variance_coef <- c(mean(squared_vec) - slope * mean(inverse_count_vec),
+                     slope)
+  # Neither part of a variance can be negative.
+  variance_coef <- pmax(variance_coef, 0)
+  weight_mat <- matrix(1 / (variance_coef[1] +
+                              variance_coef[2] * inverse_count_vec),
+                       nrow = nrow(fit_mat))
 
   # Weighted least squares, gene by gene.
   num_genes <- ncol(log_mat)
