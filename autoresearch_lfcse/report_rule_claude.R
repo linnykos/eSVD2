@@ -122,6 +122,19 @@ report_lfc_se <- function(view){
                            donor_vec = rownames(mean_mat))
   raw <- .lfc_from_donor_means(mean_mat = mean_mat, arm_vec = arm_vec)
 
+  # The within-donor term 1.2.0 stores, per donor mean: the donor's average
+  # posterior variance over its number of cells, added to the between term.
+  num_cells_vec <- as.numeric(table(individual_chr)[rownames(mean_mat)])
+  within_mat <- rowsum(view$posterior_var_mat, group = individual_chr) /
+    num_cells_vec^2
+  bool_case <- arm_vec == 1
+  within_vec <-
+    colSums(within_mat[bool_case, , drop = FALSE]) /
+    (sum(bool_case) * colMeans(mean_mat[bool_case, , drop = FALSE]))^2 +
+    colSums(within_mat[!bool_case, , drop = FALSE]) /
+    (sum(!bool_case) * colMeans(mean_mat[!bool_case, , drop = FALSE]))^2
+  raw$se_vec <- sqrt(raw$se_vec^2 + within_vec / log(2)^2)
+
   design_factor <- .design_factor(covariates = view$covariates,
                                   individual_vec = view$individual_vec,
                                   arm_vec = arm_vec,
