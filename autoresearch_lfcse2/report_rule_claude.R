@@ -29,7 +29,12 @@
 # The vector d is estimated by weighted least squares of theta_g on the
 # loadings y_g over the genes (with an intercept; weights 1 / (a S~); a
 # second pass leaves out the genes whose residual is beyond 3 SE, which
-# carry an effect of their own), and
+# carry an effect of their own). The regression also holds the products
+# y_gj y_gk of the loadings: theta is a contrast of mean log expression,
+# which differs from the log ratio of mean expression by half the
+# difference of the arms' donor variances, and the embedding's part of
+# that difference is y_g' (Sigma_1 - Sigma_0) y_g / 2, a quadratic form in
+# the loadings. Then
 #   lfc_g = (theta_g - y_g' d) / ln 2,
 #   se_g^2 = (a S~ + y_g' Cov(d) y_g) / (ln 2)^2,
 # with S~ the moderated S. The embedding offset was fitted to the same
@@ -171,7 +176,13 @@ report_lfc_se <- function(view){
                        covariate_vec = res$level_vec)
   # The arms' difference in cell state: the arm coefficients regressed on
   # the loadings over the genes, each gene weighted by its precision.
-  loading_mat <- cbind(1, view$y_mat)
+  # The loadings and their pairwise products (squares included).
+  num_factors <- ncol(view$y_mat)
+  pair_idx_mat <- which(upper.tri(diag(num_factors), diag = TRUE),
+                        arr.ind = TRUE)
+  product_mat <- view$y_mat[, pair_idx_mat[, 1], drop = FALSE] *
+    view$y_mat[, pair_idx_mat[, 2], drop = FALSE]
+  loading_mat <- cbind(1, view$y_mat, product_mat)
   bool_use <- rep(TRUE, nrow(loading_mat))
   # Two passes: the second without the genes that the first leaves beyond
   # 3 SE (a normal residual is beyond 3 SE once in 370 genes).
