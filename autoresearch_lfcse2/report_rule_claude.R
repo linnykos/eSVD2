@@ -34,8 +34,11 @@
 #   se_g^2 = (a S~ + y_g' Cov(d) y_g) / (ln 2)^2,
 # with S~ the moderated S. The embedding offset was fitted to the same
 # counts, so S understates what is left in theta; the SE is rescaled by the
-# SD of the empirical null fitted to lfc / se, and the logFC is shifted by
-# the null's mean times the median SE.
+# SD of the empirical null fitted to lfc / se, held between 1 (the offset
+# cannot make S too large) and sqrt(df / (df - k)) (the offset has k free
+# directions among the df = n - rank(D) residual ones, so it cannot have
+# absorbed more than that share). The logFC is shifted by the null's mean
+# times the median SE.
 
 # Inverse of the trigamma function by Newton's method on its reciprocal
 # (Smyth 2004, appendix); the start 0.5 + 1 / x is exact in both limits.
@@ -197,8 +200,13 @@ report_lfc_se <- function(view){
   # estimate is still used.
   null_res <- suppressWarnings(eSVD2::multtest(z_vec[is.finite(z_vec)]))
 
+  # The bounds of the rescaling; at least one residual direction is left.
+  upper_factor <- sqrt(res$residual_df /
+                         max(res$residual_df - ncol(view$x_mat), 1))
+  se_factor <- min(max(null_res$null_sd, 1), upper_factor)
+
   data.frame(gene = colnames(view$dat),
              log2fc = lfc_vec - null_res$null_mean * stats::median(se_vec),
-             se = null_res$null_sd * se_vec,
+             se = se_factor * se_vec,
              stringsAsFactors = FALSE)
 }
