@@ -84,8 +84,9 @@
   n1 <- sum(arm_vec == 1)
   n0 <- sum(arm_vec == 0)
   arm_var <- solve(crossprod(design_mat))[2, 2]
-  (arm_var / (1 / n1 + 1 / n0)) *
-    ((num_donors - 2) / (num_donors - ncol(design_mat)))
+  list(design_mat = design_mat,
+       factor = (arm_var / (1 / n1 + 1 / n0)) *
+         ((num_donors - 2) / (num_donors - ncol(design_mat))))
 }
 
 .arm_of_donor <- function(case_control_vec, individual_vec, donor_vec){
@@ -147,10 +148,18 @@ report_lfc_se <- function(view){
     (sum(!bool_case) * colMeans(mean_mat[!bool_case, , drop = FALSE]))^2
   raw$se_vec <- sqrt(raw$se_vec^2 + within_vec / log(2)^2)
 
-  design_factor <- .design_factor(covariates = view$covariates,
-                                  individual_vec = view$individual_vec,
-                                  arm_vec = arm_vec,
-                                  donor_vec = rownames(mean_mat))
+  design_res <- .design_factor(covariates = view$covariates,
+                               individual_vec = view$individual_vec,
+                               arm_vec = arm_vec,
+                               donor_vec = rownames(mean_mat))
+
+  # The logFC is the arm coefficient of the donor-level least-squares
+  # regression of the log donor means on the design, the regression whose
+  # variance the design factor describes. Without donor-level covariates
+  # it is the difference of the arms' mean log donor means.
+  coef_mat <- solve(crossprod(design_res$design_mat),
+                    crossprod(design_res$design_mat, log_mat))
+  raw$lfc_vec <- coef_mat[2, ] / log(2)
 
   z_vec <- raw$lfc_vec / raw$se_vec
   # `multtest()` warns when locfdr falls back on its cruder estimators; the
@@ -160,6 +169,6 @@ report_lfc_se <- function(view){
   data.frame(gene = colnames(view$dat),
              log2fc = raw$lfc_vec -
                null_res$null_mean * stats::median(raw$se_vec),
-             se = sqrt(design_factor) * raw$se_vec,
+             se = sqrt(design_res$factor) * raw$se_vec,
              stringsAsFactors = FALSE)
 }
