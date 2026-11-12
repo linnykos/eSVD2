@@ -17,7 +17,9 @@
 # where C~ is C moderated toward its trend in mean expression
 # (`.moderate_variance()`). The empirical null (mean d0, SD s0) is fitted
 # to z = lfc / se over the genes, and the rule reports
-# (lfc - d0 * median(se), s0 * se).
+# (lfc - d0 * median(se), sqrt(F) * se), where F is the factor by which
+# the donor-level covariates of the design widen the variance of the
+# case-control coefficient (`.design_factor()`; 1 without covariates).
 
 # Inverse of the trigamma function by Newton's method on its reciprocal
 # (Smyth 2004, appendix); the start 0.5 + 1 / x is exact in both limits.
@@ -57,6 +59,35 @@
   (prior_df * prior_vec + df * var_vec) / (prior_df + df)
 }
 
+# Variance factor of the donor-level design. The fitted library removes
+# every covariate that is constant within donors (sex, age) from the donor
+# means, so the two-arm variance stands in for the variance of the
+# case-control coefficient of a donor-level regression on those
+# covariates. With D the donors x columns design (intercept, arm, and the
+# donor-level covariates), that variance is sigma^2 [(D'D)^-1]_arm with
+# sigma^2 on n - rank(D) degrees of freedom, against sigma^2 (1/n1 + 1/n0)
+# on n - 2 for the two arms alone. The factor is the ratio of the two.
+.design_factor <- function(covariates, individual_vec, arm_vec, donor_vec){
+  individual_chr <- as.character(individual_vec)
+  first_idx <- match(donor_vec, individual_chr)
+  bool_donor_level <- apply(covariates, 2, function(col_vec){
+    all(col_vec == col_vec[first_idx][match(individual_chr, donor_vec)])
+  })
+  design_mat <- cbind(1, arm_vec,
+                      covariates[first_idx, bool_donor_level, drop = FALSE])
+  qr_res <- qr(design_mat)
+  # Columns 1 and 2 (intercept, arm) are pivoted first, so the constant
+  # and arm columns of `covariates` itself drop out as redundant.
+  keep_idx <- qr_res$pivot[seq_len(qr_res$rank)]
+  design_mat <- design_mat[, keep_idx, drop = FALSE]
+  num_donors <- nrow(design_mat)
+  n1 <- sum(arm_vec == 1)
+  n0 <- sum(arm_vec == 0)
+  arm_var <- solve(crossprod(design_mat))[2, 2]
+  (arm_var / (1 / n1 + 1 / n0)) *
+    ((num_donors - 2) / (num_donors - ncol(design_mat)))
+}
+
 .arm_of_donor <- function(case_control_vec, individual_vec, donor_vec){
   case_control_vec[match(donor_vec, as.character(individual_vec))]
 }
@@ -91,6 +122,11 @@ report_lfc_se <- function(view){
                            donor_vec = rownames(mean_mat))
   raw <- .lfc_from_donor_means(mean_mat = mean_mat, arm_vec = arm_vec)
 
+  design_factor <- .design_factor(covariates = view$covariates,
+                                  individual_vec = view$individual_vec,
+                                  arm_vec = arm_vec,
+                                  donor_vec = rownames(mean_mat))
+
   z_vec <- raw$lfc_vec / raw$se_vec
   # `multtest()` warns when locfdr falls back on its cruder estimators; the
   # estimate is still used.
@@ -99,6 +135,6 @@ report_lfc_se <- function(view){
   data.frame(gene = colnames(view$dat),
              log2fc = raw$lfc_vec -
                null_res$null_mean * stats::median(raw$se_vec),
-             se = null_res$null_sd * raw$se_vec,
+             se = sqrt(design_factor) * raw$se_vec,
              stringsAsFactors = FALSE)
 }
