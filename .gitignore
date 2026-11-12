@@ -125,3 +125,7 @@ additional_context/2026-11-07_std-exploration/*_files/
 # Scorer outputs and logs; the bank itself lives outside the repository.
 autoresearch_lfcse/output/
 autoresearch_lfcse/cache*/
+
+# --- second autoresearch loop, on rules that use the embedding (autoresearch_lfcse2) ---
+autoresearch_lfcse2/output/
+autoresearch_lfcse2/cache*/

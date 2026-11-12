@@ -30,3 +30,4 @@
 ^vignettes/articles$
 ^vignettes/.*\.html$
 ^autoresearch_lfcse$
+^autoresearch_lfcse2$
