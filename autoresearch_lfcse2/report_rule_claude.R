@@ -30,8 +30,10 @@
 # y_g over the genes (with an intercept), and
 #   lfc_g = (theta_g - y_g' d) / ln 2,
 #   se_g^2 = (a S~ + y_g' Cov(d) y_g) / (ln 2)^2,
-# with S~ the moderated S. The logFC is then shifted by the empirical
-# null's mean times the median SE.
+# with S~ the moderated S. The embedding offset was fitted to the same
+# counts, so S understates what is left in theta; the SE is rescaled by the
+# SD of the empirical null fitted to lfc / se, and the logFC is shifted by
+# the null's mean times the median SE.
 
 # Inverse of the trigamma function by Newton's method on its reciprocal
 # (Smyth 2004, appendix); the start 0.5 + 1 / x is exact in both limits.
@@ -191,6 +193,6 @@ report_lfc_se <- function(view){
 
   data.frame(gene = colnames(view$dat),
              log2fc = lfc_vec - null_res$null_mean * stats::median(se_vec),
-             se = se_vec,
+             se = null_res$null_sd * se_vec,
              stringsAsFactors = FALSE)
 }
