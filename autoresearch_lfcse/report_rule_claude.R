@@ -14,12 +14,10 @@
 # constant within donors), the log donor means are regressed on D by least
 # squares, gene by gene:
 #   lfc  = (arm coefficient) / ln 2,
-#   se^2 = (S~ * a + f * W) / (ln 2)^2,
-# where a = [(D'D)^-1]_arm, S~ is the residual variance on n - rank(D)
+#   se^2 = S~ * a / (ln 2)^2,
+# where a = [(D'D)^-1]_arm and S~ is the residual variance on n - rank(D)
 # degrees of freedom moderated toward its trend in mean expression
-# (`.moderate_variance()`), W is the within-donor term of 1.2.0 (posterior
-# variance over the donor's cell count, relative to the arm mean), and
-# f = a / (1/n1 + 1/n0). The empirical null's mean d0 is fitted to
+# (`.moderate_variance()`). The empirical null's mean d0 is fitted to
 # z = lfc / se over the genes, and the rule reports
 # (lfc - d0 * median(se), se).
 
@@ -97,9 +95,6 @@ report_lfc_se <- function(view){
   arm_vec <- .arm_of_donor(case_control_vec = view$case_control_vec,
                            individual_vec = view$individual_vec,
                            donor_vec = donor_vec)
-  bool_case <- arm_vec == 1
-  n1 <- sum(bool_case)
-  n0 <- sum(!bool_case)
 
   # Least squares of the log donor means on the donor-level design.
   design_mat <- .donor_design(covariates = view$covariates,
@@ -116,18 +111,7 @@ report_lfc_se <- function(view){
     .moderate_variance(var_vec = residual_var, df = residual_df,
                        covariate_vec = log(colMeans(mean_mat)))
 
-  # The within-donor term 1.2.0 stores, per donor mean: the donor's average
-  # posterior variance over its number of cells, relative to the arm mean.
-  num_cells_vec <- as.numeric(table(individual_chr)[donor_vec])
-  within_mat <- rowsum(view$posterior_var_mat, group = individual_chr) /
-    num_cells_vec^2
-  within_vec <-
-    colSums(within_mat[bool_case, , drop = FALSE]) /
-    (n1 * colMeans(mean_mat[bool_case, , drop = FALSE]))^2 +
-    colSums(within_mat[!bool_case, , drop = FALSE]) /
-    (n0 * colMeans(mean_mat[!bool_case, , drop = FALSE]))^2
-  se_vec <- sqrt(between_vec + within_vec * arm_var / (1 / n1 + 1 / n0)) /
-    log(2)
+  se_vec <- sqrt(between_vec) / log(2)
 
   z_vec <- lfc_vec / se_vec
   # `multtest()` warns when locfdr falls back on its cruder estimators; the
