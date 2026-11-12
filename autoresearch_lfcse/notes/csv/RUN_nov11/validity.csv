@@ -1,0 +1,4 @@
+"rule","commit","num_cohorts","se_ratio","spearman"
+"gap_trend","b3fc556",12,1.1,0.21
+"before the gap covariate","1de04e6",12,1,0.03
+"donor_wls","5df592c",12,0.98,0.01

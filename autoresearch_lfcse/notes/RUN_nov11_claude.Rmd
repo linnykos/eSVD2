@@ -1,0 +1,937 @@
+---
+title: "A log fold change and a Wald-usable standard error for eSVD-DE: what the autoresearch run `nov11` kept, and why"
+author: "Kevin Z. Lin (drafted by Claude)"
+date: "2026-11-11"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 3
+    number_sections: true
+    theme: flatly
+    highlight: tango
+    math_method:
+      engine: mathjax
+      url: "https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-chtml-full.js"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+```
+
+<style>
+div.takeaway, div.generator, div.reuse, div.recipe {
+  padding: 0.7em 1.1em; margin: 1.2em 0; border-radius: 4px; border-left: 7px solid;
+}
+div.takeaway  { background: #edf7ed; border-color: #2ca02c; }
+div.generator { background: #eaf2fb; border-color: #1f77b4; }
+div.reuse     { background: #f4f4f4; border-color: #8c8c8c; }
+div.recipe    { background: #fff3e6; border-color: #ff7f0e; }
+div.takeaway  > p:first-child::before { content: "Takeaway. "; font-weight: bold; color: #1b6e1b; }
+div.generator > p:first-child::before { content: "How the data were simulated. "; font-weight: bold; color: #155a8a; }
+div.reuse     > p:first-child::before { content: "Data generator: reused. "; font-weight: bold; color: #8c8c8c; }
+div.recipe    > p:first-child::before { content: "The procedure. "; font-weight: bold; color: #b35900; }
+</style>
+
+```{r libraries}
+library(knitr)
+```
+
+```{r read_tables}
+csv_dir <- file.path("csv", "RUN_nov11")
+figure_dir <- file.path("figures", "RUN_nov11")
+.read <- function(name){
+  utils::read.csv(file.path(csv_dir, paste0(name, ".csv")),
+                  stringsAsFactors = FALSE)
+}
+results_df <- .read("results")
+experiment_df <- .read("experiments")
+score_df <- .read("scores")
+block_df <- .read("blocks")
+validity_df <- .read("validity")
+
+fmt <- function(x, digits = 4){formatC(x, digits = digits, format = "f")}
+
+# One line of a summary block, as a number.
+.block <- function(key, split, rule){
+  bool_vec <- block_df$key == key & block_df$split == split &
+    block_df$rule == rule
+  stopifnot(sum(bool_vec) == 1)
+  as.numeric(block_df$value[bool_vec])
+}
+
+# One column of one experiment's row.
+.experiment <- function(number, column){
+  experiment_df[[column]][experiment_df$experiment == number]
+}
+.commit <- function(number){paste0("`", .experiment(number, "commit"), "`")}
+
+# Per-example scores of one rule on one split, in the order of the ids.
+.scores <- function(split, rule){
+  sub_df <- score_df[score_df$split == split & score_df$rule == rule, ]
+  sub_df[order(sub_df$id), ]
+}
+
+# Mean score of one rule in one stratum.
+.stratum <- function(split, rule, factor_name, level){
+  sub_df <- .scores(split, rule)
+  mean(sub_df$score[as.character(sub_df[[factor_name]]) == level])
+}
+
+# The paired comparison of `donor_wls` with `raw_null`, per split.
+paired_list <- lapply(c(dev = "dev", test = "test"), function(split){
+  baseline_df <- .scores(split, "raw_null")
+  best_df <- .scores(split, "donor_wls")
+  stopifnot(all(baseline_df$id == best_df$id))
+  difference_vec <- best_df$score - baseline_df$score
+  list(difference = mean(difference_vec),
+       num_examples = length(difference_vec),
+       num_improved = sum(difference_vec < 0),
+       range = range(difference_vec),
+       se = stats::sd(difference_vec) / sqrt(length(difference_vec)))
+})
+
+kept_df <- experiment_df[experiment_df$outcome == "kept", ]
+withdrawn_df <- experiment_df[experiment_df$outcome == "withdrawn", ]
+discarded_df <- experiment_df[experiment_df$outcome == "discarded", ]
+# Every `keep` row of the log is in one of the two tables of kept commits.
+stopifnot(nrow(kept_df) + nrow(withdrawn_df) ==
+            sum(results_df$status[-1] == "keep"),
+          nrow(kept_df) + nrow(withdrawn_df) + nrow(discarded_df) ==
+            nrow(experiment_df))
+
+num_experiments <- nrow(experiment_df)
+best_commit <- kept_df$commit[nrow(kept_df)]
+total_gain <- results_df$score[1] - .block("score", "dev", "donor_wls")
+large_vec <- c(5, 7, 12)
+large_gain_vec <- -vapply(large_vec, .experiment, numeric(1),
+                          column = "delta")
+flat_df <- kept_df[kept_df$experiment > 13, ]
+```
+
+# Overview {-}
+
+This document is built from the design memo of the loop (`MEMO_claude.md`),
+the record of the bank as built (`BANK.md`), the run report that the
+autoresearch protocol requires (`RUN_nov11_claude.md`), and the tables of
+the run (`csv/RUN_nov11/`). It follows the sections of that protocol's run
+report, and every number in its prose is read from those tables.
+
+**The question.** Version 1.2.0 of eSVD2 reports a log fold change and a
+standard error whose ratio is not a usable Wald statistic. The autoresearch
+loop searched for a rule that reports, from one fitted cohort, a log2 fold
+change that is unbiased at every effect size and a standard error that is
+the sampling SD of that log fold change. The run `nov11` edited one file
+(`report_rule_claude.R`) over `r num_experiments` experiments, each scored
+on a fixed bank of simulated cohorts.
+
+The document argues five things.
+
+1. The kept rule, `donor_wls`, is a donor-level weighted regression of log
+   pseudobulk ratios with a moderated residual variance (Section 1.3).
+2. It scores `r fmt(.block("score", "dev", "donor_wls"))` on the dev split
+   and `r fmt(.block("score", "test", "donor_wls"))` on the held-out test
+   split, against `r fmt(.block("score", "dev", "raw_null"))` and
+   `r fmt(.block("score", "test", "raw_null"))` for the baseline `raw_null`,
+   and the dev gain carried to test in full (Section 3).
+3. Three of the `r nrow(kept_df)` kept commits carry
+   `r round(100 * sum(large_gain_vec) / total_gain)`% of the dev gain
+   (Section 4).
+4. Two commits that passed the keep rule were withdrawn, because their
+   standard error followed the estimated log fold change, which the score
+   rewards and the gate does not detect (Section 5).
+5. Quantities of the fit that are estimated at the level of cells (the
+   case-control coefficient, the low-rank term, the nuisance rate) did not
+   help (Section 6).
+
+*How to read.* A green box closes each results section with what that
+section changes. The blue box describes the simulated bank once, and a grey
+box opens each section that reuses it. The orange box in Section 8 is the
+procedure. A reader of the boxes alone gets the argument.
+
+| Stage | What it does | Section |
+|---|---|---|
+| Definitions | notation, the four rules by name, the score and the gate | 1 |
+| The run | branch, budget, what stopped it, the bank | 2 |
+| Result | dev and test blocks against the baseline | 3 |
+| Attribution | every kept commit, every withdrawn one, every discarded one | 4, 5, 6 |
+| Constants | each numeric constant of the rule with its reason | 7 |
+| Recommendation | the procedure, and what is left to decide | 8 |
+
+# Definitions
+
+## Notation
+
+A cohort has cells $c$, genes $g = 1, \dots, p$ and donors
+$d = 1, \dots, n$, of which $n_1$ are cases and $n_0$ controls. $A_{cg}$ is
+the count of cell $c$ and gene $g$. $\ell_{cg}$ is the fitted library size
+of eSVD-DE, which holds every fitted covariate effect except the
+case-control one, the gene intercept included. $\beta_g$ is the true log2
+fold change of gene $g$, and a rule reports the pair
+$(\widehat\beta_g, s_g)$ in log2 units.
+
+A rule is a function `report_lfc_se(view)`. The list `view` holds what a
+user has after `eSVD()`: the counts, the design matrix, the donor and the
+arm of each cell, the fitted library, the posterior mean and variance, and
+the nuisance rate.
+
+| Name in the tables | Rule | Reads | Defined in |
+|---|---|---|---|
+| `raw_null` | log ratio of the arms' mean donor ratios, delta-method SE, shifted and rescaled by the empirical null | counts, fitted library | 1.2 |
+| `donor_wls` | arm coefficient of a donor-level weighted regression of log pseudobulk ratios, moderated residual variance, constant shift | counts, fitted library, design | 1.3 |
+| `gap_trend` | `donor_wls` as of experiment 27, with the variance moderated toward a trend in the arithmetic-geometric gap of the donor ratios | counts, fitted library, design | 5 |
+| `deseq2` | DESeq2 on donor pseudobulk counts, stored with the bank as a reference | counts | 1.4 |
+
+## The baseline: `raw_null`
+
+With $m_{dg}$ the mean of $A_{cg} / \ell_{cg}$ over the cells of donor $d$,
+$M_{1g}, M_{0g}$ the arm means of $m_{dg}$ and $V_{1g}, V_{0g}$ the sample
+variances of $m_{dg}$ within each arm,
+
+$$\widehat\beta^{\,\text{raw}}_g = \log_2\frac{M_{1g}}{M_{0g}}, \qquad
+s^{\text{raw}}_g = \frac{1}{\ln 2}\sqrt{\frac{V_{1g}}{n_1 M_{1g}^2} + \frac{V_{0g}}{n_0 M_{0g}^2}}.$$
+
+With $(\delta_0, \sigma_0)$ the mean and SD of the empirical null fitted to
+$\widehat\beta^{\,\text{raw}}_g / s^{\text{raw}}_g$ over the genes,
+`raw_null` reports
+$(\widehat\beta^{\,\text{raw}}_g - \delta_0 s^{\text{raw}}_g,\; \sigma_0 s^{\text{raw}}_g)$.
+
+## The kept rule: `donor_wls`
+
+1. *Donor summary.* With $y_{dg} = \sum_{c \in d} A_{cg}$ and
+   $L_{dg} = \sum_{c \in d} \ell_{cg}$,
+   $$l_{dg} = \log\frac{y_{dg} + 1/2}{L_{dg}}.$$
+2. *Design.* $D$ is the $n \times q$ donor-level matrix whose columns are
+   the intercept, the arm indicator, and every column of the fit's design
+   that is constant within donors, reduced to full rank.
+3. *Donor offsets.* With $r_{dg}$ the residuals of the least-squares
+   regression of $l_{\cdot g}$ on $D$, the offset of donor $d$ is
+   $o_d = \text{median}_g\, r_{dg}$, and $l_{dg} \leftarrow l_{dg} - o_d$.
+   The regression is repeated, which gives the fitted values $f_{dg}$ and
+   the residuals $r_{dg}$.
+4. *Precision weights.* With $\mu_{dg} = L_{dg}\, e^{f_{dg}}$ the expected
+   count, the two constants of
+   $$\text{Var}(l_{dg}) = \tau^2 + \frac{\phi}{\mu_{dg}}$$
+   are fitted by least squares of $r_{dg}^2\, n / (n - q)$ on
+   $1 / \mu_{dg}$ over all donors and genes, each floored at 0, and
+   $w_{dg} = 1 / (\tau^2 + \phi / \mu_{dg})$.
+5. *Weighted regression.* With $W_g = \text{diag}(w_{\cdot g})$,
+   $$\widehat\theta_g = (D^\top W_g D)^{-1} D^\top W_g\, l_{\cdot g}, \qquad
+   a_g = \big[(D^\top W_g D)^{-1}\big]_{\text{arm}}, \qquad
+   S_g = \frac{1}{n - q}\sum_d w_{dg}\,(l_{dg} - D_d^\top \widehat\theta_g)^2 .$$
+   The vector $\widehat\theta_g$ has one entry per column of $D$, and
+   $\widehat\theta_{g,\text{arm}}$ is its entry for the arm indicator: the
+   difference between cases and controls in the mean of $l_{dg}$, at equal
+   donor-level covariates, in natural-log units. It is computed by this
+   regression and is not eSVD-DE's fitted case-control coefficient
+   $\widehat z_{g,\text{cc}}$ (Section 1.3.1).
+6. *Moderated variance.* A smoothing spline $t(\cdot)$, with its
+   smoothness chosen by generalized cross-validation, is fitted to
+   $\log S_g$ against $x_g = \tfrac1n \sum_d f_{dg}$. With $\nu = n - q$,
+   $\psi$ the digamma function and $\psi'$ the trigamma function, the prior
+   degrees of freedom $\nu_0$ solve
+   $$\psi'(\nu_0 / 2) = \text{mean}_g\,\{\log S_g - t(x_g)\}^2 - \psi'(\nu / 2),$$
+   the prior variance is
+   $\log S_{0g} = t(x_g) - \psi(\nu/2) + \log(\nu/2) + \psi(\nu_0/2) - \log(\nu_0/2)$,
+   and
+   $$\widetilde S_g = \frac{\nu_0 S_{0g} + \nu S_g}{\nu_0 + \nu}.$$
+   When the right-hand side of the equation for $\nu_0$ is not positive,
+   $\nu_0 = \infty$ and
+   $\widetilde S_g = \exp\{t(x_g) - \psi(\nu/2) + \log(\nu/2)\}$.
+7. *The pair before centring.*
+   $$\widehat\beta^{\,0}_g = \frac{\widehat\theta_{g,\text{arm}}}{\ln 2}, \qquad
+   s_g = \frac{\sqrt{\widetilde S_g\, a_g}}{\ln 2}.$$
+8. *Centring.* With $\delta_0$ the mean of the empirical null fitted by
+   `eSVD2::multtest()` to $z_g = \widehat\beta^{\,0}_g / s_g$,
+   $$\widehat\beta_g = \widehat\beta^{\,0}_g - \delta_0 \cdot \text{median}_g\, s_g .$$
+   The rule reports $(\widehat\beta_g, s_g)$, and the SD of the empirical
+   null is not used.
+
+Four things changed against `raw_null`. The donor summary is a ratio of
+sums on the log scale. The estimator is a regression that adjusts again for
+the donor-level covariates and weights donors by their precision. The
+variance is pooled over the arms and moderated across genes, with the cost
+of the covariates in $a_g$ and in $\nu$. The centring is one constant per
+cohort, with no rescaling of the SE. Steps 5 to 7 are the moderated
+statistic of limma on precision weights in the manner of voom
+(`smyth2004linear`, `law2014voom`), applied to eSVD-DE's fitted library in
+place of a normalized library size.
+
+### Where the eSVD-DE fit enters
+
+eSVD-DE fits, for cell $c$ and gene $g$, the mean count
+
+$$\widehat{\mathbb{E}}[A_{cg}] = \exp\Big(\widehat x_c^\top \widehat y_g + \sum_{k} \widehat z_{gk}\, C_{ck}\Big)
+= \underbrace{\exp\Big(\sum_{k \ne \text{cc}} \widehat z_{gk}\, C_{ck}\Big)}_{\ell_{cg}}
+\cdot \exp\big(\widehat x_c^\top \widehat y_g + \widehat z_{g,\text{cc}}\, C_{c,\text{cc}}\big),$$
+
+where $C_{ck}$ is covariate $k$ of cell $c$ (the intercept, the log of the
+cell's total count, the case-control indicator cc, and any others),
+$\widehat z_{gk}$ is the fitted coefficient of gene $g$ on covariate $k$,
+and $\widehat x_c^\top \widehat y_g$ is the fitted low-rank term. The
+fitted library $\ell_{cg}$ is the first factor, floored at 0.1 as
+`compute_posterior()` floors it. It is the count the fit expects from cell
+$c$ for gene $g$ at the cell's depth and covariates, before the arm and
+the low-rank term act.
+
+**`donor_wls` uses one fitted quantity, $\ell_{cg}$, and uses it in two
+steps, both times summed over the cells of a donor,
+$L_{dg} = \sum_{c \in d} \ell_{cg}$.**
+
+- **Step 1, as the denominator of the donor summary.** The count of a cell
+  has mean $\ell_{cg} \lambda_{cg}$, with $\lambda_{cg}$ the cell's
+  expression relative to its library, so
+  $$\mathbb{E}[y_{dg}] = \sum_{c \in d} \ell_{cg}\, \lambda_{cg}
+  \quad\Longrightarrow\quad
+  \frac{y_{dg}}{L_{dg}} \approx \frac{\sum_{c \in d} \ell_{cg}\, \lambda_{cg}}{\sum_{c \in d} \ell_{cg}},$$
+  the library-weighted mean of $\lambda_{cg}$ over the donor's cells. The
+  response of the regression, $l_{dg} = \log\{(y_{dg} + 1/2) / L_{dg}\}$,
+  is the log of that ratio. This step is where the fit's adjustment for
+  depth and for every covariate other than the arm, cell by cell and gene
+  by gene, enters the log fold change. A pseudobulk method divides by one
+  normalized library size per donor in this place.
+- **Step 4, in the expected count that sets the weights.** The expected
+  count $\mu_{dg} = L_{dg}\, e^{f_{dg}}$ multiplies the summed fitted
+  library by the donor regression's own fitted ratio, and the weight
+  $w_{dg} = 1 / (\tau^2 + \phi / \mu_{dg})$ falls as $\mu_{dg}$ falls.
+  Through the weights $L_{dg}$ also enters $\widehat\theta_g$, $a_g$ and
+  $S_g$ of step 5.
+
+Every later quantity inherits the fit through these two steps only. The
+$f_{dg}$ of steps 3, 4 and 6 are fitted values of the donor-level
+regression of $l_{dg}$ on $D$. They are computed by the rule and are not
+values of the eSVD-DE fit.
+
+| Quantity of the eSVD-DE fit | Used by `donor_wls` | Where |
+|---|---|---|
+| fitted library $\ell_{cg}$, from $\widehat z_{gk}$ for $k \ne \text{cc}$ | yes | steps 1 and 4, as $L_{dg}$ |
+| design matrix $C$ (built by `format_covariates()`, not fitted) | yes | step 2, its columns that are constant within donors |
+| case-control coefficient $\widehat z_{g,\text{cc}}$ | no | the arm effect is estimated again in step 5 |
+| low-rank term $\widehat x_c^\top \widehat y_g$ | no | |
+| nuisance rate $\widehat\gamma_g$ and its capped status | no | |
+| posterior mean and variance of each cell and gene | no | |
+
+The donor-level covariates therefore act twice: once inside $\ell_{cg}$,
+where the fit removes their effect cell by cell, and once in $D$, where
+the regression of step 5 removes what is left of them between donors and
+charges the arm coefficient for it through $a_g$ and $\nu$. The call to
+`eSVD2::multtest()` in step 8 uses a function of the package on the rule's
+own $z_g$ and reads nothing of the fit. Experiments 11, 18 and 24 tried
+the three unused fitted quantities in turn, and each lost (Section 6).
+
+### The logic of the estimate, and what remains of eSVD-DE
+
+**The short answer.** `donor_wls` computes its log fold change and its SE
+from the counts and the fitted library alone. The embedding, the fitted
+case-control coefficient, the nuisance rate, the posterior mean and the
+posterior variance do not enter either number. The rule is close to a
+limma-voom analysis of donor pseudobulk counts in which eSVD-DE's fitted
+library replaces the normalized library size.
+
+**The log fold change.** The target is the log2 ratio of mean expression
+between the arms at equal depth and equal covariates, and the unit that is
+replicated is the donor. The rule therefore reduces each donor to one
+number per gene, $l_{dg}$, the log of the donor's expression relative to
+its fitted library (Section 1.3.1), and compares the arms on that scale.
+With no donor-level covariate and equal weights, step 5 reduces to a
+difference of two averages,
+
+$$\widehat\theta_{g,\text{arm}} = \frac{1}{n_1}\sum_{d\,\in\,\text{cases}} l_{dg} \;-\; \frac{1}{n_0}\sum_{d\,\in\,\text{controls}} l_{dg},
+\qquad \widehat\beta^{\,0}_g = \frac{\widehat\theta_{g,\text{arm}}}{\ln 2}.$$
+
+The regression generalizes this difference in two ways: the columns of $D$
+for sex and age hold those covariates equal between the arms, and the
+weights $w_{dg}$ let a donor with few counts for the gene count for less.
+
+**The standard error.** If $l_{dg}$ has variance $\sigma_g^2 / w_{dg}$
+around its regression line, independently over donors, then
+
+$$\text{Var}\big(\widehat\theta_{g,\text{arm}}\big) = \sigma_g^2\, a_g,
+\qquad a_g = \big[(D^\top W_g D)^{-1}\big]_{\text{arm}}
+\;\overset{\text{no covariates, equal weights}}{=}\; \frac{1}{n_1} + \frac{1}{n_0}.$$
+
+The factor $a_g$ is known from the design, and it grows when sex or age is
+unbalanced between the arms. The variance $\sigma_g^2$ is the spread of the
+donors around the line, donor-to-donor biological variation plus the
+sampling noise of the counts, and $S_g$ estimates it from $n - q$ degrees
+of freedom. With 10 donors that estimate is too noisy to use gene by gene,
+so step 6 replaces it by $\widetilde S_g$, a weighted average of $S_g$ and
+the value that genes of similar expression have. The SE is
+$\sqrt{\widetilde S_g\, a_g} / \ln 2$. It is a between-donor SE, and no
+within-donor or posterior variance is added to it.
+
+**Why the other fitted quantities are not used.** Each was tried, in the
+exploration of 2026-11-07 or in this run.
+
+| Fitted quantity | What happened when it was used | Why |
+|---|---|---|
+| posterior mean | the between-donor SE of posterior donor means was 0.65 to 0.73 times the SD of the log fold change over replicate cohorts (exploration) | the posterior mean of a cell is $w\, A_{cg} / \ell_{cg} + (1 - w) \times \text{fit}$, with $w = \ell_{cg} / (\ell_{cg} + \widehat\gamma_g)$, so it pulls donors toward the fit and toward each other, and their spread understates the noise by about $w$ |
+| posterior variance | as the SE of version 1.2.0, 3.4 to 5 times that SD (exploration); as a within-donor term added to the between-donor variance, kept at experiment 8 and removed at experiment 15 | it describes the uncertainty of a cell's expression given the fit, and the error of the log fold change is dominated by which donors were sampled |
+| case-control coefficient $\widehat z_{g,\text{cc}}$ | experiment 11, worse by `r fmt(.experiment(11, "delta"), 3)` nats | it is fitted over cells, so a donor with many cells counts for more, and experiment 10 shows that weighting donors by cell count alone costs `r fmt(.experiment(10, "delta"), 3)` nats |
+| embedding $\widehat x_c^\top \widehat y_g$ | experiment 18, worse by `r fmt(.experiment(18, "delta"), 3)` nats | in a cohort of 10 to 40 donors the low-rank term absorbs part of the donor effects, so dividing by it removes variation that the error of the log fold change still contains |
+| nuisance rate $\widehat\gamma_g$ | experiments 24 and 35, worse by `r fmt(.experiment(24, "delta"), 3)` and `r fmt(.experiment(35, "delta"), 4)` nats | the gene's level already predicts its variance, and the rate is capped for part of the genes |
+
+The baseline `raw_null` had already dropped the posterior mean and
+variance for the first two reasons, before the run began. The run then
+found no fitted quantity worth adding back.
+
+**What the run does not show.** Two limits bear on how far this result
+reaches.
+
+- The run did not score `donor_wls` with a plain library size (the cell's
+  total count) in place of $\ell_{cg}$. The share of the
+  `r fmt(-.block("score_vs_deseq2", "test", "donor_wls"), 3)` nats over
+  `deseq2` that the fitted library contributes, as opposed to the weights
+  and the moderation, is therefore not measured.
+- The bank draws each cell's embedding independently of its donor and its
+  arm, so the low-rank term has no difference in cell state between cases
+  and controls to remove. A cohort in which cell state is confounded with
+  the arm is the setting where the embedding is expected to matter, and
+  the bank does not contain it.
+
+**The p-value.** The p-value was not on trial, and nothing in the package
+changed. Two p-values exist after this run, and they use the fit
+differently.
+
+| Statistic | Computed by | Uses of the eSVD-DE fit |
+|---|---|---|
+| the package's p-value | `compute_test_statistic()` and `compute_pvalue()`, unchanged | posterior mean and posterior variance of every cell, hence the embedding, every coefficient and the nuisance rate; then the empirical null |
+| the Wald statistic $\widehat\beta_g / s_g$ of `donor_wls` | `report_lfc_se()` | the fitted library only |
+
+A user who reports the log fold change and SE of `donor_wls` beside the
+package's p-value reports two analyses of the same counts, and the two can
+disagree on a gene. Whether `compute_log_fold_change()` should adopt
+`donor_wls`, and whether the p-value should then follow it, are decisions
+for Section 8.
+
+The implementation is `RULE_nov11_claude.R`, which mirrors commit
+`r paste0("\x60", best_commit, "\x60")` and needs no other file of the
+project. Its code follows.
+
+```{r rule_code, echo=TRUE, eval=FALSE, code=readLines("RULE_nov11_claude.R")}
+```
+
+## The score, the gate and the reference
+
+The score of one fitted cohort is the Gaussian negative log-likelihood of
+the truth under the reported pair, in nats per gene,
+
+$$\text{NLL} = \frac{1}{p}\sum_{g=1}^{p}\left[\tfrac12 \log\!\left(2\pi s_g^2\right) + \frac{(\widehat\beta_g - \beta_g)^2}{2 s_g^2}\right],$$
+
+and lower is better. One example of the bank is a pair of cohorts, the
+score of an example is the mean of its two cohorts' NLL, and the score of a
+rule is the mean over the examples of a split. In expectation the NLL of a
+gene is smallest when $s_g^2$ equals the mean squared error of
+$\widehat\beta_g$, so it charges an SE that is too large, an SE that is too
+small, a biased log fold change and a noisy one in the same unit.
+
+A proper score rewards shrinkage toward zero wherever the truth is sparse.
+The gate therefore requires `slope_weak`, the slope of the reported log
+fold change on the truth over the weak genes ($0 < |\beta_g| < 0.5$), to
+lie in $[0.9, 1.1]$, and a commit that fails the gate is not kept.
+
+A commit is kept when its paired gain over the best commit so far is
+positive and at least one paired standard error over the
+`r paired_list$dev$num_examples` dev examples. `deseq2` is scored with the
+same formula on the pair that DESeq2 reports from donor pseudobulk counts,
+and the line `score_vs_deseq2` is a rule's score minus that reference.
+
+# The run
+
+| | |
+|---|---|
+| Branch | `autoresearch_lfcse/nov11`, cut from `2026-11-07_std` at `r paste0("\x60", results_df$commit[1], "\x60")` |
+| Budget agreed at setup | 40 experiments or 4 hours, with 8 cores for a scoring |
+| Experiments run | `r num_experiments`, from `r results_df$time[1]` to `r results_df$time[nrow(results_df)]` |
+| By status | `r nrow(kept_df)` kept, `r nrow(withdrawn_df)` kept and then withdrawn, `r nrow(discarded_df)` discarded |
+| Wall-clock per scoring | `r fmt(min(results_df$seconds), 0)` to `r fmt(max(results_df$seconds), 0)` seconds |
+| Best commit | `r paste0("\x60", best_commit, "\x60")` (experiment `r kept_df$experiment[nrow(kept_df)]`) |
+
+**What stopped the run.** The run was stopped by a decision at experiment
+`r num_experiments`, two short of the budget. The
+`r nrow(flat_df)` commits kept after experiment 13 moved the dev score by
+`r fmt(-sum(flat_df$delta))` nats in total, and the ideas left were weaker
+than the ones just discarded.
+
+**One departure from the protocol.** Experiments
+`r paste(withdrawn_df$experiment, collapse = " and ")`
+(`r paste0("\x60", withdrawn_df$commit, "\x60", collapse = ", ")`) passed
+the keep rule and were withdrawn afterwards (Section 5). The branch was
+reset to the previous kept commit `r .commit(27)`, the best-score files
+were rebuilt from a fresh scoring of that commit, and the two commits are
+preserved on the branch `autoresearch_lfcse/nov11-gap-invalid`. The
+protocol has no such step, so the withdrawal is Kevin's to confirm.
+
+Two experiments crashed on coding errors (a formula interface and a
+string that the scorer's tripwire refuses). Both were fixed and amended
+before they were logged, so the log has no `crash` row.
+
+::: {.generator}
+The bank `lfcse-bank-1` holds `r paired_list$dev$num_examples` dev and
+`r paired_list$test$num_examples` test examples. An example is a pair of
+cohorts of 600 genes whose counts follow the eSVD model at rank 3, with
+donor random effects on the log scale, and each cohort is fitted end to end
+by eSVD2 1.2.0. The case-control effects of the two cohorts are correlated
+at 0.8 with a size ratio of 2. Six factors are crossed, one example per
+cell and split: the number of donors (10, 20, 40, half per arm), the cells
+per donor (50 for every donor, or unequal from 30 to 600), the range of the
+true Gamma rate (narrow, wide), the effects (`sparse`: 10% of genes
+nonzero; `sparse_up`: the same sizes, all positive; `dense`: every gene
+nonzero), the covariates (none, or donor-level sex and age with sex
+imbalanced 60/40 between the arms), and the donor SD (0.2, 0.5, the
+quartiles estimated on the Velmeshev cohort). Both arms share the donor SD.
+The truth of an example is the generator's case-control coefficient in log2
+units. `BANK.md` records the bank as built.
+:::
+
+# Dev and test against the baseline
+
+::: {.reuse}
+The bank of Section 2. `donor_wls` was scored on the test split once, after
+the run ended; `raw_null` was scored on both splits when the bank was
+built.
+:::
+
+```{r block_table}
+key_vec <- c("score", "score_se", "rmse", "coverage_95", "z_sd_null",
+             "bias_null", "slope_weak", "wald_false", "rho_err",
+             "score_vs_deseq2")
+stratum_key_vec <- grep("^score_(donors|cells|rates|effects|covariates|donor_sd|status)",
+                        unique(block_df$key), value = TRUE)
+.block_column <- function(split, rule){
+  vapply(c(key_vec, stratum_key_vec), function(key){
+    fmt(.block(key, split, rule))
+  }, character(1))
+}
+block_table_df <- data.frame(
+  line = c(key_vec, stratum_key_vec),
+  baseline_dev = .block_column("dev", "raw_null"),
+  baseline_test = .block_column("test", "raw_null"),
+  best_dev = .block_column("dev", "donor_wls"),
+  best_test = .block_column("test", "donor_wls"),
+  stringsAsFactors = FALSE
+)
+knitr::kable(block_table_df, row.names = FALSE,
+             col.names = c("Line of the block", "`raw_null`, dev",
+                           "`raw_null`, test", "`donor_wls`, dev",
+                           "`donor_wls`, test"),
+             align = "lrrrr",
+             caption = "Table 1. The scorer's summary block of the baseline and of the best commit on both splits. Scores are in nats per gene and lower is better; all four blocks pass the gate.")
+```
+
+```{r paired_table}
+paired_table_df <- data.frame(
+  split = names(paired_list),
+  gain = vapply(paired_list, function(x){fmt(x$difference)}, character(1)),
+  se = vapply(paired_list, function(x){fmt(x$se)}, character(1)),
+  ratio = vapply(paired_list, function(x){fmt(-x$difference / x$se, 0)},
+                 character(1)),
+  improved = vapply(paired_list, function(x){
+    paste0(x$num_improved, " of ", x$num_examples)
+  }, character(1)),
+  stringsAsFactors = FALSE
+)
+knitr::kable(paired_table_df, row.names = FALSE,
+             col.names = c("Split", "`donor_wls` minus `raw_null`",
+                           "Paired SE", "Gain in paired SE",
+                           "Examples improved"),
+             align = "lrrrr",
+             caption = "Table 2. The paired comparison over the examples of each split.")
+```
+
+The gain is `r fmt(-paired_list$dev$difference)` nats per gene on dev and
+`r fmt(-paired_list$test$difference)` on test, so the run did not fit the
+dev bank. `deseq2`, which `raw_null` trailed by
+`r fmt(.block("score_vs_deseq2", "dev", "raw_null"), 3)` nats on dev, now
+trails `donor_wls` by
+`r fmt(-.block("score_vs_deseq2", "dev", "donor_wls"), 3)` on dev and
+`r fmt(-.block("score_vs_deseq2", "test", "donor_wls"), 3)` on test. On
+test the coverage of $\widehat\beta_g \pm 1.96\, s_g$ is
+`r fmt(.block("coverage_95", "test", "donor_wls"), 3)` and the SD of
+$\widehat\beta_g / s_g$ over the exactly null genes is
+`r fmt(.block("z_sd_null", "test", "donor_wls"), 2)`. The number of
+Benjamini-Hochberg discoveries at level 0.05 per 100 exactly null genes,
+`wald_false`, fell from
+`r fmt(.block("wald_false", "test", "raw_null"), 2)` to
+`r fmt(.block("wald_false", "test", "donor_wls"), 2)`.
+
+```{r fig_strata, out.width="95%", fig.align="center", fig.cap="Figure 1. Mean score per stratum with one standard error, `raw_null` (grey) beside `donor_wls` (blue), on the dev and the test split."}
+knitr::include_graphics(file.path(figure_dir, "strata.png"))
+```
+
+`donor_wls` is below `raw_null` in every stratum of both splits. The gain
+is largest at 10 donors, where the test score moved from
+`r fmt(.stratum("test", "raw_null", "donors", "10"), 3)` to
+`r fmt(.stratum("test", "donor_wls", "donors", "10"), 3)`, and with unequal
+cells per donor
+(`r fmt(.stratum("test", "raw_null", "cells", "unequal"), 3)` to
+`r fmt(.stratum("test", "donor_wls", "cells", "unequal"), 3)`).
+
+```{r fig_paired, out.width="85%", fig.align="center", fig.cap="Figure 2. The difference `donor_wls` minus `raw_null` for each test example, sorted, colored by the number of donors and the covariates."}
+knitr::include_graphics(file.path(figure_dir, "paired.png"))
+```
+
+Every test example improved, by `r fmt(-paired_list$test$range[2], 2)` to
+`r fmt(-paired_list$test$range[1], 2)` nats per gene, and the largest
+improvements are the 10-donor cohorts with sex and age in the design.
+
+::: {.takeaway}
+`donor_wls` improves on `raw_null` by
+`r fmt(-paired_list$test$difference, 3)` nats per gene on held-out
+examples, `r fmt(-paired_list$test$difference / paired_list$test$se, 0)`
+paired standard errors, in every one of the
+`r paired_list$test$num_examples` examples and every stratum. Its Wald
+statistic is calibrated on this bank (null SD
+`r fmt(.block("z_sd_null", "test", "donor_wls"), 2)`, coverage
+`r fmt(.block("coverage_95", "test", "donor_wls"), 3)`), and it is ahead of
+DESeq2's pseudobulk pair by
+`r fmt(-.block("score_vs_deseq2", "test", "donor_wls"), 3)` nats.
+:::
+
+# What helped
+
+::: {.reuse}
+The bank of Section 2, dev split. The gain of a commit is against the best
+commit at the time, computed from scores logged to four digits.
+:::
+
+```{r fig_trajectory, out.width="85%", fig.align="center", fig.cap="Figure 3. The dev score of every experiment in order: kept commits filled, discarded ones open, the two withdrawn commits as crosses. Dashed lines mark the baseline and the final best."}
+knitr::include_graphics(file.path(figure_dir, "trajectory.png"))
+```
+
+```{r kept_table}
+.experiment_table <- function(sub_df, sign){
+  data.frame(
+    experiment = sub_df$experiment,
+    commit = paste0("`", sub_df$commit, "`"),
+    direction = sub_df$direction,
+    idea = sub_df$idea,
+    change = ifelse(is.na(sub_df$paired_se),
+                    fmt(sign * sub_df$delta),
+                    paste0(fmt(sign * sub_df$delta), " (",
+                           fmt(sub_df$paired_se), ")")),
+    strata = sub_df$strata,
+    stringsAsFactors = FALSE
+  )
+}
+knitr::kable(.experiment_table(kept_df, sign = -1), row.names = FALSE,
+             col.names = c("#", "Commit", "Direction", "Idea",
+                           "Gain (paired SE)", "Strata that moved"),
+             align = "llllrl",
+             caption = "Table 3. Every kept commit in order, dev split. Directions are the memo's: D1 the donor summary, D2 the variance form, D3 the centring, D4 borrowing across genes, D5 using more of the fit.")
+```
+
+Three commits carry
+`r round(100 * sum(large_gain_vec) / total_gain)`% of the dev gain of
+`r fmt(total_gain)` nats.
+
+- **The moderation (experiment 5, `r fmt(large_gain_vec[1], 3)` nats).** A
+  variance estimated from 5 to 20 donors per arm is stabilized by the other
+  genes' variances, and the gain is in every stratum.
+- **The design factor (experiment 7, `r fmt(large_gain_vec[2], 3)` nats).**
+  The SD of the empirical null had been compensating for two separate
+  things: the degrees of freedom and the variance inflation that
+  donor-level covariates cost, which $a_g$ and $\nu$ now charge directly,
+  and true weak effects, which had been inflating the null SD in the
+  `dense` cells.
+- **The log-scale estimator (experiment 12, `r fmt(large_gain_vec[3], 3)`
+  nats).** The mean of log donor means is more efficient than the log of
+  the mean because the bank's donor effects are log-normal. This gain is
+  the only large one that comes from the log fold change (the RMSE fell)
+  and not from the SE.
+
+The remaining kept commits are small. Experiments 8 and 15 cancel: the
+stored within-donor term acted as a general widening while the coverage was
+0.944 and became redundant once the regression variance was in place.
+Experiments 9, 27 and 31 are each at about one paired SE, the level at
+which the keep rule admits a change with no effect about one time in six.
+Experiment 27 (the donor offset of step 3) is weakly tested by this bank,
+whose donors carry almost no depth error common to all genes.
+
+```{r fig_chosen, out.width="85%", fig.align="center", fig.cap="Figure 4. The median standard error reported per test example, `donor_wls` against `raw_null`, by donor SD and covariates; the grey line marks equality."}
+knitr::include_graphics(file.path(figure_dir, "chosen.png"))
+```
+
+The median SE of `donor_wls` is at or below that of `raw_null` in nearly
+every test example and varies less between examples of the same donor
+count, which is the effect of the moderation and of the removal of the
+cohort-wide null-SD factor.
+
+::: {.takeaway}
+The gain comes from how the variance is estimated and from the scale of the
+donor summary, in three steps: moderating the per-gene variance across
+genes, charging the donor-level covariates through the regression in place
+of the empirical null's SD, and estimating the log fold change on the log
+scale. The other `r nrow(kept_df) - length(large_vec)` kept commits add
+`r fmt(total_gain - sum(large_gain_vec), 3)` nats together, and several of
+them are within the noise that the keep rule admits.
+:::
+
+# The withdrawn commits
+
+::: {.reuse}
+The bank of Section 2, dev split. The SE diagnostics below were computed
+during the run on `r validity_df$num_cohorts[1]` dev cohorts by a script
+that was not kept, and are recorded in `csv/RUN_nov11/validity.csv`.
+:::
+
+```{r withdrawn_table}
+knitr::kable(.experiment_table(withdrawn_df, sign = -1), row.names = FALSE,
+             col.names = c("#", "Commit", "Direction", "Idea", "Gain",
+                           "Strata that moved"),
+             align = "llllrl",
+             caption = "Table 4. The two commits that passed the keep rule and were withdrawn (`gap_trend`).")
+```
+
+`gap_trend` moderated the variance toward a trend in the gap between the
+log arithmetic mean and the mean log of a gene's donor ratios, and it
+scored `r fmt(.experiment(29, "score"))` against
+`r fmt(.experiment(27, "score"))` for the commit before it. The gap is
+computed over all donors before the regression, so it contains the
+between-arm sum of squares, which is the squared estimated log fold change.
+With that covariate the prior degrees of freedom were infinite in every
+cohort checked, and the SE became a smooth function of the gap.
+
+```{r validity_table}
+knitr::kable(validity_df[, c("rule", "commit", "se_ratio", "spearman")],
+             row.names = FALSE, digits = 2,
+             col.names = c("Rule", "Commit",
+                           "Median SE, strong-effect genes over the others",
+                           "Spearman correlation of SE and absolute logFC"),
+             caption = "Table 5. Whether the reported SE follows the estimate, on 12 dev cohorts.")
+```
+
+Under `gap_trend` the SE of strong-effect genes was
+`r fmt(validity_df$se_ratio[1], 2)` times that of the other genes. The
+score rewards an SE that grows with the estimate because most true effects
+in the bank are near zero, so a gene with a large estimate is, on average,
+a gene with a large error. Such an SE is no longer the sampling SD of the
+log fold change, and it is the counterpart for the SE of the thresholding
+rule that the memo excludes for the log fold change. The gate examines
+only the slope of the log fold change, which `gap_trend` leaves unchanged.
+
+Experiment 30 confirmed the mechanism: the same gap computed on the
+regression's residuals, which do not contain the arm effect, scored
+`r fmt(.experiment(30, "score"))`. Experiment 31 then replaced the kept
+covariate by one that is invariant to the arm effect, and the covariate of
+`donor_wls` gives a ratio of `r fmt(validity_df$se_ratio[3], 2)` and a
+correlation of `r fmt(validity_df$spearman[3], 2)`.
+
+::: {.takeaway}
+On this bank the score pays `r fmt(-sum(withdrawn_df$delta), 3)` nats for
+an SE that depends on the estimated log fold change, and the gate on
+`slope_weak` does not detect it. The two commits were withdrawn by hand. A
+second gate, on the correlation between the reported SE and
+$|\widehat\beta_g|$ or on the SE ratio of Table 5, would let the keep rule
+refuse such a commit.
+:::
+
+# What did not help
+
+::: {.reuse}
+The bank of Section 2, dev split. The change is against the best commit at
+the time, and positive is worse.
+:::
+
+```{r discarded_table}
+discarded_df <- discarded_df[order(discarded_df$direction,
+                                   discarded_df$experiment), ]
+knitr::kable(.experiment_table(discarded_df, sign = 1), row.names = FALSE,
+             col.names = c("#", "Commit", "Direction", "Idea",
+                           "Change (paired SE)", "Where it lost"),
+             align = "llllrl",
+             caption = "Table 6. Every discarded commit, grouped by direction, dev split.")
+```
+
+```{r direction_table}
+direction_vec <- sort(unique(experiment_df$direction))
+direction_df <- data.frame(
+  direction = direction_vec,
+  tried = vapply(direction_vec, function(direction){
+    sum(experiment_df$direction == direction)
+  }, numeric(1)),
+  kept = vapply(direction_vec, function(direction){
+    sum(kept_df$direction == direction)
+  }, numeric(1)),
+  gain = vapply(direction_vec, function(direction){
+    fmt(-sum(kept_df$delta[kept_df$direction == direction]))
+  }, character(1)),
+  stringsAsFactors = FALSE
+)
+knitr::kable(direction_df, row.names = FALSE,
+             col.names = c("Direction", "Experiments", "Kept",
+                           "Summed gain of the kept (nats)"),
+             align = "lrrr",
+             caption = "Table 7. Experiments and kept gain per direction, dev split, without the two withdrawn commits.")
+```
+
+The bank rewards D1, D2 and D4. The two D5 commits that were kept cancel
+each other (Section 4), and the three largest D5 losses share a cause: the
+fit's case-control coefficient (experiment 11), its low-rank term
+(experiment 18) and its nuisance rate (experiment 24) are estimated at the
+level of cells, so they either weight donors by their cell count or absorb
+donor effects that the error of the log fold change still contains.
+Weighting donors by cell count directly (experiment 10) lost
+`r fmt(.experiment(10, "delta"), 3)` nats for the same reason.
+
+On D3 the empirical null's mean is needed, since removing the centring
+(experiment 19) lost `r fmt(.experiment(19, "delta"), 3)` nats, and none of
+four alternatives to the kept estimator of the centre improved on it. The
+SD of the empirical null could not be dropped before the design factor
+existed (experiments 1 and 6) and was dropped with it at experiment 7. The
+eighth item of the memo's queue, a null SD fitted separately for capped and
+estimated genes, was therefore not run.
+
+::: {.takeaway}
+Quantities that eSVD-DE estimates at the level of cells did not improve a
+donor-level log fold change or its SE on this bank. `donor_wls` reads the
+counts, the design and the fitted library, and the fitted library is the
+only part of the fit it uses.
+:::
+
+# Constants
+
+The truth was not on trial in this run. The kept commits introduced four
+numeric constants, and the dev split chose the value of none of them.
+
+| Constant | Where | Reason |
+|---|---|---|
+| 1/2 | half count in $l_{dg}$ (step 1) | continuity correction of a Poisson count, which keeps the logarithm finite at a zero count |
+| 0 | floor of $\tau^2$ and $\phi$ (step 4) | a variance component is not negative |
+| 50 | iteration cap of the trigamma inverse (step 6) | Newton's method converges in under 10 steps, and the cap prevents an endless loop |
+| $10^{-8}$ | convergence tolerance of the trigamma inverse (step 6) | single precision in the relative step |
+
+The smoothness of the spline in step 6 is chosen by generalized
+cross-validation within each cohort.
+
+# Recommendation
+
+Three statements follow from the evidence of this bank. `donor_wls` is the
+best rule the run found, and its gain holds on held-out examples (Section
+3). The SD of the empirical null is not needed once the donor-level
+covariates are charged through the regression (Section 4). A gate on the
+dependence of the SE on the estimate is needed before another run (Section
+5).
+
+Three decisions are choices that the evidence does not settle, and they are
+Kevin's: whether the withdrawal of `gap_trend` stands, whether the branch
+`autoresearch_lfcse/nov11` is merged, and whether `donor_wls` replaces the
+earlier recommendation for `compute_log_fold_change()` before it has been
+checked on a second bank and on the real cohorts.
+
+::: {.recipe}
+For one cohort fitted by `eSVD()` with the fitted library kept:
+
+1. **Inputs.** The counts, the fitted library `library_mat`, the design
+   matrix, the donor of each cell and the arm of each cell.
+2. **Check.** Each arm has at least 5 donors, and $n - q \ge 1$ after the
+   donor-level covariates enter $D$. The bank does not cover fewer than 5
+   donors per arm.
+3. **Fit.** `report_lfc_se(view)` of `RULE_nov11_claude.R`, which is
+   `donor_wls` (Section 1.3, steps 1 to 8).
+4. **Output.** `log2fc` and `se` per gene. The Wald statistic is
+   `log2fc / se`, referred to the standard normal distribution.
+5. **Report alongside.** The mean $\delta_0$ of the empirical null and the
+   shift $\delta_0 \cdot \text{median}_g\, s_g$, the fitted $\tau^2$ and
+   $\phi$, the prior degrees of freedom $\nu_0$, and the Spearman
+   correlation between `se` and the absolute `log2fc`.
+6. **When to fall back.** If that correlation is far from zero, or if the
+   two arms differ visibly in the spread of their log donor means, the
+   log fold change of `donor_wls` is a contrast of geometric means that
+   need not equal the log ratio of mean expression (Section 9), and
+   `raw_null` is reported beside it.
+:::
+
+**Three next experiments.**
+
+1. *An estimand check for the log-scale log fold change (D1; a new bank
+   factor).* The difference of mean log donor means equals the log ratio of
+   mean expression only when the two arms have the same donor variance,
+   which the bank imposes. A bank with unequal donor SD between the arms
+   would show whether the gain of experiment 12 survives, or whether a
+   correction of half the difference of the arms' log-scale variances is
+   needed.
+2. *Donor-level depth error (D2; a new bank factor).* The donor offset of
+   step 3 is at one paired SE here because the bank's donors carry no
+   common depth error. A factor for that error would test the offset and
+   whether the SE should then exclude that component.
+3. *Capped genes (D5; a new bank).* The bank caps 13% of genes at the wide
+   rate range against 73% in the Velmeshev cohort, and the capped genes
+   score `r fmt(.block("score_status_capped", "test", "donor_wls"), 3)` on
+   test against `r fmt(.block("score_status_capped", "dev", "donor_wls"), 3)`
+   on dev. `donor_wls` no longer reads the nuisance rate, so the question
+   is whether its SE stays calibrated when most genes are capped.
+
+# What we glossed over
+
+- **The estimand.** The log fold change of `donor_wls` is a contrast of
+  geometric means over donors. It is taken up by the first next experiment
+  of Section 8.
+- **How much of eSVD-DE the rule needs.** The contribution of the fitted
+  library was not isolated, and the bank cannot reward the embedding
+  (Section 1.3.2). A run of `donor_wls` with a plain library size, and a
+  bank factor that confounds cell state with the arm, would settle both.
+- **The package's p-value** was not on trial and still uses the posterior,
+  so it can disagree with the Wald statistic of `donor_wls` (Section
+  1.3.2).
+- **Keeps at one paired SE.** Experiments 9, 27 and 31 cannot be separated
+  from noise individually, and the test split scored only the final rule. A
+  second bank (Section 8) would test the donor offset.
+- **The SE diagnostics of Table 5** rest on 12 dev cohorts and a script
+  that was not kept. The proposed gate (Section 5) would compute them for
+  every example.
+- **`k_err` and `r_err`**, the errors in the two moments of Was2CoDE's
+  Figure 4, are omitted from Table 1. They are defined for about 80% of
+  pairs and are dominated by a few near-zero denominators (`BANK.md`), so
+  they are read by stratum in `csv/RUN_nov11/scores.csv`.
+- **Real cohorts.** No real cohort was read in this run. The exploration
+  of 2026-11-07 (`additional_context/2026-11-07_std-exploration/`) holds
+  the real-data checks that `donor_wls` has not yet been through.
+- **The trial file's header.** The header comment of
+  `report_rule_claude.R` at the best commit describes the rule as of
+  experiment 15. The file was left as scored, and the header of
+  `RULE_nov11_claude.R` is the accurate description.
+
+# Files
+
+| File | What it is |
+|---|---|
+| `notes/RULE_nov11_claude.R` | `donor_wls`, self-contained; mirrors the best commit |
+| `notes/RUN_nov11_claude.md` | the run report in the protocol's format |
+| `notes/MEMO_claude.md`, `notes/BANK.md` | the agreed design and the bank as built |
+| `diagnostics/export_run_nov11_claude.R` | writes `notes/csv/RUN_nov11/` from the scorer's untracked `output/` |
+| `diagnostics/plot_run_nov11_claude.R` | writes the four figures of `notes/figures/RUN_nov11/` from `output/` |
+| `csv/RUN_nov11/results.csv` | one row per logged commit, the baseline first: the columns of the log, the experiment number and the change against the best at the time |
+| `csv/RUN_nov11/experiments.csv` | one row per experiment: direction, idea, paired SE, strata that moved |
+| `csv/RUN_nov11/scores.csv` | one row per example, split and rule (`raw_null`, `donor_wls`): the score and the diagnostics of that example |
+| `csv/RUN_nov11/blocks.csv` | one row per line of a summary block, per split and rule |
+| `csv/RUN_nov11/validity.csv` | one row per rule of Table 5 |
+
+**Reproducibility.** The bank is `lfcse-bank-1`, with
+`r paired_list$dev$num_examples` dev and `r paired_list$test$num_examples`
+test rows in its manifests, and the scorer's budget is
+`r fmt(.block("budget", "dev", "donor_wls"), 0)` seconds on 8 cores. The
+harness is as of commit `r paste0("\x60", results_df$commit[1], "\x60")`
+and did not change during the run. The best commit is rescored by
+`git checkout `r best_commit` && Rscript autoresearch_lfcse/harness/evaluate_claude.R dev`,
+and both diagnostics scripts are run from the repository root with
+`Rscript`.
+
+# References
+
+- `lin2024esvd`: Lin, Qiu and Roeder (2024), eSVD-DE, *BMC Bioinformatics*
+  25:113, doi:10.1186/s12859-024-05724-7.
+- `smyth2004linear`: Smyth (2004), linear models and empirical Bayes
+  methods for differential expression, *Statistical Applications in
+  Genetics and Molecular Biology* 3(1), doi:10.2202/1544-6115.1027. *Verify
+  before citing.*
+- `law2014voom`: Law, Chen, Shi and Smyth (2014), voom, *Genome Biology*
+  15:R29, doi:10.1186/gb-2014-15-2-r29. *Verify before citing.*
+- `efron2004large`: Efron (2004), the choice of a null hypothesis in
+  large-scale testing, *Journal of the American Statistical Association*
+  99:96 to 104, doi:10.1198/016214504000000089. *Verify before citing.*
+- `love2014moderated`: Love, Huber and Anders (2014), DESeq2, *Genome
+  Biology* 15:550, doi:10.1186/s13059-014-0550-8. *Verify before citing.*
+- Project files: `autoresearch_lfcse/notes/MEMO_claude.md`,
+  `autoresearch_lfcse/notes/BANK.md`,
+  `autoresearch_lfcse/notes/RUN_nov11_claude.md`.

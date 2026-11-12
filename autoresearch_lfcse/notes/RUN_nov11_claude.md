@@ -184,7 +184,7 @@ per donor.
 
 ![](figures/RUN_nov11/paired.png)
 
-Every test example improved, by 0.01 to 0.3 nats per gene, and the largest
+Every test example improved, by 0.01 to 0.20 nats per gene, and the largest
 improvements are the 10-donor cohorts with sex and age in the design.
 
 ![](figures/RUN_nov11/chosen.png)
