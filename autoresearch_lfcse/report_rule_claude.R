@@ -8,18 +8,20 @@
 # functions, always with `::`; the top level holds function definitions and
 # named constants only.
 #
-# The rule. For donor d and gene g let m_dg be the ratio of sums, the
-# donor's counts over its fitted library sizes. With arm means M1, M0 over
-# n1, n0 donors and the squared coefficients of variation C1 = V1 / M1^2,
-# C0 = V0 / M0^2 of the donor means (V the sample variance),
-#   lfc = log2(M1 / M0),
-#   se  = sqrt(C1~ / n1 + C0~ / n0) / ln 2,
-# where C~ is C moderated toward its trend in mean expression
-# (`.moderate_variance()`). The empirical null (mean d0, SD s0) is fitted
-# to z = lfc / se over the genes, and the rule reports
-# (lfc - d0 * median(se), sqrt(F) * se), where F is the factor by which
-# the donor-level covariates of the design widen the variance of the
-# case-control coefficient (`.design_factor()`; 1 without covariates).
+# The rule. For donor d and gene g let y_dg be the donor's summed counts
+# and L_dg its summed fitted library sizes, and l_dg = log((y_dg + 1/2) /
+# L_dg). With D the donor-level design (intercept, arm, and every covariate
+# constant within donors), the log donor means are regressed on D by least
+# squares, gene by gene:
+#   lfc  = (arm coefficient) / ln 2,
+#   se^2 = (S~ * a + f * W) / (ln 2)^2,
+# where a = [(D'D)^-1]_arm, S~ is the residual variance on n - rank(D)
+# degrees of freedom moderated toward its trend in mean expression
+# (`.moderate_variance()`), W is the within-donor term of 1.2.0 (posterior
+# variance over the donor's cell count, relative to the arm mean), and
+# f = a / (1/n1 + 1/n0). The empirical null's mean d0 is fitted to
+# z = lfc / se over the genes, and the rule reports
+# (lfc - d0 * median(se), se).
 
 # Inverse of the trigamma function by Newton's method on its reciprocal
 # (Smyth 2004, appendix); the start 0.5 + 1 / x is exact in both limits.
@@ -59,15 +61,11 @@
   (prior_df * prior_vec + df * var_vec) / (prior_df + df)
 }
 
-# Variance factor of the donor-level design. The fitted library removes
-# every covariate that is constant within donors (sex, age) from the donor
-# means, so the two-arm variance stands in for the variance of the
-# case-control coefficient of a donor-level regression on those
-# covariates. With D the donors x columns design (intercept, arm, and the
-# donor-level covariates), that variance is sigma^2 [(D'D)^-1]_arm with
-# sigma^2 on n - rank(D) degrees of freedom, against sigma^2 (1/n1 + 1/n0)
-# on n - 2 for the two arms alone. The factor is the ratio of the two.
-.design_factor <- function(covariates, individual_vec, arm_vec, donor_vec){
+# The donor-level design: intercept, arm, and every column of `covariates`
+# that is constant within donors (sex, age). The fitted library removes
+# those covariates cell by cell; the donor-level regression removes what
+# is left of them between donors and charges the arm coefficient for it.
+.donor_design <- function(covariates, individual_vec, arm_vec, donor_vec){
   individual_chr <- as.character(individual_vec)
   first_idx <- match(donor_vec, individual_chr)
   bool_donor_level <- apply(covariates, 2, function(col_vec){
@@ -78,97 +76,66 @@
   qr_res <- qr(design_mat)
   # Columns 1 and 2 (intercept, arm) are pivoted first, so the constant
   # and arm columns of `covariates` itself drop out as redundant.
-  keep_idx <- qr_res$pivot[seq_len(qr_res$rank)]
-  design_mat <- design_mat[, keep_idx, drop = FALSE]
-  num_donors <- nrow(design_mat)
-  n1 <- sum(arm_vec == 1)
-  n0 <- sum(arm_vec == 0)
-  arm_var <- solve(crossprod(design_mat))[2, 2]
-  list(design_mat = design_mat,
-       factor = (arm_var / (1 / n1 + 1 / n0)) *
-         ((num_donors - 2) / (num_donors - ncol(design_mat))))
+  design_mat[, qr_res$pivot[seq_len(qr_res$rank)], drop = FALSE]
 }
 
 .arm_of_donor <- function(case_control_vec, individual_vec, donor_vec){
   case_control_vec[match(donor_vec, as.character(individual_vec))]
 }
 
-.lfc_from_donor_means <- function(mean_mat, log_mat, arm_vec){
-  case_mat <- mean_mat[arm_vec == 1, , drop = FALSE]
-  control_mat <- mean_mat[arm_vec == 0, , drop = FALSE]
-  n1 <- nrow(case_mat)
-  n0 <- nrow(control_mat)
-  case_mean <- colMeans(case_mat)
-  control_mean <- colMeans(control_mat)
-  # The squared CV of an arm's donor means is estimated by the variance of
-  # their logarithms (equal to first order, and not driven by the largest
-  # donor).
-  case_var <- apply(log_mat[arm_vec == 1, , drop = FALSE], 2, stats::var)
-  control_var <- apply(log_mat[arm_vec == 0, , drop = FALSE], 2, stats::var)
-  covariate_vec <- log(colMeans(mean_mat))
-  case_cv2 <- .moderate_variance(var_vec = case_var,
-                                 df = n1 - 1, covariate_vec = covariate_vec)
-  control_cv2 <- .moderate_variance(var_vec = control_var,
-                                    df = n0 - 1,
-                                    covariate_vec = covariate_vec)
-  # The logFC is the difference of the arms' mean log donor means (the log
-  # ratio of geometric means over donors), which a donor far above the
-  # others moves less than it moves the arithmetic mean.
-  list(lfc_vec = (colMeans(log_mat[arm_vec == 1, , drop = FALSE]) -
-                    colMeans(log_mat[arm_vec == 0, , drop = FALSE])) / log(2),
-       se_vec = sqrt(case_cv2 / n1 + control_cv2 / n0) / log(2))
-}
-
 report_lfc_se <- function(view){
   # Donor summary: the ratio of sums, sum of counts over sum of fitted
   # library sizes, which weights each cell by its depth.
   individual_chr <- as.character(view$individual_vec)
-  mean_mat <- rowsum(view$dat, group = individual_chr) /
-    rowsum(view$library_mat, group = individual_chr)
-  arm_vec <- .arm_of_donor(case_control_vec = view$case_control_vec,
-                           individual_vec = view$individual_vec,
-                           donor_vec = rownames(mean_mat))
+  count_mat <- rowsum(view$dat, group = individual_chr)
+  library_sum_mat <- rowsum(view$library_mat, group = individual_chr)
+  mean_mat <- count_mat / library_sum_mat
   # Half a count keeps the logarithm of a donor with no count finite (the
   # continuity correction of a Poisson count).
-  log_mat <- log((rowsum(view$dat, group = individual_chr) + 0.5) /
-                   rowsum(view$library_mat, group = individual_chr))
-  raw <- .lfc_from_donor_means(mean_mat = mean_mat, log_mat = log_mat,
-                               arm_vec = arm_vec)
+  log_mat <- log((count_mat + 0.5) / library_sum_mat)
+  donor_vec <- rownames(mean_mat)
+  arm_vec <- .arm_of_donor(case_control_vec = view$case_control_vec,
+                           individual_vec = view$individual_vec,
+                           donor_vec = donor_vec)
+  bool_case <- arm_vec == 1
+  n1 <- sum(bool_case)
+  n0 <- sum(!bool_case)
+
+  # Least squares of the log donor means on the donor-level design.
+  design_mat <- .donor_design(covariates = view$covariates,
+                              individual_vec = view$individual_vec,
+                              arm_vec = arm_vec, donor_vec = donor_vec)
+  gram_inv_mat <- solve(crossprod(design_mat))
+  coef_mat <- gram_inv_mat %*% crossprod(design_mat, log_mat)
+  lfc_vec <- coef_mat[2, ] / log(2)
+  arm_var <- gram_inv_mat[2, 2]
+  residual_df <- nrow(design_mat) - ncol(design_mat)
+  residual_var <- colSums((log_mat - design_mat %*% coef_mat)^2) /
+    residual_df
+  between_vec <- arm_var *
+    .moderate_variance(var_vec = residual_var, df = residual_df,
+                       covariate_vec = log(colMeans(mean_mat)))
 
   # The within-donor term 1.2.0 stores, per donor mean: the donor's average
-  # posterior variance over its number of cells, added to the between term.
-  num_cells_vec <- as.numeric(table(individual_chr)[rownames(mean_mat)])
+  # posterior variance over its number of cells, relative to the arm mean.
+  num_cells_vec <- as.numeric(table(individual_chr)[donor_vec])
   within_mat <- rowsum(view$posterior_var_mat, group = individual_chr) /
     num_cells_vec^2
-  bool_case <- arm_vec == 1
   within_vec <-
     colSums(within_mat[bool_case, , drop = FALSE]) /
-    (sum(bool_case) * colMeans(mean_mat[bool_case, , drop = FALSE]))^2 +
+    (n1 * colMeans(mean_mat[bool_case, , drop = FALSE]))^2 +
     colSums(within_mat[!bool_case, , drop = FALSE]) /
-    (sum(!bool_case) * colMeans(mean_mat[!bool_case, , drop = FALSE]))^2
-  raw$se_vec <- sqrt(raw$se_vec^2 + within_vec / log(2)^2)
+    (n0 * colMeans(mean_mat[!bool_case, , drop = FALSE]))^2
+  se_vec <- sqrt(between_vec + within_vec * arm_var / (1 / n1 + 1 / n0)) /
+    log(2)
 
-  design_res <- .design_factor(covariates = view$covariates,
-                               individual_vec = view$individual_vec,
-                               arm_vec = arm_vec,
-                               donor_vec = rownames(mean_mat))
-
-  # The logFC is the arm coefficient of the donor-level least-squares
-  # regression of the log donor means on the design, the regression whose
-  # variance the design factor describes. Without donor-level covariates
-  # it is the difference of the arms' mean log donor means.
-  coef_mat <- solve(crossprod(design_res$design_mat),
-                    crossprod(design_res$design_mat, log_mat))
-  raw$lfc_vec <- coef_mat[2, ] / log(2)
-
-  z_vec <- raw$lfc_vec / raw$se_vec
+  z_vec <- lfc_vec / se_vec
   # `multtest()` warns when locfdr falls back on its cruder estimators; the
   # estimate is still used.
   null_res <- suppressWarnings(eSVD2::multtest(z_vec[is.finite(z_vec)]))
 
   data.frame(gene = colnames(view$dat),
-             log2fc = raw$lfc_vec -
-               null_res$null_mean * stats::median(raw$se_vec),
-             se = sqrt(design_res$factor) * raw$se_vec,
+             log2fc = lfc_vec - null_res$null_mean * stats::median(se_vec),
+             se = se_vec,
              stringsAsFactors = FALSE)
 }
