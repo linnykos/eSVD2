@@ -57,7 +57,8 @@ report_lfc_se <- function(view){
   null_res <- suppressWarnings(eSVD2::multtest(z_vec[is.finite(z_vec)]))
 
   data.frame(gene = colnames(view$dat),
-             log2fc = raw$lfc_vec - null_res$null_mean * raw$se_vec,
+             log2fc = raw$lfc_vec -
+               null_res$null_mean * stats::median(raw$se_vec),
              se = null_res$null_sd * raw$se_vec,
              stringsAsFactors = FALSE)
 }
