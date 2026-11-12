@@ -26,8 +26,10 @@
 #
 # The fit's reparameterization makes the embedding orthogonal to the arm,
 # so the arms' difference in cell state sits in theta as a term y_g' d.
-# The vector d is estimated by least squares of theta_g on the loadings
-# y_g over the genes (with an intercept), and
+# The vector d is estimated by weighted least squares of theta_g on the
+# loadings y_g over the genes (with an intercept; weights 1 / (a S~); a
+# second pass leaves out the genes whose residual is beyond 3 SE, which
+# carry an effect of their own), and
 #   lfc_g = (theta_g - y_g' d) / ln 2,
 #   se_g^2 = (a S~ + y_g' Cov(d) y_g) / (ln 2)^2,
 # with S~ the moderated S. The embedding offset was fitted to the same
@@ -161,30 +163,34 @@ report_lfc_se <- function(view){
   res <- .donor_regression(log_mat = raw_mat - offset_coef * offset_res_mat,
                            library_sum_mat = library_sum_mat,
                            design_mat = design_mat)
+  noise_var_vec <- res$arm_var_vec *
+    .moderate_variance(var_vec = res$residual_var, df = res$residual_df,
+                       covariate_vec = res$level_vec)
   # The arms' difference in cell state: the arm coefficients regressed on
-  # the loadings over the genes.
+  # the loadings over the genes, each gene weighted by its precision.
   loading_mat <- cbind(1, view$y_mat)
-  gram_inv_mat <- solve(crossprod(loading_mat))
-  state_coef_vec <- gram_inv_mat %*% crossprod(loading_mat, res$coef_arm_vec)
+  bool_use <- rep(TRUE, nrow(loading_mat))
+  # Two passes: the second without the genes that the first leaves beyond
+  # 3 SE (a normal residual is beyond 3 SE once in 370 genes).
+  for(pass in seq_len(2)){
+    weighted_mat <- loading_mat[bool_use, , drop = FALSE] /
+      noise_var_vec[bool_use]
+    gram_inv_mat <- solve(crossprod(loading_mat[bool_use, , drop = FALSE],
+                                    weighted_mat))
+    state_coef_vec <- gram_inv_mat %*%
+      crossprod(weighted_mat, res$coef_arm_vec[bool_use])
+    fitted_vec <- as.numeric(loading_mat %*% state_coef_vec)
+    bool_use <- abs(res$coef_arm_vec - fitted_vec) <= 3 * sqrt(noise_var_vec)
+  }
   # The intercept stays in the logFC; the empirical null centres it below.
-  state_coef_vec[1] <- 0
-  state_part_vec <- as.numeric(loading_mat %*% state_coef_vec)
+  state_part_vec <- fitted_vec - state_coef_vec[1]
   lfc_vec <- (res$coef_arm_vec - state_part_vec) / log(2)
-  # The variance of the removed part: the residual variance of that
-  # regression over the genes times the loadings' leverage.
-  coef_res_vec <- res$coef_arm_vec -
-    as.numeric(loading_mat %*% (gram_inv_mat %*%
-                                  crossprod(loading_mat, res$coef_arm_vec)))
-  state_var_vec <- sum(coef_res_vec^2) /
-    (nrow(loading_mat) - ncol(loading_mat)) *
-    rowSums((loading_mat[, -1, drop = FALSE] %*%
-               gram_inv_mat[-1, -1, drop = FALSE]) *
-              loading_mat[, -1, drop = FALSE])
-  se_vec <- sqrt(res$arm_var_vec *
-                   .moderate_variance(var_vec = res$residual_var,
-                                      df = res$residual_df,
-                                      covariate_vec = res$level_vec) +
-                   state_var_vec) / log(2)
+  # The variance of the removed part: the loadings' leverage under the
+  # weights.
+  state_var_vec <- rowSums((loading_mat[, -1, drop = FALSE] %*%
+                              gram_inv_mat[-1, -1, drop = FALSE]) *
+                             loading_mat[, -1, drop = FALSE])
+  se_vec <- sqrt(noise_var_vec + state_var_vec) / log(2)
 
   z_vec <- lfc_vec / se_vec
   # `multtest()` warns when locfdr falls back on its cruder estimators; the
