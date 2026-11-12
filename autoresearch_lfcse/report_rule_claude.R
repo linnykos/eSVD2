@@ -43,9 +43,11 @@
 }
 
 report_lfc_se <- function(view){
-  raw_mat <- view$dat / view$library_mat
-  mean_mat <- .donor_means(mat = raw_mat,
-                           individual_vec = view$individual_vec)
+  # Donor summary: the ratio of sums, sum of counts over sum of fitted
+  # library sizes, which weights each cell by its depth.
+  individual_chr <- as.character(view$individual_vec)
+  mean_mat <- rowsum(view$dat, group = individual_chr) /
+    rowsum(view$library_mat, group = individual_chr)
   arm_vec <- .arm_of_donor(case_control_vec = view$case_control_vec,
                            individual_vec = view$individual_vec,
                            donor_vec = rownames(mean_mat))
