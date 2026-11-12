@@ -102,6 +102,14 @@ report_lfc_se <- function(view){
                               arm_vec = arm_vec, donor_vec = donor_vec)
   fit_mat <- design_mat %*% solve(crossprod(design_mat),
                                   crossprod(design_mat, log_mat))
+  # A donor's offset common to all genes (depth the library missed): the
+  # median over genes of its residuals, removed before the variance is
+  # estimated. The arm's share of such offsets is what the centring removes
+  # from the logFC, so it does not belong in the SE either.
+  offset_vec <- apply(log_mat - fit_mat, 1, stats::median)
+  log_mat <- log_mat - offset_vec
+  fit_mat <- design_mat %*% solve(crossprod(design_mat),
+                                  crossprod(design_mat, log_mat))
   residual_df <- nrow(design_mat) - ncol(design_mat)
   residual_sd <- sqrt(colSums((log_mat - fit_mat)^2) / residual_df)
 
