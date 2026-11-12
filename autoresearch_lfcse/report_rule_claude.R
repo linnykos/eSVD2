@@ -142,7 +142,13 @@ report_lfc_se <- function(view){
   }
   between_vec <- arm_var_vec *
     .moderate_variance(var_vec = residual_var, df = residual_df,
-                       covariate_vec = log(colMeans(mean_mat)))
+                       # Mean of the two arms' log mean ratios: unlike the
+                       # log of the pooled mean, it does not move with the
+                       # arm effect, so the SE cannot follow the logFC.
+                       covariate_vec = (
+                         log(colMeans(mean_mat[arm_vec == 1, , drop = FALSE])) +
+                           log(colMeans(mean_mat[arm_vec == 0, , drop = FALSE]))
+                       ) / 2)
 
   se_vec <- sqrt(between_vec) / log(2)
 
