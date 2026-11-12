@@ -110,7 +110,11 @@
   control_cv2 <- .moderate_variance(var_vec = control_var,
                                     df = n0 - 1,
                                     covariate_vec = covariate_vec)
-  list(lfc_vec = log2(case_mean / control_mean),
+  # The logFC is the difference of the arms' mean log donor means (the log
+  # ratio of geometric means over donors), which a donor far above the
+  # others moves less than it moves the arithmetic mean.
+  list(lfc_vec = (colMeans(log_mat[arm_vec == 1, , drop = FALSE]) -
+                    colMeans(log_mat[arm_vec == 0, , drop = FALSE])) / log(2),
        se_vec = sqrt(case_cv2 / n1 + control_cv2 / n0) / log(2))
 }
 
