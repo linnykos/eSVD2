@@ -1,0 +1,830 @@
+---
+title: "Using the eSVD-DE embedding in the log fold change and its standard error: the embedding helps when the target is the effect at fixed cell state, and not otherwise"
+author: "Kevin Z. Lin (drafted by Claude)"
+date: "2026-11-11"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 3
+    number_sections: true
+    theme: flatly
+    highlight: tango
+    math_method:
+      engine: mathjax
+      url: "https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-chtml-full.js"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+```
+
+<style>
+div.takeaway, div.generator, div.reuse, div.recipe {
+  padding: 0.7em 1.1em; margin: 1.2em 0; border-radius: 4px; border-left: 7px solid;
+}
+div.takeaway  { background: #edf7ed; border-color: #2ca02c; }
+div.generator { background: #eaf2fb; border-color: #1f77b4; }
+div.reuse     { background: #f4f4f4; border-color: #8c8c8c; }
+div.recipe    { background: #fff3e6; border-color: #ff7f0e; }
+div.takeaway  > p:first-child::before { content: "Takeaway. "; font-weight: bold; color: #1b6e1b; }
+div.generator > p:first-child::before { content: "How the data were simulated. "; font-weight: bold; color: #155a8a; }
+div.reuse     > p:first-child::before { content: "Data generator: reused. "; font-weight: bold; color: #8c8c8c; }
+div.recipe    > p:first-child::before { content: "The procedure. "; font-weight: bold; color: #b35900; }
+</style>
+
+```{r libraries}
+library(knitr)
+```
+
+```{r read_tables}
+csv_dir <- file.path("csv", "RUN_nov11")
+figure_dir <- file.path("figures", "RUN_nov11")
+.read <- function(name){
+  utils::read.csv(file.path(csv_dir, paste0(name, ".csv")),
+                  stringsAsFactors = FALSE)
+}
+results_df <- .read("results")
+score_df <- .read("scores")
+block_df <- .read("blocks")
+scramble_df <- .read("scramble")
+oracle_df <- .read("oracle_dev")
+check_df <- .read("bank_checks")
+
+best_rule_vec <- c(marginal = "embed_prior", direct = "state_adjusted")
+fmt <- function(x, digits = 3){formatC(x, digits = digits, format = "f")}
+
+# One line of a summary block, as a number.
+.block <- function(key, run, split, rule){
+  bool_vec <- block_df$key == key & block_df$run == run &
+    block_df$split == split & block_df$rule == rule
+  stopifnot(sum(bool_vec) == 1)
+  as.numeric(block_df$value[bool_vec])
+}
+
+# Per-example scores of one rule in one run and split, ordered by id.
+.scores <- function(run, split, rule){
+  sub_df <- score_df[score_df$run == run & score_df$split == split &
+                       score_df$rule == rule, ]
+  sub_df[order(sub_df$id), ]
+}
+.mean_score <- function(run, split, rule){mean(.scores(run, split, rule)$score)}
+
+# Mean score of one rule in one stratum.
+.stratum <- function(run, split, rule, factor_name, level){
+  sub_df <- .scores(run, split, rule)
+  mean(sub_df$score[as.character(sub_df[[factor_name]]) == level])
+}
+
+# The paired comparison of a run's kept rule with a reference rule.
+.paired <- function(run, split, reference){
+  best_df <- .scores(run, split, best_rule_vec[[run]])
+  reference_df <- .scores(run, split, reference)
+  stopifnot(all(best_df$id == reference_df$id))
+  difference_vec <- best_df$score - reference_df$score
+  list(difference = mean(difference_vec),
+       num_examples = length(difference_vec),
+       num_improved = sum(difference_vec < 0),
+       se = stats::sd(difference_vec) / sqrt(length(difference_vec)))
+}
+
+.results <- function(run){results_df[results_df$run == run, ]}
+.num_status <- function(run, status){
+  sum(.results(run)$status[-1] == status)
+}
+.best_commit <- function(run){
+  run_df <- .results(run)
+  run_df$commit[max(which(run_df$status == "keep"))]
+}
+.code <- function(text){paste0("\x60", text, "\x60")}
+
+# One run's log as a table.
+.experiment_table <- function(run){
+  run_df <- .results(run)[-1, ]
+  data.frame(experiment = run_df$experiment,
+             commit = .code(run_df$commit),
+             status = run_df$status,
+             score = fmt(run_df$score, 4),
+             change = fmt(run_df$delta, 4),
+             description = run_df$description,
+             stringsAsFactors = FALSE)
+}
+
+# Every `keep` row of both logs appears in the tables below.
+stopifnot(all(results_df$status %in% c("keep", "discard")))
+
+# The scramble check, averaged by rule and state.
+scramble_mean_df <- stats::aggregate(
+  scramble_df[, c("change_in_se", "change_in_se_both", "se_ratio",
+                  "score_direct", "score_direct_scrambled",
+                  "score_direct_both", "score_marginal",
+                  "score_marginal_both")],
+  by = list(rule = scramble_df$rule, state = scramble_df$state), FUN = mean
+)
+.scramble <- function(rule, state, column){
+  scramble_mean_df[[column]][scramble_mean_df$rule == rule &
+                               scramble_mean_df$state == state]
+}
+.oracle <- function(state, column){
+  mean(oracle_df[[column]][oracle_df$state == state])
+}
+.check <- function(factor_name, level, column){
+  check_df[[column]][check_df$factor == factor_name & check_df$level == level]
+}
+num_dev <- nrow(.scores("direct", "dev", "null_rescaled"))
+num_test <- nrow(.scores("direct", "test", "null_rescaled"))
+```
+
+# Overview {-}
+
+This document is built from the design memo of the second loop
+(`MEMO_claude.md`), the record of its bank (`BANK.md`), the logs of its two
+runs, and the tables under `csv/RUN_nov11/`. Every number in its prose is
+read from those tables. It follows the sections of the autoresearch
+protocol's run report, for two runs at once.
+
+**The question.** The first loop kept `donor_wls`, a rule for the log fold
+change and its standard error that uses the fitted library of eSVD-DE and
+nothing of its embedding $\widehat x_c^\top \widehat y_g$. Kevin asked for
+a second loop restricted to rules that use the embedding, on a bank in
+which cell-state differences give the low-rank term something to
+contribute. The question is whether such a rule exists, how much it gains,
+and what it estimates.
+
+The document argues five things.
+
+1. Whether the embedding can help depends on the target. If the target is
+   the log ratio of mean expression between the arms, cell-state
+   differences included (the *marginal* effect), the embedding cannot
+   improve the log fold change; if the target is the effect at fixed cell
+   state (the *direct* effect), it can (Section 1.2).
+2. Scored against the marginal effect, the best rule found (`embed_prior`)
+   ties `donor_wls` to the fourth digit, and its output does not change
+   when the embedding is scrambled (Sections 3 and 5).
+3. Scored against the direct effect, the kept rule `state_adjusted`
+   reaches `r fmt(.mean_score("direct", "test", "state_adjusted"))` on the
+   held-out split against
+   `r fmt(.mean_score("direct", "test", "null_rescaled"))` for the baseline
+   and `r fmt(.mean_score("direct", "test", "donor_wls"))` for `donor_wls`,
+   and the dev gain carried to test (Section 4).
+4. `state_adjusted` depends on the embedding: with the loadings and scores
+   scrambled its log fold change moves by
+   `r fmt(.scramble("state_adjusted", "donor", "change_in_se_both"), 2)` to
+   `r fmt(.scramble("state_adjusted", "donor_arm", "change_in_se_both"), 2)`
+   standard errors where donors have states (Section 5).
+5. `state_adjusted` is wrong for the marginal effect wherever the arms
+   differ in cell state, by construction, so the choice of target is the
+   decision that precedes any choice of rule (Section 7).
+
+*How to read.* A green box closes each results section with what that
+section changes. The blue box describes the simulated bank once, and a grey
+box opens each section that reuses it. The orange box in Section 7 is the
+procedure. A reader of the boxes alone gets the argument.
+
+| Stage | What it does | Section |
+|---|---|---|
+| Definitions | the generator, the two targets, the rules by name, the kept rule in mathematics, the score and the gates | 1 |
+| The bank | what was built and what an oracle could reach | 2 |
+| Run A | truth: marginal effect | 3 |
+| Run B | truth: direct effect | 4 |
+| The embedding check | each kept rule with the embedding scrambled | 5 |
+| Constants | each numeric constant of `state_adjusted` with its reason | 6 |
+| Recommendation | the procedure, and what is left to decide | 7 |
+
+# Definitions
+
+## Notation and the generator
+
+A cohort has cells $c$, genes $g = 1, \dots, p$ and donors
+$d = 1, \dots, n$ in two arms $a \in \{0, 1\}$ of $n_0$ controls and $n_1$
+cases. The bank's counts follow
+
+$$\log \mu_{cg} = \alpha_g + x_c^\top y_g + a\,\beta_g + \delta_{dg} + (\text{sex and age terms}),
+\qquad x_c = u_d + a\,s + e_c,$$
+
+with $A_{cg} \sim \text{Poisson}(\ell_c \lambda_{cg})$ and
+$\lambda_{cg} \sim \text{Gamma}(\text{mean } \mu_{cg}, \text{rate } \gamma_g)$.
+The state $x_c$ of a cell is its donor's state $u_d$, plus a shift $s$
+shared by every case cell, plus the cell's own $e_c$. The loadings $y_g$
+say how each gene responds to cell state. $\delta_{dg}$ is the part of the
+donor's effect that is idiosyncratic to the gene. Every donor term is
+centred so that its exponential has mean 1 within an arm.
+
+eSVD-DE fits $\widehat x_c$ (the scores, cells by $k$), $\widehat y_g$ (the
+loadings, genes by $k$) and a coefficient $\widehat z_{gk}$ per gene and
+covariate. Its reparameterization makes the scores orthogonal to every
+covariate, the arm included. $\ell_{cg}$ below is the fitted library: the
+exponential of the fitted covariate terms other than the arm's.
+
+## Two targets
+
+**The marginal effect**
+$\beta^{\text{marg}}_g = (\beta_g + s^\top y_g) / \ln 2$ is the log2 ratio
+of mean expression between the populations of case and control donors, at
+equal depth and covariates. A difference in cell state between the arms
+is part of it.
+
+**The direct effect** $\beta^{\text{dir}}_g = \beta_g / \ln 2$ is the
+effect at fixed cell state. A difference in cell state between the arms is
+excluded from it.
+
+The two coincide unless the arms differ in cell state ($s \ne 0$). They
+differ in what the donors' states do to an estimate. A cohort's arms differ
+in mean donor state by $s + (\bar u_1 - \bar u_0)$, the population shift
+plus the luck of which donors were sampled, and this moves the arm contrast
+of gene $g$ by $y_g^\top \{s + (\bar u_1 - \bar u_0)\}$.
+
+- For the direct effect all of that term is error. It lies along the
+  loadings, so it can be estimated from the pattern of the arm contrast
+  across genes and removed. This is where the embedding lowers the error
+  of the log fold change.
+- For the marginal effect $y_g^\top s$ is signal and
+  $y_g^\top (\bar u_1 - \bar u_0)$ is sampling error, and one cohort
+  cannot tell them apart. An unbiased rule must keep the whole term and
+  carry its sampling error in the SE. The embedding can then inform the SE
+  and nothing else.
+
+eSVD-DE's own convention is the marginal one: the reparameterization moves
+the arm's share of the embedding into the case-control coefficient. The
+memo fixed the marginal effect as the truth for that reason (its decision
+1, made by Claude). Because the embedding cannot help the log fold change
+under that truth, the scorer was given a switch and a second run was
+scored against the direct effect.
+
+## The rules by name
+
+| Name in the tables | Rule | Uses the embedding | Role |
+|---|---|---|---|
+| `null_rescaled` | the pair that 1.2.0 stores (from donor averages of the posterior), shifted and rescaled by its empirical null | through the posterior | baseline of both runs |
+| `donor_wls` | the first loop's kept rule: donor-level weighted regression of log pseudobulk ratios, moderated variance | no | reference, stored with the truth; not a candidate |
+| `deseq2` | DESeq2 on donor pseudobulk counts | no | reference, stored with the truth |
+| `embed_prior` | `donor_wls` with the residual variance moderated toward a trend that also uses the donor variance the embedding predicts for the gene | in the SE's prior only | kept by run A |
+| `state_adjusted` | Section 1.4 | in the log fold change and the SE | kept by run B |
+
+## The kept rule of run B: `state_adjusted`
+
+1. *Donor summary.* With $y_{dg}$ the donor's summed counts and
+   $L_{dg} = \sum_{c \in d} \ell_{cg}$,
+   $l_{dg} = \log\{(y_{dg} + 1/2) / L_{dg}\}$.
+2. *Design.* $D$ is the $n \times q$ donor-level matrix of the intercept,
+   the arm, and every covariate constant within donors.
+3. *Embedding offset.* The donor's embedding offset is
+   $$e_{dg} = \log\frac{\sum_{c \in d} \ell_{cg} \exp(\widehat x_c^\top \widehat y_g)}{L_{dg}},$$
+   $e^{r}_{dg}$ is its least-squares residual on $D$, and
+   $b = \sum_{d,g} e^{r}_{dg}\, l^{r}_{dg} / \sum_{d,g} (e^{r}_{dg})^2$,
+   with $l^{r}$ the residual of $l$ on $D$, is one coefficient per cohort.
+4. *Donor-level regression.* $l_{dg} - b\, e^{r}_{dg}$ is regressed on $D$
+   as in `donor_wls` (donor offsets, precision weights from
+   $\tau^2 + \phi / \mu_{dg}$, weighted least squares). This gives the arm
+   coefficient $\widehat\theta_g$, its variance factor $a_g$, and the
+   residual variance $S_g$ on $\nu = n - q$ degrees of freedom, moderated
+   across genes to $\widetilde S_g$. Because $e^{r}$ is orthogonal to the
+   arm, $\widehat\theta_g$ is the arm contrast of $l$ itself; subtracting
+   $b\, e^{r}$ only takes the donor-to-donor variation along the embedding
+   out of $S_g$. Write $v_g = a_g \widetilde S_g$.
+5. *Loadings regression.* With
+   $m_g = (1,\; \widehat y_g,\; \{\widehat y_{gj} \widehat y_{gj'}\}_{j \le j'})$,
+   $\widehat\theta_g$ is regressed on $m_g$ over the genes with weights
+   $1 / v_g$, in two passes, the second without the genes whose residual
+   exceeded $3 \sqrt{v_g}$ in the first. The fitted coefficients are an
+   intercept $c_0$, a vector $\widehat d$ on the loadings and a symmetric
+   matrix $\widehat Q$ on their products.
+6. *The pair before calibration.*
+   $$\widehat\beta^{\,0}_g = \frac{\widehat\theta_g - \widehat y_g^\top \widehat d - \widehat y_g^\top \widehat Q\, \widehat y_g}{\ln 2},
+   \qquad s^{0}_g = \frac{\sqrt{v_g + h_g}}{\ln 2},$$
+   with $h_g$ the leverage of gene $g$'s loading terms in that regression.
+7. *Calibration.* With $(\delta_0, \sigma_0)$ the mean and SD of the
+   empirical null fitted by `eSVD2::multtest()` to
+   $\widehat\beta^{\,0}_g / s^{0}_g$ and
+   $f = \min\{\max(\sigma_0, 1),\; \sqrt{\nu / \max(\nu - k, 1)}\}$, the
+   rule reports
+   $$\widehat\beta_g = \widehat\beta^{\,0}_g - \delta_0 \cdot \text{median}_g\, s^{0}_g, \qquad s_g = f\, s^{0}_g .$$
+
+**Where the embedding enters, and why.**
+
+- *Step 5, the linear term (the log fold change).* The arms' difference in
+  mean donor state moves $\widehat\theta_g$ by $y_g^\top d$. The fit holds
+  the scores orthogonal to the arm, so that term is not in the scores; it
+  is in the arm contrast, along the loadings, and $\widehat d$ is five
+  numbers estimated from 600 genes.
+- *Step 5, the quadratic term (the log fold change).*
+  $\widehat\theta_g$ is a contrast of mean log expression, which differs
+  from the log ratio of mean expression by half the difference of the
+  arms' donor variances on the log scale. The part of that difference that
+  comes from donor states is $y_g^\top (\Sigma_1 - \Sigma_0)\, y_g / 2$, a
+  quadratic form in the loadings, and $\widehat Q$ estimates it.
+- *Step 3 (the SE).* The states' donor-to-donor variation no longer moves
+  $\widehat\beta^{\,0}_g$ once step 5 has removed its arm contrast, so it
+  must leave the variance too, and $b\, e^{r}$ takes it out of $S_g$.
+- *Step 7 (the SE).* The offset was fitted to the same counts and absorbs
+  part of the idiosyncratic donor noise within arms, while the arm contrast
+  of that noise went to the case-control coefficient and stays in
+  $\widehat\theta_g$. $S_g$ therefore understates, by a factor that the
+  empirical null measures and that the offset's $k$ free directions among
+  $\nu$ bound.
+
+```{r rule_code, echo=TRUE, eval=FALSE, code=readLines("RULE_nov11_direct_claude.R")}
+```
+
+## The score and the gates
+
+The score of a cohort is the Gaussian negative log-likelihood of the truth
+under the reported pair, in nats per gene, and lower is better,
+
+$$\text{NLL} = \frac{1}{p}\sum_{g=1}^{p}\left[\tfrac12 \log\!\left(2\pi s_g^2\right) + \frac{(\widehat\beta_g - \beta_g)^2}{2 s_g^2}\right].$$
+
+The truth $\beta_g$ is the marginal effect in run A and the direct effect
+in run B (`ESVD2_TRUTH`), and every block prints the score against both.
+A commit is kept when its paired gain over the best commit is positive and
+at least one paired standard error over the `r num_dev` dev examples, and
+when it passes two gates. `slope_weak`, the slope of the reported log fold
+change on the truth over weak-effect genes, must lie in $[0.9, 1.1]$, so
+that shrinkage toward zero fails. `se_strong` is new: the SE of
+strong-effect genes over the SE that genes of the same expression level
+without a strong effect have, pooled over the examples, must lie in
+$[0.92, 1.08]$, so that an SE which follows the estimate fails. The rule
+that the first run withdrew by hand gives `se_strong` 1.20 on this bank,
+and the valid reference rules 0.97 to 1.04.
+
+# The bank
+
+::: {.generator}
+The bank `lfcse-bank-2` holds `r num_dev` dev and `r num_test` test
+examples. An example is one cohort of 600 genes generated from the model
+of Section 1.1 and fitted end to end by eSVD2 1.2.0 at rank 5. Nine
+factors vary. Six are the first bank's: donors (10, 20, 40), cells per
+donor (50 equal; unequal, 30 to 600), effects (`sparse`, `sparse_up`,
+`dense`), covariates (none; donor sex and age), donor SD (0.2, 0.5, now
+varying between genes), and `expression` in place of the rate range
+(`high`: the first bank's gene intercepts; `low`: sparse genes, for which
+the cap on the nuisance rate binds). Three are new. `state`: `none`
+($u_d = 0$, $s = 0$, the first bank's case), `donor` (donor states carry
+about 72% of the donor variance), `donor_arm` (the same, with an arm shift
+$s$). `arm_sd`: the cases' donor variance is 1.5 times and the controls'
+0.5 times the common value. `depth`: each donor shifts a block of 15% of
+the genes, which moves its total count and so every other gene's adjusted
+level. Each split is a balanced 1/6 fraction of the 1728 combinations, and
+the two splits share no combination. `BANK.md` records the bank as built.
+:::
+
+```{r bank_table}
+bank_table_df <- data.frame(
+  quantity = c("Genes capped or at the boundary, `expression = high`",
+               "Genes capped or at the boundary, `expression = low`",
+               "Mean count per cell and gene, `high` and `low`",
+               "Cells per cohort, 10 and 40 donors"),
+  realized = c(
+    paste0(fmt(100 * .check("expression", "high", "frac_cap_or_boundary"), 0),
+           "%"),
+    paste0(fmt(100 * .check("expression", "low", "frac_cap_or_boundary"), 0),
+           "% (first bank: 13%; real cohorts: 73%)"),
+    paste0(fmt(.check("expression", "high", "mean_count"), 2), " and ",
+           fmt(.check("expression", "low", "mean_count"), 2)),
+    paste0(fmt(.check("donors", "10", "num_cells"), 0), " and ",
+           fmt(.check("donors", "40", "num_cells"), 0), " on average")
+  ),
+  stringsAsFactors = FALSE
+)
+knitr::kable(bank_table_df, row.names = FALSE,
+             col.names = c("Quantity", "Realized"),
+             caption = "Table 1. Realized values of the bank, both splits.")
+```
+
+**What an ideal use of the embedding could reach.** `oracle_state` is
+`donor_wls` with each donor's true state effect subtracted beforehand, and
+`oracle_all` subtracts the donor's whole true effect and leaves sampling
+noise.
+
+```{r oracle_table}
+oracle_table_df <- data.frame(
+  state = c("none", "donor", "donor_arm"),
+  wls = vapply(c("none", "donor", "donor_arm"), .oracle, numeric(1),
+               column = "wls"),
+  oracle_state = vapply(c("none", "donor", "donor_arm"), .oracle, numeric(1),
+                        column = "oracle_state"),
+  oracle_all = vapply(c("none", "donor", "donor_arm"), .oracle, numeric(1),
+                      column = "oracle_all"),
+  stringsAsFactors = FALSE
+)
+knitr::kable(oracle_table_df, row.names = FALSE, digits = 3,
+             col.names = c("`state`", "`donor_wls`", "`oracle_state`",
+                           "`oracle_all`"),
+             caption = "Table 2. Dev scores of `donor_wls` and of two oracles that read the truth, against the marginal effect.")
+```
+
+The donor states hold about
+`r fmt(.oracle("donor", "wls") - .oracle("donor", "oracle_state"), 2)`
+nats per gene at the two levels that have them. The oracle knows which
+part of the arms' state difference is the population shift $s$; no rule
+does, which is the point of Section 1.2.
+
+# Run A: the marginal effect
+
+::: {.reuse}
+The bank of Section 2, scored against the marginal effect.
+:::
+
+| | |
+|---|---|
+| Branch | `autoresearch_lfcse2/nov11`, from `r .code(.results("marginal")$commit[1])` |
+| Budget agreed | 40 experiments or 4 hours, 8 cores |
+| Experiments | `r nrow(.results("marginal")) - 1`: `r .num_status("marginal", "keep")` kept, `r .num_status("marginal", "discard")` discarded |
+| What stopped it | a decision, after the experiments had shown what Section 1.2 argues: every rule that changed the log fold change through the embedding lost, and the kept rule equals `donor_wls` |
+| Best commit | `r .code(.best_commit("marginal"))` (`embed_prior`) |
+
+```{r run_a_table}
+knitr::kable(.experiment_table("marginal"), row.names = FALSE,
+             col.names = c("#", "Commit", "Status", "Dev score",
+                           "Change against the best at the time",
+                           "Description as logged"),
+             caption = "Table 3. Every experiment of run A. Directions E1 to E6 are the memo's. Scores are against the marginal effect; negative changes are gains.")
+```
+
+```{r fig_a_trajectory, out.width="80%", fig.align="center", fig.cap="Figure 1. Run A: the dev score of every experiment, kept commits filled."}
+knitr::include_graphics(file.path(figure_dir, "marginal_trajectory.png"))
+```
+
+Four experiments used the embedding to change the donor summaries or the
+design (2, 3, 4 and 8). Each left the log fold change where it was, because
+the fitted scores are orthogonal to the arm, and each made the SE too
+small, because the donor variation it removed from the residuals still
+moves the arm contrast. Experiment 5 added that variation back and reached
+`r fmt(.results("marginal")$score[6], 4)`, and experiment 6 moved it into
+the prior of the moderation and reached
+`r fmt(.results("marginal")$score[7], 4)`.
+
+```{r run_a_result}
+.result_table <- function(run){
+  rule_vec <- c("null_rescaled", "donor_wls", best_rule_vec[[run]])
+  data.frame(
+    rule = .code(rule_vec),
+    dev = vapply(rule_vec, function(rule){fmt(.mean_score(run, "dev", rule), 4)},
+                 character(1)),
+    test = vapply(rule_vec, function(rule){
+      fmt(.mean_score(run, "test", rule), 4)
+    }, character(1)),
+    stringsAsFactors = FALSE
+  )
+}
+knitr::kable(.result_table("marginal"), row.names = FALSE,
+             col.names = c("Rule", "Dev", "Test"), align = "lrr",
+             caption = "Table 4. Run A: scores against the marginal effect.")
+```
+
+`embed_prior` gains
+`r fmt(-.paired("marginal", "test", "null_rescaled")$difference)` nats on
+the baseline on test
+(`r fmt(-.paired("marginal", "test", "null_rescaled")$difference / .paired("marginal", "test", "null_rescaled")$se, 0)`
+paired SE), all of it from leaving the posterior for a donor-level
+regression. Against `donor_wls` its difference on test is
+`r fmt(.paired("marginal", "test", "donor_wls")$difference, 4)`
+(paired SE `r fmt(.paired("marginal", "test", "donor_wls")$se, 4)`).
+
+::: {.takeaway}
+Against the marginal effect, no rule that uses the embedding beat
+`donor_wls`. The best one is `donor_wls` with a second covariate in its
+variance prior, and it scores the same to the fourth digit. This is what
+Section 1.2 predicts and not a failure of the search: the scores are
+orthogonal to the arm, so they cannot move the arm contrast, and the part
+of the contrast that lies along the loadings cannot be removed without
+removing a real difference between the arms.
+:::
+
+# Run B: the direct effect
+
+::: {.reuse}
+The bank of Section 2, scored against the direct effect
+(`ESVD2_TRUTH=direct`). The two truths differ only at `state = donor_arm`.
+:::
+
+| | |
+|---|---|
+| Branch | `autoresearch_lfcse2/nov11-direct`, from `r .code(.results("direct")$commit[1])` |
+| Budget agreed | 40 experiments or 4 hours, 8 cores |
+| Experiments | `r nrow(.results("direct")) - 1`: `r .num_status("direct", "keep")` kept, `r .num_status("direct", "discard")` discarded |
+| What stopped it | a decision: the kept rule was at the oracle row of Table 2 where donors have states (`r fmt(.stratum("direct", "dev", "state_adjusted", "state", "donor"))` at `donor` and `r fmt(.stratum("direct", "dev", "state_adjusted", "state", "donor_arm"))` at `donor_arm` on dev, against the oracle's `r fmt(.oracle("donor", "oracle_state"))` and `r fmt(.oracle("donor_arm", "oracle_state"))`), and the last two experiments were a tie and an ablation |
+| Best commit | `r .code(.best_commit("direct"))` (`state_adjusted`) |
+
+```{r run_b_table}
+knitr::kable(.experiment_table("direct"), row.names = FALSE,
+             col.names = c("#", "Commit", "Status", "Dev score",
+                           "Change against the best at the time",
+                           "Description as logged"),
+             caption = "Table 5. Every experiment of run B. Scores are against the direct effect; negative changes are gains.")
+```
+
+```{r fig_b_trajectory, out.width="80%", fig.align="center", fig.cap="Figure 2. Run B: the dev score of every experiment, kept commits filled."}
+knitr::include_graphics(file.path(figure_dir, "direct_trajectory.png"))
+```
+
+Five commits were kept. The first removed the loadings component of the
+arm contrast and took the residual variance free of the embedding offset
+(`r fmt(-.results("direct")$delta[2])` nats). The second rescaled the SE
+by the empirical null's SD (`r fmt(-.results("direct")$delta[4])`), the
+third weighted the loadings regression and made it robust
+(`r fmt(-.results("direct")$delta[5])`), the fourth bounded the rescaling
+(`r fmt(-.results("direct")$delta[8])`), and the fifth added the products
+of the loadings (`r fmt(-.results("direct")$delta[9])`), which removed the
+whole penalty of unequal donor variance between the arms.
+
+```{r run_b_result}
+knitr::kable(.result_table("direct"), row.names = FALSE,
+             col.names = c("Rule", "Dev", "Test"), align = "lrr",
+             caption = "Table 6. Run B: scores against the direct effect.")
+```
+
+```{r run_b_paired}
+paired_table_df <- do.call(rbind, lapply(c("dev", "test"), function(split){
+  do.call(rbind, lapply(c("null_rescaled", "donor_wls"), function(reference){
+    res <- .paired("direct", split, reference)
+    data.frame(split = split, reference = .code(reference),
+               difference = fmt(res$difference, 4), se = fmt(res$se, 4),
+               ratio = fmt(-res$difference / res$se, 0),
+               improved = paste0(res$num_improved, " of ", res$num_examples),
+               stringsAsFactors = FALSE)
+  }))
+}))
+knitr::kable(paired_table_df, row.names = FALSE, align = "llrrrr",
+             col.names = c("Split", "Against", "`state_adjusted` minus it",
+                           "Paired SE", "Gain in paired SE",
+                           "Examples improved"),
+             caption = "Table 7. Run B: paired comparisons over the examples of each split.")
+```
+
+The dev gain over the baseline,
+`r fmt(-.paired("direct", "dev", "null_rescaled")$difference)` nats,
+carried to the test split
+(`r fmt(-.paired("direct", "test", "null_rescaled")$difference)`), whose
+combinations of factor levels the run never scored. On test the RMSE of
+the log fold change is
+`r fmt(.block("rmse", "direct", "test", "state_adjusted"))` against
+`r fmt(.block("rmse", "direct", "test", "null_rescaled"))` for the
+baseline, the coverage of $\widehat\beta_g \pm 1.96\, s_g$ is
+`r fmt(.block("coverage_95", "direct", "test", "state_adjusted"))`, and
+the SD of $\widehat\beta_g / s_g$ over exactly null genes is
+`r fmt(.block("z_sd_null", "direct", "test", "state_adjusted"), 2)`. Both
+gates pass (`slope_weak`
+`r fmt(.block("slope_weak", "direct", "test", "state_adjusted"))`,
+`se_strong`
+`r fmt(.block("se_strong", "direct", "test", "state_adjusted"))`).
+
+```{r fig_b_strata, out.width="95%", fig.align="center", fig.cap="Figure 3. Run B: mean score per stratum with one standard error, for the baseline, `donor_wls` and `state_adjusted`, on dev and on test."}
+knitr::include_graphics(file.path(figure_dir, "direct_strata.png"))
+```
+
+`state_adjusted` is below both other rules in every stratum of both
+splits. On test it scores
+`r fmt(.stratum("direct", "test", "state_adjusted", "state", "donor"))` at
+`state = donor` and
+`r fmt(.stratum("direct", "test", "state_adjusted", "state", "donor_arm"))`
+at `donor_arm`, where `donor_wls` scores
+`r fmt(.stratum("direct", "test", "donor_wls", "state", "donor"))` and
+`r fmt(.stratum("direct", "test", "donor_wls", "state", "donor_arm"))`. At
+`state = none`, where the embedding has no donor structure to find, it
+scores
+`r fmt(.stratum("direct", "test", "state_adjusted", "state", "none"))`
+against `r fmt(.stratum("direct", "test", "donor_wls", "state", "none"))`,
+so the adjustment costs nothing when there is nothing to adjust.
+
+```{r fig_b_paired, out.width="80%", fig.align="center", fig.cap="Figure 4. Run B: the difference `state_adjusted` minus the baseline for each test example, sorted, colored by `state`."}
+knitr::include_graphics(file.path(figure_dir, "direct_paired.png"))
+```
+
+```{r fig_b_chosen, out.width="85%", fig.align="center", fig.cap="Figure 5. Run B: the median standard error reported per test example, `state_adjusted` against the baseline, by `state` and donor SD; the grey line marks equality."}
+knitr::include_graphics(file.path(figure_dir, "direct_chosen.png"))
+```
+
+The median SE of `state_adjusted` is below the baseline's where donors
+have states, most at donor SD 0.5, which is the donor-to-donor variation
+that the adjustment took out of both the estimate and its variance.
+
+::: {.takeaway}
+For the effect at fixed cell state, the embedding is worth
+`r fmt(-.paired("direct", "test", "donor_wls")$difference, 2)` nats per
+gene over `donor_wls` on held-out cohorts
+(`r .paired("direct", "test", "donor_wls")$num_improved` of
+`r .paired("direct", "test", "donor_wls")$num_examples` improved) and
+`r fmt(-.paired("direct", "test", "null_rescaled")$difference, 2)` over
+the posterior-based baseline, with a calibrated Wald statistic. The gain
+comes from the loadings, through a regression of the arm contrast on them
+across genes, and from the scores, through the residual variance.
+:::
+
+# Does each kept rule use the embedding?
+
+::: {.reuse}
+Every fourth dev example of the bank (`r length(unique(scramble_df$id))`
+cohorts). Each rule file is sourced alone and run on the cohort's view, on
+the view with the rows of the scores permuted across cells, and on the
+view with the rows of the loadings permuted across genes as well
+(`diagnostics/scramble_check_claude.R`).
+:::
+
+```{r scramble_table}
+scramble_table_df <- scramble_mean_df[order(scramble_mean_df$rule,
+                                            scramble_mean_df$state),
+                                      c("rule", "state", "change_in_se",
+                                        "change_in_se_both", "se_ratio",
+                                        "score_direct",
+                                        "score_direct_scrambled",
+                                        "score_direct_both")]
+scramble_table_df$rule <- .code(scramble_table_df$rule)
+knitr::kable(scramble_table_df, row.names = FALSE, digits = 3,
+             col.names = c("Rule", "`state`",
+                           "Median change of the logFC in SE, scores scrambled",
+                           "The same, scores and loadings scrambled",
+                           "SE ratio, scores scrambled",
+                           "Score (direct)", "Score, scores scrambled",
+                           "Score, both scrambled"),
+             caption = "Table 8. Each kept rule with the embedding scrambled, by `state`.")
+```
+
+`embed_prior` moves by about
+`r fmt(.scramble("embed_prior", "donor", "change_in_se"), 2)` standard
+errors and scores the same when the embedding is scrambled. By the memo's
+own standard (a rule whose embedding term could be deleted without
+changing the method), it does not use the embedding. `state_adjusted`
+uses both parts: scrambling the scores widens its SE by a factor of
+`r fmt(.scramble("state_adjusted", "donor", "se_ratio"), 2)` to
+`r fmt(.scramble("state_adjusted", "donor_arm", "se_ratio"), 2)` where
+donors have states, and scrambling the loadings as well moves its log fold
+change by
+`r fmt(.scramble("state_adjusted", "donor", "change_in_se_both"), 2)` to
+`r fmt(.scramble("state_adjusted", "donor_arm", "change_in_se_both"), 2)`
+standard errors and takes its score from
+`r fmt(.scramble("state_adjusted", "donor_arm", "score_direct"))` to
+`r fmt(.scramble("state_adjusted", "donor_arm", "score_direct_both"))` at
+`donor_arm`.
+
+**The price.** On these cohorts `state_adjusted` scores
+`r fmt(.scramble("state_adjusted", "donor_arm", "score_marginal"), 2)`
+against the marginal effect at `donor_arm`, against
+`r fmt(.scramble("embed_prior", "donor_arm", "score_marginal"), 2)` for
+`embed_prior`. It removes the arms' difference in cell state and reports a
+small SE, so it is confidently wrong as an estimate of the marginal effect
+whenever that difference is real. On the whole test split its score
+against the marginal effect is
+`r fmt(.block("score_marginal", "direct", "test", "state_adjusted"))`.
+
+::: {.takeaway}
+Run A's rule satisfies the constraint in letter only, and run B's rule
+satisfies it in substance. `state_adjusted` and the marginal effect are
+incompatible by construction: the rule is right for the effect at fixed
+cell state and wrong for the log ratio of mean expression whenever the
+arms differ in cell state.
+:::
+
+# Constants
+
+The truth was not on trial within either run. `state_adjusted` has these
+numeric constants, and the dev split chose the value of none of them.
+
+| Constant | Where | Reason |
+|---|---|---|
+| 1/2 | half count in $l_{dg}$ (step 1) | continuity correction of a Poisson count, which keeps the logarithm finite at a zero count |
+| 0 | floor of $\tau^2$ and $\phi$ (step 4) | a variance component is not negative |
+| 50, $10^{-8}$ | trigamma inverse in the moderation (step 4) | iteration cap and single-precision tolerance of Newton's method |
+| 3 | exclusion threshold of the loadings regression, in SE (step 5) | a normal residual is beyond 3 SE once in 370 genes, so a gene beyond it is taken to carry an effect of its own |
+| 2 | passes of the loadings regression (step 5) | one pass to find those genes, one without them; a third pass changed the score by `r fmt(.results("direct")$delta[10], 4)` |
+| 1 | lower bound of the SE factor (step 7) | removing the offset cannot make the residual variance too large |
+| $\sqrt{\nu / (\nu - k)}$ | upper bound of the SE factor (step 7) | the offset has $k$ free directions among the $\nu$ residual ones and cannot have absorbed more than that share |
+
+# Recommendation
+
+Three statements follow from the evidence of this bank. The embedding
+improves the log fold change only for the effect at fixed cell state
+(Sections 1.2, 3 and 4). For that target `state_adjusted` is the best rule
+found, its gain holds on held-out cohorts, and its Wald statistic is
+calibrated (Section 4). For the marginal effect `donor_wls` remains the
+best rule known, and no use of the embedding improved it (Section 3).
+
+The decisions below are choices the evidence does not settle, and they are
+Kevin's.
+
+1. **The target.** Whether eSVD-DE's reported log fold change is the
+   marginal effect (the package's current convention, and what the
+   p-value tests) or the effect at fixed cell state. The second treats a
+   difference in cell state between cases and controls as a nuisance,
+   which is also a scientific claim about the disease.
+2. **The memo's decisions.** Its section 6 lists nine choices Claude made
+   without a round: the truth, the form of the `state` factor, rank 5,
+   single cohorts, the `expression` factor, the second gate and its
+   interval, the baseline, how the embedding constraint is checked, and
+   the split of the design.
+3. **The second run.** Scoring against the direct effect was added during
+   the session, after run A's first experiments, and was not in the memo.
+4. **Merging.** Both run branches and the loop folder are local commits;
+   nothing is merged or pushed.
+
+::: {.recipe}
+For one cohort fitted by `eSVD()` with the fit kept, when the target is
+the effect at fixed cell state:
+
+1. **Inputs.** The counts, the fitted library `library_mat`, the design
+   matrix, the donor and arm of each cell, and the embedding `x_mat`,
+   `y_mat`.
+2. **Check.** Each arm has at least 5 donors, and $n - q \ge 2$. The bank
+   does not cover fewer.
+3. **Fit.** `report_lfc_se(view)` of `RULE_nov11_direct_claude.R`, which
+   is `state_adjusted` (Section 1.4, steps 1 to 7).
+4. **Output.** `log2fc` and `se` per gene; the Wald statistic is
+   `log2fc / se`, referred to the standard normal distribution.
+5. **Report alongside.** The removed vector $\widehat d$ and the share of
+   the variance of $\widehat\theta_g$ over genes that the loadings
+   regression explains, the SE factor $f$ and whether it sits at a bound,
+   and the log fold change of `donor_wls` beside it.
+6. **When the target is the marginal effect instead.** Use `donor_wls`
+   (`autoresearch_lfcse/notes/RULE_nov11_claude.R`). A large explained
+   share in step 5 then says how much of the reported contrast is a
+   difference in cell state, with the caveat that part of it is donor
+   sampling.
+:::
+
+**Three next experiments.**
+
+1. *The rank (a bank factor).* Every cohort was fitted at rank 5 against 3
+   or 4 true directions. Real fits use ranks near or above the number of
+   donors, where the scores can absorb all donor-level variation and the
+   bound of step 7 no longer binds. A `rank` factor (5, 15, 30) tests
+   whether `state_adjusted` survives.
+2. *Effects aligned with the loadings (a bank factor).* The direct
+   effects are drawn independently of the loadings. If the disease acts
+   through a gene program that the embedding has also learned, the
+   loadings regression removes part of the true effect; `slope_weak` fell
+   from `r fmt(.block("slope_weak", "direct", "dev", "null_rescaled"))` to
+   `r fmt(.block("slope_weak", "direct", "dev", "state_adjusted"))`
+   already with independent effects, because 20 regressors over 600 genes
+   take that share of any effect.
+3. *The SE factor at 40 donors (direction E4).* Without the rescaling the
+   score at 40 donors is better
+   (experiment `r max(.results("direct")$experiment)` of run B), and the
+   empirical null's SD is inflated there by true weak effects. A
+   calibration that does not read the genes' own statistics would recover
+   it.
+
+# What we glossed over
+
+- **Real cohorts.** No real cohort was read. Whether the loadings of a
+  real fit carry the arm contrast as they do here is untested, and it is
+  the first check before the rule is used.
+- **One cohort per example.** The two moments of Was2CoDE's Figure 4 need
+  pairs of cohorts and were dropped from this bank.
+- **The capped share** is `r fmt(100 * .check("expression", "low", "frac_cap_or_boundary"), 0)`%
+  at `expression = low`, still below the real cohorts' 73%. Neither kept
+  rule reads the nuisance rate.
+- **An experiment with a units error.** Experiment 4 of run A added an
+  unweighted variance to a weighted one; it was logged as a discard and
+  corrected in experiment 5, which was kept.
+- **A scorer change after the first baseline.** The switch between the two
+  truths and the two extra score lines were added after the bank's
+  baseline and before any experiment; the baseline was scored again.
+- **The trial function's random seed.** The fresh-context review found
+  that it coincided with the stream that drew the true effects; it was
+  moved in this loop's scorer. The first loop's scorer has the same
+  collision and was not changed, and no rule of either loop draws random
+  numbers.
+- **Budget.** The runs used `r nrow(.results("marginal")) - 1` and
+  `r nrow(.results("direct")) - 1` of 40 experiments each and were stopped
+  by decision, for the reasons in Sections 3 and 4.
+- **The package's p-value** was again not on trial.
+
+# Files
+
+| File | What it is |
+|---|---|
+| `notes/RULE_nov11_direct_claude.R` | `state_adjusted`, self-contained; mirrors the best commit of run B |
+| `notes/RULE_nov11_marginal_claude.R` | `embed_prior`, self-contained; mirrors the best commit of run A |
+| `notes/RUN_nov11_claude.md` | the run report in the protocol's format |
+| `notes/MEMO_claude.md`, `notes/BANK.md` | the design with its decisions to confirm, and the bank as built |
+| `diagnostics/report_run_nov11_claude.R` | writes `notes/csv/RUN_nov11/` and `notes/figures/RUN_nov11/` from the untracked `output/` |
+| `diagnostics/scramble_check_claude.R` | writes `csv/RUN_nov11/scramble.csv` |
+| `diagnostics/bank_checks_claude.R` | realized values of the bank and the oracle rows |
+| `csv/RUN_nov11/results.csv` | one row per logged commit of each run, the baseline first |
+| `csv/RUN_nov11/scores.csv` | one row per example, run, split and rule |
+| `csv/RUN_nov11/blocks.csv` | one row per line of a summary block |
+| `csv/RUN_nov11/scramble.csv`, `oracle_dev.csv`, `bank_checks.csv` | Table 8, Table 2 and Table 1 |
+
+**Reproducibility.** The bank is `lfcse-bank-2`, with `r num_dev` dev and
+`r num_test` test rows in its manifests; the scorer's budget is 600
+seconds on 8 cores. The best commit of run B is rescored by
+`git checkout `r .best_commit("direct")` && ESVD2_TRUTH=direct Rscript autoresearch_lfcse2/harness/evaluate_claude.R dev`,
+and that of run A by the same command at
+`r .code(.best_commit("marginal"))` without the variable. The diagnostics
+scripts are run from the repository root with `Rscript`.
+
+# References
+
+- `lin2024esvd`: Lin, Qiu and Roeder (2024), eSVD-DE, *BMC Bioinformatics*
+  25:113, doi:10.1186/s12859-024-05724-7.
+- `smyth2004linear`: Smyth (2004), linear models and empirical Bayes
+  methods for differential expression, *Statistical Applications in
+  Genetics and Molecular Biology* 3(1), doi:10.2202/1544-6115.1027. *Verify
+  before citing.*
+- `efron2004large`: Efron (2004), the choice of a null hypothesis in
+  large-scale testing, *Journal of the American Statistical Association*
+  99:96 to 104, doi:10.1198/016214504000000089. *Verify before citing.*
+- `love2014moderated`: Love, Huber and Anders (2014), DESeq2, *Genome
+  Biology* 15:550, doi:10.1186/s13059-014-0550-8. *Verify before citing.*
+- Project files: `autoresearch_lfcse2/notes/MEMO_claude.md`,
+  `autoresearch_lfcse2/notes/BANK.md`, and the first loop's
+  `autoresearch_lfcse/notes/RUN_nov11_claude.Rmd`.
