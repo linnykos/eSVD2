@@ -92,19 +92,22 @@
   case_control_vec[match(donor_vec, as.character(individual_vec))]
 }
 
-.lfc_from_donor_means <- function(mean_mat, arm_vec){
+.lfc_from_donor_means <- function(mean_mat, log_mat, arm_vec){
   case_mat <- mean_mat[arm_vec == 1, , drop = FALSE]
   control_mat <- mean_mat[arm_vec == 0, , drop = FALSE]
   n1 <- nrow(case_mat)
   n0 <- nrow(control_mat)
   case_mean <- colMeans(case_mat)
   control_mean <- colMeans(control_mat)
-  case_var <- apply(case_mat, 2, stats::var)
-  control_var <- apply(control_mat, 2, stats::var)
+  # The squared CV of an arm's donor means is estimated by the variance of
+  # their logarithms (equal to first order, and not driven by the largest
+  # donor).
+  case_var <- apply(log_mat[arm_vec == 1, , drop = FALSE], 2, stats::var)
+  control_var <- apply(log_mat[arm_vec == 0, , drop = FALSE], 2, stats::var)
   covariate_vec <- log(colMeans(mean_mat))
-  case_cv2 <- .moderate_variance(var_vec = case_var / case_mean^2,
+  case_cv2 <- .moderate_variance(var_vec = case_var,
                                  df = n1 - 1, covariate_vec = covariate_vec)
-  control_cv2 <- .moderate_variance(var_vec = control_var / control_mean^2,
+  control_cv2 <- .moderate_variance(var_vec = control_var,
                                     df = n0 - 1,
                                     covariate_vec = covariate_vec)
   list(lfc_vec = log2(case_mean / control_mean),
@@ -120,7 +123,12 @@ report_lfc_se <- function(view){
   arm_vec <- .arm_of_donor(case_control_vec = view$case_control_vec,
                            individual_vec = view$individual_vec,
                            donor_vec = rownames(mean_mat))
-  raw <- .lfc_from_donor_means(mean_mat = mean_mat, arm_vec = arm_vec)
+  # Half a count keeps the logarithm of a donor with no count finite (the
+  # continuity correction of a Poisson count).
+  log_mat <- log((rowsum(view$dat, group = individual_chr) + 0.5) /
+                   rowsum(view$library_mat, group = individual_chr))
+  raw <- .lfc_from_donor_means(mean_mat = mean_mat, log_mat = log_mat,
+                               arm_vec = arm_vec)
 
   # The within-donor term 1.2.0 stores, per donor mean: the donor's average
   # posterior variance over its number of cells, added to the between term.
