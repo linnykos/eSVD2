@@ -100,14 +100,39 @@ report_lfc_se <- function(view){
   design_mat <- .donor_design(covariates = view$covariates,
                               individual_vec = view$individual_vec,
                               arm_vec = arm_vec, donor_vec = donor_vec)
-  gram_inv_mat <- solve(crossprod(design_mat))
-  coef_mat <- gram_inv_mat %*% crossprod(design_mat, log_mat)
-  lfc_vec <- coef_mat[2, ] / log(2)
-  arm_var <- gram_inv_mat[2, 2]
+  fit_mat <- design_mat %*% solve(crossprod(design_mat),
+                                  crossprod(design_mat, log_mat))
   residual_df <- nrow(design_mat) - ncol(design_mat)
-  residual_var <- colSums((log_mat - design_mat %*% coef_mat)^2) /
-    residual_df
-  between_vec <- arm_var *
+  residual_sd <- sqrt(colSums((log_mat - fit_mat)^2) / residual_df)
+
+  # Precision weights (voom; Law et al. 2014). The square root of a gene's
+  # residual SD is smoothed against its mean log expected donor count; a
+  # donor's observation is given the weight 1 / trend^4 at its own expected
+  # count, so that a donor with few counts for a gene counts for less.
+  expected_mat <- fit_mat + log(library_sum_mat)
+  gene_size_vec <- colMeans(expected_mat)
+  trend_fit <- stats::smooth.spline(x = gene_size_vec, y = sqrt(residual_sd))
+  clamped_vec <- pmin(pmax(as.numeric(expected_mat), min(gene_size_vec)),
+                      max(gene_size_vec))
+  weight_mat <- matrix(1 / stats::predict(trend_fit, x = clamped_vec)$y^4,
+                       nrow = nrow(expected_mat))
+
+  # Weighted least squares, gene by gene.
+  num_genes <- ncol(log_mat)
+  lfc_vec <- numeric(num_genes)
+  arm_var_vec <- numeric(num_genes)
+  residual_var <- numeric(num_genes)
+  for(j in seq_len(num_genes)){
+    weighted_design <- design_mat * weight_mat[, j]
+    gram_inv_mat <- solve(crossprod(design_mat, weighted_design))
+    coef_vec <- gram_inv_mat %*% crossprod(weighted_design, log_mat[, j])
+    lfc_vec[j] <- coef_vec[2] / log(2)
+    arm_var_vec[j] <- gram_inv_mat[2, 2]
+    residual_var[j] <- sum(weight_mat[, j] *
+                             (log_mat[, j] - design_mat %*% coef_vec)^2) /
+      residual_df
+  }
+  between_vec <- arm_var_vec *
     .moderate_variance(var_vec = residual_var, df = residual_df,
                        covariate_vec = log(colMeans(mean_mat)))
 
