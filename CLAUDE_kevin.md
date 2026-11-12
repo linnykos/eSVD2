@@ -26,18 +26,22 @@ Name the machine specifically enough that another collaborator can tell whether 
 
 ## Project Status (as of 2026-11-11)
 
-**The autoresearch loop on the logFC/SE reporting rule has finished
-Phase 2 (build), committed on `2026-11-07_std` (session 32).** Kevin
-answered the ten questions of the memo
-(`additional_context/2026-11-11_autoresearch-response_round1.txt`); the
-agreed memo is `autoresearch_lfcse/notes/MEMO_claude.md`. The loop folder
-`autoresearch_lfcse/` holds the trial file (`report_rule_claude.R`,
-baseline `raw_null`), the generator, builder and scorer under `harness/`,
-four reference candidates, and `notes/BANK.md`. The bank `lfcse-bank-1`
-(`LFCSE_BANK`) is built: 144 dev and 144 test pairs of fitted cohorts, 47
-minutes on 5 cores, 699 MB, every fit succeeded. The baseline scores
-`status: ok` on both splits (dev 0.010, test 0.018 nats per gene; a scoring
-takes 23 seconds on 5 cores). No run has started.
+**The first autoresearch run on the logFC/SE reporting rule is finished
+and reported (session 33), on branch `autoresearch_lfcse/nov11`** (cut
+from `2026-11-07_std` at `89ff8f8`; not merged, not pushed). It ran 38
+experiments in about 30 minutes of scoring. The best commit `5df592c` scores
+-0.0769 on dev and -0.0712 on test against the baseline `raw_null`'s 0.0097
+and 0.0178 (NLL, nats per gene, lower is better; every one of the 144
+examples improved on both splits; the DESeq2 reference is 0.053 behind).
+The kept rule is a donor-level weighted regression of log donor means
+(summed counts over summed fitted library) on the arm and the donor-level
+covariates, with limma-style moderation of the residual variance and a
+constant shift by the empirical null's mean; it reads only the counts, the
+design and the fitted library. The report is
+`autoresearch_lfcse/notes/RUN_nov11_claude.md`, the self-contained rule
+`notes/RULE_nov11_claude.R`. Two commits that had passed the keep rule were
+withdrawn as invalid and sit on `autoresearch_lfcse/nov11-gap-invalid`.
+Nothing in `R/` changed.
 
 **Branch `2026-11-07_std` holds a standard-error exploration for the
 Was2CoDE Figure 4 (session 30, uncommitted):**
@@ -131,6 +135,33 @@ is labelled as the build machine's (session 28). The CI fix is untested until
 
 ## Key Methodological Details
 
+- **The NLL score rewards an SE that grows with the estimated logFC**, the
+  SE's counterpart of thresholding: a moderation covariate that contained
+  the between-arm sum of squares gained 0.025 nats on dev while making the
+  SE of strong-effect genes 10% larger (Spearman 0.21 with |logFC|). The
+  gate on `slope_weak` does not see it. Any SE-changing keep in
+  `autoresearch_lfcse/` needs the check "SE ratio of strong to other genes
+  near 1, rank correlation of SE with |logFC| near 0" until the scorer has
+  such a gate.
+- **Where the run's gain came from** (dev, of 0.087 in total): moderating
+  the between-donor variance across genes 0.045; replacing the null-SD
+  rescaling by the design's variance factor for donor-level covariates
+  0.015; the logFC from mean log donor means 0.015 (the only large gain in
+  RMSE, 0.294 to 0.286). The empirical null's SD had been compensating for
+  the df that sex and age cost (coverage 0.86 at 10 donors without it) and
+  was inflated by weak true effects in `dense`.
+- **Everything taken from the fit at cell level lost**: the fit's own
+  case-control coefficient as the logFC (+0.073), `exp(x'y)` in the donor
+  offset (+0.023, it absorbs donor effects), the nuisance rate as a
+  variance covariate (+0.006) and cell-count weights for donors (+0.056).
+  The null-mean shift is needed (+0.036 without it) and median, central
+  matching and biweight centres did not beat locfdr's MLE mean.
+- **The kept logFC is a contrast of geometric means over donors**; it
+  equals the log ratio of mean expression only when the arms share a donor
+  variance, which the bank imposes.
+- **The scorer's sandbox has no formula interface** (`stats::lm` fails on
+  `model.frame`) and the tripwire refuses the string `"/"`, so
+  `sweep(..., FUN = "/")` must be written `t(t(x) / v)`.
 - **`Rscript` reads its script incrementally**: editing a `.R` file while
   a long `Rscript` run of it is in progress corrupts the statements not yet
   read (the bank build ended in a parse error after its manifests were
@@ -523,11 +554,18 @@ is labelled as the build machine's (session 28). The CI fix is untested until
 
 **Autoresearch (session 32):**
 
-0x. **Start a run**: tag to agree; 8 cores (Kevin, 2026-11-11), 4 hours,
-    40 experiments. The 13% capped share of the bank is accepted. The
-    run's setup re-scores the baseline at the committed HEAD.
-0w. `null_rescaled` already scores 0.016 below the baseline on dev; the
-    loop's first kept commit may simply rediscover it.
+0x. **Review `RUN_nov11_claude.md` and decide what to do with the kept
+    rule**: merge `autoresearch_lfcse/nov11`, and whether the rule becomes
+    the proposal for `compute_log_fold_change()` (it would replace item 0a's
+    recommendation).
+0w. **Confirm the withdrawal of `da743dc` and `b3fc556`** (Claude's
+    decision during the run, outside the keep rule) and whether to add an
+    SE-versus-|logFC| gate to the scorer before a second run.
+0v. A second bank, if a second run is wanted: unequal donor SD between the
+    arms (the estimand check of the log-scale logFC), a donor-level depth
+    error, and a larger capped share (section 10 of the run report).
+0u. The trial file's header comment at `5df592c` is stale (left as
+    scored); `RULE_nov11_claude.R` has the accurate one.
 
 **From the SE exploration (session 30), newest first:**
 

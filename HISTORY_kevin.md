@@ -1021,3 +1021,14 @@ would write first.
 - Plan mode was not entered: Kevin's message said to proceed if the responses looked good, and the agreed memo served as the plan.
 - (Same session, later) Resolved: Kevin accepts the bank's 13% capped share and sets 8 cores for scoring and for the run.
 - (Same session, later) Kevin chose "commit only": the loop folder and state files are committed on `2026-11-07_std`; the run is for a later session.
+
+### [2026-11-11] (Session 33 — autoresearch run `nov11` on the logFC/SE reporting rule)
+- Ran Phase 3 and Phase 4: branch `autoresearch_lfcse/nov11` from `89ff8f8`, baseline re-scored at 0.0097 (dev, equal to `BANK.md`), 38 experiments (17 keep, 21 discard), best `5df592c` at -0.0769 dev and -0.0712 test against 0.0097 and 0.0178; gain 25 paired SE on both splits, all 144 examples improved on each.
+- Decision (Claude's, for Kevin to confirm): experiments 28 and 29 (`da743dc`, `b3fc556`, dev -0.099 and -0.100) passed the keep rule and were withdrawn, because their moderation covariate (the arithmetic-geometric gap of the donor ratios over all donors) contains the squared estimated logFC, so the SE followed the estimate; the branch was reset to `1de04e6`, the best files rebuilt from a fresh scoring, and the commits kept on `autoresearch_lfcse/nov11-gap-invalid`.
+- An error during that rollback: a failed `git reset` in a chained command let stale tables be copied over `best_scores.csv` and `best_block.txt`; both were rebuilt from a scoring of `1de04e6` checked by its commit line before any further experiment was scored.
+- Decision (Claude's): the run stopped at 38 of 40 experiments, on a plateau (the last eight valid experiments moved dev by 0.003).
+- Queue item 8 (null SD by nuisance status) was not run because the null SD had left the rule after experiment 7.
+- Resolved: `null_rescaled` was not rediscovered; the stored within term was kept once (experiment 8) and removed again (experiment 15).
+- Open: the kept logFC's estimand under unequal donor variance between arms; the per-donor offset and three other keeps are at one paired SE; capped genes remain weakly tested (test `score_status_capped` 0.010 against dev -0.146).
+- Committed on the run branch under the skill's protocol: one commit per experiment (trial file only) and `43df06f` (rule file, figures, plotting script, report); `CLAUDE_kevin.md` and `HISTORY_kevin.md` are left uncommitted.
+- Process notes: plan mode was not entered (the agreed memo and Kevin's instruction to start were the plan); `/r-style-guide` was invoked only from experiment 28 on, after the trial file had already been edited; the wiki was consulted once and offered no direction for this problem.
