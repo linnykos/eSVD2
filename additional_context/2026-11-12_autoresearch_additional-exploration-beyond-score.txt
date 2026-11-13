@@ -1,0 +1,13 @@
+I want to look through all the methods considered in autoresearch_lfcse and autoresearch_lfcse2. I actually don't mind if the method chosen doesn't actually use most of the eSVD fit. In this round of continuation of autoresearch, I simply want to expand the bank and redo all the experiments.
+
+When redoing the autoresearch validation of the considered methods, I want to track the score, but also these various aspects:
+* Can you do a head-to-head comparison between each method in consideration with DESeq2? I hope the final chosen method is more accurate than DESeq2 in terms of our scoring (based on estimating the LFC and SE).
+* For the methods in consideration that only need an estimate of the library size (such as the chosen method in autoresearch_lfcse), can you ensure that using the "raw" library size (i.e., sum of the counts in a cell) or other "standard" estimation of the library size itself was not as effective as using eSVD's library size that "accounts" for the covariates?
+* I want to make sure there are examples in the bank where confounders (not the case-control arm) have a larger impact on the gene expression, so these settings make eSVD's regressing-out-of-covariates much more important. 
+* Make sure the bank has genes with varying high and low sparsity of zeros, and datasets with high and low number of "true" DEGs. 
+* Can you take certain examples in the bank with {genes with high and low sparsity of zeros, and also certain genes that are "true" DEGs but many genes are not DEGS}, and then simulate two different datasets using this setting (i.e., a technical replicate). Then, can run eSVD on each dataset, and compute the LFC on each of the datasets. Then, I want to see if the "true" DEGs are highly correlated between the two datasets, whereas the null genes (genes that aren't DEGs) are randomly centered around 0. This is because I would expect the true DEGs replicate, whereas the null genes don't correlate between replicates.
+* For each considered method, can you tell me how often a significant gene (after multiple-testing correction) corresponds to a LFC +/- 2*SE not overlapping with 0?
+
+My intent is not to explore new methods. My intent in this is to massively expand the bank for these other settings, and expand the ways to assess a potential method. This way, I have more comprehensive understanding of what our chosen method does.
+
+Please take as much time as you need for this -- it might require building many new examples into the bank. Please use up to 5 cores whenever needed. I will be stepping away from the laptop.

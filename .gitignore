@@ -129,3 +129,12 @@ autoresearch_lfcse/cache*/
 # --- second autoresearch loop, on rules that use the embedding (autoresearch_lfcse2) ---
 autoresearch_lfcse2/output/
 autoresearch_lfcse2/cache*/
+
+# --- beyond-score study (additional_context/2026-11-12_beyond-score) ---
+# Logs of the three steps; the bank and the per-gene results live outside
+# the repository. The scripts and csv/ stay tracked.
+additional_context/2026-11-12_beyond-score/output/
+additional_context/2026-11-12_beyond-score/csv/cohort_scores.csv
+additional_context/2026-11-12_beyond-score/csv/replicates.csv
+additional_context/2026-11-12_beyond-score/csv/replicate_genes.csv
+additional_context/*_files/

@@ -1,0 +1,1414 @@
+---
+title: "Every reporting rule of the two autoresearch loops on a harder bank: the donor-level regression with eSVD's fitted library beats DESeq2, the fitted library matters when confounders vary within a donor, and the posterior's floor on the library should go"
+author: "Kevin Z. Lin (drafted by Claude)"
+date: "2026-11-12"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 3
+    number_sections: true
+    theme: flatly
+    highlight: tango
+    math_method:
+      engine: mathjax
+      url: "https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-chtml-full.js"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+```
+
+<style>
+div.takeaway, div.generator, div.reuse, div.recipe {
+  padding: 0.7em 1.1em; margin: 1.2em 0; border-radius: 4px; border-left: 7px solid;
+}
+div.takeaway  { background: #edf7ed; border-color: #2ca02c; }
+div.generator { background: #eaf2fb; border-color: #1f77b4; }
+div.reuse     { background: #f4f4f4; border-color: #8c8c8c; }
+div.recipe    { background: #fff3e6; border-color: #ff7f0e; }
+div.takeaway  > p:first-child::before { content: "Takeaway. "; font-weight: bold; color: #1b6e1b; }
+div.generator > p:first-child::before { content: "How the data were simulated. "; font-weight: bold; color: #155a8a; }
+div.reuse     > p:first-child::before { content: "Data generator: reused. "; font-weight: bold; color: #8c8c8c; }
+div.recipe    > p:first-child::before { content: "The procedure. "; font-weight: bold; color: #b35900; }
+</style>
+
+```{r libraries}
+library(knitr)
+library(ggplot2)
+```
+
+```{r read_tables}
+csv_dir <- file.path("2026-11-12_beyond-score", "csv")
+.read <- function(name){
+  utils::read.csv(file.path(csv_dir, name), stringsAsFactors = FALSE)
+}
+strata_df <- .read("strata.csv")
+bin_df <- .read("gene_bins.csv")
+cross_df <- .read("sparsity_by_confound.csv")
+library_df <- .read("library.csv")
+significance_df <- .read("significance.csv")
+replicate_df <- .read("replicates.csv.gz")
+replicate_gene_df <- .read("replicate_genes.csv.gz")
+bank_gene_df <- .read("bank_genes.csv")
+bank3_df <- .read("bank3_cohorts.csv")
+failure_df <- .read("failures.csv")
+cohort_df <- .read("cohort_scores.csv.gz")
+
+rule_vec <- c("stored", "null_rescaled", "deshrunk", "raw", "raw_null",
+              "donor_wls", "gap_trend", "embed_prior", "state_adjusted")
+nofloor_vec <- c("donor_wls@esvd_nofloor", "state_adjusted@esvd_nofloor")
+sparsity_vec <- c("under 50%", "50 to 80%", "80 to 95%", "over 95%")
+bank_label_vec <- c(bank1 = "bank 1", bank2 = "bank 2", bank3 = "bank 3")
+fmt <- function(x, digits = 3){formatC(x, digits = digits, format = "f")}
+pct <- function(x, digits = 0){paste0(formatC(100 * x, digits = digits,
+                                              format = "f"), "%")}
+
+# One number of the strata table.
+st <- function(method, bank = "bank3", truth_kind = "marginal",
+               factor = "all", level = "all", col = "score"){
+  bool_vec <- strata_df$method == method & strata_df$bank == bank &
+    strata_df$truth_kind == truth_kind & strata_df$factor == factor &
+    strata_df$level == level
+  stopifnot(sum(bool_vec) == 1)
+  strata_df[[col]][bool_vec]
+}
+
+# One number of the gene-bin table.
+gb <- function(method, bin, bin_type = "sparsity", bank = "bank3",
+               truth_kind = "marginal", col = "score"){
+  bool_vec <- bin_df$method == method & bin_df$bank == bank &
+    bin_df$truth_kind == truth_kind & bin_df$bin_type == bin_type &
+    bin_df$bin == bin
+  stopifnot(sum(bool_vec) == 1)
+  bin_df[[col]][bool_vec]
+}
+
+# One number of the library table: variant minus fitted, paired.
+lib <- function(library, rule = "donor_wls", bank = "bank3",
+                truth_kind = "marginal", factor = "all", level = "all",
+                col = "diff"){
+  bool_vec <- library_df$library == library & library_df$rule == rule &
+    library_df$bank == bank & library_df$truth_kind == truth_kind &
+    library_df$factor == factor & library_df$level == level
+  stopifnot(sum(bool_vec) == 1)
+  library_df[[col]][bool_vec]
+}
+
+# One number of the significance table.
+sg <- function(method, col, bank = "bank3", truth_kind = "marginal",
+               effects = "all"){
+  bool_vec <- significance_df$method == method &
+    significance_df$bank == bank &
+    significance_df$truth_kind == truth_kind &
+    significance_df$effects == effects
+  stopifnot(sum(bool_vec) == 1)
+  significance_df[[col]][bool_vec]
+}
+
+# Paired comparison of two methods over the cohorts of a bank: mean
+# difference of the score (first minus second), its SE, and the share of
+# cohorts in which the first is better.
+paired <- function(method_1, method_2, bank = "bank3",
+                   truth_kind = "marginal", factor = NULL, level = NULL){
+  sub_df <- cohort_df[cohort_df$bank == bank &
+                        cohort_df$truth_kind == truth_kind, ]
+  if(!is.null(factor)) sub_df <- sub_df[as.character(sub_df[[factor]]) ==
+                                          level, ]
+  df_1 <- sub_df[sub_df$method == method_1, ]
+  df_2 <- sub_df[sub_df$method == method_2, ]
+  df_2 <- df_2[match(df_1$cohort, df_2$cohort), ]
+  diff_vec <- df_1$score - df_2$score
+  list(diff = mean(diff_vec),
+       se = stats::sd(diff_vec) / sqrt(length(diff_vec)),
+       win = mean(diff_vec < 0),
+       n = length(diff_vec))
+}
+
+# A methods x columns table of one strata column.
+wide_strata <- function(method_vec, col_df, col = "score", digits = 3){
+  out_mat <- sapply(seq_len(nrow(col_df)), function(j){
+    sapply(method_vec, function(method){
+      st(method, bank = col_df$bank[j], truth_kind = col_df$truth_kind[j],
+         factor = col_df$factor[j], level = col_df$level[j], col = col)
+    })
+  })
+  out_df <- data.frame(method = paste0("`", method_vec, "`"),
+                       round(out_mat, digits), check.names = FALSE)
+  colnames(out_df) <- c("Method", col_df$label)
+  rownames(out_df) <- NULL
+  out_df
+}
+
+num_examples <- nrow(bank3_df)
+num_cohorts_vec <- tapply(cohort_df$cohort[cohort_df$method == "donor_wls" &
+                                             cohort_df$truth_kind ==
+                                             "marginal"],
+                          cohort_df$bank[cohort_df$method == "donor_wls" &
+                                           cohort_df$truth_kind == "marginal"],
+                          length)
+```
+
+# Overview
+
+This document is built from the two autoresearch loops on the reported log
+fold change and its standard error (`autoresearch_lfcse/`,
+`autoresearch_lfcse2/`; their reports are `notes/RUN_nov11_claude.md` in
+each), from Kevin's note of 2026-11-12
+(`2026-11-12_autoresearch_additional-exploration-beyond-score.txt`), and
+from a new bank of simulated cohorts built for it, `lfcse-bank-3`. No new
+rule is proposed. Every rule the two loops considered is run again, as it
+was written, on a bank that is harder in the ways the note asks for, and is
+assessed on more than the score.
+
+**The question.** Of the rules the two loops considered, which one should
+`eSVD2` report the log2 fold change and SE from, once the bank has strong
+confounders, genes of very different sparsity, few or many true DEGs, and
+replicate cohorts, and once each rule is also compared head to head with
+DESeq2, run with library sizes other than eSVD's, and checked against its
+own significance calls?
+
+What the document argues:
+
+1. **`donor_wls` beats pseudobulk DESeq2 on all three banks**, by
+   `r fmt(-st("donor_wls", col = "vs_deseq2"))` nats per gene on the new
+   bank, where it is the better of the two in
+   `r pct(st("donor_wls", col = "win_deseq2"))` of cohorts (section 5).
+2. **eSVD's fitted library is worth having when a confounder varies within
+   a donor, and only then.** With cell-level confounders, `donor_wls` with
+   the summed counts as library scores
+   `r fmt(st("donor_wls@total_cov", factor = "confound", level = "cell"))`
+   against `r fmt(st("donor_wls", factor = "confound", level = "cell"))`
+   with the fitted library; with donor-level confounders, however strong,
+   the two are equal (sections 6 and 7).
+3. **The posterior's floor of 0.1 on the fitted library hurts the rule.**
+   For sparse genes the fitted library sits at the floor and carries no
+   depth or covariate adjustment. Without the floor `donor_wls` gains
+   `r fmt(-lib("esvd_nofloor"))` nats on the new bank and loses nothing
+   elsewhere (section 7.3).
+4. **Sparse genes are harder for every rule, and `donor_wls` attenuates the
+   fold change of the sparsest ones**: its slope on the truth is
+   `r fmt(gb("donor_wls", "over 95%", truth_kind = "direct", col = "slope"), 2)`
+   for genes with over 95% zeros (section 8).
+5. **True DEGs replicate and null genes do not**, for every rule, and the
+   replicate correlation of the null genes detects confounding a rule has
+   left in (section 9).
+6. **eSVD-DE's own significance calls and the reported interval are two
+   analyses.** On the new bank
+   `r pct(sg("donor_wls@esvd_nofloor", "esvd_excludes"))` of the genes the
+   package calls have a `donor_wls@esvd_nofloor` interval that leaves out
+   zero, and the
+   package's calls have a false discovery proportion of
+   `r pct(sg("stored", "esvd_fdp"))` at a nominal 5% (section 10).
+7. **The recommendation**: report from `donor_wls` with the fitted library
+   without its floor (`donor_wls@esvd_nofloor`); keep `state_adjusted` as
+   the rule for the effect at fixed cell state, which is still a decision
+   about the target and not about the rule (section 11).
+
+*How to read.* Green boxes close each results section with what it
+changes; the blue box describes the new bank; grey boxes say which bank a
+section reads; the orange box in section 11 is the procedure. A reader of
+the boxes alone has the argument.
+
+| Stage | What it does | Section |
+|---|---|---|
+| Definitions | the rules, the library variants, the score, the six assessments | 2 |
+| The new bank | what `lfcse-bank-3` holds and what was realized | 3 |
+| Scores | every rule on the three banks, with the validity gates | 4 |
+| DESeq2 | head to head, by stratum | 5 |
+| Confounders | which rules survive strong donor-level and cell-level confounding | 6 |
+| Library size | fitted library against summed counts and the standard estimates | 7 |
+| Sparsity and DEG count | scores by gene sparsity and by the number of true DEGs | 8 |
+| Replicates | agreement of the logFC between two cohorts of one population | 9 |
+| Significance | significant genes against the $\pm 2$ SE interval | 10 |
+| Recommendation | the rule to report from | 11 |
+
+# Definitions
+
+## Notation and the score
+
+A cohort has cells $c$ in donors $d$, genes $g$, counts $A_{cg}$, an arm
+(case or control) per donor, and covariates. A **reporting rule** takes one
+fitted eSVD-DE cohort and returns, for every gene, a log2 fold change
+$\widehat\beta_g$ and a standard error $s_g$. The **score** of a cohort is
+the Gaussian negative log-likelihood of the true log2 fold change $\beta_g$
+under the reported pair, averaged over genes, in nats per gene:
+$$\frac{1}{p}\sum_g \left\{\tfrac12 \log(2\pi s_g^2) +
+\frac{(\widehat\beta_g - \beta_g)^2}{2 s_g^2}\right\}.$$
+**Lower is better.** It rewards an accurate fold change and an SE that is
+neither too small nor too large.
+
+Two truths are used. The **marginal** truth is the log2 ratio of mean
+expression between the populations of case and control donors at equal
+covariates and depth; it includes any difference in cell state between the
+arms. The **direct** truth is the case-control effect at fixed cell state.
+They differ only where the arms differ in cell state (`state = donor_arm`
+of banks 2 and 3). eSVD-DE's convention is the marginal one.
+
+Two **validity gates** from the loops are reported beside the score.
+`slope_weak` is the slope of the reported logFC on the truth over
+weak-effect genes (below 0.5 in absolute value); the loops required
+$[0.9, 1.1]$, so that a rule cannot win by shrinking. `se_strong` is the SE
+of strong-effect genes over the SE of other genes of the same expression
+level; the second loop required $[0.92, 1.08]$, so that a rule cannot win
+by an SE that follows the estimated logFC.
+
+## The rules
+
+Every rule is the file the loops left, unedited
+(`autoresearch_lfcse2/candidates/`, `autoresearch_lfcse*/notes/RULE_*`).
+
+| Name in the tables | Rule | Reads of the fit | From |
+|---|---|---|---|
+| `stored` | what 1.2.0 reports: log ratio of the arms' mean posterior, SE from the posterior's mixture variances | posterior | package |
+| `null_rescaled` | `stored`, the logFC shifted by the empirical null's mean and the SE multiplied by its SD | posterior, empirical null | baseline of loop 2 |
+| `deshrunk` | `stored`'s logFC; between-donor SE of the posterior donor means divided by the shrinkage weight | posterior, library, nuisance rate | reference |
+| `raw` | ratio of the arms' means of donor means of $A/\ell$, delta-method SE between donors | library | reference |
+| `raw_null` | `raw` with the empirical null's shift and rescaling | library | baseline of loop 1 |
+| `donor_wls` | weighted regression of $\log\{(y_{dg} + 1/2)/L_{dg}\}$ on the arm and the donor-level covariates, residual variance moderated across genes, logFC shifted by the null's mean | library | kept by loop 1 |
+| `gap_trend` | as `donor_wls` with voom-style weights and a variance trend in a covariate that contains the between-arm gap | library | withdrawn in loop 1 (fails `se_strong`) |
+| `embed_prior` | `donor_wls` with the embedding's predicted donor variance in the moderation prior | library, embedding | kept by loop 2, run A |
+| `state_adjusted` | `donor_wls` on summaries with the embedding's donor offset removed; the arm coefficients' component along the loadings subtracted | library, embedding | kept by loop 2, run B |
+| `deseq2` | DESeq2 on donor pseudobulk; design: every covariate (cell-level ones as donor means) and the arm | nothing | comparator |
+| `deseq2_nocell` | the same without the cell-level covariates in the design | nothing | comparator |
+
+Here $y_{dg}$ is the donor's summed count and $L_{dg}$ its summed library.
+The intermediate commits the loops discarded are not rerun.
+
+## The library variants
+
+`donor_wls`, `gap_trend`, `raw_null`, `embed_prior` and `state_adjusted`
+read a cells $\times$ genes library $\ell_{cg}$. The fit's is
+$\ell_{cg} = \max\{\exp(z_g^\top C_c), 0.1\}$ over every covariate but the
+arm: the intercept, the log of the cell's summed counts with a per-gene
+coefficient, and each other covariate with a per-gene coefficient. A
+variant is written `rule@library`.
+
+| Library | What it is | Design of the rule |
+|---|---|---|
+| (none) | the fitted library as the posterior uses it, floored at 0.1 | donor-level covariates |
+| `esvd_nofloor` | the fitted library without the floor | donor-level covariates |
+| `esvd_depth` | the fitted intercept and depth coefficient only, no floor | donor-level covariates |
+| `total` | the cell's summed counts | donor-level covariates |
+| `total_cov` | the cell's summed counts | donor-level covariates and the donor means of the cell-level ones |
+| `sf_cov` | summed counts rescaled so that a donor's total is DESeq2's median-of-ratios size factor of the pseudobulk | as `total_cov` |
+| `tmm_cov` | summed counts times edgeR's TMM factor of the donor's pseudobulk | as `total_cov` |
+| `oracle` | the generator's library times the true effect of the cell-level covariates (bank 3 only) | donor-level covariates |
+
+`total_cov` is what an analyst without eSVD would do: pseudobulk by
+donor, normalize by depth, and put each covariate in the design at the
+donor level.
+
+## The six assessments
+
+| Kevin's request | What is computed | Section |
+|---|---|---|
+| Head to head with DESeq2 | per cohort, the rule's score minus DESeq2's on the same genes; its mean, paired SE and the share of cohorts the rule wins | 5 |
+| Raw or standard library against eSVD's | each `rule@library` minus `rule`, paired within cohorts | 7 |
+| Confounders with a larger effect than the arm | the factor `confound` of bank 3 | 3, 6 |
+| Genes of high and low sparsity; few and many DEGs | genes binned by their share of zero counts; the factor `deg` | 3, 8 |
+| Technical replicates | two cohorts per population; correlation of the logFC over true DEGs and over null genes | 9 |
+| Significant genes against $\pm 2$ SE | of the genes a test calls at FDR 5%, the share with $|\widehat\beta_g| > 2 s_g$ | 10 |
+
+# The new bank
+
+::: {.generator}
+`lfcse-bank-3` holds `r num_examples` examples. An example is one
+**population** (the gene-level truth: 600 genes with their intercepts,
+loadings, over-dispersion, case-control and covariate effects) and **two
+replicate cohorts** drawn from it with new donors and new cells, each
+fitted end to end by eSVD2 1.2.0 at rank 5
+(`r 2 * num_examples` fits). Counts follow the eSVD model, with donor
+effects as in the second bank. Eight factors vary:
+
+1. `donors`: 10, 20 or 40, half per arm.
+2. `confound`: sex and age are in every cohort. `mild`: per-gene effects
+   of SD 0.2, nearly balanced between arms (sex 40% against 60%). `donor`:
+   effects of SD 0.5, sex 20% of controls against 80% of cases, cases
+   older by one SD. `cell`: the mild donor-level covariates plus two
+   cell-level ones, `Pct` (continuous, per-gene effect SD 0.3, cases
+   higher by 0.8 within-donor SD) and `Phase` (binary, per-gene effect SD
+   0.5, 20% of control cells against 50% of case cells). A DEG's effect
+   has SD 0.6, so at `donor` and `cell` the confounders move every gene by
+   about as much as the arm moves the DEGs.
+3. `deg`: `few` (5% of genes with an effect, both signs, the others
+   exactly null), `many` (30%, three in four positive, the others exactly
+   null), `dense` (every gene nonzero, most weakly).
+4. `state`: `none`; `donor` (donor-level cell states of rank 3 carry three
+   quarters of the donor variance); `donor_arm` (the same, and the arms
+   differ in mean state, so the marginal and direct truths differ).
+5. `cells`: 50 per donor, or unequal (30 to 600).
+6. `donor_sd`: 0.2 or 0.5 on the log scale.
+7. `arm_sd`: equal donor variance in the arms, or three times larger in
+   the cases.
+8. `depth`: none, or a donor-level shift of a block of 15% of the genes.
+
+Gene intercepts are uniform on $(-4, 1.5)$ in every cohort, so each cohort
+holds genes with a mean of 0.02 counts per cell beside genes with a mean
+of 4. The `r num_examples` examples are a balanced one-sixth fraction of
+the 1296 combinations: every level and every pair of levels of two
+factors appears equally often. There is one split, because nothing is
+tuned on this bank.
+:::
+
+```{r bank_table}
+bank_wide_df <- do.call(rbind, lapply(names(bank_label_vec), function(bank){
+  sub_df <- bank_gene_df[bank_gene_df$bank == bank, ]
+  sub_df <- sub_df[match(sparsity_vec, sub_df$bin), ]
+  data.frame(Bank = bank_label_vec[[bank]],
+             `Share of zeros` = sparsity_vec,
+             `Share of genes` = pct(sub_df$num_genes / sum(sub_df$num_genes)),
+             `Capped or boundary rate` = ifelse(sub_df$num_genes > 0,
+                                                pct(sub_df$capped_share), ""),
+             `Cells at the library floor` = ifelse(sub_df$num_genes > 0,
+                                                   pct(sub_df$floor_share), ""),
+             check.names = FALSE, stringsAsFactors = FALSE)
+}))
+knitr::kable(bank_wide_df, row.names = FALSE,
+             caption = "Table 1. Genes by their share of zero counts in the three banks (test splits of banks 1 and 2), with the share of genes whose nuisance rate is capped or at the boundary, and the share of a gene's cells whose fitted library is below the posterior's floor of 0.1.")
+```
+
+```{r bank_numbers}
+frac_capped <- mean(c(bank3_df$frac_capped_a + bank3_df$frac_boundary_a,
+                      bank3_df$frac_capped_b + bank3_df$frac_boundary_b))
+frac_zero <- mean(c(bank3_df$frac_zero_a, bank3_df$frac_zero_b))
+num_warn <- sum(bank3_df$num_warnings_a > 0) + sum(bank3_df$num_warnings_b > 0)
+```
+
+Every fit of the new bank succeeded (`r num_warn` of
+`r 2 * num_examples` with a warning). On average
+`r pct(frac_zero)` of a cohort's counts are zero and
+`r pct(frac_capped)` of its genes have a capped or boundary nuisance
+rate, against 73% on the Velmeshev cohort and 13% in the first bank. The
+first bank has almost no gene with more than half zeros; the new bank has
+`r pct(sum(bank_gene_df$num_genes[bank_gene_df$bank == "bank3" & bank_gene_df$bin %in% c("80 to 95%", "over 95%")]) / sum(bank_gene_df$num_genes[bank_gene_df$bank == "bank3"]))`
+of its genes above 80%.
+
+The last column of Table 1 is a finding of its own. The fitted library
+contains the gene's intercept, so for a gene with under one count in ten
+cells it falls below 0.1 and the posterior sets it to 0.1 for every cell.
+For such a gene the "library" a rule reads is a constant: it has neither
+the depth nor the covariates in it. Section 7.3 measures what this costs.
+
+::: {.takeaway}
+The new bank covers what the note asks for: confounders as strong as the
+effect of interest at the donor level and at the cell level, genes from a
+few percent to 99% zeros within every cohort, 5% or 30% true DEGs among
+exact nulls, and a replicate cohort for every population. Building it
+exposed that the fitted library is constant for sparse genes because of
+the posterior's floor.
+:::
+
+# Scores on the three banks
+
+::: {.reuse}
+The test splits of `lfcse-bank-1` (`r num_cohorts_vec[["bank1"]]`
+cohorts) and `lfcse-bank-2` (`r num_cohorts_vec[["bank2"]]` cohorts),
+which no rule was tuned on, and all `r num_cohorts_vec[["bank3"]]`
+cohorts of `lfcse-bank-3`. Every rule and DESeq2 were rerun on all of
+them by `02_apply-rules_claude.R`.
+:::
+
+```{r overall_table}
+col_df <- data.frame(
+  bank = c("bank1", "bank2", "bank2", "bank3", "bank3"),
+  truth_kind = c("marginal", "marginal", "direct", "marginal", "direct"),
+  factor = "all", level = "all",
+  label = c("Bank 1", "Bank 2, marginal", "Bank 2, direct",
+            "Bank 3, marginal", "Bank 3, direct"),
+  stringsAsFactors = FALSE
+)
+overall_vec <- c(rule_vec, nofloor_vec, "deseq2", "deseq2_nocell")
+overall_df <- wide_strata(overall_vec, col_df)
+overall_df <- overall_df[order(overall_df[["Bank 3, marginal"]]), ]
+knitr::kable(overall_df, row.names = FALSE,
+             caption = "Table 2. Mean score (nats per gene, lower is better) of every rule on the three banks, under the marginal and the direct truth, ordered by the new bank's marginal score. In bank 1 the two truths coincide.")
+```
+
+```{r diagnostics_table}
+diag_vec <- c(rule_vec, nofloor_vec, "deseq2")
+diag_df <- data.frame(
+  Method = paste0("`", diag_vec, "`"),
+  RMSE = sapply(diag_vec, st, col = "rmse"),
+  `Coverage of 95%` = sapply(diag_vec, st, col = "coverage_95"),
+  `SD of z, null genes` = sapply(diag_vec, st, col = "z_sd_null"),
+  `Median logFC, null genes` = sapply(diag_vec, st, col = "bias_null"),
+  `slope_weak, marginal` = sapply(diag_vec, st, col = "slope_weak"),
+  `slope_weak, direct` = sapply(diag_vec, st, truth_kind = "direct",
+                                col = "slope_weak"),
+  se_strong = sapply(diag_vec, st, col = "se_strong"),
+  check.names = FALSE
+)
+knitr::kable(diag_df, row.names = FALSE, digits = 3,
+             caption = "Table 3. Diagnostics on the new bank under the marginal truth (the last slope under the direct truth). A calibrated rule has coverage 0.95 and an SD of z on exactly null genes of 1.")
+```
+
+```{r failures}
+raw_fail_df <- failure_df[failure_df$method == "raw_null", ]
+raw_fail <- function(bank, col){
+  raw_fail_df[[col]][raw_fail_df$bank == bank]
+}
+```
+
+```{r fig_overall, fig.width=9, fig.height=5, fig.cap="Figure 1. Mean score of each rule on the new bank under the two truths, with one standard error. The dashed line is DESeq2 under the marginal truth."}
+plot_df <- strata_df[strata_df$bank == "bank3" & strata_df$factor == "all" &
+                       strata_df$method %in% c(rule_vec, nofloor_vec,
+                                               "deseq2"), ]
+order_vec <- plot_df$method[plot_df$truth_kind == "marginal"]
+order_vec <- order_vec[order(-plot_df$score[plot_df$truth_kind == "marginal"])]
+plot_df$method <- factor(plot_df$method, levels = order_vec)
+plot1 <- ggplot2::ggplot(plot_df, ggplot2::aes(x = score, y = method,
+                                               color = truth_kind))
+plot1 <- plot1 + ggplot2::geom_vline(xintercept = st("deseq2"),
+                                     linetype = "dashed", color = "grey50")
+plot1 <- plot1 + ggplot2::geom_errorbarh(ggplot2::aes(xmin = score - score_se,
+                                                      xmax = score + score_se),
+                                         height = 0.2)
+plot1 <- plot1 + ggplot2::geom_point(size = 2.5)
+plot1 <- plot1 + ggplot2::scale_color_manual(values = c(marginal = "#1f77b4",
+                                                        direct = "#ff7f0e"),
+                                             name = "Truth")
+plot1 <- plot1 + ggplot2::labs(x = "Score (nats per gene, lower is better)",
+                               y = NULL)
+plot1 <- plot1 + ggplot2::theme_bw()
+plot(plot1)
+```
+
+**The order of the rules carries over to the new bank.** Under the
+marginal truth the donor-level regressions (`donor_wls`, `embed_prior`,
+`gap_trend`) lead on all three banks, the posterior-based rules (`stored`,
+`null_rescaled`, `deshrunk`) trail DESeq2, and `raw_null` sits between.
+Under the direct truth `state_adjusted` leads by
+`r fmt(st("donor_wls", truth_kind = "direct") - st("state_adjusted", truth_kind = "direct"))`
+nats on the new bank, as it did on the second.
+
+**The gates.** `gap_trend` fails `se_strong` again
+(`r fmt(st("gap_trend", col = "se_strong"), 2)` on the new bank,
+`r fmt(st("gap_trend", bank = "bank2", col = "se_strong"), 2)` on the
+second): its lead in Table 2 is the SE following the estimated logFC, and
+it stays withdrawn. `state_adjusted` has a `slope_weak` of
+`r fmt(st("state_adjusted", col = "slope_weak"), 2)` under the marginal
+truth, by construction (it removes the arms' difference in cell state),
+and `r fmt(st("state_adjusted", truth_kind = "direct", col = "slope_weak"), 2)`
+under the direct truth. Every other rule's marginal `slope_weak` is
+between `r fmt(min(sapply(setdiff(rule_vec, "state_adjusted"), st, col = "slope_weak")), 2)`
+and `r fmt(max(sapply(setdiff(rule_vec, "state_adjusted"), st, col = "slope_weak")), 2)`
+on the new bank, DESeq2's is
+`r fmt(st("deseq2", col = "slope_weak"), 2)`: the bank's sparse genes
+pull every rule's slope down, and section 8 shows where.
+
+**Calibration.** `donor_wls` covers the truth
+`r pct(st("donor_wls", col = "coverage_95"), 1)` of the time at a nominal
+95% on the new bank
+(`r pct(st("donor_wls", bank = "bank2", col = "coverage_95"), 1)` on the
+second, `r pct(st("donor_wls", bank = "bank1", col = "coverage_95"), 1)`
+on the first), and the SD of its z-statistic on exactly null genes is
+`r fmt(st("donor_wls", col = "z_sd_null"), 2)`: its SE is a few percent
+too small here. `stored` is too wide (SD of z
+`r fmt(st("stored", col = "z_sd_null"), 2)`) and biased on null genes
+(median logFC `r fmt(st("stored", col = "bias_null"), 2)`);
+`null_rescaled` is too narrow (coverage
+`r pct(st("null_rescaled", col = "coverage_95"), 1)`).
+
+**Failures.** `raw` and `raw_null` return a non-finite value for
+`r raw_fail("bank3", "num_genes")` genes in
+`r raw_fail("bank3", "num_cohorts")` cohorts of the new bank (a gene with
+no count in one arm); they are scored on the remaining genes. No other
+rule failed on any cohort.
+
+::: {.takeaway}
+Nothing in the new bank reverses the loops' ranking. Under the marginal
+truth the donor-level regression family is best on all three banks; under
+the direct truth `state_adjusted` is. `gap_trend` fails the same gate it
+failed before. The posterior-based rules, including what 1.2.0 stores, are
+behind DESeq2 on every bank.
+:::
+
+# Head to head with DESeq2
+
+::: {.reuse}
+All three banks. Per cohort, a rule's score minus DESeq2's over the same
+genes; negative means the rule is better. `deseq2` has every covariate in
+its design, cell-level ones as donor means.
+:::
+
+```{r deseq2_table}
+h2h_vec <- c(rule_vec, nofloor_vec, "donor_wls@total_cov")
+h2h_col_df <- data.frame(bank = c("bank1", "bank2", "bank3"),
+                         truth_kind = "marginal",
+                         stringsAsFactors = FALSE)
+h2h_df <- data.frame(Method = paste0("`", h2h_vec, "`"),
+                     stringsAsFactors = FALSE)
+for(j in seq_len(nrow(h2h_col_df))){
+  bank <- h2h_col_df$bank[j]
+  h2h_df[[paste0(bank_label_vec[[bank]], ": difference (SE)")]] <-
+    sapply(h2h_vec, function(method){
+      paste0(fmt(st(method, bank = bank, col = "vs_deseq2")), " (",
+             fmt(st(method, bank = bank, col = "vs_deseq2_se")), ")")
+    })
+  h2h_df[[paste0(bank_label_vec[[bank]], ": wins")]] <-
+    sapply(h2h_vec, function(method){
+      pct(st(method, bank = bank, col = "win_deseq2"))
+    })
+}
+h2h_df[["Bank 3, direct: difference (SE)"]] <- sapply(h2h_vec, function(method){
+  paste0(fmt(st(method, truth_kind = "direct", col = "vs_deseq2")), " (",
+         fmt(st(method, truth_kind = "direct", col = "vs_deseq2_se")), ")")
+})
+knitr::kable(h2h_df, row.names = FALSE,
+             caption = "Table 4. Each rule against DESeq2: mean over cohorts of the difference in score (paired SE), and the share of cohorts in which the rule scores better. Marginal truth unless stated.")
+```
+
+```{r fig_deseq2, fig.width=9, fig.height=6, fig.cap="Figure 2. Score minus DESeq2's on the new bank (marginal truth), by level of each factor. Blue: the rule is better than DESeq2; red: worse. The colour scale is capped at 0.4 nats."}
+heat_vec <- c("stored", "null_rescaled", "raw_null", "donor_wls",
+              "donor_wls@esvd_nofloor", "donor_wls@total_cov",
+              "state_adjusted")
+heat_df <- strata_df[strata_df$bank == "bank3" &
+                       strata_df$truth_kind == "marginal" &
+                       strata_df$factor != "all" &
+                       strata_df$method %in% heat_vec, ]
+heat_df$stratum <- paste0(heat_df$factor, " = ", heat_df$level)
+heat_df$stratum <- factor(heat_df$stratum, levels = unique(heat_df$stratum))
+heat_df$method <- factor(heat_df$method, levels = rev(heat_vec))
+heat_df$fill_val <- pmax(pmin(heat_df$vs_deseq2, 0.4), -0.4)
+plot1 <- ggplot2::ggplot(heat_df, ggplot2::aes(x = stratum, y = method,
+                                               fill = fill_val))
+plot1 <- plot1 + ggplot2::geom_tile(color = "white")
+plot1 <- plot1 + ggplot2::geom_text(ggplot2::aes(label = formatC(vs_deseq2,
+                                                                 digits = 2,
+                                                                 format = "f")),
+                                    size = 2.6)
+plot1 <- plot1 + ggplot2::scale_fill_gradient2(low = "#2166ac", mid = "white",
+                                               high = "#b2182b", midpoint = 0,
+                                               name = "vs DESeq2")
+plot1 <- plot1 + ggplot2::labs(x = NULL, y = NULL)
+plot1 <- plot1 + ggplot2::theme_bw()
+plot1 <- plot1 + ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 45,
+                                                                    hjust = 1))
+plot(plot1)
+```
+
+```{r deseq2_pieces}
+p_nocell <- paired("donor_wls", "deseq2_nocell", factor = "confound",
+                   level = "cell")
+p_nocell_all <- paired("donor_wls@esvd_nofloor", "deseq2_nocell")
+```
+
+**`donor_wls` beats DESeq2 on every bank and in every stratum of the new
+bank.** The margin is
+`r fmt(-st("donor_wls", bank = "bank1", col = "vs_deseq2"))` nats on the
+first bank, `r fmt(-st("donor_wls", bank = "bank2", col = "vs_deseq2"))`
+on the second and `r fmt(-st("donor_wls", col = "vs_deseq2"))` on the new
+one, each many paired standard errors from zero, and `donor_wls` is the
+better of the two in
+`r pct(st("donor_wls", bank = "bank1", col = "win_deseq2"))`,
+`r pct(st("donor_wls", bank = "bank2", col = "win_deseq2"))` and
+`r pct(st("donor_wls", col = "win_deseq2"))` of cohorts.
+
+**Where the margin comes from on the new bank.** At `confound = mild` and
+`donor` the margin is
+`r fmt(-st("donor_wls", factor = "confound", level = "mild", col = "vs_deseq2"))`
+and
+`r fmt(-st("donor_wls", factor = "confound", level = "donor", col = "vs_deseq2"))`,
+the size seen on the earlier banks. At `confound = cell` it is
+`r fmt(-st("donor_wls", factor = "confound", level = "cell", col = "vs_deseq2"))`.
+There DESeq2 has to adjust for the cell-level covariates through their
+donor means, which are nearly collinear with the arm, and its RMSE goes to
+`r fmt(st("deseq2", factor = "confound", level = "cell", col = "rmse"), 2)`
+log2 units against
+`r fmt(st("donor_wls", factor = "confound", level = "cell", col = "rmse"), 2)`
+for `donor_wls`. Leaving the cell-level covariates out of DESeq2's design
+(`deseq2_nocell`) trades variance for bias: its score at `confound = cell`
+is
+`r fmt(st("deseq2_nocell", factor = "confound", level = "cell"))` with a
+coverage of
+`r pct(st("deseq2_nocell", factor = "confound", level = "cell", col = "coverage_95"))`,
+and `donor_wls` beats it there by `r fmt(-p_nocell$diff)`
+(SE `r fmt(p_nocell$se)`).
+
+**The rules that do not beat DESeq2.** `stored`, `deshrunk`, `raw` and
+`null_rescaled` are behind DESeq2 on every bank; `raw_null` is behind on
+banks 1 and 2 and ahead on the new bank only because of `confound = cell`.
+
+::: {.takeaway}
+The rule the first loop kept is more accurate than DESeq2 by the loops'
+score on all three banks and in every stratum of the new one, and the
+margin is ten times larger when confounders vary within a donor. What
+1.2.0 stores today is less accurate than DESeq2 on all three.
+:::
+
+# Confounders
+
+::: {.reuse}
+`lfcse-bank-3`, by level of `confound`.
+:::
+
+```{r confound_table}
+confound_vec <- c("stored", "null_rescaled", "raw_null", "donor_wls",
+                  "donor_wls@esvd_nofloor", "donor_wls@esvd_depth",
+                  "donor_wls@total", "donor_wls@total_cov",
+                  "donor_wls@oracle", "state_adjusted", "deseq2",
+                  "deseq2_nocell")
+confound_col_df <- data.frame(bank = "bank3", truth_kind = "marginal",
+                              factor = "confound",
+                              level = c("mild", "donor", "cell"),
+                              label = c("mild", "donor", "cell"),
+                              stringsAsFactors = FALSE)
+score_df <- wide_strata(confound_vec, confound_col_df)
+rmse_df <- wide_strata(confound_vec, confound_col_df, col = "rmse")
+cover_df <- wide_strata(confound_vec, confound_col_df, col = "coverage_95")
+confound_out_df <- cbind(score_df, rmse_df[, -1], cover_df[, -1])
+colnames(confound_out_df) <- c("Method",
+                               paste0("Score: ", confound_col_df$label),
+                               paste0("RMSE: ", confound_col_df$label),
+                               paste0("Coverage: ", confound_col_df$label))
+knitr::kable(confound_out_df, row.names = FALSE,
+             caption = "Table 5. Score, RMSE of the logFC and coverage of the 95% interval on the new bank by level of `confound`, marginal truth.")
+```
+
+**Donor-level confounders, however strong, are handled by any rule with
+the covariates in its donor-level design.** From `mild` to `donor` every
+rule loses about the same amount (`donor_wls`
+`r fmt(st("donor_wls", factor = "confound", level = "mild"))` to
+`r fmt(st("donor_wls", factor = "confound", level = "donor"))`, DESeq2
+`r fmt(st("deseq2", factor = "confound", level = "mild"))` to
+`r fmt(st("deseq2", factor = "confound", level = "donor"))`): the price of
+an arm that is partly collinear with sex and age, paid in variance. The
+coverage holds. `raw_null`, which has no design and relies on the library
+to remove sex and age, keeps its coverage but loses more.
+
+**Cell-level confounders separate the rules.** A rule that neither reads
+the covariates from the library nor has them in its design is biased:
+`donor_wls@total` and `donor_wls@esvd_depth` cover the truth
+`r pct(st("donor_wls@total", factor = "confound", level = "cell", col = "coverage_95"))`
+and
+`r pct(st("donor_wls@esvd_depth", factor = "confound", level = "cell", col = "coverage_95"))`
+of the time. A rule with their donor means in its design is unbiased and
+noisy: `donor_wls@total_cov` has an RMSE of
+`r fmt(st("donor_wls@total_cov", factor = "confound", level = "cell", col = "rmse"), 2)`.
+A rule that reads the fitted library, in which each covariate was
+regressed out cell by cell with its per-gene coefficient, is close to the
+oracle: `donor_wls`
+`r fmt(st("donor_wls", factor = "confound", level = "cell"))`, without the
+floor
+`r fmt(st("donor_wls@esvd_nofloor", factor = "confound", level = "cell"))`,
+oracle
+`r fmt(st("donor_wls@oracle", factor = "confound", level = "cell"))`.
+
+::: {.takeaway}
+eSVD's regressing-out of covariates is what makes the rule work when a
+confounder varies within a donor and differs between the arms: the
+within-donor variation identifies each gene's coefficient, which a
+donor-level analysis cannot use. For confounders that are constant within
+a donor the fit's adjustment adds nothing to a donor-level design.
+:::
+
+# Library size: eSVD's fitted library against the standard ones
+
+::: {.reuse}
+All three banks. Each `rule@library` against the same rule with the
+fitted library, paired within cohorts. A positive difference means the
+fitted library is better.
+:::
+
+## `donor_wls` with each library
+
+```{r library_table}
+lib_vec <- c("esvd_nofloor", "esvd_depth", "total", "total_cov", "sf_cov",
+             "tmm_cov", "oracle")
+lib_cell <- function(library, bank, factor = "all", level = "all"){
+  bool_vec <- library_df$library == library & library_df$rule == "donor_wls" &
+    library_df$bank == bank & library_df$truth_kind == "marginal" &
+    library_df$factor == factor & library_df$level == level
+  if(sum(bool_vec) == 0) return("")
+  paste0(formatC(library_df$diff[bool_vec], digits = 3, format = "f",
+                 flag = "+"), " (",
+         fmt(library_df$diff_se[bool_vec]), ")")
+}
+lib_out_df <- data.frame(
+  Library = paste0("`", lib_vec, "`"),
+  `Bank 1` = sapply(lib_vec, lib_cell, bank = "bank1"),
+  `Bank 2` = sapply(lib_vec, lib_cell, bank = "bank2"),
+  `Bank 3` = sapply(lib_vec, lib_cell, bank = "bank3"),
+  `Bank 3, mild` = sapply(lib_vec, lib_cell, bank = "bank3",
+                          factor = "confound", level = "mild"),
+  `Bank 3, donor` = sapply(lib_vec, lib_cell, bank = "bank3",
+                           factor = "confound", level = "donor"),
+  `Bank 3, cell` = sapply(lib_vec, lib_cell, bank = "bank3",
+                          factor = "confound", level = "cell"),
+  check.names = FALSE, stringsAsFactors = FALSE
+)
+knitr::kable(lib_out_df, row.names = FALSE,
+             caption = "Table 6. `donor_wls` with another library minus `donor_wls` with the fitted library: mean difference in score over cohorts (paired SE), marginal truth. Positive: the fitted library is better.")
+```
+
+```{r fig_library, fig.width=9, fig.height=5, fig.cap="Figure 3. `donor_wls` with each library on the new bank, by level of `confound`: score (left) and coverage of the 95% interval (right), marginal truth."}
+lib_plot_vec <- c("donor_wls", paste0("donor_wls@", lib_vec))
+lib_plot_df <- strata_df[strata_df$bank == "bank3" &
+                           strata_df$truth_kind == "marginal" &
+                           strata_df$factor == "confound" &
+                           strata_df$method %in% lib_plot_vec, ]
+lib_plot_df$library <- sub("donor_wls@", "", lib_plot_df$method)
+lib_plot_df$library[lib_plot_df$library == "donor_wls"] <- "fitted"
+lib_plot_df$library <- factor(lib_plot_df$library,
+                              levels = c("fitted", lib_vec))
+lib_plot_df$level <- factor(lib_plot_df$level,
+                            levels = c("mild", "donor", "cell"))
+long_df <- rbind(
+  data.frame(lib_plot_df[, c("library", "level")], panel = "Score",
+             value = lib_plot_df$score),
+  data.frame(lib_plot_df[, c("library", "level")], panel = "Coverage of 95%",
+             value = lib_plot_df$coverage_95)
+)
+long_df$panel <- factor(long_df$panel, levels = c("Score", "Coverage of 95%"))
+plot1 <- ggplot2::ggplot(long_df, ggplot2::aes(x = level, y = value,
+                                               color = library,
+                                               group = library))
+plot1 <- plot1 + ggplot2::geom_line()
+plot1 <- plot1 + ggplot2::geom_point(size = 2)
+plot1 <- plot1 + ggplot2::facet_wrap(~ panel, scales = "free_y")
+plot1 <- plot1 + ggplot2::scale_color_brewer(palette = "Dark2",
+                                             name = "Library")
+plot1 <- plot1 + ggplot2::labs(x = "confound", y = NULL)
+plot1 <- plot1 + ggplot2::theme_bw()
+plot(plot1)
+```
+
+**Without cell-level confounders the fitted library is barely better than
+the summed counts.** The gain over `total` is
+`r fmt(lib("total", bank = "bank1"))` nats on the first bank and
+`r fmt(lib("total", bank = "bank2"))` on the second; on the new bank it is
+`r fmt(lib("total", factor = "confound", level = "mild"))` at
+`confound = mild` and
+`r fmt(lib("total", factor = "confound", level = "donor"))` at `donor`.
+The first loop's margin over DESeq2
+(`r fmt(-st("donor_wls", bank = "bank1", col = "vs_deseq2"))`) is therefore
+the regression and its variance moderation, not the library:
+`donor_wls@total` keeps
+`r fmt(-st("donor_wls@total", bank = "bank1", col = "vs_deseq2"))` of it
+on the first bank and
+`r fmt(-st("donor_wls@total", bank = "bank2", col = "vs_deseq2"))` of
+`r fmt(-st("donor_wls", bank = "bank2", col = "vs_deseq2"))` on the
+second. This answers the open question the first run left.
+
+**The size-factor estimates are the summed counts.** DESeq2's median of
+ratios and TMM change the score by under
+`r fmt(max(abs(lib("sf_cov") - lib("total_cov")), abs(lib("tmm_cov") - lib("total_cov"))), 3)`
+nats against `total_cov`, on every bank.
+
+**With cell-level confounders the fitted library is worth
+`r fmt(lib("total_cov", factor = "confound", level = "cell"))` nats** over
+the standard practice (`total_cov`) and
+`r fmt(lib("total", factor = "confound", level = "cell"))` over the summed
+counts alone. `esvd_depth`, the fitted library without its covariates, is
+as bad as the summed counts: the whole gain is the covariates in the
+library, none of it the per-gene depth coefficient.
+
+## The other library-reading rules
+
+```{r library_other_table}
+other_rule_vec <- c("raw_null", "gap_trend", "embed_prior", "state_adjusted")
+other_df <- do.call(rbind, lapply(other_rule_vec, function(rule){
+  kind <- if(rule == "state_adjusted") "direct" else "marginal"
+  one_cell <- function(library, bank, factor = "all", level = "all"){
+    paste0(formatC(lib(library, rule = rule, bank = bank, truth_kind = kind,
+                       factor = factor, level = level),
+                   digits = 3, format = "f", flag = "+"),
+           " (", fmt(lib(library, rule = rule, bank = bank, truth_kind = kind,
+                         factor = factor, level = level, col = "diff_se")),
+           ")")
+  }
+  data.frame(Rule = paste0("`", rule, "`"), Truth = kind,
+             `total_cov, bank 1` = one_cell("total_cov", "bank1"),
+             `total_cov, bank 2` = one_cell("total_cov", "bank2"),
+             `total_cov, bank 3, cell` = one_cell("total_cov", "bank3",
+                                                  "confound", "cell"),
+             `total_cov, bank 3, other` = paste0(
+               formatC(mean(c(lib("total_cov", rule = rule, truth_kind = kind,
+                                  factor = "confound", level = "mild"),
+                              lib("total_cov", rule = rule, truth_kind = kind,
+                                  factor = "confound", level = "donor"))),
+                       digits = 3, format = "f", flag = "+")),
+             `esvd_nofloor, bank 3` = one_cell("esvd_nofloor", "bank3"),
+             check.names = FALSE, stringsAsFactors = FALSE)
+}))
+knitr::kable(other_df, row.names = FALSE,
+             caption = "Table 7. The other rules that read a library: the variant minus the fitted library, mean difference in score (paired SE). Positive: the fitted library is better. `state_adjusted` under the direct truth.")
+```
+
+The pattern is `donor_wls`'s for every rule: a large gain from the fitted
+library at `confound = cell`, a small one or none elsewhere. `raw_null`
+depends on the fitted library most, because it has no design of its own
+and the library is its only adjustment for any covariate.
+
+## The posterior's floor on the library
+
+```{r floor_table}
+floor_df <- data.frame(
+  `Share of zeros` = sparsity_vec,
+  `Cells at the floor` = pct(bank_gene_df$floor_share[match(
+    sparsity_vec, bank_gene_df$bin[bank_gene_df$bank == "bank3"]
+  ) + min(which(bank_gene_df$bank == "bank3")) - 1][seq_along(sparsity_vec)]),
+  check.names = FALSE, stringsAsFactors = FALSE
+)
+bank3_gene_df <- bank_gene_df[bank_gene_df$bank == "bank3", ]
+floor_df[["Cells at the floor"]] <- pct(
+  bank3_gene_df$floor_share[match(sparsity_vec, bank3_gene_df$bin)]
+)
+for(method in c("donor_wls", "donor_wls@esvd_nofloor", "donor_wls@oracle")){
+  floor_df[[paste0("`", method, "`")]] <- sapply(sparsity_vec, function(bin){
+    gb(method, bin)
+  })
+}
+for(level in c("mild", "cell")){
+  for(method in c("donor_wls", "donor_wls@esvd_nofloor")){
+    floor_df[[paste0("`", method, "`, ", level)]] <- sapply(
+      sparsity_vec, function(bin){
+        cross_df$score[cross_df$method == method &
+                         cross_df$truth_kind == "marginal" &
+                         cross_df$bin == bin & cross_df$confound == level]
+      })
+  }
+}
+knitr::kable(floor_df, row.names = FALSE, digits = 3,
+             caption = "Table 8. Score of `donor_wls` on the new bank with the fitted library as the posterior floors it, without the floor, and with the oracle library, by the gene's share of zeros (marginal truth); the last four columns at `confound = mild` and `cell`.")
+```
+
+```{r floor_numbers}
+p_floor <- paired("donor_wls@esvd_nofloor", "donor_wls")
+p_floor_2 <- paired("donor_wls@esvd_nofloor", "donor_wls", bank = "bank2")
+p_floor_direct <- paired("state_adjusted@esvd_nofloor", "state_adjusted",
+                         truth_kind = "direct")
+```
+
+`compute_posterior()` sets every fitted library below `library_min = 0.1`
+to 0.1, and every rule of the loops read the library after that step. For
+a gene with 80 to 95% zeros about half of the cells are at the floor; above
+95% nearly all are (Table 8). Removing the floor improves `donor_wls` by
+`r fmt(-p_floor$diff)` nats on the new bank (paired SE
+`r fmt(p_floor$se)`, better in `r pct(p_floor$win)` of cohorts) and by
+`r fmt(-p_floor_2$diff)` on the second bank (SE `r fmt(p_floor_2$se)`); on
+the first bank, which has no sparse gene, it changes nothing. The gain is
+largest at `confound = cell`, where the floored genes lose their covariate
+adjustment, and it also improves `state_adjusted` under the direct truth
+by `r fmt(-p_floor_direct$diff)` (SE `r fmt(p_floor_direct$se)`). Without
+the floor `donor_wls` is within
+`r fmt(st("donor_wls@esvd_nofloor") - st("donor_wls@oracle"))` nats of the
+oracle library on the new bank.
+
+This is a change to which library the rule reads, not a new rule: the
+formula of `donor_wls` is untouched.
+
+::: {.takeaway}
+The summed counts, or any standard size factor, are as effective as
+eSVD's library unless a confounder varies within donors; when one does,
+the fitted library is worth half a nat per gene over the standard
+practice, and all of that comes from the covariates in it. The rule should
+read the fitted library before the posterior's floor at 0.1, which
+otherwise discards the adjustment for sparse genes.
+:::
+
+# Sparsity and the number of true DEGs
+
+::: {.reuse}
+`lfcse-bank-3`. Genes are binned by their share of zero counts in the
+cohort; cohorts by the factor `deg`.
+:::
+
+```{r sparsity_table}
+sparse_vec <- c("stored", "null_rescaled", "raw_null", "donor_wls",
+                "donor_wls@esvd_nofloor", "donor_wls@total_cov",
+                "state_adjusted", "deseq2")
+sparse_one <- function(col, truth_kind = "marginal", digits = 3){
+  out_df <- data.frame(Method = paste0("`", sparse_vec, "`"),
+                       stringsAsFactors = FALSE)
+  for(bin in sparsity_vec){
+    out_df[[bin]] <- round(sapply(sparse_vec, gb, bin = bin,
+                                  truth_kind = truth_kind, col = col),
+                           digits)
+  }
+  out_df
+}
+knitr::kable(sparse_one("score"), row.names = FALSE,
+             caption = "Table 9. Score on the new bank by the gene's share of zero counts, marginal truth.")
+knitr::kable(sparse_one("slope", truth_kind = "direct"), row.names = FALSE,
+             caption = "Table 10. Slope of the reported logFC on the direct truth, over the genes of each sparsity bin with a nonzero effect. 1 is no attenuation.")
+knitr::kable(sparse_one("coverage_95"), row.names = FALSE,
+             caption = "Table 11. Coverage of the 95% interval by the gene's share of zero counts, marginal truth.")
+```
+
+```{r fig_sparsity, fig.width=9, fig.height=5, fig.cap="Figure 4. Score on the new bank by the gene's share of zero counts (marginal truth). Every rule degrades with sparsity; the order of the rules changes for the posterior-based ones."}
+sparse_plot_df <- bin_df[bin_df$bank == "bank3" &
+                           bin_df$truth_kind == "marginal" &
+                           bin_df$bin_type == "sparsity" &
+                           bin_df$method %in% sparse_vec, ]
+sparse_plot_df$bin <- factor(sparse_plot_df$bin, levels = sparsity_vec)
+plot1 <- ggplot2::ggplot(sparse_plot_df, ggplot2::aes(x = bin, y = score,
+                                                      color = method,
+                                                      group = method))
+plot1 <- plot1 + ggplot2::geom_line()
+plot1 <- plot1 + ggplot2::geom_point(size = 2)
+plot1 <- plot1 + ggplot2::scale_color_brewer(palette = "Dark2", name = NULL)
+plot1 <- plot1 + ggplot2::labs(x = "Share of zero counts of the gene",
+                               y = "Score (nats per gene)")
+plot1 <- plot1 + ggplot2::theme_bw()
+plot(plot1)
+```
+
+**Every rule degrades with sparsity, and `donor_wls` stays ahead of DESeq2
+in every bin**: by
+`r fmt(-gb("donor_wls", "under 50%", col = "vs_deseq2"))` nats for genes
+under 50% zeros and by
+`r fmt(-gb("donor_wls", "over 95%", col = "vs_deseq2"))` for genes over
+95%.
+
+**The posterior-based rules break at both ends.** `stored`'s interval
+covers `r pct(gb("stored", "over 95%", col = "coverage_95"))` of the
+sparsest genes and
+`r pct(gb("stored", "under 50%", col = "coverage_95"))` of the densest:
+its SE is dominated by the within-cell term, which is far too large for a
+sparse gene. `null_rescaled` multiplies every gene's SE by one factor and
+so covers
+`r pct(gb("null_rescaled", "under 50%", col = "coverage_95"))` of the
+dense genes.
+
+**`donor_wls` attenuates the sparsest genes.** For genes over 95% zeros its
+slope on the truth is
+`r fmt(gb("donor_wls", "over 95%", truth_kind = "direct", col = "slope"), 2)`
+(DESeq2:
+`r fmt(gb("deseq2", "over 95%", truth_kind = "direct", col = "slope"), 2)`).
+The half count added to a donor's summed count before the logarithm pulls
+the donor means together when a donor has a handful of counts. The
+attenuation is absent below 95% zeros
+(`r fmt(gb("donor_wls", "80 to 95%", truth_kind = "direct", col = "slope"), 2)`
+at 80 to 95%). It explains the marginal `slope_weak` of
+`r fmt(st("donor_wls", col = "slope_weak"), 2)` in Table 3, which sits at
+the edge of the loops' gate; on genes under 95% zeros the rule is inside
+it.
+
+```{r deg_table}
+deg_vec <- c("stored", "null_rescaled", "raw_null", "donor_wls",
+             "donor_wls@esvd_nofloor", "state_adjusted", "deseq2")
+deg_col_df <- data.frame(bank = "bank3",
+                         truth_kind = rep(c("marginal", "direct"), each = 3),
+                         factor = "deg",
+                         level = rep(c("few", "many", "dense"), times = 2),
+                         stringsAsFactors = FALSE)
+deg_col_df$label <- paste0(deg_col_df$level, ", ", deg_col_df$truth_kind)
+knitr::kable(wide_strata(deg_vec, deg_col_df), row.names = FALSE,
+             caption = "Table 12. Score on the new bank by the number of true DEGs: `few` (5%), `many` (30%, three in four up), `dense` (every gene weakly nonzero).")
+```
+
+**The number of true DEGs moves the scores little.** `donor_wls` scores
+`r fmt(st("donor_wls", factor = "deg", level = "few"))` with 5% DEGs and
+`r fmt(st("donor_wls", factor = "deg", level = "many"))` with 30% mostly
+upregulated, where every total-count library is shifted by the DEGs and
+the empirical null's mean has to remove the shift. The median logFC of
+exactly null genes stays at
+`r fmt(st("donor_wls", factor = "deg", level = "many", col = "bias_null"), 3)`
+at `many` (`stored`:
+`r fmt(st("stored", factor = "deg", level = "many", col = "bias_null"), 3)`).
+
+::: {.takeaway}
+The ranking of the rules is the same for dense and sparse genes and for
+few and many DEGs. Two things are specific to sparse genes: the
+posterior-based SE is several times too large for them, and `donor_wls`
+shrinks the fold change of genes with over 95% zeros by about 13%.
+Genes that sparse are usually filtered before a DE analysis; the SE and
+the logFC reported for them should be read with that in mind.
+:::
+
+# Technical replicates
+
+::: {.reuse}
+`lfcse-bank-3`, examples at `deg = few` and `many`: the two replicate
+cohorts of an example share the population (the genes' true effects) and
+nothing else. A true DEG has a case-control effect of its own; a null
+gene has none.
+:::
+
+```{r replicate_prepare}
+rep_method_vec <- c("stored", "null_rescaled", "raw_null", "donor_wls",
+                    "donor_wls@esvd_nofloor", "donor_wls@total_cov",
+                    "state_adjusted", "deseq2")
+rep_df <- replicate_df[replicate_df$deg != "dense" &
+                         replicate_df$method %in% rep_method_vec, ]
+rep_all_df <- rep_df[rep_df$sparsity == "all", ]
+rep_median <- function(method, gene_set, col = "pearson", bool_arm = FALSE,
+                       confound = NULL){
+  sub_df <- rep_all_df[rep_all_df$method == method &
+                         rep_all_df$gene_set == gene_set &
+                         (rep_all_df$state == "donor_arm") == bool_arm, ]
+  if(!is.null(confound)) sub_df <- sub_df[sub_df$confound == confound, ]
+  stats::median(sub_df[[col]], na.rm = TRUE)
+}
+```
+
+```{r fig_replicate_scatter, fig.width=9, fig.height=9, fig.cap="Figure 5. The logFC in replicate A against replicate B for one example per level of `deg` and `state` (20 donors, 50 cells each), by rule. Orange: true DEGs; grey: null genes. The DEGs line up on the diagonal and the null genes form a round cloud at the origin, except at `state = donor_arm`, where the null genes carry the arms' difference in cell state and replicate too under every rule but `state_adjusted`."}
+scatter_df <- replicate_gene_df[replicate_gene_df$method %in%
+                                  c("stored", "donor_wls@esvd_nofloor",
+                                    "state_adjusted", "deseq2") &
+                                  replicate_gene_df$state != "donor", ]
+scatter_df$example <- paste0("deg = ", scatter_df$deg, ", state = ",
+                             scatter_df$state)
+scatter_df <- scatter_df[is.finite(scatter_df$lfc_a) &
+                           is.finite(scatter_df$lfc_b), ]
+scatter_df$lfc_a <- pmax(pmin(scatter_df$lfc_a, 3), -3)
+scatter_df$lfc_b <- pmax(pmin(scatter_df$lfc_b, 3), -3)
+scatter_df <- scatter_df[order(scatter_df$gene_set == "deg"), ]
+plot1 <- ggplot2::ggplot(scatter_df, ggplot2::aes(x = lfc_a, y = lfc_b,
+                                                  color = gene_set))
+plot1 <- plot1 + ggplot2::geom_abline(slope = 1, intercept = 0,
+                                      color = "grey70")
+plot1 <- plot1 + ggplot2::geom_point(size = 0.6, alpha = 0.7)
+plot1 <- plot1 + ggplot2::facet_grid(example ~ method)
+plot1 <- plot1 + ggplot2::scale_color_manual(values = c(deg = "#e6550d",
+                                                        null = "grey55"),
+                                             name = NULL)
+plot1 <- plot1 + ggplot2::labs(x = "log2 fold change, replicate A",
+                               y = "log2 fold change, replicate B")
+plot1 <- plot1 + ggplot2::coord_cartesian(xlim = c(-3, 3), ylim = c(-3, 3))
+plot1 <- plot1 + ggplot2::theme_bw()
+plot1 <- plot1 + ggplot2::theme(strip.text.y = ggplot2::element_text(size = 7))
+plot(plot1)
+```
+
+```{r replicate_table}
+rep_out_df <- data.frame(
+  Method = paste0("`", rep_method_vec, "`"),
+  `DEGs: correlation` = sapply(rep_method_vec, rep_median, gene_set = "deg"),
+  `DEGs: same sign` = sapply(rep_method_vec, rep_median, gene_set = "deg",
+                             col = "sign_agree"),
+  `Null: correlation` = sapply(rep_method_vec, rep_median, gene_set = "null"),
+  `Null: mean logFC` = sapply(rep_method_vec, rep_median, gene_set = "null",
+                              col = "mean_lfc"),
+  `Null: SD of logFC` = sapply(rep_method_vec, rep_median, gene_set = "null",
+                               col = "sd_lfc"),
+  `Null: correlation, cell` = sapply(rep_method_vec, rep_median,
+                                     gene_set = "null", confound = "cell"),
+  `DEGs: correlation, cell` = sapply(rep_method_vec, rep_median,
+                                     gene_set = "deg", confound = "cell"),
+  `Null: correlation, donor_arm` = sapply(rep_method_vec, rep_median,
+                                          gene_set = "null", bool_arm = TRUE),
+  check.names = FALSE
+)
+knitr::kable(rep_out_df, row.names = FALSE, digits = 3,
+             caption = "Table 13. Agreement of the logFC between the two replicate cohorts: median over examples of the Pearson correlation over true DEGs and over null genes, the share of DEGs with the same sign, and the mean and SD of the null genes' logFC. First five columns and the two `cell` columns: examples at `state = none` and `donor`; last column: `state = donor_arm`.")
+```
+
+```{r replicate_sparsity_table}
+rep_sparse_df <- rep_df[rep_df$sparsity != "all" &
+                          rep_df$state != "donor_arm" &
+                          rep_df$method %in% c("stored",
+                                               "donor_wls@esvd_nofloor",
+                                               "state_adjusted", "deseq2"), ]
+rep_sparse_out_df <- stats::aggregate(pearson ~ method + gene_set + sparsity,
+                                      data = rep_sparse_df,
+                                      FUN = stats::median)
+rep_sparse_wide_df <- stats::reshape(rep_sparse_out_df,
+                                     idvar = c("gene_set", "sparsity"),
+                                     timevar = "method", direction = "wide")
+colnames(rep_sparse_wide_df) <- sub("pearson\\.(.*)", "`\\1`",
+                                    colnames(rep_sparse_wide_df))
+rep_sparse_wide_df$sparsity <- factor(rep_sparse_wide_df$sparsity,
+                                      levels = sparsity_vec)
+rep_sparse_wide_df <- rep_sparse_wide_df[order(rep_sparse_wide_df$gene_set,
+                                               rep_sparse_wide_df$sparsity), ]
+colnames(rep_sparse_wide_df)[1:2] <- c("Genes", "Share of zeros")
+knitr::kable(rep_sparse_wide_df, row.names = FALSE, digits = 3,
+             caption = "Table 14. Median replicate correlation of the logFC by the gene's share of zeros (examples at `state = none` and `donor`; a bin needs at least 8 genes of the set in the example).")
+```
+
+**True DEGs replicate and null genes do not, as expected, for every
+rule.** For `donor_wls@esvd_nofloor` the median correlation between
+replicates is
+`r fmt(rep_median("donor_wls@esvd_nofloor", "deg"), 2)` over the true
+DEGs and `r fmt(rep_median("donor_wls@esvd_nofloor", "null"), 2)` over
+the null genes, whose logFC is centred at
+`r fmt(rep_median("donor_wls@esvd_nofloor", "null", col = "mean_lfc"), 3)`.
+The logFC that 1.2.0 stores (`stored`) replicates as well over the DEGs
+(`r fmt(rep_median("stored", "deg"), 2)`) but its null genes are centred
+at `r fmt(rep_median("stored", "null", col = "mean_lfc"), 2)`: the depth
+bias the empirical null's mean removes in the other rules.
+
+**The DEGs replicate better under the eSVD-library rules than under
+DESeq2** (`r fmt(rep_median("deseq2", "deg"), 2)`), and much better with
+cell-level confounders
+(`r fmt(rep_median("donor_wls@esvd_nofloor", "deg", confound = "cell"), 2)`
+against `r fmt(rep_median("deseq2", "deg", confound = "cell"), 2)`), where
+DESeq2's logFC is noisy.
+
+**A positive correlation among null genes is a detector of confounding
+left in.** The replicates share the genes' covariate coefficients, so
+whatever a rule fails to remove is the same in both. At `confound = cell`
+the null genes of `donor_wls` (floored library) correlate at
+`r fmt(rep_median("donor_wls", "null", confound = "cell"), 2)` and those of
+`donor_wls@esvd_nofloor` at
+`r fmt(rep_median("donor_wls@esvd_nofloor", "null", confound = "cell"), 2)`:
+the floor leaves the cell-level covariates in the sparse genes. At
+`confound = donor`, `raw_null`, which has no design, reaches
+`r fmt(rep_median("raw_null", "null", confound = "donor"), 2)`.
+
+**At `state = donor_arm` the "null" genes replicate under every rule but
+`state_adjusted`**
+(`r fmt(rep_median("donor_wls@esvd_nofloor", "null", bool_arm = TRUE), 2)`
+for `donor_wls@esvd_nofloor`,
+`r fmt(rep_median("state_adjusted", "null", bool_arm = TRUE), 2)` for
+`state_adjusted`). This is not an error: the arms differ in cell state in
+the population, so those genes have a real marginal effect, and it
+replicates. It is the fork between the two targets seen from the
+replicates' side.
+
+**Sparse DEGs replicate less** (Table 14): the correlation falls from
+about 0.9 under 50% zeros to about 0.6 over 95%, for every rule.
+
+::: {.takeaway}
+The picture Kevin expected holds for every rule: true DEGs fall on the
+diagonal between replicates and null genes form a centred cloud. The
+replicate correlation of null genes is zero only when the rule has removed
+the confounders, which makes it a diagnostic one could compute on real
+replicate cohorts; it is how the floored library's leftover confounding
+shows up without the truth.
+:::
+
+# Significant genes against the interval
+
+::: {.reuse}
+All three banks, pooled over cohorts. Two tests call genes at FDR 5%:
+**eSVD-DE's test** (the p-value 1.2.0 computes from the posterior-based
+Welch statistic and the empirical null, with BH; the same calls for every
+rule) and **the rule's own Wald test** ($\widehat\beta_g / s_g$ against a
+standard normal, with BH; DESeq2's adjusted p-value for DESeq2). The
+interval is $\widehat\beta_g \pm 2 s_g$.
+:::
+
+```{r significance_table}
+sig_vec <- c("stored", "null_rescaled", "raw_null", "donor_wls",
+             "donor_wls@esvd_nofloor", "donor_wls@total_cov", "gap_trend",
+             "embed_prior", "state_adjusted", "deseq2")
+sig_out_df <- data.frame(
+  Method = paste0("`", sig_vec, "`"),
+  `Bank 1` = pct(sapply(sig_vec, sg, col = "esvd_excludes", bank = "bank1")),
+  `Bank 2` = pct(sapply(sig_vec, sg, col = "esvd_excludes", bank = "bank2")),
+  `Bank 3` = pct(sapply(sig_vec, sg, col = "esvd_excludes")),
+  `Bank 3, few` = pct(sapply(sig_vec, sg, col = "esvd_excludes",
+                             effects = "few")),
+  `Bank 3, many` = pct(sapply(sig_vec, sg, col = "esvd_excludes",
+                              effects = "many")),
+  `Interval covers the truth` = pct(sapply(sig_vec, sg,
+                                           col = "esvd_covers_truth")),
+  check.names = FALSE, stringsAsFactors = FALSE
+)
+knitr::kable(sig_out_df, row.names = FALSE,
+             caption = "Table 15. Of the genes eSVD-DE's test calls at FDR 5%, the share whose reported interval (logFC plus or minus 2 SE) leaves out zero, by rule; the last column is the share of those genes whose interval covers the true marginal logFC (bank 3).")
+```
+
+```{r own_table}
+own_out_df <- data.frame(
+  Test = c("eSVD-DE's test (1.2.0)", paste0("Wald test of `", sig_vec, "`")),
+  `Genes called per cohort` = c(
+    sg("stored", "num_esvd") / sg("stored", "num_cohorts"),
+    sapply(sig_vec, sg, col = "num_own") / sg("stored", "num_cohorts")
+  ),
+  `False discovery proportion` = pct(c(sg("stored", "esvd_fdp"),
+                                       sapply(sig_vec, sg, col = "own_fdp")),
+                                     1),
+  `FDP, few` = pct(c(sg("stored", "esvd_fdp", effects = "few"),
+                     sapply(sig_vec, sg, col = "own_fdp", effects = "few")),
+                   1),
+  `FDP, many` = pct(c(sg("stored", "esvd_fdp", effects = "many"),
+                      sapply(sig_vec, sg, col = "own_fdp", effects = "many")),
+                    1),
+  `Power` = pct(c(sg("stored", "esvd_power"),
+                  sapply(sig_vec, sg, col = "own_power")), 1),
+  `FDP, bank 2` = pct(c(sg("stored", "esvd_fdp", bank = "bank2"),
+                        sapply(sig_vec, sg, col = "own_fdp", bank = "bank2")),
+                      1),
+  `FDP, bank 1` = pct(c(sg("stored", "esvd_fdp", bank = "bank1"),
+                        sapply(sig_vec, sg, col = "own_fdp", bank = "bank1")),
+                      1),
+  check.names = FALSE, stringsAsFactors = FALSE
+)
+knitr::kable(own_out_df, row.names = FALSE, digits = 1,
+             caption = "Table 16. The calls of each test at a nominal FDR of 5%: genes called per cohort, false discovery proportion (a false discovery has a marginal truth of exactly zero) and power (over every gene with a nonzero marginal truth, the weak effects of `dense` and `donor_arm` included, hence the low values) on the new bank, pooled over cohorts; the false discovery proportion on the earlier banks.")
+```
+
+**What the question asks.** Of the genes eSVD-DE's test calls, the
+interval of the logFC that 1.2.0 stores leaves out zero for
+`r pct(sg("stored", "esvd_excludes"))` on the new bank
+(`r pct(sg("stored", "esvd_excludes", bank = "bank2"))` on the second,
+`r pct(sg("stored", "esvd_excludes", bank = "bank1"))` on the first). On
+the Velmeshev cohort the same number was 13%. For `donor_wls@esvd_nofloor`
+it is `r pct(sg("donor_wls@esvd_nofloor", "esvd_excludes"))` on the new
+bank and `r pct(sg("donor_wls@esvd_nofloor", "esvd_excludes", bank = "bank1"))`
+on the first. `null_rescaled` gives 100% by construction: its z-statistic
+is the test's.
+
+**A rule's own Wald test agrees with its interval by construction**: a
+gene called by BH at 5% has $|z| > 1.96$ at least, and on the new bank
+at least
+`r pct(min(sapply(setdiff(sig_vec, "deseq2"), sg, col = "own_excludes")), 1)`
+of the genes a rule calls have $|z| > 2$, for every rule. The disagreement in Table 15 is entirely between
+two analyses: the package's test, built on the posterior, and the reported
+pair, built on donor-level summaries.
+
+**Where the two disagree, the package's test is the less calibrated of
+the two.** Its false discovery proportion at a nominal 5%
+is `r pct(sg("stored", "esvd_fdp"))` over the new bank and
+`r pct(sg("stored", "esvd_fdp", effects = "few"))` at `deg = few`
+(`r pct(sg("stored", "esvd_fdp", bank = "bank2"))` on the second bank,
+`r pct(sg("stored", "esvd_fdp", bank = "bank1"))` on the first). The Wald
+test of `donor_wls@esvd_nofloor` has
+`r pct(sg("donor_wls@esvd_nofloor", "own_fdp"), 1)`
+(`r pct(sg("donor_wls@esvd_nofloor", "own_fdp", effects = "few"), 1)` at
+`few`) with more power
+(`r pct(sg("donor_wls@esvd_nofloor", "own_power"), 1)` against
+`r pct(sg("stored", "esvd_power"), 1)`), and DESeq2
+`r pct(sg("deseq2", "own_fdp"), 1)`
+(`r pct(sg("deseq2", "own_fdp", effects = "few"), 1)` at `few`).
+
+::: {.takeaway}
+On the first bank the genes eSVD-DE calls and the `donor_wls` interval
+agree (99%). On the second and the new bank
+`r pct(1 - sg("donor_wls@esvd_nofloor", "esvd_excludes", bank = "bank2"))`
+and `r pct(1 - sg("donor_wls@esvd_nofloor", "esvd_excludes"))` of the
+called genes have an interval that covers zero, and there the package's
+test has three to four times its nominal false discovery proportion while
+the Wald test of the reported pair is near nominal. If the reported pair comes from
+`donor_wls`, the p-value should come from the same pair, or the two will
+keep contradicting each other in the output table.
+:::
+
+# Recommendation
+
+**Report the log2 fold change and its SE from `donor_wls`, reading the
+fitted library before the posterior's floor (`donor_wls@esvd_nofloor`).**
+This is a consequence of the evidence under the marginal truth, eSVD-DE's
+current convention:
+
+- under the marginal truth it is the best valid rule on the new bank,
+  within 0.001 nats of the best on the second and within 0.004 on the
+  first (Table 2; `gap_trend` scores slightly better and fails
+  `se_strong` on every bank);
+- it beats DESeq2 in
+  `r pct(st("donor_wls@esvd_nofloor", col = "win_deseq2"))` of the new
+  bank's cohorts and in every stratum (Table 4, Figure 2);
+- it is within
+  `r fmt(st("donor_wls@esvd_nofloor") - st("donor_wls@oracle"))` nats of
+  the same rule with the true library;
+- its Wald test has a false discovery proportion near the nominal 5%
+  (`r pct(sg("donor_wls@esvd_nofloor", "own_fdp"), 1)` on the new bank,
+  `r pct(sg("donor_wls@esvd_nofloor", "own_fdp", effects = "few"), 1)`
+  with few DEGs) where the package's test has
+  `r pct(sg("stored", "esvd_fdp"))` (Table 16).
+
+It uses the eSVD fit for one thing, the covariate-adjusted library, and
+section 6 shows that this is the one thing a donor-level analysis cannot
+do for itself when a confounder varies within donors. Without such a
+confounder the rule works as well with summed counts.
+
+**`embed_prior` is `donor_wls`** under the marginal truth, to within
+0.005 nats on every bank, and adds nothing.
+
+**`state_adjusted` remains the rule for the effect at fixed cell state,
+and that is a choice of target.** Under the direct truth it leads by
+`r fmt(st("donor_wls@esvd_nofloor", truth_kind = "direct") - st("state_adjusted@esvd_nofloor", truth_kind = "direct"))`
+nats on the new bank. Under the marginal truth it is also the best rule
+where donors have cell states that do not differ between the arms
+(`state = donor`:
+`r fmt(st("state_adjusted", factor = "state", level = "donor"))` against
+`r fmt(st("donor_wls", factor = "state", level = "donor"))`), slightly better at
+`state = none`
+(`r fmt(st("state_adjusted", factor = "state", level = "none"))` against
+`r fmt(st("donor_wls", factor = "state", level = "none"))`), and wrong where the arms differ in state
+(`r fmt(st("state_adjusted", factor = "state", level = "donor_arm"))`
+against `r fmt(st("donor_wls", factor = "state", level = "donor_arm"))`).
+The new bank does not test the two things its report flagged (an effect
+aligned with the loadings; a rank near the donor count), so it is not the
+default.
+
+::: {.recipe}
+1. Fit eSVD-DE as now (`eSVD()` or the stage-by-stage pipeline) with
+   every covariate in the design, cell-level ones included.
+2. Form the library $\ell_{cg} = \exp(z_g^\top C_c)$ over every covariate
+   but the arm, **without** the floor at 0.1.
+3. Run `donor_wls` (`autoresearch_lfcse/notes/RULE_nov11_claude.R`) on
+   the counts, the design, the donor labels and that library. It returns
+   the log2 fold change and SE per gene.
+4. Report, beside the pair, the Wald z and its BH-adjusted p-value from
+   the same pair, so that the significance call and the interval cannot
+   disagree.
+5. Flag genes with over 95% zero counts: their fold change is attenuated
+   by about 13% and their SE is the least reliable.
+6. Check on replicate or split cohorts, when available, that the logFC of
+   presumed-null genes does not correlate between them; a positive
+   correlation means a confounder is left in.
+7. Replacement: when the question is the effect at fixed cell state, run
+   `state_adjusted` (`autoresearch_lfcse2/notes/RULE_nov11_direct_claude.R`)
+   with the same library, after the two checks of its report.
+:::
+
+Whether step 4 replaces the package's posterior-based test is Kevin's
+decision; the evidence here is that the posterior-based test has an
+inflated false discovery proportion on the second and third banks.
+
+# What we glossed over
+
+- **The banks are simulated from the eSVD model.** The fitted library's
+  advantage at `confound = cell` assumes the covariates act
+  log-linearly with one coefficient per gene, which is the model the fit
+  assumes. A real-cohort check is the replicate diagnostic of section 9.
+- **The cell-level confounders are strongly unbalanced between arms**
+  (0.8 SD in `Pct`, 20% against 50% in `Phase`). The size of the gain
+  over `total_cov` and DESeq2 depends on that imbalance; with a balanced
+  cell-level covariate a donor-level analysis loses precision, not
+  validity.
+- **DESeq2 is run one way**: pseudobulk by donor, default `DESeq()` and
+  `results()`, with (`deseq2`) or without (`deseq2_nocell`) the donor
+  means of cell-level covariates. No shrunken fold change, no cell-level
+  model (NEBULA, MAST), no limma-voom or dreamlet.
+- **The half count of `donor_wls`** is what attenuates the sparsest genes
+  (section 8). Changing it would be a new rule and was not tried.
+- **`donor_wls`'s SE is a few percent too small on the new bank**
+  (coverage `r pct(st("donor_wls@esvd_nofloor", col = "coverage_95"), 1)`,
+  lower at `confound = cell`). The cell-level adjustment is estimated and
+  its uncertainty is not in the SE.
+- **The first bank's cohort pairs** have different true effects by
+  design, so only the new bank supplies replicates.
+- **Rank and effects aligned with the loadings** are still not bank
+  factors (open item of the second loop's report).
+- **The intermediate commits of the loops** (38 and 19 experiments) were
+  not rerun; only the reference rows and the kept rules were.
+- **The floor exists for the posterior**, where a tiny library makes the
+  Gamma-Poisson update unstable. This document shows only that the
+  reporting rule should not inherit it; whether the posterior's own floor
+  should change is a separate question.
+
+# Files
+
+All under `additional_context/2026-11-12_beyond-score/`; run from the
+repository root, in order.
+
+| File | What it does |
+|---|---|
+| `generator_claude.R` | the bank `lfcse-bank-3`: design, population, cohort, one example (sourced after `autoresearch_lfcse2/harness/generator_claude.R`, whose pipeline and view functions it reuses) |
+| `01_build-bank_claude.R` | builds the bank under `LFCSE_BANK` (52 minutes on 5 cores, 427 MB) |
+| `02_apply-rules_claude.R <bank1\|bank2\|bank3>` | every rule, library variant and DESeq2 on every cohort; per-gene results under `<LFCSE_BANK root>/lfcse-beyond-score/` (about 4 minutes per bank) |
+| `03_summarize_claude.R` | scores the per-gene results and writes `csv/` |
+| `csv/strata.csv` | one row per bank, method, truth and factor level: score, diagnostics, head-to-head with DESeq2 |
+| `csv/gene_bins.csv`, `csv/sparsity_by_confound.csv` | the same per gene bin (sparsity, nuisance status, effect class) |
+| `csv/library.csv` | one row per bank, rule, library and factor level: the variant minus the fitted library |
+| `csv/significance.csv` | one row per bank, method and effect level: calls and intervals |
+| `csv/replicates.csv.gz`, `csv/replicate_genes.csv.gz` | one row per example, method, gene set and sparsity bin; the genes of six examples |
+| `csv/cohort_scores.csv.gz` | one row per cohort, method and truth |
+| `csv/bank3_cohorts.csv`, `csv/bank_genes.csv`, `csv/failures.csv` | realized values of the bank; genes per sparsity bin; non-finite returns |
+
+# References
+
+- Kevin's note: `additional_context/2026-11-12_autoresearch_additional-exploration-beyond-score.txt`.
+- First loop: `autoresearch_lfcse/notes/RUN_nov11_claude.md`, `MEMO_claude.md`, `BANK.md`; rule `notes/RULE_nov11_claude.R`.
+- Second loop: `autoresearch_lfcse2/notes/RUN_nov11_claude.md`, `MEMO_claude.md`, `BANK.md`; rules `notes/RULE_nov11_direct_claude.R`, `notes/RULE_nov11_marginal_claude.R`.
+- Lin, Qiu and Roeder (2024), eSVD-DE, *BMC Bioinformatics* 25:113, doi:10.1186/s12859-024-05724-7.
+- Love, Huber and Anders (2014), DESeq2, *Genome Biology* 15:550, doi:10.1186/s13059-014-0550-8.
+- Smyth (2004), variance moderation, *Statistical Applications in Genetics and Molecular Biology* 3:3, doi:10.2202/1544-6115.1027.
+- Robinson and Oshlack (2010), TMM, *Genome Biology* 11:R25, doi:10.1186/gb-2010-11-3-r25.

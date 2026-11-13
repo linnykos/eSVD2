@@ -19,12 +19,27 @@ Resolves the location names declared in the master `CLAUDE.md` → *External Loc
 | `OVERDISPERSION_WIKI` | personal laptop (macOS), Dropbox | `~/Library/CloudStorage/Dropbox/Collaboration-and-People/amywatt/git/overdispersion_wiki` | Read only from this project. Start at `wiki/index.md`; pages are `wiki/pages/<slug>.md` |
 | `WAS2CODE_REPO` | personal laptop (macOS), Dropbox | `~/Library/CloudStorage/Dropbox/Collaboration-and-People/archive/tati/git/Was2CODE` | Under `archive/`, so treat as frozen. `R/esvd_helper.R` (60 lines) is the file being imported into `eSVD2`; copy it in rather than depending on this path |
 | `WAS2CODE_ANALYSIS_REPO` | personal laptop (macOS), Dropbox | `~/Library/CloudStorage/Dropbox/Collaboration-and-People/archive/tati/git/Was2CoDE_analysis` | Writeup50 lives under `code/kevin/Writeup50_processing-tati-results/`; its CSVs under `csv/kevin/Writeup50/`; its figures under `figures/kevin/Writeup50/`. Read only from this project |
-| `LFCSE_BANK` | personal laptop (macOS) | `~/Library/Caches/org.R-project.R/R/eSVD2/lfcse-bank-1` | The default of `ESVD2_BANK_DIR` (unset on this machine). 699 MB; rebuilt in 47 minutes on 5 cores by `autoresearch_lfcse/harness/prepare_claude.R` |
+| `LFCSE_BANK` | personal laptop (macOS) | `~/Library/Caches/org.R-project.R/R/eSVD2/` (root; `lfcse-bank-1`, `lfcse-bank-2`, `lfcse-bank-3`, `lfcse-beyond-score`) | The default of `ESVD2_BANK_DIR` (unset on this machine). 682 MB, 628 MB, 427 MB and the per-gene results of the beyond-score study |
 | `TATI_ESVD_OUT` | personal laptop (macOS), Dropbox | `~/Library/CloudStorage/Dropbox/Collaboration-and-People/archive/tati/out/tati` | `Writeup44` to `Writeup47` hold `<Writeup>_<cohort>_esvd.RData` (Prater, Gabitto, Sun, Green), diet `eSVD` objects of 1.2.0 at `$original`. Read only from this project |
 
 Name the machine specifically enough that another collaborator can tell whether it is reachable to them. **A missing row means unknown; only an explicit *(not present)* row means known-absent.**
 
-## Project Status (as of 2026-11-11)
+## Project Status (as of 2026-11-12)
+
+**Every rule of the two autoresearch loops was rerun on a third, harder
+bank and assessed beyond the score (session 36, 2026-11-12, uncommitted,
+on branch `autoresearch_lfcse2/nov11-direct`).** The writeup is
+`additional_context/2026-11-12_autoresearch_beyond-score_claude.Rmd` /
+`.html`; scripts and tables are in
+`additional_context/2026-11-12_beyond-score/`. The bank `lfcse-bank-3`
+(216 examples of two replicate cohorts, 432 fits, 52 minutes on 5 cores)
+adds a `confound` factor (strong donor-level or cell-level covariates,
+unbalanced between arms), genes from 10% to 99% zeros in every cohort, 5%
+or 30% true DEGs, and replicates. No new rule was written. Its
+recommendation: report from `donor_wls` reading the fitted library
+*before* the posterior's floor at 0.1 (`donor_wls@esvd_nofloor`);
+`state_adjusted` stays the rule for the effect at fixed cell state.
+Nothing in `R/` changed.
 
 **A second autoresearch loop, `autoresearch_lfcse2/`, was built and run
 overnight (session 35, 2026-11-11) on Kevin's instruction to consider only
@@ -158,6 +173,42 @@ is labelled as the build machine's (session 28). The CI fix is untested until
 `CRAN_READINESS.md` §0.3 is the list.
 
 ## Key Methodological Details
+
+- **The fitted library a rule reads is constant for sparse genes.** It
+  contains the gene intercept, so it falls below `library_min = 0.1` and
+  `compute_posterior()` floors it: 49% of the cells of a gene with 80 to
+  95% zeros and 97% above 95% (`lfcse-bank-3`; 44% and 98% in
+  `lfcse-bank-2`). `.build_view()` of both loops hands rules the floored
+  library. Without the floor `donor_wls` gains 0.032 nats on bank 3 and
+  0.007 on bank 2, and the replicate correlation of null genes at
+  cell-level confounding falls from 0.10 to -0.01.
+- **The fitted library beats summed counts only when a confounder varies
+  within donors.** `donor_wls` with summed counts loses 0.004 (bank 1),
+  0.016 (bank 2) and 0.00 (bank 3, `confound` mild or donor); with
+  cell-level confounders it loses 0.60 with donor-mean covariates in the
+  design (RMSE 1.06 against 0.48) and 1.03 without (coverage 0.75). The
+  fitted intercept-and-depth part alone is as bad as summed counts, and
+  DESeq2 size factors and TMM equal summed counts to 0.001. So the first
+  loop's margin over DESeq2 (0.054) was the regression and its
+  moderation, not the library.
+- **Against pseudobulk DESeq2**, `donor_wls` wins by 0.054, 0.062 and
+  0.252 nats (99%, 90%, 87% of cohorts) on banks 1 to 3; `stored`,
+  `null_rescaled`, `deshrunk` and `raw` lose on all three.
+- **The package's own test is miscalibrated on the harder banks**: BH at
+  5% on the 1.2.0 p-value has a false discovery proportion of 7.9%, 18.4%
+  and 19.1% on banks 1 to 3 (49% with 5% DEGs on bank 3); the Wald test of
+  `donor_wls@esvd_nofloor` has 3.2%, 3.9% and 4.8% (9.5%), DESeq2 7.8%,
+  5.6% and 5.4% (15.8%).
+- **`donor_wls` attenuates genes with over 95% zeros** (slope on the
+  truth 0.87; 1.00 at 80 to 95%; DESeq2 1.02), the half count's doing. Its
+  coverage on bank 3 is 0.92 (0.90 at cell-level confounding).
+- **Replicates**: true DEGs correlate at 0.80 between replicate cohorts
+  under `donor_wls` (DESeq2 0.72; 0.79 against 0.43 at cell-level
+  confounding), null genes at 0.00; a positive null correlation marks
+  confounding left in (`raw_null` 0.36 at donor-level confounding) or, at
+  `state = donor_arm`, the real marginal effect of the state shift (0.25
+  to 0.33 for every rule but `state_adjusted`, 0.06).
+- **`gap_trend` fails `se_strong` on every bank** (1.13, 1.20, 1.15).
 
 - **The NLL score rewards an SE that grows with the estimated logFC**, the
   SE's counterpart of thresholding: a moderation covariate that contained
@@ -575,6 +626,23 @@ is labelled as the build machine's (session 28). The CI fix is untested until
   no longer needed.
 
 ## Open Questions / Next Steps
+
+**From the beyond-score study (session 36):**
+
+00A. **Review `2026-11-12_autoresearch_beyond-score_claude.Rmd` and decide
+     on its recommendation**: `donor_wls` on the unfloored fitted library
+     as the reported pair, and whether the p-value should then be the
+     Wald test of that pair instead of the posterior-based test.
+00B. Whether a rule's library should be exposed without the floor (the
+     floor is in `compute_posterior()`; the rule only needs
+     `exp(covariates %*% t(z))` over the non-arm columns).
+00C. The half count in `donor_wls` (attenuation above 95% zeros) and its
+     slightly small SE at cell-level confounding were measured, not
+     changed (Kevin asked for no new method).
+00D. Stale test file to delete by hand:
+     `additional_context/2026-11-12_beyond-score/csv/cohort_scores.csv`,
+     `replicates.csv`, `replicate_genes.csv` (superseded by the `.gz`
+     files; `.gitignore`d).
 
 **Autoresearch (session 32):**
 
