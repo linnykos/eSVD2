@@ -26,6 +26,25 @@ Name the machine specifically enough that another collaborator can tell whether 
 
 ## Project Status (as of 2026-11-11)
 
+**A second autoresearch loop, `autoresearch_lfcse2/`, was built and run
+overnight (session 35, 2026-11-11) on Kevin's instruction to consider only
+rules that use the embedding, on a new bank `lfcse-bank-2` (576 cohorts,
+rank 5, donor-level cell states, unequal arm variance, a depth-error block,
+sparse genes).** Its result is a fork on the target. Scored against the
+marginal effect (cell-state differences between arms included; run A,
+branch `autoresearch_lfcse2/nov11`, best `40e7e67`), no embedding-using
+rule beat `donor_wls` (0.1321 against 0.1319 on test), and the kept rule
+does not change when the embedding is scrambled. Scored against the effect
+at fixed cell state (run B, branch `autoresearch_lfcse2/nov11-direct`,
+best `1cfd07b`, rule `state_adjusted`), the kept rule scores -0.102 on test
+against 0.362 for the baseline `null_rescaled` and 0.345 for `donor_wls`.
+Reports: `autoresearch_lfcse2/notes/RUN_nov11_claude.Rmd` / `.html` and
+`.md`; rule files `notes/RULE_nov11_direct_claude.R` and
+`RULE_nov11_marginal_claude.R`; the design and the ten decisions Claude
+made without a round are in `notes/MEMO_claude.md` section 6. All commits
+are local (the current branch is `autoresearch_lfcse2/nov11-direct`);
+nothing is merged or pushed and nothing in `R/` changed.
+
 **The first autoresearch run on the logFC/SE reporting rule is finished
 and reported (session 33), on branch `autoresearch_lfcse/nov11`** (cut
 from `2026-11-07_std` at `89ff8f8`; not merged, not pushed). It ran 38
@@ -41,7 +60,12 @@ design and the fitted library. The report is
 `autoresearch_lfcse/notes/RUN_nov11_claude.md`, the self-contained rule
 `notes/RULE_nov11_claude.R`. Two commits that had passed the keep rule were
 withdrawn as invalid and sit on `autoresearch_lfcse/nov11-gap-invalid`.
-Nothing in `R/` changed.
+Nothing in `R/` changed. A knitted writeup for collaborators,
+`notes/RUN_nov11_claude.Rmd` / `.html` (session 34, uncommitted), names the
+kept rule `donor_wls` and the withdrawn one `gap_trend`; it reads tracked
+tables in `notes/csv/RUN_nov11/`, which
+`diagnostics/export_run_nov11_claude.R` copies out of the untracked
+`output/`, so it knits from a clone (RStudio's pandoc on `PATH`).
 
 **Branch `2026-11-07_std` holds a standard-error exploration for the
 Was2CoDE Figure 4 (session 30, uncommitted):**
@@ -554,6 +578,37 @@ is labelled as the build machine's (session 28). The CI fix is untested until
 
 **Autoresearch (session 32):**
 
+0A. **Choose the target of the reported logFC**: the marginal effect
+    (eSVD-DE's current convention; `donor_wls` is then the best rule known
+    and the embedding adds nothing) or the effect at fixed cell state
+    (`state_adjusted`, 0.45 nats ahead of `donor_wls` on the second bank,
+    and confidently wrong for the marginal effect when the arms differ in
+    cell state). Everything else about the second loop follows from this.
+0B. **Confirm or reverse the second loop's decisions** (its memo, section
+    6): the truth, the `state` factor, rank 5, single cohorts, the
+    `expression` factor, the second gate `se_strong` in [0.92, 1.08], the
+    baseline, the scramble check in place of a scorer gate, the disjoint
+    design fractions, and the second run under `ESVD2_TRUTH=direct`. Also
+    the two local commits made on `autoresearch_lfcse/nov11` to give the
+    runs a base (the session-34 writeup, and the loop folder).
+0C. Before `state_adjusted` is used: a real-cohort check that the loadings
+    carry the arm contrast; a bank factor for the fit's rank (real ranks
+    are near or above the donor count); a bank factor for effects aligned
+    with the loadings (`slope_weak` is already 0.958).
+0D. The first loop's scorer seeds the trial function with the stream that
+    drew the true effects (found by the second loop's review; fixed there
+    only). No rule of either loop draws random numbers.
+0z. **How much of eSVD-DE does the kept rule need?** `donor_wls` uses only
+    the fitted library (no embedding, case-control coefficient, nuisance
+    rate or posterior), which makes it close to limma-voom on donor
+    pseudobulk with eSVD-DE's library as the offset. Two things are
+    unmeasured: (i) the run never scored it with a plain library size, so
+    the fitted library's share of the 0.054 nats over DESeq2 is unknown;
+    (ii) `generator_claude.R` draws each cell's embedding independently of
+    donor and arm, so the bank cannot reward the embedding. Also, the
+    package's p-value (posterior-based, not on trial) and the rule's Wald
+    statistic are now two analyses that can disagree; whether the p-value
+    should follow the rule is undecided.
 0x. **Review `RUN_nov11_claude.md` and decide what to do with the kept
     rule**: merge `autoresearch_lfcse/nov11`, and whether the rule becomes
     the proposal for `compute_log_fold_change()` (it would replace item 0a's
