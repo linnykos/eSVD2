@@ -1,0 +1,13 @@
+"split","group","num_calls","sign_rep","sign_rep_wls","slope_rep","median_abs_lfc"
+"split1","all calls",453,0.8079,0.8035,0.4427,0.446
+"split1","rate estimated",353,0.8215,0.8357,0.4351,0.4185
+"split1","rate at the cap",100,0.76,0.69,0.4623,0.5767
+"split1","donor_wls p < 0.05",275,0.8182,0.8218,0.4876,0.5103
+"split1","donor_wls p >= 0.05",178,0.7921,0.7753,0.3522,0.3636
+"split1","donor_wls p < 0.01",120,0.8583,0.8667,0.4698,0.5869
+"split2","all calls",447,0.6555,0.7248,0.3172,0.4389
+"split2","rate estimated",300,0.7567,0.8,0.3809,0.406
+"split2","rate at the cap",147,0.449,0.5714,0.1487,0.461
+"split2","donor_wls p < 0.05",253,0.7866,0.8854,0.3728,0.5024
+"split2","donor_wls p >= 0.05",194,0.4845,0.5155,0.206,0.3934
+"split2","donor_wls p < 0.01",109,0.8349,0.9174,0.4319,0.5909

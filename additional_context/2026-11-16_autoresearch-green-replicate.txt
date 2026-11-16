@@ -1,0 +1,16 @@
+Two things:
+1) Please do a similar analysis as in Gabitto, but now for Green (/Users/kevinlin/Library/CloudStorage/Dropbox/Collaboration-and-People/archive/tati/data/primary_datasets/green_2024/Writeup43_green_cleaned_only-counts.RData). Write the analysis and .Rmd of the findings in 2026-11-16_green and outputs to /Users/kevinlin/Library/CloudStorage/Dropbox/Collaboration-and-People/Kathryn Roeder - private/eSVD2/out/2026-11-16_green. See /Users/kevinlin/Library/CloudStorage/Dropbox/Collaboration-and-People/archive/tati/git/Was2CoDE_analysis/code/tati/Writeup47_green_final-de/Writeup47_green_esvd.R for how Tati analyzed this data.
+
+2) Based on the findings in
+  /Users/kevinlin/Library/CloudStorage/Dropbox/Collaboration-and-People/Kathryn Roeder -
+  private/eSVD2/git/eSVD2/additional_context/2026-11-15_gabitto/2026-11-15_gabitto-split-ha
+  lf_claude.Rmd and the new findings you'll do for Green, can you increase the number of examples in the Bank written in "What the
+  autoresearch bank should add.", and write a new version of the report in
+  /Users/kevinlin/Library/CloudStorage/Dropbox/Collaboration-and-People/Kathryn Roeder - 
+  private/eSVD2/git/eSVD2/additional_context/2026-11-12_autoresearch_beyond-score_claude.ht
+  ml? Then, in the new .Rmd you'll write, please provide me a final recommendation. I don't
+  mind if the final proposed LFC and SE method is "raw" or "donor_wls". I want the final 
+  recommendation to be more weighted towards the datasets that have qualities similar to 
+  Gabitto, since these are the types of datasets we'll use in practice.
+
+I'll be stepping away from the laptop for quite a while, so please proceed. Please do all of Item 1 (you can use multiple cores), and after completion, work on Item 2 with multiple cores.

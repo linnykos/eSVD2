@@ -1,0 +1,229 @@
+"cohort","split","version","gene_set","num_genes","pearson","sd_lfc"
+"gabitto","split1","as the rule","all",5256,0.4252,0.2648
+"gabitto","split1","as the rule","zeros_below_80",2913,0.497,0.1962
+"gabitto","split1","as the rule","zeros_80_to_95",1985,0.4401,0.2805
+"gabitto","split1","as the rule","zeros_above_95",358,0.3161,0.5091
+"gabitto","split1","as the rule","rate_estimated",4266,0.4044,0.2565
+"gabitto","split1","as the rule","rate_capped",990,0.4574,0.2871
+"gabitto","split1","no donor offset","all",5256,0.4257,0.2645
+"gabitto","split1","no donor offset","zeros_below_80",2913,0.4972,0.196
+"gabitto","split1","no donor offset","zeros_80_to_95",1985,0.4404,0.2801
+"gabitto","split1","no donor offset","zeros_above_95",358,0.3148,0.5092
+"gabitto","split1","no donor offset","rate_estimated",4266,0.405,0.2563
+"gabitto","split1","no donor offset","rate_capped",990,0.4575,0.2867
+"gabitto","split1","no weights","all",5256,0.3996,0.2663
+"gabitto","split1","no weights","zeros_below_80",2913,0.493,0.1962
+"gabitto","split1","no weights","zeros_80_to_95",1985,0.4267,0.2797
+"gabitto","split1","no weights","zeros_above_95",358,0.2712,0.5247
+"gabitto","split1","no weights","rate_estimated",4266,0.3716,0.2584
+"gabitto","split1","no weights","rate_capped",990,0.4553,0.2872
+"gabitto","split1","no covariates","all",5256,0.4767,0.251
+"gabitto","split1","no covariates","zeros_below_80",2913,0.5378,0.1872
+"gabitto","split1","no covariates","zeros_80_to_95",1985,0.4811,0.2655
+"gabitto","split1","no covariates","zeros_above_95",358,0.3949,0.4841
+"gabitto","split1","no covariates","rate_estimated",4266,0.4495,0.241
+"gabitto","split1","no covariates","rate_capped",990,0.5255,0.2793
+"gabitto","split1","no covariates, no offset","all",5256,0.4774,0.251
+"gabitto","split1","no covariates, no offset","zeros_below_80",2913,0.5378,0.1873
+"gabitto","split1","no covariates, no offset","zeros_80_to_95",1985,0.4811,0.2658
+"gabitto","split1","no covariates, no offset","zeros_above_95",358,0.3949,0.4841
+"gabitto","split1","no covariates, no offset","rate_estimated",4266,0.4505,0.241
+"gabitto","split1","no covariates, no offset","rate_capped",990,0.5255,0.2796
+"gabitto","split1","no covariates, no offset, no weights","all",5256,0.4405,0.2486
+"gabitto","split1","no covariates, no offset, no weights","zeros_below_80",2913,0.5229,0.1866
+"gabitto","split1","no covariates, no offset, no weights","zeros_80_to_95",1985,0.4397,0.2615
+"gabitto","split1","no covariates, no offset, no weights","zeros_above_95",358,0.3492,0.4817
+"gabitto","split1","no covariates, no offset, no weights","rate_estimated",4266,0.4042,0.2398
+"gabitto","split1","no covariates, no offset, no weights","rate_capped",990,0.5198,0.2732
+"gabitto","split1","as the rule, winsorized","all",5256,0.4429,0.2608
+"gabitto","split1","as the rule, winsorized","zeros_below_80",2913,0.5103,0.1933
+"gabitto","split1","as the rule, winsorized","zeros_80_to_95",1985,0.4609,0.2765
+"gabitto","split1","as the rule, winsorized","zeros_above_95",358,0.3338,0.5004
+"gabitto","split1","as the rule, winsorized","rate_estimated",4266,0.4199,0.2526
+"gabitto","split1","as the rule, winsorized","rate_capped",990,0.4826,0.2826
+"gabitto","split1","no covariates, winsorized","all",5256,0.4867,0.2463
+"gabitto","split1","no covariates, winsorized","zeros_below_80",2913,0.5448,0.1837
+"gabitto","split1","no covariates, winsorized","zeros_80_to_95",1985,0.4947,0.261
+"gabitto","split1","no covariates, winsorized","zeros_above_95",358,0.4028,0.4742
+"gabitto","split1","no covariates, winsorized","rate_estimated",4266,0.4591,0.2366
+"gabitto","split1","no covariates, winsorized","rate_capped",990,0.5373,0.2741
+"gabitto","split1","without sex","all",5256,0.4489,0.2682
+"gabitto","split1","without sex","zeros_below_80",2913,0.51,0.199
+"gabitto","split1","without sex","zeros_80_to_95",1985,0.4675,0.2843
+"gabitto","split1","without sex","zeros_above_95",358,0.3335,0.5127
+"gabitto","split1","without sex","rate_estimated",4266,0.43,0.2585
+"gabitto","split1","without sex","rate_capped",990,0.4612,0.2922
+"gabitto","split1","only sex","all",5256,0.4653,0.2459
+"gabitto","split1","only sex","zeros_below_80",2913,0.5213,0.1841
+"gabitto","split1","only sex","zeros_80_to_95",1985,0.4703,0.2602
+"gabitto","split1","only sex","zeros_above_95",358,0.395,0.4741
+"gabitto","split1","only sex","rate_estimated",4266,0.4356,0.2369
+"gabitto","split1","only sex","rate_capped",990,0.5268,0.2714
+"gabitto","split1","without APOE4status","all",5256,0.4205,0.2569
+"gabitto","split1","without APOE4status","zeros_below_80",2913,0.4645,0.1928
+"gabitto","split1","without APOE4status","zeros_80_to_95",1985,0.4197,0.2713
+"gabitto","split1","without APOE4status","zeros_above_95",358,0.3869,0.4953
+"gabitto","split1","without APOE4status","rate_estimated",4266,0.4029,0.2483
+"gabitto","split1","without APOE4status","rate_capped",990,0.4665,0.2842
+"gabitto","split1","only APOE4status","all",5256,0.4674,0.2613
+"gabitto","split1","only APOE4status","zeros_below_80",2913,0.555,0.1907
+"gabitto","split1","only APOE4status","zeros_80_to_95",1985,0.4861,0.277
+"gabitto","split1","only APOE4status","zeros_above_95",358,0.3281,0.5107
+"gabitto","split1","only APOE4status","rate_estimated",4266,0.4368,0.2519
+"gabitto","split1","only APOE4status","rate_capped",990,0.5119,0.2833
+"gabitto","split1","without PMI","all",5256,0.4388,0.2754
+"gabitto","split1","without PMI","zeros_below_80",2913,0.5265,0.2014
+"gabitto","split1","without PMI","zeros_80_to_95",1985,0.4654,0.29
+"gabitto","split1","without PMI","zeros_above_95",358,0.3064,0.542
+"gabitto","split1","without PMI","rate_estimated",4266,0.409,0.2661
+"gabitto","split1","without PMI","rate_capped",990,0.4905,0.2989
+"gabitto","split1","only PMI","all",5256,0.4719,0.2465
+"gabitto","split1","only PMI","zeros_below_80",2913,0.5182,0.1865
+"gabitto","split1","only PMI","zeros_80_to_95",1985,0.4758,0.2588
+"gabitto","split1","only PMI","zeros_above_95",358,0.3979,0.4742
+"gabitto","split1","only PMI","rate_estimated",4266,0.4506,0.2379
+"gabitto","split1","only PMI","rate_capped",990,0.5108,0.2715
+"gabitto","split1","without Ageatdeath","all",5256,0.4554,0.2493
+"gabitto","split1","without Ageatdeath","zeros_below_80",2913,0.5224,0.1849
+"gabitto","split1","without Ageatdeath","zeros_80_to_95",1985,0.4633,0.2647
+"gabitto","split1","without Ageatdeath","zeros_above_95",358,0.3475,0.4778
+"gabitto","split1","without Ageatdeath","rate_estimated",4266,0.4311,0.241
+"gabitto","split1","without Ageatdeath","rate_capped",990,0.4899,0.2707
+"gabitto","split1","only Ageatdeath","all",5256,0.4687,0.2701
+"gabitto","split1","only Ageatdeath","zeros_below_80",2913,0.5191,0.199
+"gabitto","split1","only Ageatdeath","zeros_80_to_95",1985,0.482,0.285
+"gabitto","split1","only Ageatdeath","zeros_above_95",358,0.4044,0.5303
+"gabitto","split1","only Ageatdeath","rate_estimated",4266,0.4404,0.2588
+"gabitto","split1","only Ageatdeath","rate_capped",990,0.5204,0.3021
+"gabitto","split1","raw (donor sums)","all",5256,0.4277,0.2784
+"gabitto","split1","raw (donor sums)","zeros_below_80",2913,0.5371,0.1899
+"gabitto","split1","raw (donor sums)","zeros_80_to_95",1985,0.3832,0.2676
+"gabitto","split1","raw (donor sums)","zeros_above_95",358,0.3957,0.6582
+"gabitto","split1","raw (donor sums)","rate_estimated",4266,0.3923,0.2696
+"gabitto","split1","raw (donor sums)","rate_capped",990,0.5279,0.3086
+"gabitto","split1","raw@total (stored)","all",5256,0.3913,0.2696
+"gabitto","split1","raw@total (stored)","zeros_below_80",2913,0.5131,0.1895
+"gabitto","split1","raw@total (stored)","zeros_80_to_95",1985,0.3586,0.2649
+"gabitto","split1","raw@total (stored)","zeros_above_95",358,0.3239,0.6113
+"gabitto","split1","raw@total (stored)","rate_estimated",4266,0.3629,0.2601
+"gabitto","split1","raw@total (stored)","rate_capped",990,0.4715,0.3027
+"gabitto","split1","deseq2 (stored)","all",5256,0.3672,0.2882
+"gabitto","split1","deseq2 (stored)","zeros_below_80",2913,0.5071,0.1988
+"gabitto","split1","deseq2 (stored)","zeros_80_to_95",1985,0.4097,0.2856
+"gabitto","split1","deseq2 (stored)","zeros_above_95",358,0.2351,0.6529
+"gabitto","split1","deseq2 (stored)","rate_estimated",4266,0.3625,0.2698
+"gabitto","split1","deseq2 (stored)","rate_capped",990,0.3654,0.3494
+"gabitto","split2","as the rule","all",5256,0.5292,0.2524
+"gabitto","split2","as the rule","zeros_below_80",2913,0.4842,0.1937
+"gabitto","split2","as the rule","zeros_80_to_95",1985,0.5765,0.2647
+"gabitto","split2","as the rule","zeros_above_95",358,0.4743,0.4728
+"gabitto","split2","as the rule","rate_estimated",4280,0.5317,0.2421
+"gabitto","split2","as the rule","rate_capped",976,0.4885,0.277
+"gabitto","split2","no donor offset","all",5256,0.5292,0.2525
+"gabitto","split2","no donor offset","zeros_below_80",2913,0.4841,0.1937
+"gabitto","split2","no donor offset","zeros_80_to_95",1985,0.5766,0.2648
+"gabitto","split2","no donor offset","zeros_above_95",358,0.4755,0.4738
+"gabitto","split2","no donor offset","rate_estimated",4280,0.5314,0.2422
+"gabitto","split2","no donor offset","rate_capped",976,0.4904,0.2771
+"gabitto","split2","no weights","all",5256,0.5222,0.2499
+"gabitto","split2","no weights","zeros_below_80",2913,0.4821,0.1933
+"gabitto","split2","no weights","zeros_80_to_95",1985,0.5575,0.263
+"gabitto","split2","no weights","zeros_above_95",358,0.4854,0.461
+"gabitto","split2","no weights","rate_estimated",4280,0.5255,0.2395
+"gabitto","split2","no weights","rate_capped",976,0.4758,0.2748
+"gabitto","split2","no covariates","all",5256,0.5171,0.2476
+"gabitto","split2","no covariates","zeros_below_80",2913,0.5828,0.1866
+"gabitto","split2","no covariates","zeros_80_to_95",1985,0.4986,0.2652
+"gabitto","split2","no covariates","zeros_above_95",358,0.4477,0.4614
+"gabitto","split2","no covariates","rate_estimated",4280,0.5314,0.2355
+"gabitto","split2","no covariates","rate_capped",976,0.4373,0.283
+"gabitto","split2","no covariates, no offset","all",5256,0.5172,0.2476
+"gabitto","split2","no covariates, no offset","zeros_below_80",2913,0.583,0.1866
+"gabitto","split2","no covariates, no offset","zeros_80_to_95",1985,0.499,0.2651
+"gabitto","split2","no covariates, no offset","zeros_above_95",358,0.4478,0.4623
+"gabitto","split2","no covariates, no offset","rate_estimated",4280,0.531,0.2355
+"gabitto","split2","no covariates, no offset","rate_capped",976,0.4398,0.2829
+"gabitto","split2","no covariates, no offset, no weights","all",5256,0.5242,0.2429
+"gabitto","split2","no covariates, no offset, no weights","zeros_below_80",2913,0.5989,0.1843
+"gabitto","split2","no covariates, no offset, no weights","zeros_80_to_95",1985,0.5006,0.2585
+"gabitto","split2","no covariates, no offset, no weights","zeros_above_95",358,0.4523,0.4539
+"gabitto","split2","no covariates, no offset, no weights","rate_estimated",4280,0.5145,0.2327
+"gabitto","split2","no covariates, no offset, no weights","rate_capped",976,0.525,0.2717
+"gabitto","split2","as the rule, winsorized","all",5256,0.5384,0.2484
+"gabitto","split2","as the rule, winsorized","zeros_below_80",2913,0.4811,0.1912
+"gabitto","split2","as the rule, winsorized","zeros_80_to_95",1985,0.5781,0.2618
+"gabitto","split2","as the rule, winsorized","zeros_above_95",358,0.5118,0.4587
+"gabitto","split2","as the rule, winsorized","rate_estimated",4280,0.5369,0.2383
+"gabitto","split2","as the rule, winsorized","rate_capped",976,0.5131,0.272
+"gabitto","split2","no covariates, winsorized","all",5256,0.5293,0.2434
+"gabitto","split2","no covariates, winsorized","zeros_below_80",2913,0.5876,0.1837
+"gabitto","split2","no covariates, winsorized","zeros_80_to_95",1985,0.5018,0.2616
+"gabitto","split2","no covariates, winsorized","zeros_above_95",358,0.4842,0.4493
+"gabitto","split2","no covariates, winsorized","rate_estimated",4280,0.5387,0.2317
+"gabitto","split2","no covariates, winsorized","rate_capped",976,0.4659,0.2771
+"gabitto","split2","without sex","all",5256,0.5089,0.2565
+"gabitto","split2","without sex","zeros_below_80",2913,0.4697,0.197
+"gabitto","split2","without sex","zeros_80_to_95",1985,0.5472,0.2703
+"gabitto","split2","without sex","zeros_above_95",358,0.4546,0.4751
+"gabitto","split2","without sex","rate_estimated",4280,0.532,0.244
+"gabitto","split2","without sex","rate_capped",976,0.3936,0.2888
+"gabitto","split2","only sex","all",5256,0.5366,0.2439
+"gabitto","split2","only sex","zeros_below_80",2913,0.5878,0.1836
+"gabitto","split2","only sex","zeros_80_to_95",1985,0.5269,0.2601
+"gabitto","split2","only sex","zeros_above_95",358,0.4724,0.4584
+"gabitto","split2","only sex","rate_estimated",4280,0.5272,0.2346
+"gabitto","split2","only sex","rate_capped",976,0.535,0.2686
+"gabitto","split2","without APOE4status","all",5256,0.5393,0.2419
+"gabitto","split2","without APOE4status","zeros_below_80",2913,0.5746,0.1821
+"gabitto","split2","without APOE4status","zeros_80_to_95",1985,0.5436,0.2536
+"gabitto","split2","without APOE4status","zeros_above_95",358,0.4744,0.47
+"gabitto","split2","without APOE4status","rate_estimated",4280,0.5334,0.2345
+"gabitto","split2","without APOE4status","rate_capped",976,0.5347,0.2603
+"gabitto","split2","only APOE4status","all",5256,0.5261,0.2547
+"gabitto","split2","only APOE4status","zeros_below_80",2913,0.5389,0.194
+"gabitto","split2","only APOE4status","zeros_80_to_95",1985,0.5383,0.272
+"gabitto","split2","only APOE4status","zeros_above_95",358,0.4513,0.4642
+"gabitto","split2","only APOE4status","rate_estimated",4280,0.5469,0.2407
+"gabitto","split2","only APOE4status","rate_capped",976,0.4178,0.2927
+"gabitto","split2","without PMI","all",5256,0.5182,0.2547
+"gabitto","split2","without PMI","zeros_below_80",2913,0.4632,0.196
+"gabitto","split2","without PMI","zeros_80_to_95",1985,0.5703,0.2681
+"gabitto","split2","without PMI","zeros_above_95",358,0.4683,0.4721
+"gabitto","split2","without PMI","rate_estimated",4280,0.5199,0.2433
+"gabitto","split2","without PMI","rate_capped",976,0.4747,0.2824
+"gabitto","split2","only PMI","all",5256,0.5098,0.2475
+"gabitto","split2","only PMI","zeros_below_80",2913,0.5633,0.1869
+"gabitto","split2","only PMI","zeros_80_to_95",1985,0.4873,0.2631
+"gabitto","split2","only PMI","zeros_above_95",358,0.4565,0.4662
+"gabitto","split2","only PMI","rate_estimated",4280,0.5399,0.2363
+"gabitto","split2","only PMI","rate_capped",976,0.3785,0.2798
+"gabitto","split2","without Ageatdeath","all",5256,0.5636,0.2507
+"gabitto","split2","without Ageatdeath","zeros_below_80",2913,0.5655,0.1909
+"gabitto","split2","without Ageatdeath","zeros_80_to_95",1985,0.5838,0.265
+"gabitto","split2","without Ageatdeath","zeros_above_95",358,0.493,0.4645
+"gabitto","split2","without Ageatdeath","rate_estimated",4280,0.5623,0.2402
+"gabitto","split2","without Ageatdeath","rate_capped",976,0.5346,0.2763
+"gabitto","split2","only Ageatdeath","all",5256,0.5256,0.2476
+"gabitto","split2","only Ageatdeath","zeros_below_80",2913,0.5617,0.1866
+"gabitto","split2","only Ageatdeath","zeros_80_to_95",1985,0.5206,0.2636
+"gabitto","split2","only Ageatdeath","zeros_above_95",358,0.4696,0.4673
+"gabitto","split2","only Ageatdeath","rate_estimated",4280,0.5284,0.2366
+"gabitto","split2","only Ageatdeath","rate_capped",976,0.4847,0.2785
+"gabitto","split2","raw (donor sums)","all",5256,0.3876,0.2838
+"gabitto","split2","raw (donor sums)","zeros_below_80",2913,0.5339,0.1928
+"gabitto","split2","raw (donor sums)","zeros_80_to_95",1985,0.4138,0.2631
+"gabitto","split2","raw (donor sums)","zeros_above_95",358,0.2823,0.6938
+"gabitto","split2","raw (donor sums)","rate_estimated",4280,0.4418,0.2728
+"gabitto","split2","raw (donor sums)","rate_capped",976,0.1873,0.3211
+"gabitto","split2","raw@total (stored)","all",5256,0.3913,0.2724
+"gabitto","split2","raw@total (stored)","zeros_below_80",2913,0.5052,0.1918
+"gabitto","split2","raw@total (stored)","zeros_80_to_95",1985,0.3817,0.2605
+"gabitto","split2","raw@total (stored)","zeros_above_95",358,0.3121,0.6337
+"gabitto","split2","raw@total (stored)","rate_estimated",4280,0.405,0.2637
+"gabitto","split2","raw@total (stored)","rate_capped",976,0.3353,0.3017
+"gabitto","split2","deseq2 (stored)","all",5256,0.3503,0.2823
+"gabitto","split2","deseq2 (stored)","zeros_below_80",2913,0.425,0.1991
+"gabitto","split2","deseq2 (stored)","zeros_80_to_95",1985,0.5077,0.266
+"gabitto","split2","deseq2 (stored)","zeros_above_95",358,0.1474,0.6598
+"gabitto","split2","deseq2 (stored)","rate_estimated",4280,0.3952,0.264
+"gabitto","split2","deseq2 (stored)","rate_capped",976,0.2003,0.3399

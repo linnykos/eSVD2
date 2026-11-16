@@ -1,0 +1,9 @@
+"split","half","arm","num_donors","num_cells","num_female","num_apoe4","mean_pmi","mean_age"
+"split1",1,"Control",13,6439,7,1,7.4,83.62
+"split1",1,"Case",27,14102,16,10,6.8,87.41
+"split1",2,"Control",14,7180,8,2,6.83,87.86
+"split1",2,"Case",26,13466,17,10,7.04,86.19
+"split2",1,"Control",14,7448,8,2,7.81,84.64
+"split2",1,"Case",26,14540,16,10,6.9,86.81
+"split2",2,"Control",13,6171,7,1,6.35,87.08
+"split2",2,"Case",27,13028,17,10,6.93,86.81

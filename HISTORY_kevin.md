@@ -1067,3 +1067,26 @@ would write first.
 - Not done: rank and loading-aligned effects as bank factors (still open item 0C); the loops' intermediate commits; any comparator besides pseudobulk DESeq2.
 - A cleanup `rm` of test CSVs was refused by the harness's safety check; three superseded CSVs remain under `csv/` and are `.gitignore`d.
 - Not committed: everything of this session is left for Kevin (`.gitignore`, `CLAUDE.md`, `CLAUDE_kevin.md`, `HISTORY_kevin.md`, the new folder, the `.Rmd` and `.html`).
+
+### 2026-11-15 (Session 37 — Gabitto split-half replication of every logFC/SE rule)
+- Split the 80 Gabitto donors into two halves stratified by CERAD arm x sex x APOE4, twice (seeds 10 and 20), fitted each half with `eSVD_helper()` of 1.2.0 at Tati's Writeup45 settings (four fits in parallel, 35 to 40 minutes each), applied the nine rules, their library variants and pseudobulk DESeq2 to each fit, and compared the halves; the writeup is `additional_context/2026-11-15_gabitto/2026-11-15_gabitto-split-half_claude.Rmd`.
+- Decision (Claude, for Kevin to confirm): the autoresearch score on real data is the NLL of the difference between the halves under N(0, se1^2 + se2^2), reported beside a score against the other half's DESeq2 estimate, the correlation, the sign agreement and Writeup49's replication slope; nominations are eSVD-DE's FDR, DESeq2's padj, and each rule's own Wald test (normal reference, BH 5%).
+- Finding: `state_adjusted` wins the replicate score with logFC that do not correlate between halves, so the score cannot be used alone; among rules that keep a signal the `donor_wls` family is first on both scores in both splits, which agrees with the three simulated banks.
+- Finding: eSVD-DE's calls keep their sign in the other half 81% and 66% of the time, and the failures of the second split sit in capped genes and in calls `donor_wls` does not support.
+- Plan mode was skipped because Kevin said to proceed while away; the scripts are analysis code under `additional_context/` and were not put through `/code-review`.
+- Open: the mechanism of `state_adjusted`'s loss (rank 30 against 40 donors) is inferred from the rule's construction, not tested by a lower-rank refit.
+- Added `GABITTO_COUNTS` and `GABITTO_SPLIT_OUT` to the external locations.
+
+### 2026-11-16 (Session 38 — Green split-half, a fourth bank, the second beyond-score report)
+- Kevin's note `additional_context/2026-11-16_autoresearch-green-replicate.txt` asked for the Gabitto study on Green, more bank examples of the kinds the split-half reports listed, a new version of the beyond-score report, and a final recommendation (either `raw` or `donor_wls`) weighted towards Gabitto-like data; he was away, so plan mode and `/code-review` were skipped again.
+- Green: copied the Gabitto scripts into `additional_context/2026-11-16_green/` with the Writeup47 design; the four fits were started together, pushed the laptop to 41 GB of swap, and were finished two at a time.
+- Decision (Claude's): added `raw@esvd_nofloor` and `raw@total` to step 3 of both studies and reran the Gabitto steps 3 and 4 (every earlier number unchanged), so that `raw` and `donor_wls` are compared on one library.
+- Finding: on Green `donor_wls` trails `raw` and DESeq2; `05_diagnose-donor-wls_claude.R` reruns the rule from donor pseudobulk (exact reconstruction) and shows the mean of logarithms and the donor-level covariates lose the agreement, and winsorized log donor means restore it. The outliers are the donors of low depth per nucleus.
+- Decision (Claude's): the new bank is `lfcse-bank-4` under `additional_context/2026-11-16_beyond-score/`, every cohort fitted at rank 5 and rank 30; factors donors (40, 80, 200 at one total cell count), balance, deg (dense, half_null), state, donor SD; a second block with outlying donors and a high capped share. The Gamma rate range was set by a pilot.
+- The outlier block was built twice: the first mechanism (a donor effect five times as large) moved no rule, so it was recalibrated to the rate and size measured on Green and rebuilt under new ids (101 to 116); the first version's files remain in the bank folder because the harness refused the `rm`.
+- Finding: `state_adjusted` at rank 30 keeps a fifth of every effect at any donor count, which rules out the Gabitto report's "rank near the donor count" as the explanation; at rank 5 it is the best rule of bank 4.
+- Finding: the high capped share does not reproduce the cost of the floor seen on Green. Open: what does.
+- Recommendation written: `donor_wls@esvd_nofloor`, with the outlying-donor share as a check and `raw@esvd_nofloor` as the replacement; the report's Table 33 is the weighted scorecard.
+- Not done: no new rule (winsorized `donor_wls` is named as the next thing to try); no real-cohort fit at a low rank; nothing committed.
+- Added `GREEN_COUNTS` and `GREEN_SPLIT_OUT` to the external locations and the two new folders to the master `CLAUDE.md`.
+

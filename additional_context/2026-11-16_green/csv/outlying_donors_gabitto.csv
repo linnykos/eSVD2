@@ -1,0 +1,2 @@
+"cohort","num_donors","num_genes","share_below_3","share_below_5","share_above_3","mean_deficit","median_deficit","share_donors_outlying","max_donor_share","cor_with_log_depth"
+"gabitto",80,2913,0.00771970477171301,0.000433401991074494,0.00441984208719533,-0.774194732568798,-0.64458321834437,0,0.0525231719876416,-0.19653086505137

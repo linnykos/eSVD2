@@ -1,0 +1,2767 @@
+---
+title: "Every reporting rule of the two autoresearch loops on four simulated banks and two real cohorts split in half: report the log fold change and its SE from the donor-level regression `donor_wls` on eSVD's unfloored fitted library"
+author: "Kevin Z. Lin (drafted by Claude)"
+date: "2026-11-16"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 3
+    number_sections: true
+    theme: flatly
+    highlight: tango
+    math_method:
+      engine: mathjax
+      url: "https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-chtml-full.js"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+```
+
+<style>
+div.takeaway, div.generator, div.reuse, div.recipe {
+  padding: 0.7em 1.1em; margin: 1.2em 0; border-radius: 4px; border-left: 7px solid;
+}
+div.takeaway  { background: #edf7ed; border-color: #2ca02c; }
+div.generator { background: #eaf2fb; border-color: #1f77b4; }
+div.reuse     { background: #f4f4f4; border-color: #8c8c8c; }
+div.recipe    { background: #fff3e6; border-color: #ff7f0e; }
+div.takeaway  > p:first-child::before { content: "Takeaway. "; font-weight: bold; color: #1b6e1b; }
+div.generator > p:first-child::before { content: "How the data were simulated. "; font-weight: bold; color: #155a8a; }
+div.reuse     > p:first-child::before { content: "Data: reused. "; font-weight: bold; color: #8c8c8c; }
+div.recipe    > p:first-child::before { content: "The procedure. "; font-weight: bold; color: #b35900; }
+</style>
+
+```{r libraries}
+library(knitr)
+library(ggplot2)
+```
+
+```{r read_tables}
+csv_dir <- file.path("2026-11-12_beyond-score", "csv")
+.read <- function(name){
+  utils::read.csv(file.path(csv_dir, name), stringsAsFactors = FALSE)
+}
+strata_df <- .read("strata.csv")
+bin_df <- .read("gene_bins.csv")
+cross_df <- .read("sparsity_by_confound.csv")
+library_df <- .read("library.csv")
+significance_df <- .read("significance.csv")
+replicate_df <- .read("replicates.csv.gz")
+replicate_gene_df <- .read("replicate_genes.csv.gz")
+bank_gene_df <- .read("bank_genes.csv")
+bank3_df <- .read("bank3_cohorts.csv")
+failure_df <- .read("failures.csv")
+cohort_df <- .read("cohort_scores.csv.gz")
+
+rule_vec <- c("stored", "null_rescaled", "deshrunk", "raw", "raw_null",
+              "donor_wls", "gap_trend", "embed_prior", "state_adjusted")
+nofloor_vec <- c("donor_wls@esvd_nofloor", "state_adjusted@esvd_nofloor")
+sparsity_vec <- c("under 50%", "50 to 80%", "80 to 95%", "over 95%")
+bank_label_vec <- c(bank1 = "bank 1", bank2 = "bank 2", bank3 = "bank 3")
+fmt <- function(x, digits = 3){formatC(x, digits = digits, format = "f")}
+pct <- function(x, digits = 0){paste0(formatC(100 * x, digits = digits,
+                                              format = "f"), "%")}
+
+# One number of the strata table.
+st <- function(method, bank = "bank3", truth_kind = "marginal",
+               factor = "all", level = "all", col = "score"){
+  bool_vec <- strata_df$method == method & strata_df$bank == bank &
+    strata_df$truth_kind == truth_kind & strata_df$factor == factor &
+    strata_df$level == level
+  stopifnot(sum(bool_vec) == 1)
+  strata_df[[col]][bool_vec]
+}
+
+# One number of the gene-bin table.
+gb <- function(method, bin, bin_type = "sparsity", bank = "bank3",
+               truth_kind = "marginal", col = "score"){
+  bool_vec <- bin_df$method == method & bin_df$bank == bank &
+    bin_df$truth_kind == truth_kind & bin_df$bin_type == bin_type &
+    bin_df$bin == bin
+  stopifnot(sum(bool_vec) == 1)
+  bin_df[[col]][bool_vec]
+}
+
+# One number of the library table: variant minus fitted, paired.
+lib <- function(library, rule = "donor_wls", bank = "bank3",
+                truth_kind = "marginal", factor = "all", level = "all",
+                col = "diff"){
+  bool_vec <- library_df$library == library & library_df$rule == rule &
+    library_df$bank == bank & library_df$truth_kind == truth_kind &
+    library_df$factor == factor & library_df$level == level
+  stopifnot(sum(bool_vec) == 1)
+  library_df[[col]][bool_vec]
+}
+
+# One number of the significance table.
+sg <- function(method, col, bank = "bank3", truth_kind = "marginal",
+               effects = "all"){
+  bool_vec <- significance_df$method == method &
+    significance_df$bank == bank &
+    significance_df$truth_kind == truth_kind &
+    significance_df$effects == effects
+  stopifnot(sum(bool_vec) == 1)
+  significance_df[[col]][bool_vec]
+}
+
+# Paired comparison of two methods over the cohorts of a bank: mean
+# difference of the score (first minus second), its SE, and the share of
+# cohorts in which the first is better.
+paired <- function(method_1, method_2, bank = "bank3",
+                   truth_kind = "marginal", factor = NULL, level = NULL){
+  sub_df <- cohort_df[cohort_df$bank == bank &
+                        cohort_df$truth_kind == truth_kind, ]
+  if(!is.null(factor)) sub_df <- sub_df[as.character(sub_df[[factor]]) ==
+                                          level, ]
+  df_1 <- sub_df[sub_df$method == method_1, ]
+  df_2 <- sub_df[sub_df$method == method_2, ]
+  df_2 <- df_2[match(df_1$cohort, df_2$cohort), ]
+  diff_vec <- df_1$score - df_2$score
+  list(diff = mean(diff_vec),
+       se = stats::sd(diff_vec) / sqrt(length(diff_vec)),
+       win = mean(diff_vec < 0),
+       n = length(diff_vec))
+}
+
+# A methods x columns table of one strata column.
+wide_strata <- function(method_vec, col_df, col = "score", digits = 3){
+  out_mat <- sapply(seq_len(nrow(col_df)), function(j){
+    sapply(method_vec, function(method){
+      st(method, bank = col_df$bank[j], truth_kind = col_df$truth_kind[j],
+         factor = col_df$factor[j], level = col_df$level[j], col = col)
+    })
+  })
+  out_df <- data.frame(method = paste0("`", method_vec, "`"),
+                       round(out_mat, digits), check.names = FALSE)
+  colnames(out_df) <- c("Method", col_df$label)
+  rownames(out_df) <- NULL
+  out_df
+}
+
+num_examples <- nrow(bank3_df)
+num_cohorts_vec <- tapply(cohort_df$cohort[cohort_df$method == "donor_wls" &
+                                             cohort_df$truth_kind ==
+                                             "marginal"],
+                          cohort_df$bank[cohort_df$method == "donor_wls" &
+                                           cohort_df$truth_kind == "marginal"],
+                          length)
+```
+
+```{r read_tables_new}
+# The fourth bank and the two real cohorts (sections 11 to 18).
+csv4_dir <- file.path("2026-11-16_beyond-score", "csv")
+# A trial knit on a scratch bank reads its tables from elsewhere.
+if(Sys.getenv("BEYOND4_CSV_DIR") != "") csv4_dir <- Sys.getenv("BEYOND4_CSV_DIR")
+.read4 <- function(name){
+  utils::read.csv(file.path(csv4_dir, name), stringsAsFactors = FALSE)
+}
+strata4_df <- .read4("bank4_strata.csv")
+calls4_df <- .read4("bank4_calls.csv")
+rep4_df <- .read4("bank4_replicates.csv")
+repstrata4_df <- .read4("bank4_replicate_strata.csv")
+bins4_df <- .read4("bank4_gene_bins.csv")
+bank4_df <- .read4("bank4_cohorts.csv")
+fail4_df <- .read4("bank4_failures.csv")
+cohort4_df <- .read4("bank4_cohort_scores.csv.gz")
+
+# The one row a lookup selects. A trial knit on a partial bank gets NA for
+# a stratum that does not exist yet.
+.one4 <- function(df, bool_vec, col){
+  if(sum(bool_vec) == 0 && Sys.getenv("BEYOND4_CSV_DIR") != "") return(NA_real_)
+  stopifnot(sum(bool_vec) == 1)
+  df[[col]][bool_vec]
+}
+# One number of the fourth bank's strata table.
+b4 <- function(method, col = "score", factor = "all", level = "all"){
+  bool_vec <- strata4_df$method == method & strata4_df$factor == factor &
+    strata4_df$level == level
+  .one4(strata4_df, bool_vec, col)
+}
+# One number of its calls table.
+c4 <- function(method, col, test = "own", status = "all", factor = "all",
+               level = "all"){
+  bool_vec <- calls4_df$method == method & calls4_df$test == test &
+    calls4_df$status == status & calls4_df$factor == factor &
+    calls4_df$level == level
+  .one4(calls4_df, bool_vec, col)
+}
+# One number of its replicate table.
+r4 <- function(method, col, factor = "all", level = "all"){
+  bool_vec <- repstrata4_df$method == method & repstrata4_df$factor == factor &
+    repstrata4_df$level == level
+  .one4(repstrata4_df, bool_vec, col)
+}
+# The fitted cohorts of the first block (Gaussian donors, the lower capped
+# share), which every stratum but `block` is computed on.
+first4_df <- cohort4_df[cohort4_df$tail == "gaussian" &
+                          cohort4_df$capped == "low", ]
+# Paired comparison of two methods over a set of the fourth bank's fitted
+# cohorts: mean difference of a column (first minus second), its SE, and
+# the share of cohorts in which the first is lower.
+paired4 <- function(method_1, method_2, df = first4_df, col = "score"){
+  df_1 <- df[df$method == method_1, ]
+  df_2 <- df[df$method == method_2, ]
+  df_2 <- df_2[match(df_1$cohort, df_2$cohort), ]
+  diff_vec <- df_1[[col]] - df_2[[col]]
+  list(diff = mean(diff_vec),
+       se = stats::sd(diff_vec) / sqrt(length(diff_vec)),
+       win = mean(diff_vec < 0),
+       n = length(diff_vec))
+}
+# A methods x strata table of one column of the fourth bank.
+wide4 <- function(method_vec, level_df, col = "score", digits = 3,
+                  source = "strata"){
+  out_mat <- sapply(seq_len(nrow(level_df)), function(j){
+    sapply(method_vec, function(method){
+      if(source == "strata"){
+        b4(method, col = col, factor = level_df$factor[j],
+           level = level_df$level[j])
+      } else {
+        r4(method, col = col, factor = level_df$factor[j],
+           level = level_df$level[j])
+      }
+    })
+  })
+  out_df <- data.frame(method = paste0("`", method_vec, "`"),
+                       round(out_mat, digits), check.names = FALSE)
+  colnames(out_df) <- c("Method", level_df$label)
+  rownames(out_df) <- NULL
+  out_df
+}
+
+# The two real cohorts: one row per cohort, split and method.
+real_df <- do.call(rbind, lapply(c(gabitto = "2026-11-15_gabitto",
+                                   green = "2026-11-16_green"), function(dir){
+  utils::read.csv(file.path(dir, "csv", "summary.csv"),
+                  stringsAsFactors = FALSE)
+}))
+real_df$cohort <- sub("\\..*", "", rownames(real_df))
+real_fit_df <- do.call(rbind, lapply(c(gabitto = "2026-11-15_gabitto",
+                                       green = "2026-11-16_green"),
+                                     function(dir){
+  utils::read.csv(file.path(dir, "csv", "fits.csv"), stringsAsFactors = FALSE)
+}))
+real_fit_df$cohort <- sub("\\..*", "", rownames(real_fit_df))
+wls_diag_df <- rbind(
+  utils::read.csv(file.path("2026-11-16_green", "csv",
+                            "donor_wls_diagnosis_green.csv"),
+                  stringsAsFactors = FALSE),
+  utils::read.csv(file.path("2026-11-16_green", "csv",
+                            "donor_wls_diagnosis_gabitto.csv"),
+                  stringsAsFactors = FALSE)
+)
+# The mean over a cohort's two splits of one summary column.
+rl <- function(cohort, method, col){
+  bool_vec <- real_df$cohort == cohort & real_df$method == method
+  stopifnot(sum(bool_vec) == 2)
+  mean(real_df[[col]][bool_vec])
+}
+# The same column in the two splits, as "a and b".
+rl_both <- function(cohort, method, col, digits = 2, bool_pct = FALSE){
+  bool_vec <- real_df$cohort == cohort & real_df$method == method
+  value_vec <- real_df[[col]][bool_vec][order(real_df$split[bool_vec])]
+  text_vec <- if(bool_pct) pct(value_vec) else fmt(value_vec, digits)
+  paste0(text_vec[1], " and ", text_vec[2])
+}
+# One correlation of the diagnosis of `donor_wls`, in the two splits.
+dg_both <- function(version, gene_set, cohort = "green"){
+  bool_vec <- wls_diag_df$version == version & wls_diag_df$gene_set == gene_set &
+    wls_diag_df$cohort == cohort
+  value_vec <- wls_diag_df$pearson[bool_vec][order(wls_diag_df$split[bool_vec])]
+  paste0(fmt(value_vec[1], 2), " and ", fmt(value_vec[2], 2))
+}
+# Method names as inline code, comma separated. A backtick cannot be typed
+# inside an inline chunk.
+tick <- function(name_vec){
+  paste0(intToUtf8(96), name_vec, intToUtf8(96), collapse = ", ")
+}
+
+# The methods of the new sections: the rules as the loops ran them, the
+# two candidates for the reported pair on the unfloored library and on
+# summed counts, and DESeq2.
+focus_vec <- c("stored", "null_rescaled", "deshrunk", "raw", "raw_null",
+               "donor_wls", "gap_trend", "embed_prior", "state_adjusted",
+               "raw@esvd_nofloor", "raw@total", "donor_wls@esvd_nofloor",
+               "donor_wls@total", "state_adjusted@esvd_nofloor", "deseq2")
+pair_vec <- c("raw@esvd_nofloor", "donor_wls@esvd_nofloor")
+num_examples4 <- nrow(bank4_df)
+num_first4 <- sum(bank4_df$tail == "gaussian" & bank4_df$capped == "low")
+```
+
+# Overview
+
+This document is the second version of
+`2026-11-12_autoresearch_beyond-score_claude.Rmd`. It is built from the
+two autoresearch loops on the reported log fold change and its standard
+error (`autoresearch_lfcse/`, `autoresearch_lfcse2/`), from Kevin's notes
+of 2026-11-12, 2026-11-15 and 2026-11-16, from the two studies that split
+a real cohort into donor-disjoint halves
+(`2026-11-15_gabitto/`, `2026-11-16_green/`), and from two banks of
+simulated cohorts built for it, `lfcse-bank-3` and `lfcse-bank-4`. No new
+rule is proposed. Sections 2 to 10 are those of the first version, on
+banks 1 to 3. Sections 11 to 17 are new and score every rule on the
+fourth bank, which holds the kinds of examples the two split-half reports
+listed under "What the autoresearch bank should add". Section 18 puts the
+two real cohorts beside the banks, section 19 compares the two candidates
+for the reported pair, and section 20 is the final recommendation.
+
+**The question.** Of the rules the two loops considered, which one should
+`eSVD2` report the log2 fold change and SE from, given four simulated
+banks and two real cohorts, and weighting the evidence towards cohorts
+like Gabitto (tens of donors with hundreds of nuclei each, a third of
+them controls, donor-level covariates, a fit at rank 30)?
+
+What the document argues:
+
+1. **`donor_wls` beats pseudobulk DESeq2 on banks 1 to 3**, by
+   `r fmt(-st("donor_wls", col = "vs_deseq2"))` nats per gene on bank 3,
+   where it is the better of the two in
+   `r pct(st("donor_wls", col = "win_deseq2"))` of cohorts (section 5),
+   **and is level with it on the fourth bank**
+   (`r fmt(b4("donor_wls@esvd_nofloor"))` against `r fmt(b4("deseq2"))`),
+   whose covariates are all at the donor level (section 12).
+2. **eSVD's fitted library is worth having when a confounder varies
+   within a donor, and only then.** With cell-level confounders,
+   `donor_wls` with the summed counts as library scores
+   `r fmt(st("donor_wls@total_cov", factor = "confound", level = "cell"))`
+   against `r fmt(st("donor_wls", factor = "confound", level = "cell"))`
+   with the fitted library (sections 6 and 7).
+3. **The posterior's floor of 0.1 on the fitted library hurts the rule**,
+   by `r fmt(-lib("esvd_nofloor"))` nats on bank 3 (section 7.3), by
+   `r fmt(rl("gabitto", "donor_wls", "all_score") - rl("gabitto", "donor_wls@esvd_nofloor", "all_score"), 2)`
+   on the Gabitto halves and by
+   `r fmt(rl("green", "donor_wls", "all_score") - rl("green", "donor_wls@esvd_nofloor", "all_score"), 2)`
+   on the Green halves (section 18).
+4. **Sparse genes are harder for every rule, and `donor_wls` attenuates
+   the fold change of the sparsest ones** (slope on the truth
+   `r fmt(gb("donor_wls", "over 95%", truth_kind = "direct", col = "slope"), 2)`
+   for genes with over 95% zeros; section 8).
+5. **True DEGs replicate and null genes do not**, for every rule, and the
+   replicate correlation of the null genes detects confounding a rule has
+   left in (section 9).
+6. **The package's own test has three to four times its nominal false
+   discovery proportion** on banks 2 and 3 (section 10) and
+   `r pct(c4("stored", "fdp", test = "esvd", factor = "rank", level = "30"), 1)`
+   on the fourth bank, where the Wald test of `donor_wls@esvd_nofloor` has
+   `r pct(c4("donor_wls@esvd_nofloor", "fdp", factor = "rank", level = "30"), 1)`
+   (section 15).
+7. **At the default rank of 30 `state_adjusted` removes most of every
+   true effect, at 40, 80 and 200 donors alike** (its slope on the truth
+   over the true DEGs is
+   `r fmt(b4("state_adjusted", col = "slope_deg", factor = "rank", level = "30"), 2)`
+   at rank 30 and
+   `r fmt(b4("state_adjusted", col = "slope_deg", factor = "rank", level = "5"), 2)`
+   at rank 5), which is its failure on both real cohorts (sections 13 and
+   18).
+8. **With 13 controls the interval of `donor_wls` keeps its coverage and
+   that of `raw` does not**
+   (`r pct(mean(cohort4_df$coverage_95[cohort4_df$rank == 30 & cohort4_df$shape == "gabitto_like" & cohort4_df$method == "donor_wls@esvd_nofloor"]), 1)`
+   against
+   `r pct(mean(cohort4_df$coverage_95[cohort4_df$rank == 30 & cohort4_df$shape == "gabitto_like" & cohort4_df$method == "raw@esvd_nofloor"]), 1)`
+   on the bank's Gabitto-like cohorts; section 14).
+9. **A replicate score without a truth cannot rank rules alone**: on the
+   bank, as on both real cohorts, it puts `state_adjusted` first. The
+   score against an independent DESeq2 estimate and the correlation over
+   nominated genes follow the truth's order (section 16).
+10. **The two real cohorts divide on the two candidates, for an
+    identified reason.** `donor_wls@esvd_nofloor` replicates best on the
+    Gabitto halves; `raw@esvd_nofloor` and DESeq2 are 0.03 to 0.07 nats
+    ahead of it on the Green halves, where 2.3% of the log donor means
+    are outliers on the low side against 0.8% on Gabitto. With outlying
+    donors at Green's rate the bank reproduces Green's order, and
+    without them `donor_wls` is ahead of `raw` at 200 donors as at 40 (sections 17
+    and 18).
+11. **The final recommendation**: report from `donor_wls` with the fitted
+    library without its floor (`donor_wls@esvd_nofloor`), take the
+    p-value from the same pair, measure the share of outlying donors
+    before trusting it and fall back on `raw@esvd_nofloor` when that
+    share is at Green's level, and do not use `state_adjusted` at the
+    default rank (section 20).
+
+*How to read.* Green boxes close each results section with what it
+changes; blue boxes describe the two new banks; grey boxes say which data
+a section reads; the orange box in section 20 is the procedure. A reader
+of the boxes alone has the argument.
+
+| Stage | What it does | Section |
+|---|---|---|
+| Definitions | the rules, the library variants, the score, the six assessments | 2 |
+| The third bank | what `lfcse-bank-3` holds and what was realized | 3 |
+| Scores | every rule on banks 1 to 3, with the validity gates | 4 |
+| DESeq2 | head to head, by stratum | 5 |
+| Confounders | which rules survive strong donor-level and cell-level confounding | 6 |
+| Library size | fitted library against summed counts and the standard estimates | 7 |
+| Sparsity and DEG count | scores by gene sparsity and by the number of true DEGs | 8 |
+| Replicates | agreement of the logFC between two cohorts of one population | 9 |
+| Significance | significant genes against the $\pm 2$ SE interval | 10 |
+| The fourth bank | what `lfcse-bank-4` holds and what was realized | 11 |
+| Scores on it | every rule at rank 5 and rank 30, Gabitto-like and Green-like cohorts | 12 |
+| Rank | the fitted rank against the number of donors | 13 |
+| Few controls | coverage and score by share of controls and number of donors | 14 |
+| Calls | false discoveries, sign errors and power of each rule's test | 15 |
+| Split-half statistics | what two halves of a real cohort can measure, against the truth | 16 |
+| Outliers and capped genes | the second block of the fourth bank | 17 |
+| Real cohorts | Gabitto and Green, each split in half twice | 18 |
+| The two candidates | `raw` against `donor_wls` on every source | 19 |
+| Recommendation | the rule to report from | 20 |
+
+# Definitions
+
+## Notation and the score
+
+A cohort has cells $c$ in donors $d$, genes $g$, counts $A_{cg}$, an arm
+(case or control) per donor, and covariates. A **reporting rule** takes one
+fitted eSVD-DE cohort and returns, for every gene, a log2 fold change
+$\widehat\beta_g$ and a standard error $s_g$. The **score** of a cohort is
+the Gaussian negative log-likelihood of the true log2 fold change $\beta_g$
+under the reported pair, averaged over genes, in nats per gene:
+$$\frac{1}{p}\sum_g \left\{\tfrac12 \log(2\pi s_g^2) +
+\frac{(\widehat\beta_g - \beta_g)^2}{2 s_g^2}\right\}.$$
+**Lower is better.** It rewards an accurate fold change and an SE that is
+neither too small nor too large.
+
+Two truths are used. The **marginal** truth is the log2 ratio of mean
+expression between the populations of case and control donors at equal
+covariates and depth; it includes any difference in cell state between the
+arms. The **direct** truth is the case-control effect at fixed cell state.
+They differ only where the arms differ in cell state (`state = donor_arm`
+of banks 2 and 3). eSVD-DE's convention is the marginal one.
+
+Two **validity gates** from the loops are reported beside the score.
+`slope_weak` is the slope of the reported logFC on the truth over
+weak-effect genes (below 0.5 in absolute value); the loops required
+$[0.9, 1.1]$, so that a rule cannot win by shrinking. `se_strong` is the SE
+of strong-effect genes over the SE of other genes of the same expression
+level; the second loop required $[0.92, 1.08]$, so that a rule cannot win
+by an SE that follows the estimated logFC.
+
+## The rules
+
+Every rule is the file the loops left, unedited
+(`autoresearch_lfcse2/candidates/`, `autoresearch_lfcse*/notes/RULE_*`).
+
+| Name in the tables | Rule | Reads of the fit | From |
+|---|---|---|---|
+| `stored` | what 1.2.0 reports: log ratio of the arms' mean posterior, SE from the posterior's mixture variances | posterior | package |
+| `null_rescaled` | `stored`, the logFC shifted by the empirical null's mean and the SE multiplied by its SD | posterior, empirical null | baseline of loop 2 |
+| `deshrunk` | `stored`'s logFC; between-donor SE of the posterior donor means divided by the shrinkage weight | posterior, library, nuisance rate | reference |
+| `raw` | ratio of the arms' means of donor means of $A/\ell$, delta-method SE between donors | library | reference |
+| `raw_null` | `raw` with the empirical null's shift and rescaling | library | baseline of loop 1 |
+| `donor_wls` | weighted regression of $\log\{(y_{dg} + 1/2)/L_{dg}\}$ on the arm and the donor-level covariates, residual variance moderated across genes, logFC shifted by the null's mean | library | kept by loop 1 |
+| `gap_trend` | as `donor_wls` with voom-style weights and a variance trend in a covariate that contains the between-arm gap | library | withdrawn in loop 1 (fails `se_strong`) |
+| `embed_prior` | `donor_wls` with the embedding's predicted donor variance in the moderation prior | library, embedding | kept by loop 2, run A |
+| `state_adjusted` | `donor_wls` on summaries with the embedding's donor offset removed; the arm coefficients' component along the loadings subtracted | library, embedding | kept by loop 2, run B |
+| `deseq2` | DESeq2 on donor pseudobulk; design: every covariate (cell-level ones as donor means) and the arm | nothing | comparator |
+| `deseq2_nocell` | the same without the cell-level covariates in the design | nothing | comparator |
+
+Here $y_{dg}$ is the donor's summed count and $L_{dg}$ its summed library.
+The intermediate commits the loops discarded are not rerun.
+
+## The library variants
+
+`donor_wls`, `gap_trend`, `raw_null`, `embed_prior` and `state_adjusted`
+read a cells $\times$ genes library $\ell_{cg}$. The fit's is
+$\ell_{cg} = \max\{\exp(z_g^\top C_c), 0.1\}$ over every covariate but the
+arm: the intercept, the log of the cell's summed counts with a per-gene
+coefficient, and each other covariate with a per-gene coefficient. A
+variant is written `rule@library`.
+
+| Library | What it is | Design of the rule |
+|---|---|---|
+| (none) | the fitted library as the posterior uses it, floored at 0.1 | donor-level covariates |
+| `esvd_nofloor` | the fitted library without the floor | donor-level covariates |
+| `esvd_depth` | the fitted intercept and depth coefficient only, no floor | donor-level covariates |
+| `total` | the cell's summed counts | donor-level covariates |
+| `total_cov` | the cell's summed counts | donor-level covariates and the donor means of the cell-level ones |
+| `sf_cov` | summed counts rescaled so that a donor's total is DESeq2's median-of-ratios size factor of the pseudobulk | as `total_cov` |
+| `tmm_cov` | summed counts times edgeR's TMM factor of the donor's pseudobulk | as `total_cov` |
+| `oracle` | the generator's library times the true effect of the cell-level covariates (bank 3 only) | donor-level covariates |
+
+`total_cov` is what an analyst without eSVD would do: pseudobulk by
+donor, normalize by depth, and put each covariate in the design at the
+donor level.
+
+## The six assessments
+
+| Kevin's request | What is computed | Section |
+|---|---|---|
+| Head to head with DESeq2 | per cohort, the rule's score minus DESeq2's on the same genes; its mean, paired SE and the share of cohorts the rule wins | 5 |
+| Raw or standard library against eSVD's | each `rule@library` minus `rule`, paired within cohorts | 7 |
+| Confounders with a larger effect than the arm | the factor `confound` of bank 3 | 3, 6 |
+| Genes of high and low sparsity; few and many DEGs | genes binned by their share of zero counts; the factor `deg` | 3, 8 |
+| Technical replicates | two cohorts per population; correlation of the logFC over true DEGs and over null genes | 9 |
+| Significant genes against $\pm 2$ SE | of the genes a test calls at FDR 5%, the share with $|\widehat\beta_g| > 2 s_g$ | 10 |
+
+# The third bank
+
+::: {.generator}
+`lfcse-bank-3` holds `r num_examples` examples. An example is one
+**population** (the gene-level truth: 600 genes with their intercepts,
+loadings, over-dispersion, case-control and covariate effects) and **two
+replicate cohorts** drawn from it with new donors and new cells, each
+fitted end to end by eSVD2 1.2.0 at rank 5
+(`r 2 * num_examples` fits). Counts follow the eSVD model, with donor
+effects as in the second bank. Eight factors vary:
+
+1. `donors`: 10, 20 or 40, half per arm.
+2. `confound`: sex and age are in every cohort. `mild`: per-gene effects
+   of SD 0.2, nearly balanced between arms (sex 40% against 60%). `donor`:
+   effects of SD 0.5, sex 20% of controls against 80% of cases, cases
+   older by one SD. `cell`: the mild donor-level covariates plus two
+   cell-level ones, `Pct` (continuous, per-gene effect SD 0.3, cases
+   higher by 0.8 within-donor SD) and `Phase` (binary, per-gene effect SD
+   0.5, 20% of control cells against 50% of case cells). A DEG's effect
+   has SD 0.6, so at `donor` and `cell` the confounders move every gene by
+   about as much as the arm moves the DEGs.
+3. `deg`: `few` (5% of genes with an effect, both signs, the others
+   exactly null), `many` (30%, three in four positive, the others exactly
+   null), `dense` (every gene nonzero, most weakly).
+4. `state`: `none`; `donor` (donor-level cell states of rank 3 carry three
+   quarters of the donor variance); `donor_arm` (the same, and the arms
+   differ in mean state, so the marginal and direct truths differ).
+5. `cells`: 50 per donor, or unequal (30 to 600).
+6. `donor_sd`: 0.2 or 0.5 on the log scale.
+7. `arm_sd`: equal donor variance in the arms, or three times larger in
+   the cases.
+8. `depth`: none, or a donor-level shift of a block of 15% of the genes.
+
+Gene intercepts are uniform on $(-4, 1.5)$ in every cohort, so each cohort
+holds genes with a mean of 0.02 counts per cell beside genes with a mean
+of 4. The `r num_examples` examples are a balanced one-sixth fraction of
+the 1296 combinations: every level and every pair of levels of two
+factors appears equally often. There is one split, because nothing is
+tuned on this bank.
+:::
+
+```{r bank_table}
+bank_wide_df <- do.call(rbind, lapply(names(bank_label_vec), function(bank){
+  sub_df <- bank_gene_df[bank_gene_df$bank == bank, ]
+  sub_df <- sub_df[match(sparsity_vec, sub_df$bin), ]
+  data.frame(Bank = bank_label_vec[[bank]],
+             `Share of zeros` = sparsity_vec,
+             `Share of genes` = pct(sub_df$num_genes / sum(sub_df$num_genes)),
+             `Capped or boundary rate` = ifelse(sub_df$num_genes > 0,
+                                                pct(sub_df$capped_share), ""),
+             `Cells at the library floor` = ifelse(sub_df$num_genes > 0,
+                                                   pct(sub_df$floor_share), ""),
+             check.names = FALSE, stringsAsFactors = FALSE)
+}))
+knitr::kable(bank_wide_df, row.names = FALSE,
+             caption = "Table 1. Genes by their share of zero counts in the first three banks (test splits of banks 1 and 2), with the share of genes whose nuisance rate is capped or at the boundary, and the share of a gene's cells whose fitted library is below the posterior's floor of 0.1.")
+```
+
+```{r bank_numbers}
+frac_capped <- mean(c(bank3_df$frac_capped_a + bank3_df$frac_boundary_a,
+                      bank3_df$frac_capped_b + bank3_df$frac_boundary_b))
+frac_zero <- mean(c(bank3_df$frac_zero_a, bank3_df$frac_zero_b))
+num_warn <- sum(bank3_df$num_warnings_a > 0) + sum(bank3_df$num_warnings_b > 0)
+```
+
+Every fit of bank 3 succeeded (`r num_warn` of
+`r 2 * num_examples` with a warning). On average
+`r pct(frac_zero)` of a cohort's counts are zero and
+`r pct(frac_capped)` of its genes have a capped or boundary nuisance
+rate, against 73% on the Velmeshev cohort and 13% in the first bank. The
+first bank has almost no gene with more than half zeros; bank 3 has
+`r pct(sum(bank_gene_df$num_genes[bank_gene_df$bank == "bank3" & bank_gene_df$bin %in% c("80 to 95%", "over 95%")]) / sum(bank_gene_df$num_genes[bank_gene_df$bank == "bank3"]))`
+of its genes above 80%.
+
+The last column of Table 1 is a finding of its own. The fitted library
+contains the gene's intercept, so for a gene with under one count in ten
+cells it falls below 0.1 and the posterior sets it to 0.1 for every cell.
+For such a gene the "library" a rule reads is a constant: it has neither
+the depth nor the covariates in it. Section 7.3 measures what this costs.
+
+::: {.takeaway}
+Bank 3 covers what the note asks for: confounders as strong as the
+effect of interest at the donor level and at the cell level, genes from a
+few percent to 99% zeros within every cohort, 5% or 30% true DEGs among
+exact nulls, and a replicate cohort for every population. Building it
+exposed that the fitted library is constant for sparse genes because of
+the posterior's floor.
+:::
+
+# Scores on the first three banks
+
+::: {.reuse}
+The test splits of `lfcse-bank-1` (`r num_cohorts_vec[["bank1"]]`
+cohorts) and `lfcse-bank-2` (`r num_cohorts_vec[["bank2"]]` cohorts),
+which no rule was tuned on, and all `r num_cohorts_vec[["bank3"]]`
+cohorts of `lfcse-bank-3`. Every rule and DESeq2 were rerun on all of
+them by `02_apply-rules_claude.R`.
+:::
+
+```{r overall_table}
+col_df <- data.frame(
+  bank = c("bank1", "bank2", "bank2", "bank3", "bank3"),
+  truth_kind = c("marginal", "marginal", "direct", "marginal", "direct"),
+  factor = "all", level = "all",
+  label = c("Bank 1", "Bank 2, marginal", "Bank 2, direct",
+            "Bank 3, marginal", "Bank 3, direct"),
+  stringsAsFactors = FALSE
+)
+overall_vec <- c(rule_vec, nofloor_vec, "deseq2", "deseq2_nocell")
+overall_df <- wide_strata(overall_vec, col_df)
+overall_df <- overall_df[order(overall_df[["Bank 3, marginal"]]), ]
+knitr::kable(overall_df, row.names = FALSE,
+             caption = "Table 2. Mean score (nats per gene, lower is better) of every rule on the first three banks, under the marginal and the direct truth, ordered by bank 3's marginal score. In bank 1 the two truths coincide.")
+```
+
+```{r diagnostics_table}
+diag_vec <- c(rule_vec, nofloor_vec, "deseq2")
+diag_df <- data.frame(
+  Method = paste0("`", diag_vec, "`"),
+  RMSE = sapply(diag_vec, st, col = "rmse"),
+  `Coverage of 95%` = sapply(diag_vec, st, col = "coverage_95"),
+  `SD of z, null genes` = sapply(diag_vec, st, col = "z_sd_null"),
+  `Median logFC, null genes` = sapply(diag_vec, st, col = "bias_null"),
+  `slope_weak, marginal` = sapply(diag_vec, st, col = "slope_weak"),
+  `slope_weak, direct` = sapply(diag_vec, st, truth_kind = "direct",
+                                col = "slope_weak"),
+  se_strong = sapply(diag_vec, st, col = "se_strong"),
+  check.names = FALSE
+)
+knitr::kable(diag_df, row.names = FALSE, digits = 3,
+             caption = "Table 3. Diagnostics on bank 3 under the marginal truth (the last slope under the direct truth). A calibrated rule has coverage 0.95 and an SD of z on exactly null genes of 1.")
+```
+
+```{r failures}
+raw_fail_df <- failure_df[failure_df$method == "raw_null", ]
+raw_fail <- function(bank, col){
+  raw_fail_df[[col]][raw_fail_df$bank == bank]
+}
+```
+
+```{r fig_overall, fig.width=9, fig.height=5, fig.cap="Figure 1. Mean score of each rule on bank 3 under the two truths, with one standard error. The dashed line is DESeq2 under the marginal truth."}
+plot_df <- strata_df[strata_df$bank == "bank3" & strata_df$factor == "all" &
+                       strata_df$method %in% c(rule_vec, nofloor_vec,
+                                               "deseq2"), ]
+order_vec <- plot_df$method[plot_df$truth_kind == "marginal"]
+order_vec <- order_vec[order(-plot_df$score[plot_df$truth_kind == "marginal"])]
+plot_df$method <- factor(plot_df$method, levels = order_vec)
+plot1 <- ggplot2::ggplot(plot_df, ggplot2::aes(x = score, y = method,
+                                               color = truth_kind))
+plot1 <- plot1 + ggplot2::geom_vline(xintercept = st("deseq2"),
+                                     linetype = "dashed", color = "grey50")
+plot1 <- plot1 + ggplot2::geom_errorbarh(ggplot2::aes(xmin = score - score_se,
+                                                      xmax = score + score_se),
+                                         height = 0.2)
+plot1 <- plot1 + ggplot2::geom_point(size = 2.5)
+plot1 <- plot1 + ggplot2::scale_color_manual(values = c(marginal = "#1f77b4",
+                                                        direct = "#ff7f0e"),
+                                             name = "Truth")
+plot1 <- plot1 + ggplot2::labs(x = "Score (nats per gene, lower is better)",
+                               y = NULL)
+plot1 <- plot1 + ggplot2::theme_bw()
+plot(plot1)
+```
+
+**The order of the rules carries over to bank 3.** Under the
+marginal truth the donor-level regressions (`donor_wls`, `embed_prior`,
+`gap_trend`) lead on the first three banks, the posterior-based rules (`stored`,
+`null_rescaled`, `deshrunk`) trail DESeq2, and `raw_null` sits between.
+Under the direct truth `state_adjusted` leads by
+`r fmt(st("donor_wls", truth_kind = "direct") - st("state_adjusted", truth_kind = "direct"))`
+nats on bank 3, as it did on the second.
+
+**The gates.** `gap_trend` fails `se_strong` again
+(`r fmt(st("gap_trend", col = "se_strong"), 2)` on bank 3,
+`r fmt(st("gap_trend", bank = "bank2", col = "se_strong"), 2)` on the
+second): its lead in Table 2 is the SE following the estimated logFC, and
+it stays withdrawn. `state_adjusted` has a `slope_weak` of
+`r fmt(st("state_adjusted", col = "slope_weak"), 2)` under the marginal
+truth, by construction (it removes the arms' difference in cell state),
+and `r fmt(st("state_adjusted", truth_kind = "direct", col = "slope_weak"), 2)`
+under the direct truth. Every other rule's marginal `slope_weak` is
+between `r fmt(min(sapply(setdiff(rule_vec, "state_adjusted"), st, col = "slope_weak")), 2)`
+and `r fmt(max(sapply(setdiff(rule_vec, "state_adjusted"), st, col = "slope_weak")), 2)`
+on bank 3, DESeq2's is
+`r fmt(st("deseq2", col = "slope_weak"), 2)`: the bank's sparse genes
+pull every rule's slope down, and section 8 shows where.
+
+**Calibration.** `donor_wls` covers the truth
+`r pct(st("donor_wls", col = "coverage_95"), 1)` of the time at a nominal
+95% on bank 3
+(`r pct(st("donor_wls", bank = "bank2", col = "coverage_95"), 1)` on the
+second, `r pct(st("donor_wls", bank = "bank1", col = "coverage_95"), 1)`
+on the first), and the SD of its z-statistic on exactly null genes is
+`r fmt(st("donor_wls", col = "z_sd_null"), 2)`: its SE is a few percent
+too small here. `stored` is too wide (SD of z
+`r fmt(st("stored", col = "z_sd_null"), 2)`) and biased on null genes
+(median logFC `r fmt(st("stored", col = "bias_null"), 2)`);
+`null_rescaled` is too narrow (coverage
+`r pct(st("null_rescaled", col = "coverage_95"), 1)`).
+
+**Failures.** `raw` and `raw_null` return a non-finite value for
+`r raw_fail("bank3", "num_genes")` genes in
+`r raw_fail("bank3", "num_cohorts")` cohorts of bank 3 (a gene with
+no count in one arm); they are scored on the remaining genes. No other
+rule failed on any cohort.
+
+::: {.takeaway}
+Nothing in bank 3 reverses the loops' ranking. Under the marginal
+truth the donor-level regression family is best on the first three banks; under
+the direct truth `state_adjusted` is. `gap_trend` fails the same gate it
+failed before. The posterior-based rules, including what 1.2.0 stores, are
+behind DESeq2 on every bank.
+:::
+
+# Head to head with DESeq2
+
+::: {.reuse}
+The first three banks. Per cohort, a rule's score minus DESeq2's over the same
+genes; negative means the rule is better. `deseq2` has every covariate in
+its design, cell-level ones as donor means.
+:::
+
+```{r deseq2_table}
+h2h_vec <- c(rule_vec, nofloor_vec, "donor_wls@total_cov")
+h2h_col_df <- data.frame(bank = c("bank1", "bank2", "bank3"),
+                         truth_kind = "marginal",
+                         stringsAsFactors = FALSE)
+h2h_df <- data.frame(Method = paste0("`", h2h_vec, "`"),
+                     stringsAsFactors = FALSE)
+for(j in seq_len(nrow(h2h_col_df))){
+  bank <- h2h_col_df$bank[j]
+  h2h_df[[paste0(bank_label_vec[[bank]], ": difference (SE)")]] <-
+    sapply(h2h_vec, function(method){
+      paste0(fmt(st(method, bank = bank, col = "vs_deseq2")), " (",
+             fmt(st(method, bank = bank, col = "vs_deseq2_se")), ")")
+    })
+  h2h_df[[paste0(bank_label_vec[[bank]], ": wins")]] <-
+    sapply(h2h_vec, function(method){
+      pct(st(method, bank = bank, col = "win_deseq2"))
+    })
+}
+h2h_df[["Bank 3, direct: difference (SE)"]] <- sapply(h2h_vec, function(method){
+  paste0(fmt(st(method, truth_kind = "direct", col = "vs_deseq2")), " (",
+         fmt(st(method, truth_kind = "direct", col = "vs_deseq2_se")), ")")
+})
+knitr::kable(h2h_df, row.names = FALSE,
+             caption = "Table 4. Each rule against DESeq2: mean over cohorts of the difference in score (paired SE), and the share of cohorts in which the rule scores better. Marginal truth unless stated.")
+```
+
+```{r fig_deseq2, fig.width=9, fig.height=6, fig.cap="Figure 2. Score minus DESeq2's on bank 3 (marginal truth), by level of each factor. Blue: the rule is better than DESeq2; red: worse. The colour scale is capped at 0.4 nats."}
+heat_vec <- c("stored", "null_rescaled", "raw_null", "donor_wls",
+              "donor_wls@esvd_nofloor", "donor_wls@total_cov",
+              "state_adjusted")
+heat_df <- strata_df[strata_df$bank == "bank3" &
+                       strata_df$truth_kind == "marginal" &
+                       strata_df$factor != "all" &
+                       strata_df$method %in% heat_vec, ]
+heat_df$stratum <- paste0(heat_df$factor, " = ", heat_df$level)
+heat_df$stratum <- factor(heat_df$stratum, levels = unique(heat_df$stratum))
+heat_df$method <- factor(heat_df$method, levels = rev(heat_vec))
+heat_df$fill_val <- pmax(pmin(heat_df$vs_deseq2, 0.4), -0.4)
+plot1 <- ggplot2::ggplot(heat_df, ggplot2::aes(x = stratum, y = method,
+                                               fill = fill_val))
+plot1 <- plot1 + ggplot2::geom_tile(color = "white")
+plot1 <- plot1 + ggplot2::geom_text(ggplot2::aes(label = formatC(vs_deseq2,
+                                                                 digits = 2,
+                                                                 format = "f")),
+                                    size = 2.6)
+plot1 <- plot1 + ggplot2::scale_fill_gradient2(low = "#2166ac", mid = "white",
+                                               high = "#b2182b", midpoint = 0,
+                                               name = "vs DESeq2")
+plot1 <- plot1 + ggplot2::labs(x = NULL, y = NULL)
+plot1 <- plot1 + ggplot2::theme_bw()
+plot1 <- plot1 + ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 45,
+                                                                    hjust = 1))
+plot(plot1)
+```
+
+```{r deseq2_pieces}
+p_nocell <- paired("donor_wls", "deseq2_nocell", factor = "confound",
+                   level = "cell")
+p_nocell_all <- paired("donor_wls@esvd_nofloor", "deseq2_nocell")
+```
+
+**`donor_wls` beats DESeq2 on every bank and in every stratum of bank
+3.** The margin is
+`r fmt(-st("donor_wls", bank = "bank1", col = "vs_deseq2"))` nats on the
+first bank, `r fmt(-st("donor_wls", bank = "bank2", col = "vs_deseq2"))`
+on the second and `r fmt(-st("donor_wls", col = "vs_deseq2"))` on bank 3, each many paired standard errors from zero, and `donor_wls` is the
+better of the two in
+`r pct(st("donor_wls", bank = "bank1", col = "win_deseq2"))`,
+`r pct(st("donor_wls", bank = "bank2", col = "win_deseq2"))` and
+`r pct(st("donor_wls", col = "win_deseq2"))` of cohorts.
+
+**Where the margin comes from on bank 3.** At `confound = mild` and
+`donor` the margin is
+`r fmt(-st("donor_wls", factor = "confound", level = "mild", col = "vs_deseq2"))`
+and
+`r fmt(-st("donor_wls", factor = "confound", level = "donor", col = "vs_deseq2"))`,
+the size seen on the earlier banks. At `confound = cell` it is
+`r fmt(-st("donor_wls", factor = "confound", level = "cell", col = "vs_deseq2"))`.
+There DESeq2 has to adjust for the cell-level covariates through their
+donor means, which are nearly collinear with the arm, and its RMSE goes to
+`r fmt(st("deseq2", factor = "confound", level = "cell", col = "rmse"), 2)`
+log2 units against
+`r fmt(st("donor_wls", factor = "confound", level = "cell", col = "rmse"), 2)`
+for `donor_wls`. Leaving the cell-level covariates out of DESeq2's design
+(`deseq2_nocell`) trades variance for bias: its score at `confound = cell`
+is
+`r fmt(st("deseq2_nocell", factor = "confound", level = "cell"))` with a
+coverage of
+`r pct(st("deseq2_nocell", factor = "confound", level = "cell", col = "coverage_95"))`,
+and `donor_wls` beats it there by `r fmt(-p_nocell$diff)`
+(SE `r fmt(p_nocell$se)`).
+
+**The rules that do not beat DESeq2.** `stored`, `deshrunk`, `raw` and
+`null_rescaled` are behind DESeq2 on every bank; `raw_null` is behind on
+banks 1 and 2 and ahead on bank 3 only because of `confound = cell`.
+
+::: {.takeaway}
+The rule the first loop kept is more accurate than DESeq2 by the loops'
+score on the first three banks and in every stratum of bank 3, and the
+margin is ten times larger when confounders vary within a donor. What
+1.2.0 stores today is less accurate than DESeq2 on all three.
+:::
+
+# Confounders
+
+::: {.reuse}
+`lfcse-bank-3`, by level of `confound`.
+:::
+
+```{r confound_table}
+confound_vec <- c("stored", "null_rescaled", "raw_null", "donor_wls",
+                  "donor_wls@esvd_nofloor", "donor_wls@esvd_depth",
+                  "donor_wls@total", "donor_wls@total_cov",
+                  "donor_wls@oracle", "state_adjusted", "deseq2",
+                  "deseq2_nocell")
+confound_col_df <- data.frame(bank = "bank3", truth_kind = "marginal",
+                              factor = "confound",
+                              level = c("mild", "donor", "cell"),
+                              label = c("mild", "donor", "cell"),
+                              stringsAsFactors = FALSE)
+score_df <- wide_strata(confound_vec, confound_col_df)
+rmse_df <- wide_strata(confound_vec, confound_col_df, col = "rmse")
+cover_df <- wide_strata(confound_vec, confound_col_df, col = "coverage_95")
+confound_out_df <- cbind(score_df, rmse_df[, -1], cover_df[, -1])
+colnames(confound_out_df) <- c("Method",
+                               paste0("Score: ", confound_col_df$label),
+                               paste0("RMSE: ", confound_col_df$label),
+                               paste0("Coverage: ", confound_col_df$label))
+knitr::kable(confound_out_df, row.names = FALSE,
+             caption = "Table 5. Score, RMSE of the logFC and coverage of the 95% interval on bank 3 by level of `confound`, marginal truth.")
+```
+
+**Donor-level confounders, however strong, are handled by any rule with
+the covariates in its donor-level design.** From `mild` to `donor` every
+rule loses about the same amount (`donor_wls`
+`r fmt(st("donor_wls", factor = "confound", level = "mild"))` to
+`r fmt(st("donor_wls", factor = "confound", level = "donor"))`, DESeq2
+`r fmt(st("deseq2", factor = "confound", level = "mild"))` to
+`r fmt(st("deseq2", factor = "confound", level = "donor"))`): the price of
+an arm that is partly collinear with sex and age, paid in variance. The
+coverage holds. `raw_null`, which has no design and relies on the library
+to remove sex and age, keeps its coverage but loses more.
+
+**Cell-level confounders separate the rules.** A rule that neither reads
+the covariates from the library nor has them in its design is biased:
+`donor_wls@total` and `donor_wls@esvd_depth` cover the truth
+`r pct(st("donor_wls@total", factor = "confound", level = "cell", col = "coverage_95"))`
+and
+`r pct(st("donor_wls@esvd_depth", factor = "confound", level = "cell", col = "coverage_95"))`
+of the time. A rule with their donor means in its design is unbiased and
+noisy: `donor_wls@total_cov` has an RMSE of
+`r fmt(st("donor_wls@total_cov", factor = "confound", level = "cell", col = "rmse"), 2)`.
+A rule that reads the fitted library, in which each covariate was
+regressed out cell by cell with its per-gene coefficient, is close to the
+oracle: `donor_wls`
+`r fmt(st("donor_wls", factor = "confound", level = "cell"))`, without the
+floor
+`r fmt(st("donor_wls@esvd_nofloor", factor = "confound", level = "cell"))`,
+oracle
+`r fmt(st("donor_wls@oracle", factor = "confound", level = "cell"))`.
+
+::: {.takeaway}
+eSVD's regressing-out of covariates is what makes the rule work when a
+confounder varies within a donor and differs between the arms: the
+within-donor variation identifies each gene's coefficient, which a
+donor-level analysis cannot use. For confounders that are constant within
+a donor the fit's adjustment adds nothing to a donor-level design.
+:::
+
+# Library size: eSVD's fitted library against the standard ones
+
+::: {.reuse}
+The first three banks. Each `rule@library` against the same rule with the
+fitted library, paired within cohorts. A positive difference means the
+fitted library is better.
+:::
+
+## `donor_wls` with each library
+
+```{r library_table}
+lib_vec <- c("esvd_nofloor", "esvd_depth", "total", "total_cov", "sf_cov",
+             "tmm_cov", "oracle")
+lib_cell <- function(library, bank, factor = "all", level = "all"){
+  bool_vec <- library_df$library == library & library_df$rule == "donor_wls" &
+    library_df$bank == bank & library_df$truth_kind == "marginal" &
+    library_df$factor == factor & library_df$level == level
+  if(sum(bool_vec) == 0) return("")
+  paste0(formatC(library_df$diff[bool_vec], digits = 3, format = "f",
+                 flag = "+"), " (",
+         fmt(library_df$diff_se[bool_vec]), ")")
+}
+lib_out_df <- data.frame(
+  Library = paste0("`", lib_vec, "`"),
+  `Bank 1` = sapply(lib_vec, lib_cell, bank = "bank1"),
+  `Bank 2` = sapply(lib_vec, lib_cell, bank = "bank2"),
+  `Bank 3` = sapply(lib_vec, lib_cell, bank = "bank3"),
+  `Bank 3, mild` = sapply(lib_vec, lib_cell, bank = "bank3",
+                          factor = "confound", level = "mild"),
+  `Bank 3, donor` = sapply(lib_vec, lib_cell, bank = "bank3",
+                           factor = "confound", level = "donor"),
+  `Bank 3, cell` = sapply(lib_vec, lib_cell, bank = "bank3",
+                          factor = "confound", level = "cell"),
+  check.names = FALSE, stringsAsFactors = FALSE
+)
+knitr::kable(lib_out_df, row.names = FALSE,
+             caption = "Table 6. `donor_wls` with another library minus `donor_wls` with the fitted library: mean difference in score over cohorts (paired SE), marginal truth. Positive: the fitted library is better.")
+```
+
+```{r fig_library, fig.width=9, fig.height=5, fig.cap="Figure 3. `donor_wls` with each library on bank 3, by level of `confound`: score (left) and coverage of the 95% interval (right), marginal truth."}
+lib_plot_vec <- c("donor_wls", paste0("donor_wls@", lib_vec))
+lib_plot_df <- strata_df[strata_df$bank == "bank3" &
+                           strata_df$truth_kind == "marginal" &
+                           strata_df$factor == "confound" &
+                           strata_df$method %in% lib_plot_vec, ]
+lib_plot_df$library <- sub("donor_wls@", "", lib_plot_df$method)
+lib_plot_df$library[lib_plot_df$library == "donor_wls"] <- "fitted"
+lib_plot_df$library <- factor(lib_plot_df$library,
+                              levels = c("fitted", lib_vec))
+lib_plot_df$level <- factor(lib_plot_df$level,
+                            levels = c("mild", "donor", "cell"))
+long_df <- rbind(
+  data.frame(lib_plot_df[, c("library", "level")], panel = "Score",
+             value = lib_plot_df$score),
+  data.frame(lib_plot_df[, c("library", "level")], panel = "Coverage of 95%",
+             value = lib_plot_df$coverage_95)
+)
+long_df$panel <- factor(long_df$panel, levels = c("Score", "Coverage of 95%"))
+plot1 <- ggplot2::ggplot(long_df, ggplot2::aes(x = level, y = value,
+                                               color = library,
+                                               group = library))
+plot1 <- plot1 + ggplot2::geom_line()
+plot1 <- plot1 + ggplot2::geom_point(size = 2)
+plot1 <- plot1 + ggplot2::facet_wrap(~ panel, scales = "free_y")
+plot1 <- plot1 + ggplot2::scale_color_brewer(palette = "Dark2",
+                                             name = "Library")
+plot1 <- plot1 + ggplot2::labs(x = "confound", y = NULL)
+plot1 <- plot1 + ggplot2::theme_bw()
+plot(plot1)
+```
+
+**Without cell-level confounders the fitted library is barely better than
+the summed counts.** The gain over `total` is
+`r fmt(lib("total", bank = "bank1"))` nats on the first bank and
+`r fmt(lib("total", bank = "bank2"))` on the second; on bank 3 it is
+`r fmt(lib("total", factor = "confound", level = "mild"))` at
+`confound = mild` and
+`r fmt(lib("total", factor = "confound", level = "donor"))` at `donor`.
+The first loop's margin over DESeq2
+(`r fmt(-st("donor_wls", bank = "bank1", col = "vs_deseq2"))`) is therefore
+the regression and its variance moderation, not the library:
+`donor_wls@total` keeps
+`r fmt(-st("donor_wls@total", bank = "bank1", col = "vs_deseq2"))` of it
+on the first bank and
+`r fmt(-st("donor_wls@total", bank = "bank2", col = "vs_deseq2"))` of
+`r fmt(-st("donor_wls", bank = "bank2", col = "vs_deseq2"))` on the
+second. This answers the open question the first run left.
+
+**The size-factor estimates are the summed counts.** DESeq2's median of
+ratios and TMM change the score by under
+`r fmt(max(abs(lib("sf_cov") - lib("total_cov")), abs(lib("tmm_cov") - lib("total_cov"))), 3)`
+nats against `total_cov`, on every bank.
+
+**With cell-level confounders the fitted library is worth
+`r fmt(lib("total_cov", factor = "confound", level = "cell"))` nats** over
+the standard practice (`total_cov`) and
+`r fmt(lib("total", factor = "confound", level = "cell"))` over the summed
+counts alone. `esvd_depth`, the fitted library without its covariates, is
+as bad as the summed counts: the whole gain is the covariates in the
+library, none of it the per-gene depth coefficient.
+
+## The other library-reading rules
+
+```{r library_other_table}
+other_rule_vec <- c("raw_null", "gap_trend", "embed_prior", "state_adjusted")
+other_df <- do.call(rbind, lapply(other_rule_vec, function(rule){
+  kind <- if(rule == "state_adjusted") "direct" else "marginal"
+  one_cell <- function(library, bank, factor = "all", level = "all"){
+    paste0(formatC(lib(library, rule = rule, bank = bank, truth_kind = kind,
+                       factor = factor, level = level),
+                   digits = 3, format = "f", flag = "+"),
+           " (", fmt(lib(library, rule = rule, bank = bank, truth_kind = kind,
+                         factor = factor, level = level, col = "diff_se")),
+           ")")
+  }
+  data.frame(Rule = paste0("`", rule, "`"), Truth = kind,
+             `total_cov, bank 1` = one_cell("total_cov", "bank1"),
+             `total_cov, bank 2` = one_cell("total_cov", "bank2"),
+             `total_cov, bank 3, cell` = one_cell("total_cov", "bank3",
+                                                  "confound", "cell"),
+             `total_cov, bank 3, other` = paste0(
+               formatC(mean(c(lib("total_cov", rule = rule, truth_kind = kind,
+                                  factor = "confound", level = "mild"),
+                              lib("total_cov", rule = rule, truth_kind = kind,
+                                  factor = "confound", level = "donor"))),
+                       digits = 3, format = "f", flag = "+")),
+             `esvd_nofloor, bank 3` = one_cell("esvd_nofloor", "bank3"),
+             check.names = FALSE, stringsAsFactors = FALSE)
+}))
+knitr::kable(other_df, row.names = FALSE,
+             caption = "Table 7. The other rules that read a library: the variant minus the fitted library, mean difference in score (paired SE). Positive: the fitted library is better. `state_adjusted` under the direct truth.")
+```
+
+The pattern is `donor_wls`'s for every rule: a large gain from the fitted
+library at `confound = cell`, a small one or none elsewhere. `raw_null`
+depends on the fitted library most, because it has no design of its own
+and the library is its only adjustment for any covariate.
+
+## The posterior's floor on the library
+
+```{r floor_table}
+floor_df <- data.frame(
+  `Share of zeros` = sparsity_vec,
+  `Cells at the floor` = pct(bank_gene_df$floor_share[match(
+    sparsity_vec, bank_gene_df$bin[bank_gene_df$bank == "bank3"]
+  ) + min(which(bank_gene_df$bank == "bank3")) - 1][seq_along(sparsity_vec)]),
+  check.names = FALSE, stringsAsFactors = FALSE
+)
+bank3_gene_df <- bank_gene_df[bank_gene_df$bank == "bank3", ]
+floor_df[["Cells at the floor"]] <- pct(
+  bank3_gene_df$floor_share[match(sparsity_vec, bank3_gene_df$bin)]
+)
+for(method in c("donor_wls", "donor_wls@esvd_nofloor", "donor_wls@oracle")){
+  floor_df[[paste0("`", method, "`")]] <- sapply(sparsity_vec, function(bin){
+    gb(method, bin)
+  })
+}
+for(level in c("mild", "cell")){
+  for(method in c("donor_wls", "donor_wls@esvd_nofloor")){
+    floor_df[[paste0("`", method, "`, ", level)]] <- sapply(
+      sparsity_vec, function(bin){
+        cross_df$score[cross_df$method == method &
+                         cross_df$truth_kind == "marginal" &
+                         cross_df$bin == bin & cross_df$confound == level]
+      })
+  }
+}
+knitr::kable(floor_df, row.names = FALSE, digits = 3,
+             caption = "Table 8. Score of `donor_wls` on bank 3 with the fitted library as the posterior floors it, without the floor, and with the oracle library, by the gene's share of zeros (marginal truth); the last four columns at `confound = mild` and `cell`.")
+```
+
+```{r floor_numbers}
+p_floor <- paired("donor_wls@esvd_nofloor", "donor_wls")
+p_floor_2 <- paired("donor_wls@esvd_nofloor", "donor_wls", bank = "bank2")
+p_floor_direct <- paired("state_adjusted@esvd_nofloor", "state_adjusted",
+                         truth_kind = "direct")
+```
+
+`compute_posterior()` sets every fitted library below `library_min = 0.1`
+to 0.1, and every rule of the loops read the library after that step. For
+a gene with 80 to 95% zeros about half of the cells are at the floor; above
+95% nearly all are (Table 8). Removing the floor improves `donor_wls` by
+`r fmt(-p_floor$diff)` nats on bank 3 (paired SE
+`r fmt(p_floor$se)`, better in `r pct(p_floor$win)` of cohorts) and by
+`r fmt(-p_floor_2$diff)` on the second bank (SE `r fmt(p_floor_2$se)`); on
+the first bank, which has no sparse gene, it changes nothing. The gain is
+largest at `confound = cell`, where the floored genes lose their covariate
+adjustment, and it also improves `state_adjusted` under the direct truth
+by `r fmt(-p_floor_direct$diff)` (SE `r fmt(p_floor_direct$se)`). Without
+the floor `donor_wls` is within
+`r fmt(st("donor_wls@esvd_nofloor") - st("donor_wls@oracle"))` nats of the
+oracle library on bank 3.
+
+This is a change to which library the rule reads, not a new rule: the
+formula of `donor_wls` is untouched.
+
+::: {.takeaway}
+The summed counts, or any standard size factor, are as effective as
+eSVD's library unless a confounder varies within donors; when one does,
+the fitted library is worth half a nat per gene over the standard
+practice, and all of that comes from the covariates in it. The rule should
+read the fitted library before the posterior's floor at 0.1, which
+otherwise discards the adjustment for sparse genes.
+:::
+
+# Sparsity and the number of true DEGs
+
+::: {.reuse}
+`lfcse-bank-3`. Genes are binned by their share of zero counts in the
+cohort; cohorts by the factor `deg`.
+:::
+
+```{r sparsity_table}
+sparse_vec <- c("stored", "null_rescaled", "raw_null", "donor_wls",
+                "donor_wls@esvd_nofloor", "donor_wls@total_cov",
+                "state_adjusted", "deseq2")
+sparse_one <- function(col, truth_kind = "marginal", digits = 3){
+  out_df <- data.frame(Method = paste0("`", sparse_vec, "`"),
+                       stringsAsFactors = FALSE)
+  for(bin in sparsity_vec){
+    out_df[[bin]] <- round(sapply(sparse_vec, gb, bin = bin,
+                                  truth_kind = truth_kind, col = col),
+                           digits)
+  }
+  out_df
+}
+knitr::kable(sparse_one("score"), row.names = FALSE,
+             caption = "Table 9. Score on bank 3 by the gene's share of zero counts, marginal truth.")
+knitr::kable(sparse_one("slope", truth_kind = "direct"), row.names = FALSE,
+             caption = "Table 10. Slope of the reported logFC on the direct truth, over the genes of each sparsity bin with a nonzero effect. 1 is no attenuation.")
+knitr::kable(sparse_one("coverage_95"), row.names = FALSE,
+             caption = "Table 11. Coverage of the 95% interval by the gene's share of zero counts, marginal truth.")
+```
+
+```{r fig_sparsity, fig.width=9, fig.height=5, fig.cap="Figure 4. Score on bank 3 by the gene's share of zero counts (marginal truth). Every rule degrades with sparsity; the order of the rules changes for the posterior-based ones."}
+sparse_plot_df <- bin_df[bin_df$bank == "bank3" &
+                           bin_df$truth_kind == "marginal" &
+                           bin_df$bin_type == "sparsity" &
+                           bin_df$method %in% sparse_vec, ]
+sparse_plot_df$bin <- factor(sparse_plot_df$bin, levels = sparsity_vec)
+plot1 <- ggplot2::ggplot(sparse_plot_df, ggplot2::aes(x = bin, y = score,
+                                                      color = method,
+                                                      group = method))
+plot1 <- plot1 + ggplot2::geom_line()
+plot1 <- plot1 + ggplot2::geom_point(size = 2)
+plot1 <- plot1 + ggplot2::scale_color_brewer(palette = "Dark2", name = NULL)
+plot1 <- plot1 + ggplot2::labs(x = "Share of zero counts of the gene",
+                               y = "Score (nats per gene)")
+plot1 <- plot1 + ggplot2::theme_bw()
+plot(plot1)
+```
+
+**Every rule degrades with sparsity, and `donor_wls` stays ahead of DESeq2
+in every bin**: by
+`r fmt(-gb("donor_wls", "under 50%", col = "vs_deseq2"))` nats for genes
+under 50% zeros and by
+`r fmt(-gb("donor_wls", "over 95%", col = "vs_deseq2"))` for genes over
+95%.
+
+**The posterior-based rules break at both ends.** `stored`'s interval
+covers `r pct(gb("stored", "over 95%", col = "coverage_95"))` of the
+sparsest genes and
+`r pct(gb("stored", "under 50%", col = "coverage_95"))` of the densest:
+its SE is dominated by the within-cell term, which is far too large for a
+sparse gene. `null_rescaled` multiplies every gene's SE by one factor and
+so covers
+`r pct(gb("null_rescaled", "under 50%", col = "coverage_95"))` of the
+dense genes.
+
+**`donor_wls` attenuates the sparsest genes.** For genes over 95% zeros its
+slope on the truth is
+`r fmt(gb("donor_wls", "over 95%", truth_kind = "direct", col = "slope"), 2)`
+(DESeq2:
+`r fmt(gb("deseq2", "over 95%", truth_kind = "direct", col = "slope"), 2)`).
+The half count added to a donor's summed count before the logarithm pulls
+the donor means together when a donor has a handful of counts. The
+attenuation is absent below 95% zeros
+(`r fmt(gb("donor_wls", "80 to 95%", truth_kind = "direct", col = "slope"), 2)`
+at 80 to 95%). It explains the marginal `slope_weak` of
+`r fmt(st("donor_wls", col = "slope_weak"), 2)` in Table 3, which sits at
+the edge of the loops' gate; on genes under 95% zeros the rule is inside
+it.
+
+```{r deg_table}
+deg_vec <- c("stored", "null_rescaled", "raw_null", "donor_wls",
+             "donor_wls@esvd_nofloor", "state_adjusted", "deseq2")
+deg_col_df <- data.frame(bank = "bank3",
+                         truth_kind = rep(c("marginal", "direct"), each = 3),
+                         factor = "deg",
+                         level = rep(c("few", "many", "dense"), times = 2),
+                         stringsAsFactors = FALSE)
+deg_col_df$label <- paste0(deg_col_df$level, ", ", deg_col_df$truth_kind)
+knitr::kable(wide_strata(deg_vec, deg_col_df), row.names = FALSE,
+             caption = "Table 12. Score on bank 3 by the number of true DEGs: `few` (5%), `many` (30%, three in four up), `dense` (every gene weakly nonzero).")
+```
+
+**The number of true DEGs moves the scores little.** `donor_wls` scores
+`r fmt(st("donor_wls", factor = "deg", level = "few"))` with 5% DEGs and
+`r fmt(st("donor_wls", factor = "deg", level = "many"))` with 30% mostly
+upregulated, where every total-count library is shifted by the DEGs and
+the empirical null's mean has to remove the shift. The median logFC of
+exactly null genes stays at
+`r fmt(st("donor_wls", factor = "deg", level = "many", col = "bias_null"), 3)`
+at `many` (`stored`:
+`r fmt(st("stored", factor = "deg", level = "many", col = "bias_null"), 3)`).
+
+::: {.takeaway}
+The ranking of the rules is the same for dense and sparse genes and for
+few and many DEGs. Two things are specific to sparse genes: the
+posterior-based SE is several times too large for them, and `donor_wls`
+shrinks the fold change of genes with over 95% zeros by about 13%.
+Genes that sparse are usually filtered before a DE analysis; the SE and
+the logFC reported for them should be read with that in mind.
+:::
+
+# Technical replicates
+
+::: {.reuse}
+`lfcse-bank-3`, examples at `deg = few` and `many`: the two replicate
+cohorts of an example share the population (the genes' true effects) and
+nothing else. A true DEG has a case-control effect of its own; a null
+gene has none.
+:::
+
+```{r replicate_prepare}
+rep_method_vec <- c("stored", "null_rescaled", "raw_null", "donor_wls",
+                    "donor_wls@esvd_nofloor", "donor_wls@total_cov",
+                    "state_adjusted", "deseq2")
+rep_df <- replicate_df[replicate_df$deg != "dense" &
+                         replicate_df$method %in% rep_method_vec, ]
+rep_all_df <- rep_df[rep_df$sparsity == "all", ]
+rep_median <- function(method, gene_set, col = "pearson", bool_arm = FALSE,
+                       confound = NULL){
+  sub_df <- rep_all_df[rep_all_df$method == method &
+                         rep_all_df$gene_set == gene_set &
+                         (rep_all_df$state == "donor_arm") == bool_arm, ]
+  if(!is.null(confound)) sub_df <- sub_df[sub_df$confound == confound, ]
+  stats::median(sub_df[[col]], na.rm = TRUE)
+}
+```
+
+```{r fig_replicate_scatter, fig.width=9, fig.height=9, fig.cap="Figure 5. The logFC in replicate A against replicate B for one example per level of `deg` and `state` (20 donors, 50 cells each), by rule. Orange: true DEGs; grey: null genes. The DEGs line up on the diagonal and the null genes form a round cloud at the origin, except at `state = donor_arm`, where the null genes carry the arms' difference in cell state and replicate too under every rule but `state_adjusted`."}
+scatter_df <- replicate_gene_df[replicate_gene_df$method %in%
+                                  c("stored", "donor_wls@esvd_nofloor",
+                                    "state_adjusted", "deseq2") &
+                                  replicate_gene_df$state != "donor", ]
+scatter_df$example <- paste0("deg = ", scatter_df$deg, ", state = ",
+                             scatter_df$state)
+scatter_df <- scatter_df[is.finite(scatter_df$lfc_a) &
+                           is.finite(scatter_df$lfc_b), ]
+scatter_df$lfc_a <- pmax(pmin(scatter_df$lfc_a, 3), -3)
+scatter_df$lfc_b <- pmax(pmin(scatter_df$lfc_b, 3), -3)
+scatter_df <- scatter_df[order(scatter_df$gene_set == "deg"), ]
+plot1 <- ggplot2::ggplot(scatter_df, ggplot2::aes(x = lfc_a, y = lfc_b,
+                                                  color = gene_set))
+plot1 <- plot1 + ggplot2::geom_abline(slope = 1, intercept = 0,
+                                      color = "grey70")
+plot1 <- plot1 + ggplot2::geom_point(size = 0.6, alpha = 0.7)
+plot1 <- plot1 + ggplot2::facet_grid(example ~ method)
+plot1 <- plot1 + ggplot2::scale_color_manual(values = c(deg = "#e6550d",
+                                                        null = "grey55"),
+                                             name = NULL)
+plot1 <- plot1 + ggplot2::labs(x = "log2 fold change, replicate A",
+                               y = "log2 fold change, replicate B")
+plot1 <- plot1 + ggplot2::coord_cartesian(xlim = c(-3, 3), ylim = c(-3, 3))
+plot1 <- plot1 + ggplot2::theme_bw()
+plot1 <- plot1 + ggplot2::theme(strip.text.y = ggplot2::element_text(size = 7))
+plot(plot1)
+```
+
+```{r replicate_table}
+rep_out_df <- data.frame(
+  Method = paste0("`", rep_method_vec, "`"),
+  `DEGs: correlation` = sapply(rep_method_vec, rep_median, gene_set = "deg"),
+  `DEGs: same sign` = sapply(rep_method_vec, rep_median, gene_set = "deg",
+                             col = "sign_agree"),
+  `Null: correlation` = sapply(rep_method_vec, rep_median, gene_set = "null"),
+  `Null: mean logFC` = sapply(rep_method_vec, rep_median, gene_set = "null",
+                              col = "mean_lfc"),
+  `Null: SD of logFC` = sapply(rep_method_vec, rep_median, gene_set = "null",
+                               col = "sd_lfc"),
+  `Null: correlation, cell` = sapply(rep_method_vec, rep_median,
+                                     gene_set = "null", confound = "cell"),
+  `DEGs: correlation, cell` = sapply(rep_method_vec, rep_median,
+                                     gene_set = "deg", confound = "cell"),
+  `Null: correlation, donor_arm` = sapply(rep_method_vec, rep_median,
+                                          gene_set = "null", bool_arm = TRUE),
+  check.names = FALSE
+)
+knitr::kable(rep_out_df, row.names = FALSE, digits = 3,
+             caption = "Table 13. Agreement of the logFC between the two replicate cohorts: median over examples of the Pearson correlation over true DEGs and over null genes, the share of DEGs with the same sign, and the mean and SD of the null genes' logFC. First five columns and the two `cell` columns: examples at `state = none` and `donor`; last column: `state = donor_arm`.")
+```
+
+```{r replicate_sparsity_table}
+rep_sparse_df <- rep_df[rep_df$sparsity != "all" &
+                          rep_df$state != "donor_arm" &
+                          rep_df$method %in% c("stored",
+                                               "donor_wls@esvd_nofloor",
+                                               "state_adjusted", "deseq2"), ]
+rep_sparse_out_df <- stats::aggregate(pearson ~ method + gene_set + sparsity,
+                                      data = rep_sparse_df,
+                                      FUN = stats::median)
+rep_sparse_wide_df <- stats::reshape(rep_sparse_out_df,
+                                     idvar = c("gene_set", "sparsity"),
+                                     timevar = "method", direction = "wide")
+colnames(rep_sparse_wide_df) <- sub("pearson\\.(.*)", "`\\1`",
+                                    colnames(rep_sparse_wide_df))
+rep_sparse_wide_df$sparsity <- factor(rep_sparse_wide_df$sparsity,
+                                      levels = sparsity_vec)
+rep_sparse_wide_df <- rep_sparse_wide_df[order(rep_sparse_wide_df$gene_set,
+                                               rep_sparse_wide_df$sparsity), ]
+colnames(rep_sparse_wide_df)[1:2] <- c("Genes", "Share of zeros")
+knitr::kable(rep_sparse_wide_df, row.names = FALSE, digits = 3,
+             caption = "Table 14. Median replicate correlation of the logFC by the gene's share of zeros (examples at `state = none` and `donor`; a bin needs at least 8 genes of the set in the example).")
+```
+
+**True DEGs replicate and null genes do not, as expected, for every
+rule.** For `donor_wls@esvd_nofloor` the median correlation between
+replicates is
+`r fmt(rep_median("donor_wls@esvd_nofloor", "deg"), 2)` over the true
+DEGs and `r fmt(rep_median("donor_wls@esvd_nofloor", "null"), 2)` over
+the null genes, whose logFC is centred at
+`r fmt(rep_median("donor_wls@esvd_nofloor", "null", col = "mean_lfc"), 3)`.
+The logFC that 1.2.0 stores (`stored`) replicates as well over the DEGs
+(`r fmt(rep_median("stored", "deg"), 2)`) but its null genes are centred
+at `r fmt(rep_median("stored", "null", col = "mean_lfc"), 2)`: the depth
+bias the empirical null's mean removes in the other rules.
+
+**The DEGs replicate better under the eSVD-library rules than under
+DESeq2** (`r fmt(rep_median("deseq2", "deg"), 2)`), and much better with
+cell-level confounders
+(`r fmt(rep_median("donor_wls@esvd_nofloor", "deg", confound = "cell"), 2)`
+against `r fmt(rep_median("deseq2", "deg", confound = "cell"), 2)`), where
+DESeq2's logFC is noisy.
+
+**A positive correlation among null genes is a detector of confounding
+left in.** The replicates share the genes' covariate coefficients, so
+whatever a rule fails to remove is the same in both. At `confound = cell`
+the null genes of `donor_wls` (floored library) correlate at
+`r fmt(rep_median("donor_wls", "null", confound = "cell"), 2)` and those of
+`donor_wls@esvd_nofloor` at
+`r fmt(rep_median("donor_wls@esvd_nofloor", "null", confound = "cell"), 2)`:
+the floor leaves the cell-level covariates in the sparse genes. At
+`confound = donor`, `raw_null`, which has no design, reaches
+`r fmt(rep_median("raw_null", "null", confound = "donor"), 2)`.
+
+**At `state = donor_arm` the "null" genes replicate under every rule but
+`state_adjusted`**
+(`r fmt(rep_median("donor_wls@esvd_nofloor", "null", bool_arm = TRUE), 2)`
+for `donor_wls@esvd_nofloor`,
+`r fmt(rep_median("state_adjusted", "null", bool_arm = TRUE), 2)` for
+`state_adjusted`). This is not an error: the arms differ in cell state in
+the population, so those genes have a real marginal effect, and it
+replicates. It is the fork between the two targets seen from the
+replicates' side.
+
+**Sparse DEGs replicate less** (Table 14): the correlation falls from
+about 0.9 under 50% zeros to about 0.6 over 95%, for every rule.
+
+::: {.takeaway}
+The picture Kevin expected holds for every rule: true DEGs fall on the
+diagonal between replicates and null genes form a centred cloud. The
+replicate correlation of null genes is zero only when the rule has removed
+the confounders, which makes it a diagnostic one could compute on real
+replicate cohorts; it is how the floored library's leftover confounding
+shows up without the truth.
+:::
+
+# Significant genes against the interval
+
+::: {.reuse}
+The first three banks, pooled over cohorts. Two tests call genes at FDR 5%:
+**eSVD-DE's test** (the p-value 1.2.0 computes from the posterior-based
+Welch statistic and the empirical null, with BH; the same calls for every
+rule) and **the rule's own Wald test** ($\widehat\beta_g / s_g$ against a
+standard normal, with BH; DESeq2's adjusted p-value for DESeq2). The
+interval is $\widehat\beta_g \pm 2 s_g$.
+:::
+
+```{r significance_table}
+sig_vec <- c("stored", "null_rescaled", "raw_null", "donor_wls",
+             "donor_wls@esvd_nofloor", "donor_wls@total_cov", "gap_trend",
+             "embed_prior", "state_adjusted", "deseq2")
+sig_out_df <- data.frame(
+  Method = paste0("`", sig_vec, "`"),
+  `Bank 1` = pct(sapply(sig_vec, sg, col = "esvd_excludes", bank = "bank1")),
+  `Bank 2` = pct(sapply(sig_vec, sg, col = "esvd_excludes", bank = "bank2")),
+  `Bank 3` = pct(sapply(sig_vec, sg, col = "esvd_excludes")),
+  `Bank 3, few` = pct(sapply(sig_vec, sg, col = "esvd_excludes",
+                             effects = "few")),
+  `Bank 3, many` = pct(sapply(sig_vec, sg, col = "esvd_excludes",
+                              effects = "many")),
+  `Interval covers the truth` = pct(sapply(sig_vec, sg,
+                                           col = "esvd_covers_truth")),
+  check.names = FALSE, stringsAsFactors = FALSE
+)
+knitr::kable(sig_out_df, row.names = FALSE,
+             caption = "Table 15. Of the genes eSVD-DE's test calls at FDR 5%, the share whose reported interval (logFC plus or minus 2 SE) leaves out zero, by rule; the last column is the share of those genes whose interval covers the true marginal logFC (bank 3).")
+```
+
+```{r own_table}
+own_out_df <- data.frame(
+  Test = c("eSVD-DE's test (1.2.0)", paste0("Wald test of `", sig_vec, "`")),
+  `Genes called per cohort` = c(
+    sg("stored", "num_esvd") / sg("stored", "num_cohorts"),
+    sapply(sig_vec, sg, col = "num_own") / sg("stored", "num_cohorts")
+  ),
+  `False discovery proportion` = pct(c(sg("stored", "esvd_fdp"),
+                                       sapply(sig_vec, sg, col = "own_fdp")),
+                                     1),
+  `FDP, few` = pct(c(sg("stored", "esvd_fdp", effects = "few"),
+                     sapply(sig_vec, sg, col = "own_fdp", effects = "few")),
+                   1),
+  `FDP, many` = pct(c(sg("stored", "esvd_fdp", effects = "many"),
+                      sapply(sig_vec, sg, col = "own_fdp", effects = "many")),
+                    1),
+  `Power` = pct(c(sg("stored", "esvd_power"),
+                  sapply(sig_vec, sg, col = "own_power")), 1),
+  `FDP, bank 2` = pct(c(sg("stored", "esvd_fdp", bank = "bank2"),
+                        sapply(sig_vec, sg, col = "own_fdp", bank = "bank2")),
+                      1),
+  `FDP, bank 1` = pct(c(sg("stored", "esvd_fdp", bank = "bank1"),
+                        sapply(sig_vec, sg, col = "own_fdp", bank = "bank1")),
+                      1),
+  check.names = FALSE, stringsAsFactors = FALSE
+)
+knitr::kable(own_out_df, row.names = FALSE, digits = 1,
+             caption = "Table 16. The calls of each test at a nominal FDR of 5%: genes called per cohort, false discovery proportion (a false discovery has a marginal truth of exactly zero) and power (over every gene with a nonzero marginal truth, the weak effects of `dense` and `donor_arm` included, hence the low values) on bank 3, pooled over cohorts; the false discovery proportion on the earlier banks.")
+```
+
+**What the question asks.** Of the genes eSVD-DE's test calls, the
+interval of the logFC that 1.2.0 stores leaves out zero for
+`r pct(sg("stored", "esvd_excludes"))` on bank 3
+(`r pct(sg("stored", "esvd_excludes", bank = "bank2"))` on the second,
+`r pct(sg("stored", "esvd_excludes", bank = "bank1"))` on the first). On
+the Velmeshev cohort the same number was 13%. For `donor_wls@esvd_nofloor`
+it is `r pct(sg("donor_wls@esvd_nofloor", "esvd_excludes"))` on bank
+3 and `r pct(sg("donor_wls@esvd_nofloor", "esvd_excludes", bank = "bank1"))`
+on the first. `null_rescaled` gives 100% by construction: its z-statistic
+is the test's.
+
+**A rule's own Wald test agrees with its interval by construction**: a
+gene called by BH at 5% has $|z| > 1.96$ at least, and on bank 3
+at least
+`r pct(min(sapply(setdiff(sig_vec, "deseq2"), sg, col = "own_excludes")), 1)`
+of the genes a rule calls have $|z| > 2$, for every rule. The disagreement in Table 15 is entirely between
+two analyses: the package's test, built on the posterior, and the reported
+pair, built on donor-level summaries.
+
+**Where the two disagree, the package's test is the less calibrated of
+the two.** Its false discovery proportion at a nominal 5%
+is `r pct(sg("stored", "esvd_fdp"))` over bank 3 and
+`r pct(sg("stored", "esvd_fdp", effects = "few"))` at `deg = few`
+(`r pct(sg("stored", "esvd_fdp", bank = "bank2"))` on the second bank,
+`r pct(sg("stored", "esvd_fdp", bank = "bank1"))` on the first). The Wald
+test of `donor_wls@esvd_nofloor` has
+`r pct(sg("donor_wls@esvd_nofloor", "own_fdp"), 1)`
+(`r pct(sg("donor_wls@esvd_nofloor", "own_fdp", effects = "few"), 1)` at
+`few`) with more power
+(`r pct(sg("donor_wls@esvd_nofloor", "own_power"), 1)` against
+`r pct(sg("stored", "esvd_power"), 1)`), and DESeq2
+`r pct(sg("deseq2", "own_fdp"), 1)`
+(`r pct(sg("deseq2", "own_fdp", effects = "few"), 1)` at `few`).
+
+::: {.takeaway}
+On the first bank the genes eSVD-DE calls and the `donor_wls` interval
+agree (99%). On the second and bank 3
+`r pct(1 - sg("donor_wls@esvd_nofloor", "esvd_excludes", bank = "bank2"))`
+and `r pct(1 - sg("donor_wls@esvd_nofloor", "esvd_excludes"))` of the
+called genes have an interval that covers zero, and there the package's
+test has three to four times its nominal false discovery proportion while
+the Wald test of the reported pair is near nominal. If the reported pair comes from
+`donor_wls`, the p-value should come from the same pair, or the two will
+keep contradicting each other in the output table.
+:::
+
+# The fourth bank
+
+::: {.generator}
+`lfcse-bank-4` holds `r num_examples4` examples in two blocks. As in bank
+3 an example is one population of 600 genes and two replicate cohorts
+drawn from it with new donors and new cells. Each cohort has about 10,000
+cells and is fitted end to end by eSVD2 1.2.0 **twice, at rank 5 and at
+rank 30** (`r 4 * num_examples4` fits), so that the rank is compared on
+identical data. The settings are those of the two real cohorts where the
+earlier banks differed from them:
+
+- gene intercepts uniform on $(-3.2, 1)$, the 5% to 95% range of the mean
+  count per cell of a Gabitto half (0.055 to 2.5);
+- four donor-level covariates (sex, APOE4, PMI, age) with per-gene effects
+  of SD 0.2, APOE4 carried by 12% of controls and 37% of cases; no
+  cell-level covariate and no depth error;
+- cells per donor log-normal with the spread of the Gabitto donors;
+- a Gamma rate log-uniform on $(0.15, 15)$, chosen by a pilot so that the
+  share of genes that end capped or at the boundary at rank 30 is near
+  the 17% of the Gabitto halves (Table 17 has the realized shares).
+
+**The first block** (`r num_first4` examples) crosses five factors in
+full, with a second population for every combination at 40 donors:
+
+1. `donors`: 40 (a Gabitto half), 80 (the Gabitto cohort) or 200 (a Green
+   half), at the same total number of cells, so 250, 125 or 50 cells per
+   donor on average.
+2. `balance`: half of the donors are controls, or a third of them (13 of
+   40).
+3. `deg`: `dense` (every gene has an effect, 90% with SD 0.08 on the
+   natural-log scale and 10% with SD 0.25, sized so that the true effects
+   have the SD of 0.11 that the covariance of the Gabitto halves implies)
+   or `half_null` (half of the genes exactly null, 40% with SD 0.1 and 10%
+   with SD 0.3), which is what lets a false discovery be counted.
+4. `state`: no donor-level cell state, or donor-level states of rank 3
+   that carry three quarters of the donor variance and do not differ
+   between the arms. The marginal and the direct truths coincide in every
+   example.
+5. `donor_sd`: 0.2 or 0.4 on the log scale.
+
+**The second block** (`r num_examples4 - num_first4` examples) holds what
+the Green study added, at 40 and at 200 donors with a third of them
+controls. At `tail = outlier` a tenth of the donors are outlying: 15% of
+an outlying donor's genes, and 0.5% of any other donor's, have their log
+expression lowered by 1 plus an exponential of mean 1. These numbers are
+measured on the Green cohort, where 2.3% of the log donor means of the
+well-expressed genes lie more than 3 MADs below the gene's median (0.8%
+in Gabitto, 0.1% under a Gaussian), by 2.1 on the natural-log scale on
+average, in a tenth of the donors. At `capped = high` the Gamma rate is
+on $(0.5, 50)$, for a capped share nearer the Green halves' 43%.
+:::
+
+```{r bank4_table}
+block_vec <- ifelse(bank4_df$tail == "outlier", "outlying donors",
+                    ifelse(bank4_df$capped == "high", "high capped share",
+                           "first block"))
+.mean_ab <- function(prefix, rank){
+  (bank4_df[[paste0(prefix, "_a_k", rank)]] +
+     bank4_df[[paste0(prefix, "_b_k", rank)]]) / 2
+}
+realized_df <- data.frame(
+  block = block_vec,
+  donors = bank4_df$donors,
+  examples = 1,
+  cells = .mean_ab("num_cells", 5),
+  zero = .mean_ab("frac_zero", 5),
+  capped_5 = .mean_ab("frac_capped", 5) + .mean_ab("frac_boundary", 5),
+  capped_30 = .mean_ab("frac_capped", 30) + .mean_ab("frac_boundary", 30),
+  minutes_5 = .mean_ab("fit_seconds", 5) / 60,
+  minutes_30 = .mean_ab("fit_seconds", 30) / 60
+)
+realized_out_df <- stats::aggregate(. ~ block + donors, data = realized_df,
+                                    FUN = mean)
+realized_out_df$examples <- stats::aggregate(examples ~ block + donors,
+                                             data = realized_df,
+                                             FUN = sum)$examples
+realized_out_df <- realized_out_df[order(match(realized_out_df$block,
+                                               c("first block",
+                                                 "outlying donors",
+                                                 "high capped share")),
+                                         realized_out_df$donors), ]
+realized_out_df$cells <- round(realized_out_df$cells)
+for(name in c("zero", "capped_5", "capped_30")){
+  realized_out_df[[name]] <- pct(realized_out_df[[name]])
+}
+colnames(realized_out_df) <- c("Block", "Donors", "Examples",
+                               "Cells per cohort", "Zero counts",
+                               "Capped or boundary, rank 5",
+                               "Capped or boundary, rank 30",
+                               "Minutes per fit, rank 5",
+                               "Minutes per fit, rank 30")
+knitr::kable(realized_out_df, row.names = FALSE, digits = 1,
+             caption = "Table 17. Realized values of the fourth bank, means over the examples of a row and their two replicate cohorts.")
+```
+
+```{r bank4_numbers}
+num_fail4 <- sum(bank4_df$status != "ok")
+depth_df <- bins4_df[bins4_df$bin_type == "depth" &
+                       bins4_df$method == "donor_wls", ]
+depth_share <- function(rank){
+  sub_df <- depth_df[depth_df$rank == rank, ]
+  sum(sub_df$num_genes[sub_df$bin == "depth_beyond"]) / sum(sub_df$num_genes)
+}
+```
+
+Every fit succeeded (`r num_fail4` failed examples). The same cohort has
+more capped genes at rank 30 than at rank 5 (Table 17), because a wider
+embedding leaves less variation for the nuisance rate to explain. A second
+consequence of the rank matters for the rules that read the library: at
+rank 30 the fitted coefficient of the log summed count is more than 1 away
+from 1 for `r pct(depth_share(30), 1)` of the genes
+(`r pct(depth_share(5), 1)` at rank 5), and for such a gene the unfloored
+library ranges over several orders of magnitude between cells. On the real
+halves the same coefficient lies between 0.3 and 1.5 (Gabitto) and between
+0.5 and 2.2 (Green), with 0.02% and 0.2% of the genes beyond that
+distance, so this behaviour of the bank at rank 30 is stronger than on the
+real cohorts. Section 12 separates its effect.
+
+::: {.takeaway}
+The fourth bank has what the two split-half reports listed: a fitted rank
+of 30 beside rank 5 on the same data, a third of the donors as controls,
+weak effects on every gene or on half of them with a capped share near
+Gabitto's, cohorts of 40, 80 and 200 donors, donors that are outliers on
+the log scale, and a capped share near Green's. Every example is a pair
+of replicate cohorts, so a rule can be scored against the truth and by
+the statistics a split of a real cohort gives.
+:::
+
+# Scores on the fourth bank
+
+::: {.reuse}
+The first block of `lfcse-bank-4` (`r num_first4` examples,
+`r 4 * num_first4` fitted cohorts). `raw` is run with the same libraries
+as `donor_wls`; no covariate varies within a donor, so there is no `_cov`
+variant and `@total` is the summed-count library with the donor-level
+design.
+:::
+
+```{r bank4_scores}
+level_df <- data.frame(
+  factor = c("rank", "rank", "shape", "shape"),
+  level = c("5", "30", "gabitto_like", "green_like"),
+  label = c("Rank 5", "Rank 30", "Gabitto-like", "Green-like"),
+  stringsAsFactors = FALSE
+)
+score4_df <- wide4(focus_vec, level_df)
+score4_df <- score4_df[order(score4_df[["Gabitto-like"]]), ]
+knitr::kable(score4_df, row.names = FALSE,
+             caption = "Table 18. Mean score against the truth (nats per gene, lower is better) on the first block of the fourth bank, ordered by the Gabitto-like cohorts: 40 or 80 donors, a third of them controls, fitted at rank 30. Green-like: 200 donors, a third of them controls, rank 30.")
+```
+
+```{r bank4_diagnostics}
+diag4_df <- data.frame(
+  Method = paste0("`", focus_vec, "`"),
+  RMSE = sapply(focus_vec, b4, col = "rmse", factor = "rank", level = "30"),
+  `Coverage of 95%` = sapply(focus_vec, b4, col = "coverage_95",
+                             factor = "rank", level = "30"),
+  slope_weak = sapply(focus_vec, b4, col = "slope_weak", factor = "rank",
+                      level = "30"),
+  slope_deg = sapply(focus_vec, b4, col = "slope_deg", factor = "rank",
+                     level = "30"),
+  se_strong = sapply(focus_vec, b4, col = "se_strong", factor = "rank",
+                     level = "30"),
+  `vs DESeq2 (SE)` = sapply(focus_vec, function(method){
+    paste0(fmt(b4(method, col = "vs_deseq2", factor = "rank", level = "30")),
+           " (", fmt(b4(method, col = "vs_deseq2_se", factor = "rank",
+                        level = "30")), ")")
+  }),
+  `Wins over DESeq2` = sapply(focus_vec, function(method){
+    pct(b4(method, col = "win_deseq2", factor = "rank", level = "30"))
+  }),
+  check.names = FALSE
+)
+knitr::kable(diag4_df, row.names = FALSE, digits = 3,
+             caption = "Table 19. Diagnostics at rank 30 on the first block. `slope_deg` is the slope of the logFC on the truth over the true DEGs (true log2 fold change of 0.25 or more), the gate on retained signal of section 16.")
+```
+
+```{r fig_bank4_rank, fig.width=9, fig.height=5, fig.cap="Figure 6. Mean score against the truth on the first block of the fourth bank at the two fitted ranks, with one standard error. The dashed line is DESeq2, which does not read the fit."}
+plot_df <- strata4_df[strata4_df$factor == "rank" &
+                        strata4_df$method %in% focus_vec, ]
+order_vec <- plot_df$method[plot_df$level == "30"]
+order_vec <- order_vec[order(-plot_df$score[plot_df$level == "30"])]
+plot_df$method <- factor(plot_df$method, levels = order_vec)
+plot_df$rank <- paste0("rank ", plot_df$level)
+plot1 <- ggplot2::ggplot(plot_df, ggplot2::aes(x = score, y = method,
+                                               color = rank))
+plot1 <- plot1 + ggplot2::geom_vline(xintercept = b4("deseq2"),
+                                     linetype = "dashed", color = "grey50")
+plot1 <- plot1 + ggplot2::geom_errorbarh(ggplot2::aes(xmin = score - score_se,
+                                                      xmax = score + score_se),
+                                         height = 0.2)
+plot1 <- plot1 + ggplot2::geom_point(size = 2.5)
+plot1 <- plot1 + ggplot2::scale_color_manual(values = c("rank 5" = "#1f77b4",
+                                                        "rank 30" = "#ff7f0e"),
+                                             name = "Fitted rank")
+plot1 <- plot1 + ggplot2::labs(x = "Score (nats per gene, lower is better)",
+                               y = NULL)
+plot1 <- plot1 + ggplot2::theme_bw()
+plot(plot1)
+```
+
+```{r bank4_pieces}
+p_wls_deseq2 <- paired4("donor_wls@esvd_nofloor", "deseq2")
+p_wls_raw <- paired4("donor_wls@esvd_nofloor", "raw@esvd_nofloor")
+p_wls_raw5 <- paired4("donor_wls@esvd_nofloor", "raw@esvd_nofloor",
+                      df = first4_df[first4_df$rank == 5, ])
+p_wls_raw30 <- paired4("donor_wls@esvd_nofloor", "raw@esvd_nofloor",
+                       df = first4_df[first4_df$rank == 30, ])
+p_wls_rawfloor <- paired4("donor_wls", "raw")
+p_floor_wls <- paired4("donor_wls@esvd_nofloor", "donor_wls")
+p_total_wls <- paired4("donor_wls@esvd_nofloor", "donor_wls@total")
+gb4 <- function(method, bin, rank, col = "rmse", bin_type = "depth"){
+  bool_vec <- bins4_df$method == method & bins4_df$bin == bin &
+    bins4_df$rank == rank & bins4_df$bin_type == bin_type
+  stopifnot(sum(bool_vec) == 1)
+  bins4_df[[col]][bool_vec]
+}
+```
+
+**The donor-level regression and pseudobulk DESeq2 are level on this
+bank, and both are ahead of every other rule that passes the gates.**
+`state_adjusted` heads the Gabitto-like column of Table 18 and fails both
+slope gates at rank 30 (below), so it is set aside here. Over the first
+block
+`donor_wls@esvd_nofloor` scores `r fmt(b4("donor_wls@esvd_nofloor"))` and
+`deseq2` `r fmt(b4("deseq2"))`, a paired difference of
+`r fmt(p_wls_deseq2$diff)` (SE `r fmt(p_wls_deseq2$se)`), where
+`donor_wls` led by 0.05 to 0.25 nats on banks 1 to 3. The bank has no
+confounder within donors, no depth error and twice to twenty times the
+cells of the earlier banks' cohorts, the setting in which section 6 found
+a donor-level analysis sufficient. The library changes `donor_wls` little
+here: the floor costs it `r fmt(-p_floor_wls$diff)` nats and the summed
+counts are within `r fmt(abs(p_total_wls$diff))` of the unfloored fitted
+library.
+
+**`raw` is behind `donor_wls` with every library.** With the floored
+fitted library, the form the loops ran, `raw` trails `donor_wls` by
+`r fmt(-p_wls_rawfloor$diff)` nats (SE `r fmt(p_wls_rawfloor$se)`), and
+its 95% interval covers the truth
+`r pct(b4("raw", col = "coverage_95"), 1)` of the time against
+`r pct(b4("donor_wls", col = "coverage_95"), 1)`: an unmoderated variance
+of 13 to 100 donors per arm with a normal reference is too small. With
+the summed counts `raw` has no adjustment for the donor-level covariates
+at all, since it has no design and the library is its only adjustment,
+and it scores `r fmt(b4("raw@total"))`. With the unfloored fitted library
+it trails by `r fmt(-p_wls_raw5$diff)` at rank 5 and by
+`r fmt(-p_wls_raw30$diff)` at rank 30, where its RMSE is
+`r fmt(b4("raw@esvd_nofloor", col = "rmse", factor = "rank", level = "30"), 2)`
+against
+`r fmt(b4("donor_wls@esvd_nofloor", col = "rmse", factor = "rank", level = "30"), 2)`.
+The loss at rank 30 comes from the genes whose fitted depth coefficient
+is far from 1 (section 11): `raw` averages each cell's count over its
+library, so a cell with a library of $10^{-4}$ and one count dominates a
+donor's mean, while `donor_wls` divides the donor's summed count by its
+summed library. Over the affected genes the RMSE of `raw@esvd_nofloor`
+at rank 30 is
+`r fmt(gb4("raw@esvd_nofloor", "depth_beyond", 30), 2)` against
+`r fmt(gb4("donor_wls@esvd_nofloor", "depth_beyond", 30), 2)`, and over
+the other genes
+`r fmt(gb4("raw@esvd_nofloor", "depth_within", 30), 2)` against
+`r fmt(gb4("donor_wls@esvd_nofloor", "depth_within", 30), 2)`, so the
+instability is not confined to the genes beyond the threshold of 1.
+
+**The gates.** `gap_trend` fails `se_strong` for the fourth time
+(`r fmt(b4("gap_trend", col = "se_strong", factor = "rank", level = "30"), 2)`).
+At rank 30 `state_adjusted` has a `slope_weak` of
+`r fmt(b4("state_adjusted", col = "slope_weak", factor = "rank", level = "30"), 2)`
+and a `slope_deg` of
+`r fmt(b4("state_adjusted", col = "slope_deg", factor = "rank", level = "30"), 2)`,
+where neither truth includes a state difference between the arms: it
+reports about a fifth of every effect. Its RMSE at rank 30
+(`r fmt(b4("state_adjusted", col = "rmse", factor = "rank", level = "30"), 2)`)
+is the lowest of Table 19 because most true effects of this bank are
+small against their sampling error, and a rule that shrinks every logFC
+towards zero is then closer to the truth on average, which is the reason
+the loops gated the slope. Section 13 takes the rank up. Every other
+rule has both slopes within 0.05 of 1.
+`stored` covers the truth
+`r pct(b4("stored", col = "coverage_95", factor = "rank", level = "30"), 1)`
+of the time, an SE far too large, and `null_rescaled`
+`r pct(b4("null_rescaled", col = "coverage_95", factor = "rank", level = "30"), 1)`.
+
+::: {.takeaway}
+On cohorts shaped like the two real ones, with donor-level covariates
+only, `donor_wls` and pseudobulk DESeq2 are equally accurate and the
+rest of the order is that of banks 1 to 3. `raw` is behind `donor_wls`
+whichever library it is handed: its SE is too small with few donors, it
+has no design for the covariates, and on the unfloored library it is
+unstable for the genes whose fitted depth coefficient is far from 1.
+:::
+
+# Rank near the donor count
+
+::: {.reuse}
+The first block of `lfcse-bank-4`: every cohort at rank 5 and at rank 30,
+by the number of donors.
+:::
+
+```{r bank4_rank_table}
+rank_method_vec <- c("stored", "raw@esvd_nofloor", "donor_wls@esvd_nofloor",
+                     "embed_prior@esvd_nofloor", "state_adjusted",
+                     "state_adjusted@esvd_nofloor", "deseq2")
+rank_level_df <- data.frame(
+  factor = "rank_donors",
+  level = c("k5_n40", "k30_n40", "k5_n80", "k30_n80", "k5_n200", "k30_n200"),
+  label = c("rank 5, 40 donors", "rank 30, 40 donors", "rank 5, 80 donors",
+            "rank 30, 80 donors", "rank 5, 200 donors", "rank 30, 200 donors"),
+  stringsAsFactors = FALSE
+)
+knitr::kable(wide4(rank_method_vec, rank_level_df, col = "slope_deg",
+                   digits = 2),
+             row.names = FALSE,
+             caption = "Table 20. `slope_deg`, the slope of the reported logFC on the truth over the true DEGs, by fitted rank and number of donors (first block). 1 means the true effects are reported at full size.")
+knitr::kable(wide4(rank_method_vec, rank_level_df, digits = 3),
+             row.names = FALSE,
+             caption = "Table 21. The score against the truth in the same strata.")
+```
+
+**At rank 30 `state_adjusted` reports a fifth to a quarter of the true
+effect, whatever the number of donors.** Its `slope_deg` is
+`r fmt(b4("state_adjusted", col = "slope_deg", factor = "rank_donors", level = "k30_n40"), 2)`,
+`r fmt(b4("state_adjusted", col = "slope_deg", factor = "rank_donors", level = "k30_n80"), 2)`
+and
+`r fmt(b4("state_adjusted", col = "slope_deg", factor = "rank_donors", level = "k30_n200"), 2)`
+at 40, 80 and 200 donors, against
+`r fmt(b4("state_adjusted", col = "slope_deg", factor = "rank", level = "5"), 2)`
+at rank 5 on the same cohorts (Table 20). The rule subtracts from each
+gene's arm coefficient its component along the fitted loadings, and with
+30 loadings over 600 genes that component is most of the coefficient,
+whether the cohort has 40 donors or 200. The Gabitto report had named
+the rank relative to the donor count; the Green halves (214 donors) and
+the 200-donor cohorts of this bank show that the rank alone is enough.
+The score against the truth sees the failure only where the effects are
+well measured: at rank 30 `state_adjusted` scores
+`r fmt(b4("state_adjusted", factor = "rank_donors", level = "k30_n200"))`
+against
+`r fmt(b4("donor_wls@esvd_nofloor", factor = "rank_donors", level = "k30_n200"))`
+for `donor_wls@esvd_nofloor` at 200 donors and
+`r fmt(b4("state_adjusted", factor = "rank_donors", level = "k30_n40"))`
+against
+`r fmt(b4("donor_wls@esvd_nofloor", factor = "rank_donors", level = "k30_n40"))`
+at 40 (Table 21), where shrinking every effect by four fifths costs less
+than the noise it removes. The slope gates see it at every donor count.
+
+**At rank 5 `state_adjusted` is the best rule of this bank and passes
+the gates.** It scores
+`r fmt(b4("state_adjusted", factor = "rank", level = "5"))` against
+`r fmt(b4("donor_wls@esvd_nofloor", factor = "rank", level = "5"))` for
+`donor_wls@esvd_nofloor`, with a `slope_weak` of
+`r fmt(b4("state_adjusted", col = "slope_weak", factor = "rank", level = "5"), 2)`,
+because half of the examples have donor-level cell states that a rank-5
+embedding recovers and the rule removes from the donor variance. This is
+what the second loop found on its own bank, also fitted at rank 5.
+
+**No other rule depends on the rank, except through the library.**
+`donor_wls@esvd_nofloor` scores
+`r fmt(b4("donor_wls@esvd_nofloor", factor = "rank", level = "5"))` at
+rank 5 and
+`r fmt(b4("donor_wls@esvd_nofloor", factor = "rank", level = "30"))` at
+rank 30, and `embed_prior`, which reads the embedding for its variance
+prior, is within 0.01 of it at both. `stored` moves by
+`r fmt(abs(b4("stored", factor = "rank", level = "5") - b4("stored", factor = "rank", level = "30")))`.
+`raw@esvd_nofloor` is the exception of section 12.
+
+::: {.takeaway}
+A bank factor for the fitted rank exposes `state_adjusted`: at the
+default rank of 30 it removes about four fifths of every true effect at
+40, 80 and 200 donors, which is what its two real-cohort failures look
+like. At rank 5 the same rule is valid and the most accurate of the
+bank, so its use depends on a second fit at a low rank, which no real
+cohort has yet been given. The donor-level rules do not read the
+embedding and do not move with the rank.
+:::
+
+# Few controls, unbalanced arms and the number of donors
+
+::: {.reuse}
+The first block of `lfcse-bank-4` at rank 30, by `balance` and `donors`.
+:::
+
+```{r bank4_balance}
+balance_method_vec <- c("stored", "null_rescaled", "raw", "raw@esvd_nofloor",
+                        "donor_wls@esvd_nofloor", "deseq2")
+balance_df <- first4_df[first4_df$rank == 30 &
+                          first4_df$method %in% balance_method_vec, ]
+balance_agg_df <- stats::aggregate(cbind(score, coverage_95) ~ method +
+                                     balance + donors, data = balance_df,
+                                   FUN = mean)
+balance_table <- function(col, digits){
+  out_df <- data.frame(Method = paste0("`", balance_method_vec, "`"),
+                       stringsAsFactors = FALSE)
+  for(donors in c(40, 80, 200)){
+    for(balance in c("half", "third")){
+      out_df[[paste0(donors, " donors, ", balance)]] <-
+        sapply(balance_method_vec, function(method){
+          round(balance_agg_df[[col]][balance_agg_df$method == method &
+                                        balance_agg_df$balance == balance &
+                                        balance_agg_df$donors == donors],
+                digits)
+        })
+    }
+  }
+  out_df
+}
+bal <- function(method, col, balance, donors){
+  balance_agg_df[[col]][balance_agg_df$method == method &
+                          balance_agg_df$balance == balance &
+                          balance_agg_df$donors == donors]
+}
+knitr::kable(balance_table("coverage_95", 3), row.names = FALSE,
+             caption = "Table 22. Coverage of the 95% interval at rank 30 by number of donors and share of controls (`half`, or a `third`).")
+knitr::kable(balance_table("score", 3), row.names = FALSE,
+             caption = "Table 23. The score against the truth in the same strata.")
+```
+
+**The interval of `donor_wls` keeps its coverage with 13 controls, and
+the interval of `raw` does not.** At 40 donors with a third of them
+controls `donor_wls@esvd_nofloor` covers the truth
+`r pct(bal("donor_wls@esvd_nofloor", "coverage_95", "third", 40), 1)` of
+the time and DESeq2
+`r pct(bal("deseq2", "coverage_95", "third", 40), 1)`, against
+`r pct(bal("raw", "coverage_95", "third", 40), 1)` for `raw` and
+`r pct(bal("raw@esvd_nofloor", "coverage_95", "third", 40), 1)` for
+`raw@esvd_nofloor` (Table 22). `raw` estimates each arm's variance from
+that arm's donors alone, 13 of them here, and refers the statistic to a
+normal; `donor_wls` pools the residual variance over both arms and
+moderates it across genes. At 200 donors the coverage of `raw` is
+`r pct(bal("raw", "coverage_95", "third", 200), 1)`.
+
+**Unbalanced arms cost `donor_wls` and DESeq2 the same precision.** From
+half to a third of the donors as controls the score of
+`donor_wls@esvd_nofloor` moves from
+`r fmt(bal("donor_wls@esvd_nofloor", "score", "half", 40))` to
+`r fmt(bal("donor_wls@esvd_nofloor", "score", "third", 40))` at 40 donors
+and DESeq2's from `r fmt(bal("deseq2", "score", "half", 40))` to
+`r fmt(bal("deseq2", "score", "third", 40))`, the loss of a contrast whose
+smaller arm has 13 donors in place of 20. The two stay within 0.02 nats
+of each other in all six columns of Table 23, ahead of the other four
+rules in each.
+
+::: {.takeaway}
+The split-half reports asked whether few controls break the moderation
+or the degrees of freedom of `donor_wls`. They do not: its coverage is
+within a point of nominal at 13 controls against 27 cases. The rule that
+few controls hurt is `raw`, whose interval is too short by a margin that
+shrinks as donors are added.
+:::
+
+# The calls of each rule's test
+
+::: {.reuse}
+The first block of `lfcse-bank-4` at rank 30. Each rule's own test is the
+Wald test of its pair, $z = \widehat\beta_g / s_g$ against the standard
+normal with BH at 5% over the cohort's genes, as in the split-half
+reports; DESeq2's is its adjusted p-value; the package's test is the
+posterior-based one of 1.2.0. A false discovery is a called gene whose
+true effect is exactly zero (`deg = half_null` only). A sign error is a
+called gene with a nonzero effect whose reported logFC has the wrong
+sign. A true DEG has a true log2 fold change of 0.25 or more.
+:::
+
+```{r bank4_calls}
+call_method_vec <- c("null_rescaled", "raw", "raw@esvd_nofloor", "raw_null",
+                     "donor_wls", "donor_wls@esvd_nofloor", "gap_trend",
+                     "state_adjusted", "deseq2")
+call_row <- function(label, method, test, factor = "rank", level = "30",
+                     status = "all"){
+  data.frame(
+    Test = label,
+    `Calls per cohort` = c4(method, "calls_per_cohort", test = test,
+                            status = status, factor = factor, level = level),
+    `False discovery proportion` = pct(c4(method, "fdp", test = test,
+                                          status = status, factor = factor,
+                                          level = level), 1),
+    `Sign errors` = pct(c4(method, "sign_error", test = test, status = status,
+                           factor = factor, level = level), 1),
+    `Null or wrong sign` = pct(c4(method, "wrong", test = test,
+                                  status = status, factor = factor,
+                                  level = level), 1),
+    `True DEGs called` = pct(c4(method, "power_deg", test = test,
+                                status = status, factor = factor,
+                                level = level)),
+    check.names = FALSE, stringsAsFactors = FALSE
+  )
+}
+calls_out_df <- rbind(
+  call_row("the package's test", "stored", "esvd"),
+  do.call(rbind, lapply(call_method_vec, function(method){
+    call_row(paste0("`", method, "`"), method, "own")
+  }))
+)
+knitr::kable(calls_out_df, row.names = FALSE, digits = 1,
+             caption = "Table 24. Calls at 5% FDR at rank 30 on the first block. The false discovery proportion is over the cohorts with exact nulls; the sign errors are a share of the calls with a nonzero truth, and their logFC is the `stored` one for the package's test.")
+```
+
+```{r bank4_calls_status}
+status_out_df <- do.call(rbind, lapply(c("estimated", "capped"),
+                                       function(status){
+  rbind(
+    cbind(Status = status, call_row("the package's test", "stored", "esvd",
+                                    status = status)),
+    cbind(Status = status,
+          call_row("`donor_wls@esvd_nofloor`", "donor_wls@esvd_nofloor",
+                   "own", status = status)),
+    cbind(Status = status,
+          call_row("`raw@esvd_nofloor`", "raw@esvd_nofloor", "own",
+                   status = status))
+  )
+}))
+knitr::kable(status_out_df, row.names = FALSE, digits = 1,
+             caption = "Table 25. The same by the gene's nuisance status at rank 30: rate estimated, or at the cap or the boundary.")
+```
+
+```{r bank4_calls_shape}
+shape_out_df <- do.call(rbind, lapply(c("gabitto_like", "green_like"),
+                                      function(shape){
+  label <- c(gabitto_like = "Gabitto-like", green_like = "Green-like")[[shape]]
+  rbind(
+    cbind(Cohorts = label, call_row("the package's test", "stored", "esvd",
+                                    factor = "shape", level = shape)),
+    cbind(Cohorts = label,
+          call_row("`donor_wls@esvd_nofloor`", "donor_wls@esvd_nofloor",
+                   "own", factor = "shape", level = shape)),
+    cbind(Cohorts = label,
+          call_row("`raw@esvd_nofloor`", "raw@esvd_nofloor", "own",
+                   factor = "shape", level = shape)),
+    cbind(Cohorts = label, call_row("`deseq2`", "deseq2", "own",
+                                    factor = "shape", level = shape))
+  )
+}))
+knitr::kable(shape_out_df, row.names = FALSE, digits = 1,
+             caption = "Table 26. The same for the Gabitto-like cohorts (40 or 80 donors, a third of them controls) and the Green-like ones (200 donors, a third of them controls), at rank 30.")
+```
+
+**The Wald test of `donor_wls` holds its false discovery proportion and
+the package's test does not.** At a nominal 5% the package's test has a
+false discovery proportion of
+`r pct(c4("stored", "fdp", test = "esvd", factor = "rank", level = "30"), 1)`
+on this bank (18% and 19% on banks 2 and 3), the Wald test of
+`donor_wls@esvd_nofloor`
+`r pct(c4("donor_wls@esvd_nofloor", "fdp", factor = "rank", level = "30"), 1)`
+and DESeq2
+`r pct(c4("deseq2", "fdp", factor = "rank", level = "30"), 1)`
+(Table 24). `donor_wls@esvd_nofloor` calls
+`r pct(c4("donor_wls@esvd_nofloor", "power_deg", factor = "rank", level = "30"))`
+of the true DEGs and the package's test
+`r pct(c4("stored", "power_deg", test = "esvd", factor = "rank", level = "30"))`,
+so the calibrated test gives up no power here. On the Gabitto-like
+cohorts the Wald test of `donor_wls@esvd_nofloor` has
+`r pct(c4("donor_wls@esvd_nofloor", "fdp", factor = "shape", level = "gabitto_like"), 1)`
+and calls
+`r pct(c4("donor_wls@esvd_nofloor", "power_deg", factor = "shape", level = "gabitto_like"))`
+of the true DEGs, DESeq2
+`r pct(c4("deseq2", "fdp", factor = "shape", level = "gabitto_like"), 1)`
+and `r pct(c4("deseq2", "power_deg", factor = "shape", level = "gabitto_like"))`,
+and the package's test
+`r pct(c4("stored", "fdp", test = "esvd", factor = "shape", level = "gabitto_like"), 1)`
+and
+`r pct(c4("stored", "power_deg", test = "esvd", factor = "shape", level = "gabitto_like"))`
+(Table 26). The Wald test of `raw@esvd_nofloor` has a false discovery
+proportion of
+`r pct(c4("raw@esvd_nofloor", "fdp", factor = "rank", level = "30"), 1)`
+and that of `raw`
+`r pct(c4("raw", "fdp", factor = "rank", level = "30"), 1)`, the
+consequence of the short interval of section 14.
+
+**Sign errors are under 5% for every test; false discoveries are what
+differs.** Of the calls with a nonzero truth, the reported sign is wrong
+for
+`r pct(c4("stored", "sign_error", test = "esvd", factor = "rank", level = "30"), 1)`
+of the package's calls and
+`r pct(c4("donor_wls@esvd_nofloor", "sign_error", factor = "rank", level = "30"), 1)`
+of `donor_wls@esvd_nofloor`'s. The split-half reports could only bound
+the null share of the package's calls from the sign agreement between
+the halves (at most 38% and 69% on Gabitto, 43% and 23% on Green); with a
+truth, the share of its calls that are null or of the wrong sign is
+`r pct(c4("stored", "wrong", test = "esvd", factor = "rank", level = "30"), 1)`
+over the bank and
+`r pct(c4("stored", "wrong", test = "esvd", factor = "shape", level = "gabitto_like"), 1)`
+on the Gabitto-like cohorts (Table 26).
+
+**Capped genes.** The package's false discoveries are
+`r pct(c4("stored", "fdp", test = "esvd", status = "capped", factor = "rank", level = "30"), 1)`
+of its calls on genes at the cap and
+`r pct(c4("stored", "fdp", test = "esvd", status = "estimated", factor = "rank", level = "30"), 1)`
+of its calls on the other genes (Table 25), and the Wald test of
+`donor_wls@esvd_nofloor` has
+`r pct(c4("donor_wls@esvd_nofloor", "fdp", status = "capped", factor = "rank", level = "30"), 1)`
+and
+`r pct(c4("donor_wls@esvd_nofloor", "fdp", status = "estimated", factor = "rank", level = "30"), 1)`.
+The nuisance status therefore does not mark the package's false
+discoveries on this bank, which agrees with the Green halves and not
+with the second split of Gabitto. The test that the cap does hurt is the
+Wald test of `raw@esvd_nofloor`, with
+`r pct(c4("raw@esvd_nofloor", "fdp", status = "capped", factor = "rank", level = "30"), 1)`
+false discoveries among its calls on capped genes, the genes whose
+unfloored library is unstable at rank 30.
+
+::: {.takeaway}
+With effects of the size the Gabitto halves imply and a capped share
+near theirs, the package's posterior-based test makes about three times
+its nominal share of false discoveries, as it did on banks 2 and 3, and
+the Wald test of `donor_wls@esvd_nofloor` stays within about a point of
+5% with as many true DEGs called. The Wald test of `raw` is
+anti-conservative with few donors. This is the evidence for taking the
+p-value from the reported pair when the pair is `donor_wls`.
+:::
+
+# What two halves of a real cohort can and cannot measure
+
+::: {.reuse}
+The first block of `lfcse-bank-4` at rank 30. The two replicate cohorts
+of an example stand in for the two halves of a real cohort, and every
+statistic of the split-half reports is computed between them beside the
+score against the truth.
+:::
+
+```{r bank4_replicates}
+rep_method_vec <- c("stored", "null_rescaled", "raw", "raw@esvd_nofloor",
+                    "raw_null", "donor_wls", "donor_wls@esvd_nofloor",
+                    "donor_wls@total", "gap_trend", "state_adjusted",
+                    "state_adjusted@esvd_nofloor", "deseq2")
+rep_col_vec <- c(score_truth = "Score against the truth",
+                 score_replicate = "Replicate score",
+                 score_cross = "Score against the other replicate's DESeq2",
+                 z_rms = "z_rms",
+                 pearson_deg = "Correlation, true DEGs",
+                 pearson_esvd = "Correlation, genes the package nominates",
+                 esvd_sign_rep = "Sign kept, the package's calls")
+rep_out_df <- data.frame(Method = paste0("`", rep_method_vec, "`"),
+                         stringsAsFactors = FALSE)
+for(col in names(rep_col_vec)){
+  rep_out_df[[rep_col_vec[[col]]]] <- sapply(rep_method_vec, r4, col = col,
+                                             factor = "rank", level = "30")
+}
+knitr::kable(rep_out_df, row.names = FALSE, digits = 2,
+             caption = "Table 27. Between the two replicate cohorts of each example at rank 30 (first block): the score against the truth, and the statistics a split of a real cohort gives. Means over examples.")
+```
+
+```{r bank4_replicate_rank}
+rep30_df <- repstrata4_df[repstrata4_df$factor == "rank" &
+                            repstrata4_df$level == "30" &
+                            repstrata4_df$method %in% focus_vec, ]
+rank_cor <- function(col, bool_drop_state = FALSE){
+  sub_df <- rep30_df
+  if(bool_drop_state) sub_df <- sub_df[!grepl("^state_adjusted",
+                                              sub_df$method), ]
+  stats::cor(sub_df$score_truth, sub_df[[col]], method = "spearman")
+}
+# The package's calls: the bound from the sign agreement against the
+# measured share of calls that are null or of the wrong sign.
+stored30_df <- rep4_df[rep4_df$method == "stored" & rep4_df$rank == 30 &
+                         rep4_df$tail == "gaussian" & rep4_df$capped == "low" &
+                         is.finite(rep4_df$esvd_sign_rep), ]
+bound_vec <- 2 * (1 - stored30_df$esvd_sign_rep)
+```
+
+**The replicate score ranks `state_adjusted` first on the bank as on the
+two real cohorts, and the truth puts it behind every donor-level rule.**
+At rank 30
+its replicate score is `r fmt(r4("state_adjusted", "score_replicate", factor = "rank", level = "30"), 2)`
+against `r fmt(r4("donor_wls@esvd_nofloor", "score_replicate", factor = "rank", level = "30"), 2)`
+for `donor_wls@esvd_nofloor`, and its score against the truth is
+`r fmt(r4("state_adjusted", "score_truth", factor = "rank", level = "30"), 2)`
+against
+`r fmt(r4("donor_wls@esvd_nofloor", "score_truth", factor = "rank", level = "30"), 2)`
+(Table 27). Over the `r nrow(rep30_df)` methods of the table and their
+variants, the rank correlation of the replicate score with the score
+against the truth is `r fmt(rank_cor("score_replicate"), 2)`, and
+`r fmt(rank_cor("score_replicate", bool_drop_state = TRUE), 2)` once the
+`state_adjusted` variants are set aside. The score against the other
+replicate's DESeq2 has a rank correlation of
+`r fmt(rank_cor("score_cross"), 2)` with the truth's order, with the
+`state_adjusted` variants included.
+
+**The correlation over the true DEGs is the statistic that catches the
+failure.** The two replicates of `state_adjusted` correlate at
+`r fmt(r4("state_adjusted", "pearson_deg", factor = "rank", level = "30"), 2)`
+over the true DEGs, where every rule that keeps the effect is above
+`r fmt(min(rep30_df$pearson_deg[!grepl("^state_adjusted", rep30_df$method) & rep30_df$method != "raw@esvd_nofloor" & rep30_df$method != "raw@total"]), 2)`
+(`raw@esvd_nofloor`
+`r fmt(r4("raw@esvd_nofloor", "pearson_deg", factor = "rank", level = "30"), 2)`,
+from the genes of section 12). On a real cohort the true DEGs are
+unknown and the genes a test nominates take their place: over the genes
+the package's test nominates the replicates of `state_adjusted`
+correlate at
+`r fmt(r4("state_adjusted", "pearson_esvd", factor = "rank", level = "30"), 2)`
+against
+`r fmt(r4("donor_wls@esvd_nofloor", "pearson_esvd", factor = "rank", level = "30"), 2)`
+for `donor_wls@esvd_nofloor`, the same separation as on Gabitto (0.0
+against 0.55 to 0.64) and Green (0.2 against 0.66).
+
+**The gate on retained signal.** A scorer with replicate cohorts can
+require that a rule's correlation over the true DEGs stay within a margin
+of a reference rule's, and a scorer with a truth that `slope_deg` stay in
+$[0.9, 1.1]$ beside `slope_weak`. At rank 30 `state_adjusted` fails both
+(`slope_deg`
+`r fmt(b4("state_adjusted", col = "slope_deg", factor = "rank", level = "30"), 2)`),
+and every other rule of Table 19 passes the second.
+
+**The bound from the sign agreement is loose.** Over the examples of the
+bank the package's calls keep their sign in the other replicate
+`r pct(mean(stored30_df$esvd_sign_rep))` of the time, which bounds their
+null share at `r pct(mean(bound_vec))` on average, and the measured share
+of calls that are null or of the wrong sign is
+`r pct(mean(stored30_df$esvd_wrong), 1)`, less than half the bound. In a
+single example the bound is an estimate from a few dozen calls, and the
+measured share was within it in
+`r pct(mean(stored30_df$esvd_wrong <= bound_vec + 1e-12))` of the
+examples. The sign agreement of 66% to 88% on the real halves is
+therefore compatible with a share of wrong calls near the bank's.
+
+::: {.takeaway}
+Of the statistics a split of a real cohort gives, the replicate score
+cannot be trusted alone, as both split-half reports found, and the score
+against an independent DESeq2 estimate together with the correlation over
+nominated genes reproduces the truth's order on the bank. A bank with
+replicate cohorts and a fitted rank of 30 would have stopped
+`state_adjusted` at the gate.
+:::
+
+# Outlying donors and a high capped share
+
+::: {.reuse}
+The second block of `lfcse-bank-4` (`r num_examples4 - num_first4`
+examples) at rank 30, beside the first block's examples with the same
+number of donors and a third of them controls (`matched`).
+:::
+
+```{r bank4_block}
+block_method_vec <- c("stored", "raw", "raw@esvd_nofloor", "raw@total",
+                      "donor_wls", "donor_wls@esvd_nofloor",
+                      "donor_wls@total", "deseq2")
+block_table <- function(level_vec, label_vec, col, source = "strata",
+                        digits = 3){
+  wide4(block_method_vec,
+        data.frame(factor = "block", level = level_vec, label = label_vec,
+                   stringsAsFactors = FALSE),
+        col = col, digits = digits, source = source)
+}
+outlier_level_vec <- c("matched_k30_n40", "outlier_k30_n40",
+                       "matched_k30_n200", "outlier_k30_n200")
+outlier_label_vec <- c("40 donors, Gaussian", "40 donors, outliers",
+                       "200 donors, Gaussian", "200 donors, outliers")
+knitr::kable(block_table(outlier_level_vec, outlier_label_vec, "score"),
+             row.names = FALSE,
+             caption = "Table 28. The score against the truth at rank 30 with Gaussian donor effects and with outlying donors.")
+knitr::kable(block_table(outlier_level_vec, outlier_label_vec, "rmse",
+                         digits = 3),
+             row.names = FALSE,
+             caption = "Table 29. The RMSE of the logFC (log2) in the same strata.")
+knitr::kable(block_table(outlier_level_vec, outlier_label_vec, "pearson_all",
+                         source = "replicate", digits = 2),
+             row.names = FALSE,
+             caption = "Table 30. The correlation of the logFC between the two replicate cohorts over all genes in the same strata, the statistic on which `donor_wls` fell behind `raw` on the Green halves.")
+```
+
+```{r bank4_block_pieces}
+out4 <- function(method, col, level, source = "strata"){
+  if(source == "strata") b4(method, col = col, factor = "block", level = level)
+  else r4(method, col = col, factor = "block", level = level)
+}
+```
+
+**Outlying donors at Green's rate cost `donor_wls` 0.11 to 0.14 nats and
+cost `raw` and DESeq2 little.** With outlying donors the score of
+`donor_wls@esvd_nofloor` goes from
+`r fmt(out4("donor_wls@esvd_nofloor", "score", "matched_k30_n40"))` to
+`r fmt(out4("donor_wls@esvd_nofloor", "score", "outlier_k30_n40"))` at 40
+donors and from
+`r fmt(out4("donor_wls@esvd_nofloor", "score", "matched_k30_n200"))` to
+`r fmt(out4("donor_wls@esvd_nofloor", "score", "outlier_k30_n200"))` at
+200; that of `raw` with the floored library goes from
+`r fmt(out4("raw", "score", "matched_k30_n40"))` to
+`r fmt(out4("raw", "score", "outlier_k30_n40"))` and from
+`r fmt(out4("raw", "score", "matched_k30_n200"))` to
+`r fmt(out4("raw", "score", "outlier_k30_n200"))`, and DESeq2's from
+`r fmt(out4("deseq2", "score", "matched_k30_n40"))` to
+`r fmt(out4("deseq2", "score", "outlier_k30_n40"))` and from
+`r fmt(out4("deseq2", "score", "matched_k30_n200"))` to
+`r fmt(out4("deseq2", "score", "outlier_k30_n200"))` (Table 28). The
+order of the Green halves is reproduced: with outlying donors DESeq2 is
+first, `raw` second and `donor_wls` third, where with Gaussian donors
+`donor_wls` and DESeq2 are level and `raw` is behind. At 40 donors the
+RMSE of `donor_wls@esvd_nofloor` rises from
+`r fmt(out4("donor_wls@esvd_nofloor", "rmse", "matched_k30_n40"))` to
+`r fmt(out4("donor_wls@esvd_nofloor", "rmse", "outlier_k30_n40"))` while
+that of `raw` stays at
+`r fmt(out4("raw", "rmse", "outlier_k30_n40"))` and DESeq2's at
+`r fmt(out4("deseq2", "rmse", "outlier_k30_n40"))` (Table 29), and its
+replicate correlation over all genes falls from
+`r fmt(out4("donor_wls@esvd_nofloor", "pearson_all", "matched_k30_n40", "replicate"), 2)`
+to
+`r fmt(out4("donor_wls@esvd_nofloor", "pearson_all", "outlier_k30_n40", "replicate"), 2)`,
+against
+`r fmt(out4("raw", "pearson_all", "outlier_k30_n40", "replicate"), 2)` for
+`raw` (Table 30). A donor at an eighth of the typical expression of a
+gene moves the mean of logarithms that `donor_wls` regresses on and
+barely moves the arithmetic mean of `raw` or the fitted mean of DESeq2's
+negative binomial.
+
+**What outlying donors do not break.** The interval of
+`donor_wls@esvd_nofloor` still covers the truth
+`r pct(out4("donor_wls@esvd_nofloor", "coverage_95", "outlier_k30_n40"), 1)`
+and
+`r pct(out4("donor_wls@esvd_nofloor", "coverage_95", "outlier_k30_n200"), 1)`
+of the time at 40 and 200 donors, and the false discovery proportion of
+its Wald test is
+`r pct(c4("donor_wls@esvd_nofloor", "fdp", factor = "block", level = "outlier_k30_n40"), 1)`
+and
+`r pct(c4("donor_wls@esvd_nofloor", "fdp", factor = "block", level = "outlier_k30_n200"), 1)`:
+the outliers enter its residual variance, so it loses precision and
+power and stays valid. `raw@esvd_nofloor` is the worst of the table, for
+the reason of section 12, which outlying donors aggravate.
+
+```{r bank4_capped}
+capped_level_vec <- c("matched_state_k30_n40", "capped_high_k30_n40",
+                      "matched_state_k30_n200", "capped_high_k30_n200")
+capped_label_vec <- c("40 donors, low", "40 donors, high",
+                      "200 donors, low", "200 donors, high")
+knitr::kable(block_table(capped_level_vec, capped_label_vec, "score"),
+             row.names = FALSE,
+             caption = "Table 31. The score against the truth at rank 30 with the lower and the higher capped share (`state = donor` in both).")
+```
+
+**A higher capped share does not reproduce the cost of the floor.** With
+the Gamma rate on $(0.5, 50)$, 44 to 48% of the genes are capped or at
+the boundary at rank 30 (Table 17), the share of the Green halves, and
+the floored library costs `donor_wls`
+`r fmt(out4("donor_wls", "score", "capped_high_k30_n200") - out4("donor_wls@esvd_nofloor", "score", "capped_high_k30_n200"))`
+nats at 200 donors and
+`r fmt(out4("donor_wls", "score", "capped_high_k30_n40") - out4("donor_wls@esvd_nofloor", "score", "capped_high_k30_n40"))`
+at 40 (Table 31), against
+`r fmt(out4("donor_wls", "score", "matched_state_k30_n200") - out4("donor_wls@esvd_nofloor", "score", "matched_state_k30_n200"))`
+and
+`r fmt(out4("donor_wls", "score", "matched_state_k30_n40") - out4("donor_wls@esvd_nofloor", "score", "matched_state_k30_n40"))`
+at the lower share: nothing, in either case. The Green halves lost 0.25
+and 0.40 nats to the floor, so the capped share is not what makes the
+floor costly there, and this block does not identify what does. Bank 3,
+whose genes reach 99% zeros, remains the bank that shows the cost of the
+floor (section 7.3). The order of the rules is unchanged by the capped
+share.
+
+::: {.takeaway}
+With outlying donors at the rate measured on Green, the bank reproduces
+the order of the Green halves: `donor_wls` falls behind `raw` and
+pseudobulk DESeq2 by 0.04 to 0.11 nats while keeping its coverage and
+its false discovery proportion. With Gaussian donors it does not fall
+behind `raw` at any number of donors, so the reversal on Green comes from the
+outlying donors and not from the number of donors or of cells. Section
+20 turns this into a check on the cohort.
+:::
+
+# Two real cohorts split in half
+
+::: {.reuse}
+No simulation. The Gabitto microglia (80 donors of about 500 nuclei, 27
+controls) and the Green microglia (428 donors of about 190 nuclei, 152
+controls) were each split twice into two donor-disjoint halves, each half
+was fitted by `eSVD2::eSVD_helper()` at rank 30, and every rule was
+compared between the halves
+(`2026-11-15_gabitto/2026-11-15_gabitto-split-half_claude.Rmd`,
+`2026-11-16_green/2026-11-16_green-split-half_claude.Rmd`). The replicate
+score is the score of this document with the other half in place of the
+truth, and `score_cross` scores a rule's pair against the other half's
+DESeq2 estimate.
+:::
+
+```{r real_table}
+real_method_vec <- c("stored", "null_rescaled", "raw", "raw@esvd_nofloor",
+                     "raw@total", "donor_wls", "donor_wls@esvd_nofloor",
+                     "donor_wls@total", "state_adjusted", "deseq2")
+real_col_vec <- c(all_score = "score", score_cross = "score_cross",
+                  all_z_rms = "z_rms", all_pearson = "corr_all",
+                  esvd_pearson = "corr_nominated", esvd_sign_rep = "sign_rep")
+real_out_df <- data.frame(Method = paste0("`", real_method_vec, "`"),
+                          stringsAsFactors = FALSE)
+for(col in names(real_col_vec)){
+  for(cohort in c("gabitto", "green")){
+    label <- paste0(real_col_vec[[col]], ", ",
+                    c(gabitto = "Gabitto", green = "Green")[[cohort]])
+    real_out_df[[label]] <- sapply(real_method_vec, function(method){
+      rl(cohort, method, col)
+    })
+  }
+}
+knitr::kable(real_out_df, row.names = FALSE, digits = 2,
+             caption = "Table 32. The two real cohorts, each number the mean of the cohort's two splits. `score` is the replicate score over all 5,256 genes and `score_cross` the score against the other half's DESeq2 (lower is better); `z_rms` is 1 when the SEs explain the disagreement between the halves; `corr_nominated` and `sign_rep` are over the genes the package's test nominates in at least one half.")
+```
+
+**What the two cohorts agree on.** `stored` has the worst score of the
+rules that keep a signal on both (`r fmt(rl("gabitto", "stored", "all_score"), 2)`
+and `r fmt(rl("green", "stored", "all_score"), 2)`), with an SE
+`r fmt(1 / rl("gabitto", "stored", "all_z_rms"), 1)` and
+`r fmt(1 / rl("green", "stored", "all_z_rms"), 1)` times too large.
+`state_adjusted` has the lowest replicate score on both and halves that
+correlate at `r fmt(rl("gabitto", "state_adjusted", "all_pearson"), 2)` and
+`r fmt(rl("green", "state_adjusted", "all_pearson"), 2)`, the failure
+sections 13 and 16 reproduce. Removing the posterior's floor from the
+library helps `donor_wls` on both, by
+`r fmt(rl("gabitto", "donor_wls", "all_score") - rl("gabitto", "donor_wls@esvd_nofloor", "all_score"), 2)`
+nats on Gabitto and
+`r fmt(rl("green", "donor_wls", "all_score") - rl("green", "donor_wls@esvd_nofloor", "all_score"), 2)`
+on Green.
+
+**Where they differ.** On Gabitto `donor_wls@esvd_nofloor` has the best
+replicate score and the best `score_cross` of the rules that keep a
+signal (`r rl_both("gabitto", "donor_wls@esvd_nofloor", "all_score")`
+in the two splits against
+`r rl_both("gabitto", "raw@esvd_nofloor", "all_score")` for
+`raw@esvd_nofloor` and `r rl_both("gabitto", "deseq2", "all_score")` for
+DESeq2). On Green `raw@esvd_nofloor` and DESeq2 are ahead of it
+(`r rl_both("green", "raw@esvd_nofloor", "all_score")` and
+`r rl_both("green", "deseq2", "all_score")` against
+`r rl_both("green", "donor_wls@esvd_nofloor", "all_score")`). Over the
+genes the package's test nominates, `donor_wls@esvd_nofloor` correlates
+between the halves at least as well as `raw@esvd_nofloor` on both cohorts
+(`r rl_both("gabitto", "donor_wls@esvd_nofloor", "esvd_pearson")` against
+`r rl_both("gabitto", "raw@esvd_nofloor", "esvd_pearson")` on Gabitto,
+`r rl_both("green", "donor_wls@esvd_nofloor", "esvd_pearson")` against
+`r rl_both("green", "raw@esvd_nofloor", "esvd_pearson")` on Green).
+
+**Why `donor_wls` trails on Green.** The Green report reran
+`donor_wls@total` from the donor pseudobulk with one step changed at a
+time. Over the genes with under 80% zeros its halves correlate at
+`r dg_both("as the rule", "zeros_below_80")` as the rule stands, at
+`r dg_both("as the rule, winsorized", "zeros_below_80")` when each gene's
+log donor means are first pulled to within 3 MADs of the gene's median,
+and at `r dg_both("no covariates, winsorized", "zeros_below_80")` when the
+donor-level covariates are also left out, where `raw` on the same donor
+sums has `r dg_both("raw (donor sums)", "zeros_below_80")`. On Gabitto
+the same three versions give
+`r dg_both("as the rule", "zeros_below_80", cohort = "gabitto")`,
+`r dg_both("as the rule, winsorized", "zeros_below_80", cohort = "gabitto")`
+and
+`r dg_both("no covariates, winsorized", "zeros_below_80", cohort = "gabitto")`.
+A few Green donors lie far from the others on the log scale for a gene,
+and a mean of logarithms over 214 donors of about 190 nuclei gives them a
+weight that an arithmetic mean does not.
+
+**Calibration.** The `z_rms` of `donor_wls@esvd_nofloor` is
+`r rl_both("gabitto", "donor_wls@esvd_nofloor", "all_z_rms")` on Gabitto
+(an SE about 15% too large) and
+`r rl_both("green", "donor_wls@esvd_nofloor", "all_z_rms")` on Green;
+that of `raw@esvd_nofloor` is
+`r rl_both("gabitto", "raw@esvd_nofloor", "all_z_rms")` and
+`r rl_both("green", "raw@esvd_nofloor", "all_z_rms")`. A split cannot see
+an SE that is too small for a reason both halves share, and section 14
+shows that the interval of `raw` is too short with 13 controls; the
+`z_rms` near 1 of `raw` on Gabitto is therefore not evidence that its
+interval is honest there.
+
+::: {.takeaway}
+The two real cohorts confirm the simulated order at its ends (`stored`
+and `state_adjusted` out; the unfloored library in) and divide on the
+two candidates: `donor_wls@esvd_nofloor` on the cohort of few donors
+with many nuclei, `raw@esvd_nofloor` on the cohort of many donors with
+few, for a reason that is identified.
+:::
+
+# `raw` against `donor_wls`
+
+::: {.reuse}
+Everything above, restricted to the two candidates for the reported
+pair, on one library at a time: the floored fitted library on banks 1 to
+3 (the only one `raw` was run with there) and the unfloored fitted
+library on the fourth bank and the real cohorts.
+:::
+
+```{r scorecard}
+card_row <- function(source, weight, raw_val, wls_val, diff_text, win_text,
+                     raw_cover, wls_cover, raw_fdp, wls_fdp, floor_val,
+                     deseq2_val){
+  data.frame(Evidence = source, Weight = weight,
+             `raw` = raw_val, `donor_wls` = wls_val,
+             `donor_wls minus raw (SE)` = diff_text,
+             `donor_wls better` = win_text,
+             `Coverage, raw` = raw_cover, `Coverage, donor_wls` = wls_cover,
+             `FDP, raw` = raw_fdp, `FDP, donor_wls` = wls_fdp,
+             `raw, floored library` = floor_val, `deseq2` = deseq2_val,
+             check.names = FALSE, stringsAsFactors = FALSE)
+}
+bank_card <- function(bank, label){
+  p <- paired("donor_wls", "raw", bank = bank)
+  card_row(label, "background", fmt(st("raw", bank = bank)),
+           fmt(st("donor_wls", bank = bank)),
+           paste0(fmt(p$diff), " (", fmt(p$se), ")"), pct(p$win),
+           pct(st("raw", bank = bank, col = "coverage_95"), 1),
+           pct(st("donor_wls", bank = bank, col = "coverage_95"), 1),
+           pct(sg("raw", "own_fdp", bank = bank), 1),
+           pct(sg("donor_wls", "own_fdp", bank = bank), 1),
+           fmt(st("raw", bank = bank)), fmt(st("deseq2", bank = bank)))
+}
+bank4_card <- function(df, label, weight, factor, level){
+  p <- paired4(pair_vec[2], pair_vec[1], df = df)
+  card_row(label, weight, fmt(mean(df$score[df$method == pair_vec[1]])),
+           fmt(mean(df$score[df$method == pair_vec[2]])),
+           paste0(fmt(p$diff), " (", fmt(p$se), ")"), pct(p$win),
+           pct(mean(df$coverage_95[df$method == pair_vec[1]]), 1),
+           pct(mean(df$coverage_95[df$method == pair_vec[2]]), 1),
+           pct(c4(pair_vec[1], "fdp", factor = factor, level = level), 1),
+           pct(c4(pair_vec[2], "fdp", factor = factor, level = level), 1),
+           fmt(mean(df$score[df$method == "raw"])),
+           fmt(mean(df$score[df$method == "deseq2"])))
+}
+real_card <- function(cohort, label, weight){
+  diff_vec <- real_df$all_score[real_df$cohort == cohort &
+                                  real_df$method == pair_vec[2]] -
+    real_df$all_score[real_df$cohort == cohort & real_df$method == pair_vec[1]]
+  card_row(label, weight, fmt(rl(cohort, pair_vec[1], "all_score")),
+           fmt(rl(cohort, pair_vec[2], "all_score")),
+           paste0(fmt(diff_vec[1]), " and ", fmt(diff_vec[2])),
+           paste0(sum(diff_vec < 0), " of 2 splits"), "", "", "", "",
+           fmt(rl(cohort, "raw", "all_score")),
+           fmt(rl(cohort, "deseq2", "all_score")))
+}
+rank30_df <- cohort4_df[cohort4_df$rank == 30, ]
+gabitto_like_df <- rank30_df[rank30_df$shape == "gabitto_like", ]
+outlier40_df <- rank30_df[rank30_df$tail == "outlier" &
+                            rank30_df$donors == 40, ]
+outlier200_df <- rank30_df[rank30_df$tail == "outlier" &
+                             rank30_df$donors == 200, ]
+card_df <- rbind(
+  real_card("gabitto", "Gabitto halves (real; replicate score)", "high"),
+  bank4_card(gabitto_like_df, "Bank 4, Gabitto-like, rank 30", "high",
+             "shape", "gabitto_like"),
+  real_card("green", "Green halves (real; replicate score)", "medium"),
+  bank4_card(rank30_df[rank30_df$shape == "green_like", ],
+             "Bank 4, Green-like, rank 30", "medium", "shape", "green_like"),
+  bank4_card(outlier40_df, "Bank 4, 40 donors with outliers, rank 30",
+             "medium", "block", "outlier_k30_n40"),
+  bank4_card(outlier200_df, "Bank 4, 200 donors with outliers, rank 30",
+             "medium", "block", "outlier_k30_n200"),
+  bank4_card(first4_df[first4_df$rank == 5, ],
+             "Bank 4, first block, rank 5", "background", "rank", "5"),
+  bank_card("bank3", "Bank 3 (floored library)"),
+  bank_card("bank2", "Bank 2 (floored library)"),
+  bank_card("bank1", "Bank 1 (floored library)")
+)
+knitr::kable(card_df, row.names = FALSE,
+             caption = "Table 33. The two candidates on every source of evidence, each on the unfloored fitted library where it was run with it (the real cohorts and bank 4) and on the floored one otherwise. Scores are against the truth on the banks and the replicate score on the real cohorts (nats per gene, lower is better); the difference is paired within cohorts, and `donor_wls better` is the share of cohorts in which it has the lower score. Coverage is of the 95% interval; FDP is the false discovery proportion of the rule's own Wald test at a nominal 5%, where the stratum has exact nulls. The last two columns are the scores of `raw` with the floored library and of pseudobulk DESeq2. The weight is the one the recommendation gives the row.")
+```
+
+```{r outlier_share}
+# The share of log donor means more than 3 MADs below the gene's median,
+# over the genes with under 80% zeros, on the two real cohorts.
+outlying_df <- rbind(
+  utils::read.csv(file.path("2026-11-16_green", "csv",
+                            "outlying_donors_gabitto.csv")),
+  utils::read.csv(file.path("2026-11-16_green", "csv",
+                            "outlying_donors_green.csv"))
+)
+outlier_share_vec <- stats::setNames(outlying_df$share_below_3,
+                                     outlying_df$cohort)
+```
+
+The rows of Table 33 are weighted as Kevin's note asks, towards the data
+sets that resemble Gabitto. The Gabitto halves and the bank's cohorts of
+40 or 80 donors with a third of them controls at the default rank carry
+the decision. The Green halves, the bank's 200-donor cohorts and its
+cohorts with outlying donors qualify it: the outlying donors are drawn
+at the rate measured on Green
+(`r pct(outlier_share_vec[["green"]], 1)` of the log donor means of the
+well-expressed genes more than 3 MADs below the gene's median, against
+`r pct(outlier_share_vec[["gabitto"]], 1)` on Gabitto), so those rows
+describe Green's condition at either number of donors. Banks 1 to 3 and
+rank 5 are background.
+
+**On the rows of high weight `donor_wls` is ahead on every count.** It
+has the lower replicate score in both splits of Gabitto (level in the
+first, 0.06 nats ahead in the second), the lower score against the truth
+in `r pct(paired4(pair_vec[2], pair_vec[1], df = gabitto_like_df)$win)`
+of the Gabitto-like cohorts of the bank, a coverage of
+`r pct(mean(gabitto_like_df$coverage_95[gabitto_like_df$method == pair_vec[2]]), 1)`
+against
+`r pct(mean(gabitto_like_df$coverage_95[gabitto_like_df$method == pair_vec[1]]), 1)`,
+and a false discovery proportion of
+`r pct(c4(pair_vec[2], "fdp", factor = "shape", level = "gabitto_like"), 1)`
+against
+`r pct(c4(pair_vec[1], "fdp", factor = "shape", level = "gabitto_like"), 1)`
+for its own test. Against `raw` with the floored library, the form in
+which `raw` is stable on the bank, `donor_wls@esvd_nofloor` leads by
+`r fmt(-paired4(pair_vec[2], "raw", df = gabitto_like_df)$diff)` nats
+(SE `r fmt(paired4(pair_vec[2], "raw", df = gabitto_like_df)$se)`) on
+the Gabitto-like cohorts.
+
+**On the rows of medium weight `raw` or DESeq2 is ahead wherever donors
+are outlying.** `raw@esvd_nofloor` has the lower replicate score in both
+splits of Green, by 0.03 and 0.07 nats. On the bank's cohorts with
+outlying donors `donor_wls@esvd_nofloor` is behind `raw` with the floored
+library by
+`r fmt(paired4(pair_vec[2], "raw", df = outlier40_df)$diff)` nats at 40
+donors and
+`r fmt(paired4(pair_vec[2], "raw", df = outlier200_df)$diff)` at 200, and
+behind DESeq2 by
+`r fmt(paired4(pair_vec[2], "deseq2", df = outlier40_df)$diff)` and
+`r fmt(paired4(pair_vec[2], "deseq2", df = outlier200_df)$diff)`
+(section 17). It stays ahead of `raw@esvd_nofloor` on the bank in these
+rows only because `raw` is unstable on the unfloored library at rank 30
+there, which the real fits do not show (section 11). Without outlying
+donors `donor_wls` is ahead of `raw` at 200 donors as at 40, and level
+with DESeq2.
+
+**On the background rows `donor_wls` is ahead throughout**, by
+`r fmt(-paired("donor_wls", "raw", bank = "bank1")$diff)`,
+`r fmt(-paired("donor_wls", "raw", bank = "bank2")$diff)` and
+`r fmt(-paired("donor_wls", "raw", bank = "bank3")$diff)` nats on banks 1
+to 3.
+
+::: {.takeaway}
+Weighted towards cohorts like Gabitto, the choice between the two
+candidates is `donor_wls`: more accurate there, with an interval and a
+test that hold their level at 13 controls. Its one weakness is
+identified and measurable before any fit: donors that are outliers on
+the log scale, 2.3% of donor-gene pairs on Green against 0.8% on
+Gabitto, under which `raw` and pseudobulk DESeq2 are the more accurate
+by 0.03 to 0.11 nats and `donor_wls` remains valid.
+:::
+
+# Recommendation
+
+**Report the log2 fold change and its SE from `donor_wls`, reading the
+fitted library before the posterior's floor (`donor_wls@esvd_nofloor`).**
+This is the recommendation of the first version of this document and of
+the Gabitto report, and it stands after the fourth bank and the two real
+cohorts. Kevin's note of 2026-11-16 allows either `raw` or `donor_wls`
+as the final method and asks that the choice be weighted towards data
+sets like Gabitto. Each item below is marked as a consequence of the
+evidence or as a choice.
+
+- **`donor_wls` over `raw`** (a consequence, Table 33). On the Gabitto
+  halves and on the bank's Gabitto-like cohorts it is the more accurate,
+  its 95% interval covers at the nominal level with 13 controls where
+  that of `raw` does not, and its Wald test keeps a false discovery
+  proportion near 5% where that of `raw` exceeds it.
+- **The unfloored fitted library** (a consequence, sections 7.3 and 18).
+  The floor costs `donor_wls` 0.03 nats on Gabitto and 0.3 on Green.
+  `donor_wls` reads the library through sums per donor and is stable on
+  the unfloored one; `raw` is not, for the genes whose fitted depth
+  coefficient is far from 1 (section 12). On a cohort whose covariates
+  are all at the donor level the summed counts serve `donor_wls` as well
+  (sections 7 and 12); the fitted library is kept because it is the
+  better one when a covariate varies within donors (section 6).
+- **The p-value from the same pair** (a consequence for the false
+  discovery proportion, a choice for the package). The package's
+  posterior-based test has three to four times its nominal false
+  discovery proportion on banks 2, 3 and 4, and the Wald test of
+  `donor_wls@esvd_nofloor` is near nominal on all four.
+- **A check for outlying donors before the rule is trusted** (a
+  consequence of the Green halves and of the bank's second block,
+  sections 17 and 18; the threshold is a choice). On Green
+  `donor_wls@esvd_nofloor` is 0.03 to 0.07 nats behind `raw@esvd_nofloor`
+  and pseudobulk DESeq2, and on the bank's cohorts with outlying donors
+  0.04 to 0.11 behind `raw` and DESeq2, because a mean of logarithms is
+  moved by donors far below the others. The check needs no fit: the
+  share of log donor means, over the genes with under 80% zeros, that
+  lie more than 3 MADs below the gene's median. It is 0.8% on Gabitto,
+  where `donor_wls` leads, and 2.3% on Green, where it trails; a share
+  above about 1.5% is the proposed trigger for the replacement of step
+  7.
+- **Not `state_adjusted` at the default rank** (a consequence, sections
+  13, 16 and 18). At rank 30 it removes about four fifths of every true
+  effect in simulation and has no signal that replicates on either real
+  cohort. At rank 5 it passes the gates and is the most accurate rule of
+  the fourth bank, so the first version's statement that it is the rule
+  for the effect at fixed cell state holds for a fit at a low rank only,
+  and a real cohort fitted at a low rank is the experiment that would
+  show whether it applies in practice.
+- **Not `stored` as the reported SE** (a consequence, measured on four
+  banks and two real cohorts), and not `gap_trend` (it fails `se_strong`
+  on every bank).
+
+::: {.recipe}
+1. Fit eSVD-DE as now (`eSVD2::eSVD_helper()` or `eSVD()`), with every
+   covariate in the design, cell-level ones included.
+2. Rebuild the counts and the covariates of the fit and form the library
+   $\ell_{cg} = \exp(z_g^\top C_c)$ over every covariate but the arm,
+   **without** the floor at 0.1.
+3. Run `donor_wls` (`autoresearch_lfcse/notes/RULE_nov11_claude.R`) on
+   the counts, the design, the donor labels and that library. It returns
+   the log2 fold change and its SE per gene: report this pair.
+4. Report beside the pair the Wald z and its BH-adjusted p-value from the
+   same pair. A gene called by the package's test and not by this one is
+   a provisional call.
+5. Before reading the pair, compute from the donor pseudobulk the share
+   of log donor means, over the genes with under 80% zeros, that lie
+   more than 3 MADs below the gene's median (0.8% on Gabitto, 2.3% on
+   Green).
+6. Flag genes with over 95% zero counts: their fold change is attenuated
+   by about 13% (section 8).
+7. Replacement: if the share of step 5 is above about 1.5%, or if on a
+   split of the donors the halves of `donor_wls@esvd_nofloor` correlate
+   worse over the genes with under 80% zeros than those of
+   `raw@esvd_nofloor` (as on the Green halves), report the fold change
+   and SE from `raw@esvd_nofloor`, after confirming that the fitted
+   coefficient of the log summed count lies within 1 of 1 for the
+   reported genes, and keep the Wald test of `donor_wls@esvd_nofloor`
+   for the calls, which stays valid under outlying donors. A replicate
+   score is never used alone to choose between rules (section 16).
+:::
+
+Whether step 4 replaces the package's posterior-based test, and whether
+`compute_log_fold_change()` should compute `donor_wls@esvd_nofloor`, are
+Kevin's decisions.
+
+**What a next rule should try.** The evidence here does not propose a
+rule, as Kevin asked for none, and it points at two. The first is
+`donor_wls` with each gene's log donor means winsorized, which on the
+Green halves replicates better than both candidates and on the Gabitto
+halves changes nothing (section 18); the fourth bank's second block is
+the place to score it. The second is `state_adjusted` on a second fit at
+a low rank (section 13). The gates of section 16 are the ones a next
+loop should add.
+
+# What we glossed over
+
+- **The banks are simulated from the eSVD model.** The fitted library's
+  advantage at `confound = cell` assumes the covariates act
+  log-linearly with one coefficient per gene, which is the model the fit
+  assumes.
+- **Rank 30 on 600 genes is a wider embedding, relative to the genes,
+  than rank 30 on the 5,256 genes of the real cohorts.** The bank's
+  rank-30 fits have depth coefficients far from 1 for a share of genes
+  that the real fits do not have (section 11), so the instability of
+  `raw@esvd_nofloor` at rank 30 is overstated by the bank; its coverage
+  and its false discovery proportion with few donors do not depend on
+  that.
+- **The fourth bank has no cell-level covariate, no depth error and no
+  state difference between the arms**, all of which bank 3 has. On it
+  `donor_wls` and DESeq2 are level; the margin of `donor_wls` over DESeq2
+  on banks 1 to 3 comes from settings the fourth bank leaves out.
+- **The outlying donors of the second block are one mechanism**
+  (expression lowered about eightfold for 15% of the genes of a tenth of
+  the donors), with its rate and size measured on Green. On Green the
+  outlying donors are the donors of low depth per nucleus (correlation
+  -0.62 between a donor's share of outlying genes and its log depth),
+  which the bank does not model; why they are outlying was not examined.
+  A first version of the block with milder outliers (16 examples, ids
+  `ex_0065` to `ex_0080`) did not move any rule and is no longer in the
+  design; its files are still in the bank folder.
+- **The threshold of 1.5% in step 7** lies between two cohorts and is
+  not estimated from more than those two.
+- **The higher capped share did not reproduce the cost of the floor**
+  that Green shows (section 17); the bank's genes are not sparse enough
+  for the floor to act.
+- **Two splits of each real cohort**, which share all donors, are two
+  looks at one data set. Differences under 0.03 nats or 0.05 in a
+  correlation are within their variation.
+- **A split cannot see a bias or an SE error that both halves share.**
+  The banks are the evidence on those.
+- **Each rule's own test uses a normal reference.** `donor_wls` has a
+  moderated $t$ reference that would call slightly fewer genes with few
+  donors.
+- **DESeq2 is run one way**: pseudobulk by donor, default `DESeq()` and
+  `results()`. No shrunken fold change, no cell-level model, no
+  limma-voom or dreamlet.
+- **The half count of `donor_wls`** attenuates the sparsest genes
+  (section 8). Changing it would be a new rule and was not tried.
+- **Winsorized log donor means are a diagnostic here**, computed with
+  the summed-count library on two cohorts. They were not run on any bank
+  and are not a proposed rule.
+- **The first bank's cohort pairs** have different true effects by
+  design, so only banks 3 and 4 supply replicates.
+- **The intermediate commits of the loops** (38 and 19 experiments) were
+  not rerun; only the reference rows and the kept rules were.
+- **The floor exists for the posterior**, where a tiny library makes the
+  Gamma-Poisson update unstable. This document shows only that the
+  reporting rule should not inherit it.
+
+# Files
+
+Run from the repository root, in order within a folder.
+
+| File | What it does |
+|---|---|
+| `2026-11-12_beyond-score/generator_claude.R`, `01_build-bank_claude.R` | the bank `lfcse-bank-3` (52 minutes on 5 cores, 427 MB) |
+| `2026-11-12_beyond-score/02_apply-rules_claude.R <bank1\|bank2\|bank3>` | every rule, library variant and DESeq2 on every cohort of banks 1 to 3; per-gene results under `<LFCSE_BANK root>/lfcse-beyond-score/` |
+| `2026-11-12_beyond-score/03_summarize_claude.R` | scores them and writes `2026-11-12_beyond-score/csv/` (sections 3 to 10) |
+| `2026-11-12_beyond-score/csv/strata.csv`, `gene_bins.csv`, `sparsity_by_confound.csv`, `library.csv`, `significance.csv`, `replicates.csv.gz`, `replicate_genes.csv.gz`, `cohort_scores.csv.gz`, `bank3_cohorts.csv`, `bank_genes.csv`, `failures.csv` | the tables of sections 3 to 10, described in the first version of this document |
+| `2026-11-16_beyond-score/generator_claude.R` | the bank `lfcse-bank-4`: design, population, cohort, one example (sourced after `autoresearch_lfcse2/harness/generator_claude.R`) |
+| `2026-11-16_beyond-score/01_build-bank_claude.R` | builds the bank under `LFCSE_BANK` (`r num_examples4` examples, `r 4 * num_examples4` fits) |
+| `2026-11-16_beyond-score/02_apply-rules_claude.R` | every rule, library variant and DESeq2 on every fitted cohort of bank 4; per-gene results under `<LFCSE_BANK root>/lfcse-beyond-score/bank4/` |
+| `2026-11-16_beyond-score/03_summarize_claude.R` | scores them and writes `2026-11-16_beyond-score/csv/` (sections 11 to 17) |
+| `2026-11-16_beyond-score/csv/bank4_strata.csv` | one row per method and stratum: score against the truth, diagnostics, head-to-head with DESeq2 |
+| `2026-11-16_beyond-score/csv/bank4_calls.csv` | one row per method, test, nuisance status and stratum: calls, false discovery proportion, sign errors, true DEGs called |
+| `2026-11-16_beyond-score/csv/bank4_replicates.csv`, `bank4_replicate_strata.csv` | one row per example, rank and method (and their means per stratum): the split-half statistics between the two replicate cohorts beside the score against the truth |
+| `2026-11-16_beyond-score/csv/bank4_gene_bins.csv` | one row per method, rank and gene bin (sparsity, nuisance status, depth coefficient) |
+| `2026-11-16_beyond-score/csv/bank4_cohort_scores.csv.gz`, `bank4_cohorts.csv`, `bank4_failures.csv` | one row per fitted cohort and method; realized values of the bank; non-finite returns |
+| `2026-11-15_gabitto/`, `2026-11-16_green/` | the two split-half studies, each with its numbered scripts, `csv/` and report (section 18 reads `csv/summary.csv`, `csv/fits.csv` and `2026-11-16_green/csv/donor_wls_diagnosis_*.csv`) |
+
+# References
+
+- Kevin's notes: `additional_context/2026-11-12_autoresearch_additional-exploration-beyond-score.txt`, `2026-11-15_autoresearch-gabitto-replicate.txt`, `2026-11-16_autoresearch-green-replicate.txt`.
+- The first version of this document: `additional_context/2026-11-12_autoresearch_beyond-score_claude.Rmd` / `.html` (sections 2 to 10 are carried over from it).
+- The split-half reports: `additional_context/2026-11-15_gabitto/2026-11-15_gabitto-split-half_claude.Rmd`, `additional_context/2026-11-16_green/2026-11-16_green-split-half_claude.Rmd`.
+- First loop: `autoresearch_lfcse/notes/RUN_nov11_claude.md`, `MEMO_claude.md`, `BANK.md`; rule `notes/RULE_nov11_claude.R`.
+- Second loop: `autoresearch_lfcse2/notes/RUN_nov11_claude.md`, `MEMO_claude.md`, `BANK.md`; rules `notes/RULE_nov11_direct_claude.R`, `notes/RULE_nov11_marginal_claude.R`.
+- Lin, Qiu and Roeder (2024), eSVD-DE, *BMC Bioinformatics* 25:113, doi:10.1186/s12859-024-05724-7.
+- Love, Huber and Anders (2014), DESeq2, *Genome Biology* 15:550, doi:10.1186/s13059-014-0550-8.
+- Smyth (2004), variance moderation, *Statistical Applications in Genetics and Molecular Biology* 3:3, doi:10.2202/1544-6115.1027.
+- Robinson and Oshlack (2010), TMM, *Genome Biology* 11:R25, doi:10.1186/gb-2010-11-3-r25.
+- Gabitto et al. (2024), *Integrated multimodal cell atlas of Alzheimer's disease*, Nature Neuroscience, doi:10.1038/s41593-024-01774-5 (the Gabitto cohort). *Verify before citing.*
+- Green et al. (2024), *Cellular communities reveal trajectories of brain ageing and Alzheimer's disease*, Nature 633:634, doi:10.1038/s41586-024-07871-6 (the Green cohort). *Verify before citing.*

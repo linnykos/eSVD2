@@ -19,12 +19,44 @@ Resolves the location names declared in the master `CLAUDE.md` → *External Loc
 | `OVERDISPERSION_WIKI` | personal laptop (macOS), Dropbox | `~/Library/CloudStorage/Dropbox/Collaboration-and-People/amywatt/git/overdispersion_wiki` | Read only from this project. Start at `wiki/index.md`; pages are `wiki/pages/<slug>.md` |
 | `WAS2CODE_REPO` | personal laptop (macOS), Dropbox | `~/Library/CloudStorage/Dropbox/Collaboration-and-People/archive/tati/git/Was2CODE` | Under `archive/`, so treat as frozen. `R/esvd_helper.R` (60 lines) is the file being imported into `eSVD2`; copy it in rather than depending on this path |
 | `WAS2CODE_ANALYSIS_REPO` | personal laptop (macOS), Dropbox | `~/Library/CloudStorage/Dropbox/Collaboration-and-People/archive/tati/git/Was2CoDE_analysis` | Writeup50 lives under `code/kevin/Writeup50_processing-tati-results/`; its CSVs under `csv/kevin/Writeup50/`; its figures under `figures/kevin/Writeup50/`. Read only from this project |
-| `LFCSE_BANK` | personal laptop (macOS) | `~/Library/Caches/org.R-project.R/R/eSVD2/` (root; `lfcse-bank-1`, `lfcse-bank-2`, `lfcse-bank-3`, `lfcse-beyond-score`) | The default of `ESVD2_BANK_DIR` (unset on this machine). 682 MB, 628 MB, 427 MB and the per-gene results of the beyond-score study |
+| `LFCSE_BANK` | personal laptop (macOS) | `~/Library/Caches/org.R-project.R/R/eSVD2/` (root; `lfcse-bank-1`, `lfcse-bank-2`, `lfcse-bank-3`, `lfcse-bank-4`, `lfcse-beyond-score`) | The default of `ESVD2_BANK_DIR` (unset on this machine). 682 MB, 628 MB, 427 MB and the per-gene results of the beyond-score study |
+| `GABITTO_COUNTS` | personal laptop (macOS), Dropbox | `~/Library/CloudStorage/Dropbox/Collaboration-and-People/archive/tati/data/primary_datasets/gabitto_2024/Writeup43_gabitto_cleaned_only-counts.RData` | Under `archive/`; read only. The other three cohorts are in sibling folders of `primary_datasets/` |
+| `GABITTO_SPLIT_OUT` | personal laptop (macOS), Dropbox | `~/Library/CloudStorage/Dropbox/Collaboration-and-People/Kathryn Roeder - private/eSVD2/out/2026-11-15_gabitto` | 0.5 GB, of which 0.4 GB is the four `*_esvd_tmp.RData` intermediate saves, which can be deleted |
+| `GREEN_COUNTS` | personal laptop (macOS), Dropbox | `~/Library/CloudStorage/Dropbox/Collaboration-and-People/archive/tati/data/primary_datasets/green_2024/Writeup43_green_cleaned_only-counts.RData` | Under `archive/`; read only |
+| `GREEN_SPLIT_OUT` | personal laptop (macOS), Dropbox | `~/Library/CloudStorage/Dropbox/Collaboration-and-People/Kathryn Roeder - private/eSVD2/out/2026-11-16_green` | 0.66 GB, of which about 0.5 GB is the four `*_esvd_tmp.RData` intermediate saves, which can be deleted |
 | `TATI_ESVD_OUT` | personal laptop (macOS), Dropbox | `~/Library/CloudStorage/Dropbox/Collaboration-and-People/archive/tati/out/tati` | `Writeup44` to `Writeup47` hold `<Writeup>_<cohort>_esvd.RData` (Prater, Gabitto, Sun, Green), diet `eSVD` objects of 1.2.0 at `$original`. Read only from this project |
 
 Name the machine specifically enough that another collaborator can tell whether it is reachable to them. **A missing row means unknown; only an explicit *(not present)* row means known-absent.**
 
-## Project Status (as of 2026-11-12)
+## Project Status (as of 2026-11-16)
+
+**The Green cohort was split in half twice, a fourth bank was built, and
+the beyond-score report has a second version with the final
+recommendation (session 38, 2026-11-16, uncommitted, on branch
+`autoresearch_lfcse2/nov11-direct`).** Three writeups, none reviewed by
+Kevin: `additional_context/2026-11-16_green/2026-11-16_green-split-half_claude.Rmd`
+/ `.html` (fits and figures in `GREEN_SPLIT_OUT`);
+`additional_context/2026-11-16_autoresearch_beyond-score_claude.Rmd` /
+`.html` (sections 2 to 10 carried over from the 2026-11-12 version,
+sections 11 to 20 new; scripts and tables in
+`additional_context/2026-11-16_beyond-score/`); and the Gabitto report,
+re-knitted with two added variants (`raw@esvd_nofloor`, `raw@total`).
+The final recommendation: report from `donor_wls@esvd_nofloor`, take the
+p-value from the same pair, measure the share of outlying donors first
+and fall back on `raw@esvd_nofloor` at Green's level, and do not use
+`state_adjusted` at rank 30. Nothing in `R/` changed.
+
+
+**Every rule was compared between two donor-disjoint halves of the Gabitto
+cohort, twice (session 37, 2026-11-15, uncommitted, on branch
+`autoresearch_lfcse2/nov11-direct`).** The writeup is
+`additional_context/2026-11-15_gabitto/2026-11-15_gabitto-split-half_claude.Rmd`
+/ `.html`, with its scripts and tables in the same folder and the fits in
+`GABITTO_SPLIT_OUT`. Its recommendation confirms the beyond-score study on
+real data: report from `donor_wls@esvd_nofloor`. `state_adjusted` has the
+lowest replicate score and no replicable signal at `k = 30` with 40 donors.
+Nothing in `R/` changed. Kevin has not reviewed it.
+
 
 **Every rule of the two autoresearch loops was rerun on a third, harder
 bank and assessed beyond the score (session 36, 2026-11-12, uncommitted,
@@ -173,6 +205,91 @@ is labelled as the build machine's (session 28). The CI fix is untested until
 `CRAN_READINESS.md` §0.3 is the list.
 
 ## Key Methodological Details
+
+- **`donor_wls` breaks on donors that are outliers on the log scale, and
+  the share is measurable without a fit.** Over genes with under 80%
+  zeros, 2.3% of Green's log donor means lie more than 3 MADs below the
+  gene's median (mean deficit 2.1 natural-log units, in the 12% of
+  donors of lowest depth per nucleus) against 0.8% on Gabitto.
+  Winsorizing each gene's log donor means at 3 MADs raises the
+  correlation between Green's halves over those genes from 0.16 and
+  -0.21 to 0.32 and 0.34 (0.50 and 0.48 without the donor-level
+  covariates; `raw` 0.48 and 0.41) and changes nothing on Gabitto. With
+  outliers drawn at Green's rate, bank 4 puts `donor_wls@esvd_nofloor`
+  0.04 to 0.11 nats behind `raw` and DESeq2, with coverage (95%) and
+  Wald FDP (2%) intact.
+- **On the Green halves (214 donors, 75 to 77 controls, 43% of genes
+  capped)**: replicate score `raw@esvd_nofloor` -0.64 and -0.65, DESeq2
+  -0.65 and -0.67, `donor_wls@esvd_nofloor` -0.61 and -0.58, floored
+  `donor_wls` -0.37 and -0.18, `stored` -0.26; `z_rms` 0.50 for `stored`,
+  1.04 to 1.08 for the three calibrated rules. eSVD-DE's calls keep
+  their sign 79% and 88% of the time, and neither the cap nor the
+  `donor_wls` p-value separates the failures (unlike Gabitto split 2).
+- **`state_adjusted` fails at rank 30 whatever the donor count**:
+  correlation between Green's halves 0.13 and 0.11 at 214 donors;
+  `slope_deg` 0.20 to 0.23 at 40, 80 and 200 donors on bank 4, against
+  0.99 at rank 5, where it is the best rule of the bank (-0.550 against
+  -0.425 for `donor_wls@esvd_nofloor`). At 40 donors and rank 30 its
+  score against the truth is still better than `donor_wls` (shrinkage
+  wins the NLL when effects are weak), so only the slope gates catch it.
+- **On bank 4's first block `donor_wls` and DESeq2 are level** (-0.420
+  both), and `raw` is behind with every library: floored 0.053 nats,
+  coverage 91.8% (90.4% Gabitto-like), Wald FDP 8 to 11%. The package's
+  test has FDP 15.8% (18.8% Gabitto-like); `donor_wls@esvd_nofloor`'s
+  Wald test 4.5% (6.3%).
+- **`raw` on the unfloored library is unstable when a fitted `Log_UMI`
+  coefficient is far from 1**: it averages per-cell `A / library`. Bank
+  4 at rank 30 (600 genes) has 7% of genes with the coefficient more
+  than 1 from 1 (RMSE 1.30 there against 0.27 for `donor_wls`); the real
+  fits have 0.02% (Gabitto, range 0.3 to 1.5) and 0.2% (Green, 0.5 to
+  2.2), so the real `raw@esvd_nofloor` results are not affected.
+- **The posterior's floor costs `donor_wls` 0.25 and 0.40 nats on
+  Green** (0.05 and 0.01 on Gabitto). Bank 4 at a 44 to 48% capped share
+  does not reproduce it (cost 0), so the capped share is not the cause.
+- **Four Green fits at once need about 50 GB** during the nuisance step
+  (11 to 14 GB each); the laptop (32 GB) swapped until two were paused
+  with `kill -STOP`. A Green half takes 66 to 83 minutes; a bank-4
+  example (two cohorts of 10,000 cells at ranks 5 and 30) about 17
+  minutes of one core alone and 27 with 9 workers.
+- **The harness refuses `rm` on a path built from a shell variable**;
+  use a literal path. In zsh an unquoted `$a` is not split into words
+  (`${=a}`).
+
+- **A truth-free replicate score cannot rank rules alone.** With the other
+  half in place of the truth (NLL of lfc1 - lfc2 under N(0, se1^2 +
+  se2^2)), `state_adjusted` scores -0.58 and -0.65 on Gabitto against
+  -0.22 and -0.26 for `donor_wls@esvd_nofloor`, while its halves correlate
+  at 0.00 and nominated genes keep their sign 50% of the time: logFC SD
+  0.13 against 0.26, with a matching SE. The score of a rule's pair against
+  the other half's DESeq2 estimate separates the two (-0.06 and -0.13
+  against -0.17 and -0.24).
+- **On Gabitto halves (40 donors, 13 or 14 controls, `k = 30`)**: `z_rms`
+  of the difference between halves is 0.38 to 0.43 for `stored` (SE 2.3 to
+  2.6 times too large), 1.09 to 1.18 for `null_rescaled` (1.3 to 1.6 for
+  capped genes), 1.0 for `raw`, 0.85 to 0.89 for `donor_wls@esvd_nofloor`,
+  0.89 to 0.97 for DESeq2. Correlation between halves over eSVD-DE's
+  nominated genes: `donor_wls` 0.55 and 0.64, `raw` 0.61 and 0.51,
+  `stored` 0.51 and 0.46, DESeq2 0.47 and 0.54. The unfloored library gains
+  0.05 and 0.01 nats; summed counts are as good (all covariates are
+  donor-level).
+- **eSVD-DE's calls keep their sign in the other half 81% and 66% of the
+  time** (167 to 280 calls per half; DESeq2 calls 4 to 29), under any
+  rule's logFC, with replication slope 0.44 and 0.32. In the second split
+  calls at the nuisance cap keep it 45% and calls without `donor_wls`
+  p < 0.05 keep it 48%; calls with `donor_wls` p < 0.01 keep it 87% and 92%
+  (its own logFC). Capped genes replicating worse is the opposite of the
+  Prater comparison below. 17% of genes are capped on these halves.
+- **A Gabitto half fits in about 37 minutes on the laptop** (one core,
+  about 15 iterations per phase, peak under 2 GB with the diet path), four
+  at once without slowdown; the full cohort took 4.2 hours on the server.
+- **A diet object's view for the rules is rebuilt with
+  `eSVD2:::.get_counts_and_covariates()`** and the loops' `.build_view()`
+  after renaming the case-control column to `CC_1`; the rebuilt posterior
+  reproduces the stored arm means to 1e-15
+  (`2026-11-15_gabitto/03_apply-rules_claude.R`).
+- **In an Rmd, backticked text that starts with `r` and a space is run as
+  inline R** (a column label such as `r all` fails the knit), and a
+  backtick cannot be typed inside an inline chunk (use `intToUtf8(96)`).
 
 - **The fitted library a rule reads is constant for sparse genes.** It
   contains the gene intercept, so it falls below `library_min = 0.1` and
@@ -626,6 +743,49 @@ is labelled as the build machine's (session 28). The CI fix is untested until
   no longer needed.
 
 ## Open Questions / Next Steps
+
+**From the Green study and the second beyond-score report (session 38):**
+
+0000A. **Review the three writeups and the final recommendation**
+       (`donor_wls@esvd_nofloor`; Wald p-value from the same pair; the
+       outlying-donor share as the trigger for `raw@esvd_nofloor`; the
+       threshold of about 1.5% lies between two cohorts only).
+0000B. Whether to try the rule the evidence points at, `donor_wls` on
+       winsorized log donor means (a new rule, which the note of
+       2026-11-16 did not ask for); bank 4's outlier block and the
+       gates of the report's section 16 are ready for it.
+0000C. Whether to fit a real cohort at a low rank to test
+       `state_adjusted` there (valid and best at rank 5 on bank 4).
+0000D. Why Green's shallow donors are outlying (technical or a
+       microglial state), and why the floor costs so much on Green.
+0000E. Files that can be deleted by hand: the four `*_esvd_tmp.RData`
+       in `GREEN_SPLIT_OUT` (about 0.5 GB); the superseded outlier
+       examples `ex_0065` to `ex_0080` in `lfcse-bank-4/examples` and
+       their results under `lfcse-beyond-score/bank4`; `manifest_block2*.csv`
+       in `lfcse-bank-4`.
+0000F. The Gabitto report's step 4 (treat a capped or unsupported call
+       as provisional) is not supported by Green or bank 4; item 000D
+       should be read with that.
+
+**From the Gabitto split-half study (session 37):**
+
+000A. **Review `2026-11-15_gabitto-split-half_claude.Rmd`**, in particular
+      the replicate score as the stand-in for the autoresearch score and
+      the two-split design (the splits share all donors, 46 with the same
+      half label).
+000B. Whether to run more splits (40 minutes per fit) and a refit at a
+      lower rank to test that the rank is why `state_adjusted` loses the
+      signal.
+000C. Whether the next bank adds what the report lists: a factor for the
+      fitted rank near the donor count, a scorer gate on retained signal
+      (replicate correlation of true DEGs), unbalanced arms, and weak dense
+      effects with 15 to 20% capped genes so that each rule's calls can be
+      scored.
+000D. Whether `report_results()` should flag a call by the `donor_wls`
+      Wald p-value and the nuisance status (the report's step 4); this
+      joins item 00A.
+000E. The four `*_esvd_tmp.RData` files in `GABITTO_SPLIT_OUT` (0.4 GB)
+      can be deleted by hand.
 
 **From the beyond-score study (session 36):**
 

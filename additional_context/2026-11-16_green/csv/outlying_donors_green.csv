@@ -1,0 +1,2 @@
+"cohort","num_donors","num_genes","share_below_3","share_below_5","share_above_3","mean_deficit","median_deficit","share_donors_outlying","max_donor_share","cor_with_log_depth"
+"green",428,2133,0.0234696425989458,0.0130514697828078,0.0046257957946116,-2.07615164188835,-1.71395348678857,0.119158878504673,0.245663384903891,-0.622405462944523

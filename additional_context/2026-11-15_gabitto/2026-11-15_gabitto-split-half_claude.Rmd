@@ -1,0 +1,880 @@
+---
+title: "Gabitto split into two donor-disjoint halves, twice: the donor-level regression `donor_wls` replicates best, `state_adjusted` has the lowest replicate score and no signal that replicates, and a fifth to a third of eSVD-DE's calls change sign in the other half"
+author: "Kevin Z. Lin (drafted by Claude)"
+date: "2026-11-15"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 3
+    number_sections: true
+    theme: flatly
+    highlight: tango
+    math_method:
+      engine: mathjax
+      url: "https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-chtml-full.js"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+```
+
+<style>
+div.takeaway, div.generator, div.reuse, div.recipe {
+  padding: 0.7em 1.1em; margin: 1.2em 0; border-radius: 4px; border-left: 7px solid;
+}
+div.takeaway  { background: #edf7ed; border-color: #2ca02c; }
+div.generator { background: #eaf2fb; border-color: #1f77b4; }
+div.reuse     { background: #f4f4f4; border-color: #8c8c8c; }
+div.recipe    { background: #fff3e6; border-color: #ff7f0e; }
+div.takeaway  > p:first-child::before { content: "Takeaway. "; font-weight: bold; color: #1b6e1b; }
+div.generator > p:first-child::before { content: "How the data were split. "; font-weight: bold; color: #155a8a; }
+div.reuse     > p:first-child::before { content: "Data: reused. "; font-weight: bold; color: #8c8c8c; }
+div.recipe    > p:first-child::before { content: "The procedure. "; font-weight: bold; color: #b35900; }
+</style>
+
+```{r libraries}
+library(knitr)
+library(ggplot2)
+```
+
+```{r read_tables}
+source("helpers_claude.R")
+csv_dir <- "csv"
+# A trial knit on small fits reads its tables from elsewhere.
+if(Sys.getenv("GABITTO_OUT_DIR") != ""){
+  csv_dir <- file.path(Sys.getenv("GABITTO_OUT_DIR"), "csv")
+}
+.read <- function(name){
+  utils::read.csv(file.path(csv_dir, name), stringsAsFactors = FALSE)
+}
+donor_df <- utils::read.csv(file.path("csv", "split_donors.csv"),
+                            stringsAsFactors = FALSE)
+balance_df <- utils::read.csv(file.path("csv", "split_balance.csv"),
+                              stringsAsFactors = FALSE)
+fit_df <- .read("fits.csv")
+agreement_df <- .read("agreement.csv")
+discovery_df <- .read("discovery.csv")
+cross_df <- .read("cross_score.csv")
+summary_df <- .read("summary.csv")
+run_df <- .read("rule_runs.csv")
+pair_df <- .read("gene_pairs.csv.gz")
+calls_df <- .read("esvd_calls.csv")
+
+split_vec <- c("split1", "split2")
+method_vec <- unique(summary_df$method)
+rule_vec <- c("stored", "null_rescaled", "deshrunk", "raw", "raw_null",
+              "donor_wls", "gap_trend", "embed_prior", "state_adjusted")
+# The methods that get a subsection of their own: the nine rules as the
+# loops ran them, the two unfloored variants the beyond-score study
+# recommended, and DESeq2.
+section_vec <- c(rule_vec, "donor_wls@esvd_nofloor",
+                 "state_adjusted@esvd_nofloor", "deseq2")
+stopifnot(all(section_vec %in% method_vec))
+
+fmt <- function(x, digits = 2){formatC(x, digits = digits, format = "f")}
+pct <- function(x, digits = 0){paste0(formatC(100 * x, digits = digits,
+                                              format = "f"), "%")}
+# One number of the summary table.
+sm <- function(method, column, split){
+  summary_df[summary_df$method == method & summary_df$split == split, column]
+}
+# The same number in the two splits, as "a and b".
+both <- function(method, column, digits = 2, bool_pct = FALSE){
+  value_vec <- sapply(split_vec, function(split){sm(method, column, split)})
+  text_vec <- if(bool_pct) pct(value_vec) else fmt(value_vec, digits)
+  paste0(text_vec[1], " and ", text_vec[2])
+}
+# One number of the agreement table.
+ag <- function(method, gene_set, column, split){
+  agreement_df[agreement_df$method == method & agreement_df$split == split &
+                 agreement_df$gene_set == gene_set, column]
+}
+# The mean of a summary column over the two splits, for ranking.
+avg <- function(column){
+  value_vec <- tapply(summary_df[[column]], summary_df$method, mean)
+  value_vec[method_vec]
+}
+# The method names with the best mean of a column.
+best <- function(column, bool_low = TRUE, num = 1, among = method_vec){
+  value_vec <- avg(column)[among]
+  names(sort(value_vec, decreasing = !bool_low))[seq_len(num)]
+}
+# A methods x splits table of chosen summary columns.
+wide_table <- function(column_vec, label_vec, digits = 2,
+                       among = method_vec){
+  out_df <- data.frame(method = among, stringsAsFactors = FALSE)
+  for(idx in seq_along(column_vec)){
+    for(split in split_vec){
+      out_df[[paste0(label_vec[idx], ", ", split)]] <-
+        sapply(among, function(method){sm(method, column_vec[idx], split)})
+    }
+  }
+  out_df$method <- paste0("`", out_df$method, "`")
+  knitr::kable(out_df, digits = digits, row.names = FALSE)
+}
+num_genes <- ag("stored", "all", "num_genes", "split1")
+# One number of the table of eSVD-DE's calls.
+cl <- function(group, column, split){
+  calls_df[calls_df$group == group & calls_df$split == split, column]
+}
+cl_both <- function(group, column, bool_pct = TRUE, digits = 2){
+  value_vec <- sapply(split_vec, function(split){cl(group, column, split)})
+  text_vec <- if(bool_pct) pct(value_vec) else fmt(value_vec, digits)
+  paste0(text_vec[1], " and ", text_vec[2])
+}
+ag_both <- function(method, gene_set, column, digits = 2){
+  value_vec <- sapply(split_vec, function(split){
+    ag(method, gene_set, column, split)
+  })
+  paste0(fmt(value_vec[1], digits), " and ", fmt(value_vec[2], digits))
+}
+# Method names as inline code, comma separated. A backtick cannot be typed
+# inside an inline chunk.
+tick <- function(name_vec){
+  paste0(intToUtf8(96), name_vec, intToUtf8(96), collapse = ", ")
+}
+state_vec <- grep("^state_adjusted", method_vec, value = TRUE)
+keep_vec <- setdiff(method_vec, state_vec)
+```
+
+# Overview
+
+This document is built from Kevin's note of 2026-11-15
+(`2026-11-15_autoresearch-gabitto-replicate.txt`), from the two
+autoresearch loops on the reported log fold change and its standard error
+and the study that followed them
+(`2026-11-12_autoresearch_beyond-score_claude.Rmd`), from Tati's Writeup45
+fit of the Gabitto cohort (the design), and from Writeup49 (the split-half
+and winner's-curse conventions). Everything before this document was
+scored on simulated cohorts with a known truth. Here the Gabitto microglia
+are split into two halves that share no donor, each half is fitted by
+eSVD-DE on its own, and every rule is asked how well its logFC and SE from
+one half agree with those from the other. The split is done twice.
+
+**The question.** On a real cohort, which rule's log2 fold change and SE
+replicate best between two independent halves: by the replicate analogue
+of the autoresearch score, by the correlation of the logFC over the genes
+that at least one half nominates as differentially expressed, and by
+whether a nominated gene keeps the sign of its logFC in the other half?
+
+What the document argues:
+
+1. **The four fits are comparable and each took under 45 minutes.** Each
+   half has 40 donors (13 or 14 controls) and about 20,000 nuclei; the
+   package's test calls `r min(fit_df$num_esvd_deg)` to
+   `r max(fit_df$num_esvd_deg)` genes per half at 5% FDR, and pseudobulk
+   DESeq2 calls `r min(fit_df$num_deseq2_deg)` to
+   `r max(fit_df$num_deseq2_deg)` (section 2.1).
+2. **`state_adjusted` has the lowest replicate score and its logFC do not
+   replicate.** Its score is `r both("state_adjusted", "all_score")` nats
+   per gene, well below every other rule, while its two halves correlate at
+   `r both("state_adjusted", "all_pearson")` and a gene nominated by
+   eSVD-DE's test keeps its sign in the other half
+   `r both("state_adjusted", "esvd_sign_rep", bool_pct = TRUE)` of the
+   time. The rule's logFC have half the spread of the other rules' and an
+   SE that matches that spread, which a score without a truth rewards
+   (section 4.1).
+3. **Among the rules that keep a signal, the `donor_wls` family has the
+   lowest score in both splits**, `r both("donor_wls@esvd_nofloor", "all_score")`
+   for `donor_wls@esvd_nofloor` against `r both("deseq2", "all_score")`
+   for `deseq2` and `r both("stored", "all_score")` for `stored`, and it is
+   also first on the score against the other half's DESeq2 (section 4.2).
+4. **On the genes eSVD-DE's test nominates, the `donor_wls` family and the
+   `raw` family correlate best between the halves** (`donor_wls`:
+   `r both("donor_wls", "esvd_pearson")`; `raw`:
+   `r both("raw", "esvd_pearson")`; `stored`:
+   `r both("stored", "esvd_pearson")`; `deseq2`:
+   `r both("deseq2", "esvd_pearson")`), and `donor_wls` is the more stable
+   of the two across the splits (section 4.3).
+5. **The SE of `stored` is about 2.5 times the disagreement between the
+   halves, and the SE of `donor_wls` is about 10% above it** (`z_rms`
+   `r both("stored", "all_z_rms")` and
+   `r both("donor_wls@esvd_nofloor", "all_z_rms")`; 1 is calibrated). `raw`
+   and `deseq2` are closest to 1, and `null_rescaled` is too small for the
+   genes whose nuisance rate is at the cap (section 4.4).
+6. **A gene that eSVD-DE's test calls in one half keeps the sign of its
+   logFC in the other half `r cl_both("all calls", "sign_rep")` of the time
+   in the two splits**, whichever rule supplies the logFC. The calls that
+   change sign are concentrated among the genes at the nuisance cap and
+   among the calls that `donor_wls` does not support at nominal
+   $p < 0.05$, clearly in the second split and weakly in the first
+   (section 4.5).
+7. **The recommendation of the beyond-score study stands on real data**:
+   report the pair from `donor_wls@esvd_nofloor`, do not use
+   `state_adjusted` at the default rank on a cohort of this size, and read
+   an eSVD-DE call together with the `donor_wls` interval. The bank needs
+   examples where the rank is close to the number of donors, and the
+   scorer needs a gate on retained signal (section 5).
+
+*How to read.* The blue box says how the cohort was split; green boxes
+close each results subsection with what it changes; the orange box in
+section 5 is the procedure. A reader of the boxes alone has the argument.
+
+| Stage | What it does | Section |
+|---|---|---|
+| Definitions | the cohort, the two splits, the four fits, the rules, the statistics | 2 |
+| Each rule | the two halves against each other, one subsection per rule | 3 |
+| Side by side | the score, the correlation, the SE, the sign of the nominated genes | 4 |
+| Recommendation | the rule to report from and what the bank should add | 5 |
+
+# Definitions
+
+## The cohort and the two splits
+
+The data are the microglia of the SEA-AD cohort of Gabitto et al. (2024)
+as cleaned for the Was2CoDE analysis
+(`Writeup43_gabitto_cleaned_only-counts.RData`):
+`r format(sum(donor_df$num_cells), big.mark = ",")` nuclei of
+`r nrow(donor_df)` donors and 5,256 genes. A donor is a case when
+`CERAD_binary` is `Case`
+(`r sum(donor_df$CERAD_binary == "Case")` donors) and a control otherwise
+(`r sum(donor_df$CERAD_binary == "Control")` donors), the definition of
+Tati's Writeup45 fit of the whole cohort.
+
+::: {.generator}
+The `r nrow(donor_df)` donors fall into eight strata of CERAD arm, sex and
+APOE4 status. Within each stratum the donors are permuted and dealt
+alternately to two halves, and the half that receives the first donor
+alternates over the strata with an odd count so that the leftover donors
+do not all land in one half. A donor is therefore in exactly one half of a
+split. The procedure is run twice with different seeds (`split1`, seed 10;
+`split2`, seed 20), and
+`r sum(donor_df$split1 == donor_df$split2)` of the `r nrow(donor_df)`
+donors keep their half label between the two splits. Each of the four
+halves is then fitted on its own with `eSVD2::eSVD_helper()` of
+version 1.2.0 at the settings of Writeup45: `k = 30`, covariates `sex`,
+`APOE4status`, `PMI` and `Ageatdeath`, every other argument at its
+default.
+:::
+
+```{r tab_balance}
+knitr::kable(balance_df, row.names = FALSE,
+             caption = "Table 1. The donors of each half, by arm. PMI and age at death were not stratified on.")
+```
+
+```{r tab_fits}
+show_df <- fit_df[, c("fit", "num_case", "num_control", "num_cells",
+                      "num_genes", "fit_minutes", "null_mean", "null_sd",
+                      "share_capped", "num_esvd_deg", "num_deseq2_deg")]
+knitr::kable(show_df, digits = 2, row.names = FALSE,
+             caption = "Table 2. The four fits. `null_mean` and `null_sd` are the empirical null of the package's test; `share_capped` is the share of genes whose nuisance rate sits at the cap; the last two columns count the genes called at 5% FDR by the package's test and by pseudobulk DESeq2.")
+```
+
+## The rules
+
+Every rule is the file the loops left, unedited, applied as in the
+beyond-score study (`2026-11-12_autoresearch_beyond-score_claude.Rmd`,
+section 2.2).
+
+| Name in the tables | Rule | Reads of the fit |
+|---|---|---|
+| `stored` | what 1.2.0 reports: log ratio of the arms' mean posterior, SE from the posterior's mixture variances | posterior |
+| `null_rescaled` | `stored`, the logFC shifted by the empirical null's mean and the SE multiplied by its SD | posterior, empirical null |
+| `deshrunk` | `stored`'s logFC; between-donor SE of the posterior donor means divided by the shrinkage weight | posterior, library, nuisance rate |
+| `raw` | ratio of the arms' means of donor means of $A/\ell$, delta-method SE between donors | library |
+| `raw_null` | `raw` with the empirical null's shift and rescaling | library |
+| `donor_wls` | weighted regression of $\log\{(y_{dg} + 1/2)/L_{dg}\}$ on the arm and the donor-level covariates, residual variance moderated across genes, logFC shifted by the null's mean | library |
+| `gap_trend` | as `donor_wls` with voom-style weights and a variance trend in a covariate that contains the between-arm gap | library |
+| `embed_prior` | `donor_wls` with the embedding's predicted donor variance in the moderation prior | library, embedding |
+| `state_adjusted` | `donor_wls` on summaries with the embedding's donor offset removed; the arm coefficients' component along the loadings subtracted | library, embedding |
+| `deseq2` | DESeq2 on donor pseudobulk; design: sex, APOE4 status, PMI, age at death and the arm | nothing |
+
+Here $y_{dg}$ is the donor's summed count and $L_{dg}$ its summed library.
+A suffix names the library a library-reading rule was handed in place of
+the fitted one: `@esvd_nofloor` (the fitted library before the posterior's
+floor at 0.1), `@esvd_depth` (the fitted intercept and depth alone),
+`@total` (the cell's summed counts), `@sf` and `@tmm` (summed counts
+rescaled to DESeq2's size factors or edgeR's TMM factors of the donor
+pseudobulk). Every covariate of this design is constant within a donor,
+so the `_cov` variants of the beyond-score study coincide with the plain
+ones. `raw@esvd_nofloor` and `raw@total` were added on 2026-11-16 for the
+Green study (`../2026-11-16_green/`), which compares `raw` and
+`donor_wls` on one library; they appear in the tables and figures of
+section 4 and no number of the other methods changed.
+
+## What is compared between the two halves
+
+For one rule and one split, gene $g$ has the pair
+$(\widehat{\beta}_{g1}, s_{g1})$ from half 1 and
+$(\widehat{\beta}_{g2}, s_{g2})$ from half 2, on the $\log_2$ scale. The
+two halves share no donor, so the two estimates are independent given the
+population's effect.
+
+**The replicate score.** The autoresearch score is the Gaussian negative
+log-likelihood of the true effect under $N(\widehat{\beta}_g, s_g^2)$. A
+real cohort has no known truth, and the other half takes its place: if
+both halves estimate one effect and both SEs are honest, the difference
+$\widehat{\beta}_{g1} - \widehat{\beta}_{g2}$ is
+$N(0, s_{g1}^2 + s_{g2}^2)$, and the score is
+
+$$
+\text{score} = \frac{1}{p}\sum_{g=1}^{p}
+\left[\tfrac{1}{2}\log\{2\pi (s_{g1}^2 + s_{g2}^2)\} +
+\frac{(\widehat{\beta}_{g1} - \widehat{\beta}_{g2})^2}{2 (s_{g1}^2 + s_{g2}^2)}\right],
+$$
+
+in nats per gene, lower being better. It rewards estimates that agree and
+SEs that match the size of the disagreement. The companion calibration
+number is the root mean square of
+$(\widehat{\beta}_{g1} - \widehat{\beta}_{g2}) / \sqrt{s_{g1}^2 + s_{g2}^2}$
+(`z_rms`), which is 1 when the SEs explain the disagreement and above 1
+when they are too small. The replicate score differs from the autoresearch
+score in one respect that matters for reading it: a bias that the two
+halves share (a depth artifact, shrinkage toward a common value) cancels
+in the difference, so the replicate score cannot see it.
+
+**The score against a common target.** To give every rule the same
+target, each rule's pair from one half is also scored against the *other*
+half's pseudobulk DESeq2 estimate, the difference having variance
+$s_{g}^2$ plus DESeq2's squared SE, averaged over the two directions
+(`score_cross`). A rule cannot lower this number through a bias its own
+two halves share, and the comparison favours DESeq2's estimand (the
+marginal effect on summed counts).
+
+**Nominated genes.** A gene is nominated when it is called at 5% FDR in at
+least one half, under three definitions: by eSVD-DE's own test (the
+package's `fdr_vec`; the same genes for every rule), by pseudobulk DESeq2
+(`padj`; the same genes for every rule), and by the rule's own Wald test,
+$z = \widehat{\beta}_g / s_g$ against the standard normal with BH over the
+half's genes (a different gene set per rule, whose size is reported).
+
+**Statistics on the nominated genes.** The Pearson correlation of
+$\widehat{\beta}_{g1}$ and $\widehat{\beta}_{g2}$ over the nominated
+genes; the share of discoveries whose logFC has the same sign in the
+other half (`sign_rep`, each discovery counted from its discovering half);
+and the replication slope (`slope_rep`), the least-squares line through
+the origin of the replication half's logFC on the discovering half's, the
+convention of Writeup49. A slope of 1 means the discovered effects
+reappear at full size, and the winner's curse puts it below 1.
+
+# Each rule between the two halves
+
+Each subsection shows one rule. The upper figure has every gene, coloured
+by the half whose Wald test of the rule's own pair nominates it; the lower
+figure has only the genes that eSVD-DE's test nominates in at least one
+half, the same genes in every subsection. The dashed line is the diagonal,
+and a gene beyond the axes is drawn on the edge.
+
+```{r per_method, results='asis', fig.width=8, fig.height=4.8}
+.panel_labels <- function(method, gene_set, nomination){
+  do.call(rbind, lapply(split_vec, function(split){
+    discovery_row <- discovery_df[discovery_df$split == split &
+                                    discovery_df$method == method &
+                                    discovery_df$nomination == nomination, ]
+    data.frame(split = split,
+               label = paste0(ag(method, gene_set, "num_genes", split),
+                              " nominated genes\n",
+                              "r = ", fmt(ag(method, gene_set, "pearson",
+                                             split)),
+                              ", same sign in the other half ",
+                              pct(discovery_row$sign_rep), "\n",
+                              "replication slope ",
+                              fmt(discovery_row$slope_rep)),
+               stringsAsFactors = FALSE)
+  }))
+}
+.method_table <- function(method){
+  out_df <- data.frame(
+    split = split_vec,
+    score = sapply(split_vec, function(s){sm(method, "all_score", s)}),
+    z_rms = sapply(split_vec, function(s){sm(method, "all_z_rms", s)}),
+    r_all = sapply(split_vec, function(s){sm(method, "all_pearson", s)}),
+    score_cross = sapply(split_vec, function(s){sm(method, "score_cross", s)}),
+    own_genes = sapply(split_vec, function(s){sm(method, "own_num_genes", s)}),
+    own_both = sapply(split_vec, function(s){sm(method, "own_num_both", s)}),
+    own_r = sapply(split_vec, function(s){sm(method, "own_pearson", s)}),
+    own_sign = sapply(split_vec, function(s){sm(method, "own_sign_rep", s)}),
+    own_slope = sapply(split_vec, function(s){sm(method, "own_slope_rep", s)}),
+    esvd_r = sapply(split_vec, function(s){sm(method, "esvd_pearson", s)}),
+    esvd_sign = sapply(split_vec, function(s){sm(method, "esvd_sign_rep", s)}),
+    esvd_slope = sapply(split_vec, function(s){sm(method, "esvd_slope_rep", s)}),
+    stringsAsFactors = FALSE
+  )
+  knitr::kable(out_df, digits = 2, row.names = FALSE)
+}
+for(method in section_vec){
+  cat("\n\n## `", method, "`\n\n", sep = "")
+  sub_df <- pair_df[pair_df$method == method, ]
+  cat("Over all ", num_genes, " genes the replicate score of `", method,
+      "` is ", both(method, "all_score"), " nats per gene in the two splits",
+      " with `z_rms` ", both(method, "all_z_rms"),
+      ", and the two halves' logFC correlate at ",
+      both(method, "all_pearson"), ". Its own Wald test nominates ",
+      sm(method, "own_num_genes", "split1"), " and ",
+      sm(method, "own_num_genes", "split2"),
+      " genes in at least one half, of which ",
+      sm(method, "own_num_both", "split1"), " and ",
+      sm(method, "own_num_both", "split2"), " in both halves.\n\n", sep = "")
+  sub_df$nomination <- .nomination_factor(sub_df$own1, sub_df$own2)
+  plot1 <- .plot_replication(
+    plot_df = sub_df,
+    label_df = .panel_labels(method, "nominated_own", "own"),
+    title = paste0(method, ": all genes, coloured by the rule's own Wald ",
+                   "test (BH 5%)"),
+    bool_only_nominated = FALSE
+  )
+  plot(plot1)
+  cat("\n\n")
+  sub_df$nomination <- .nomination_factor(sub_df$esvd1, sub_df$esvd2)
+  plot1 <- .plot_replication(
+    plot_df = sub_df,
+    label_df = .panel_labels(method, "nominated_esvd", "esvd"),
+    title = paste0(method, ": genes nominated by eSVD-DE's test (FDR 5%) in ",
+                   "at least one half"),
+    bool_only_nominated = TRUE
+  )
+  plot(plot1)
+  cat("\n\n")
+  print(.method_table(method))
+  cat("\n\n")
+}
+```
+
+In each table, `score`, `z_rms` and `r_all` are over all genes; the
+`own_` columns are over the genes the rule's own test nominates
+(`own_genes` in at least one half, `own_both` in both); the `esvd_`
+columns are over the genes eSVD-DE's test nominates.
+
+# All rules side by side
+
+```{r tab_summary}
+wide_table(c("all_score", "score_cross", "all_z_rms", "all_pearson",
+             "esvd_pearson", "esvd_sign_rep"),
+           c("score", "score_cross", "z_rms", "corr_all", "corr_nominated",
+             "sign_rep"))
+```
+
+Table 3. Every method in the two splits. `score`, `z_rms` and `corr_all` are
+over all `r num_genes` genes; `corr_nominated` and `sign_rep` are over the
+genes eSVD-DE's test nominates in at least one half
+(`r sm("stored", "esvd_num_genes", "split1")` and
+`r sm("stored", "esvd_num_genes", "split2")` genes).
+
+## The replicate score alone ranks `state_adjusted` first, and its logFC do not replicate
+
+```{r fig_score, fig.width=7, fig.height=5.2, fig.cap="Figure 1. The replicate score of every method over all genes, one point per split."}
+plot1 <- .plot_summary(summary_df, "all_score",
+                       "Replicate score over all genes (nats per gene, lower is better)",
+                       method_vec)
+plot(plot1)
+```
+
+The three `state_adjusted` variants score `r fmt(min(avg("all_score")[state_vec]))`
+to `r fmt(max(avg("all_score")[state_vec]))` nats per gene on average over
+the two splits, and the best of the other methods scores
+`r fmt(min(avg("all_score")[keep_vec]))`. The same rule's two halves
+correlate at `r both("state_adjusted", "all_pearson")` over all genes and
+at `r both("state_adjusted", "esvd_pearson")` over the genes eSVD-DE's test
+nominates, and the sign of a nominated gene holds in the other half
+`r both("state_adjusted", "esvd_sign_rep", bool_pct = TRUE)` of the time,
+which is the rate of a coin. Its own Wald test nominates
+`r sm("state_adjusted", "own_num_genes", "split1")` and
+`r sm("state_adjusted", "own_num_genes", "split2")` genes, none of them in
+both halves.
+
+The score is low because the rule's logFC are small and its SE says so.
+The SD of its logFC across genes is
+`r ag_both("state_adjusted", "all", "sd_lfc")` against
+`r ag_both("donor_wls", "all", "sd_lfc")` for `donor_wls`, the root mean
+square difference between the halves is
+`r ag_both("state_adjusted", "all", "rmsd")` against
+`r ag_both("donor_wls", "all", "rmsd")`, and its `z_rms` is
+`r both("state_adjusted", "all_z_rms")`. A pair of estimates that are
+noise around zero with an honest SE satisfies the model behind the
+replicate score exactly, and a truth-free score cannot separate that from
+an accurate estimate of a small effect. The score against the other
+half's DESeq2 does separate them: there `state_adjusted` scores
+`r both("state_adjusted", "score_cross")` against
+`r both("donor_wls", "score_cross")` for `donor_wls`, because its logFC do
+not predict an independent estimate of the marginal effect
+(correlation `r both("state_adjusted", "pearson_cross")` against
+`r both("donor_wls", "pearson_cross")`).
+
+The rule subtracts from each gene's arm coefficient its component along
+the fitted loadings, and the fit here has rank 30 with 40 donors per half.
+An embedding of that rank can carry most donor-level contrasts, the arm
+contrast among them, so the subtraction removes the effect together with
+the cell-state shift. The second loop's bank was fitted at rank 5, and its
+report listed the rank as untested (open item 0C of `CLAUDE_kevin.md`).
+The target of `state_adjusted` is the effect at fixed cell state, which
+may be smaller than the marginal effect; a real effect at fixed cell
+state would still have the same sign in two halves, and the rule's logFC
+show no such agreement.
+
+::: {.takeaway}
+On a real cohort the replicate score has to be read with the correlation
+between the halves beside it. `state_adjusted` wins the score by reporting
+logFC with half the spread of every other rule and no agreement between
+halves, so at rank 30 and 40 donors it has removed the case-control signal
+and is not usable. It is left out of the rankings below.
+:::
+
+## Among the rules that keep a signal, the `donor_wls` family scores best
+
+```{r fig_cross, fig.width=7, fig.height=5.2, fig.cap="Figure 2. Each method's pair from one half scored against the other half's pseudobulk DESeq2 estimate, averaged over the two directions; one point per split."}
+plot1 <- .plot_summary(summary_df, "score_cross",
+                       "Score against the other half's DESeq2 (nats per gene, lower is better)",
+                       method_vec)
+plot(plot1)
+```
+
+Without `state_adjusted`, the lowest mean replicate score belongs to
+`r tick(best("all_score", num = 3, among = keep_vec))`,
+in that order, and the lowest mean score against the other half's DESeq2
+to
+`r tick(best("score_cross", num = 3, among = keep_vec))`.
+`embed_prior` and `donor_wls` report the same logFC and differ by under
+0.01 nats in either score, as on the simulated banks. `donor_wls@esvd_nofloor`
+scores `r both("donor_wls@esvd_nofloor", "all_score")` in the two splits,
+`deseq2` `r both("deseq2", "all_score")`, `raw` `r both("raw", "all_score")`,
+`null_rescaled` `r both("null_rescaled", "all_score")` and `stored`
+`r both("stored", "all_score")`. The ranking of `donor_wls` over `deseq2`
+and of both over `stored` is the ranking of the three simulated banks.
+
+**The library.** Removing the posterior's floor from the fitted library
+improves `donor_wls` by
+`r fmt(sm("donor_wls", "all_score", "split1") - sm("donor_wls@esvd_nofloor", "all_score", "split1"))`
+and
+`r fmt(sm("donor_wls", "all_score", "split2") - sm("donor_wls@esvd_nofloor", "all_score", "split2"))`
+nats in the two splits, with the gain in the genes with 80% zeros or more
+(Table 4). With the cell's summed counts as the library the score is
+`r both("donor_wls@total", "all_score")`, behind the unfloored fitted
+library in split 1 and equal to it in split 2, and the correlation between
+the halves is slightly higher (`r both("donor_wls@total", "all_pearson")`
+against `r both("donor_wls@esvd_nofloor", "all_pearson")`). Every
+covariate of this design is constant within a donor, the setting in which
+the beyond-score study found the fitted library and the summed counts
+equivalent. `@esvd_depth` equals `@esvd_nofloor` to 0.005 nats, so the
+fitted library's covariate columns add nothing here either.
+
+```{r tab_sparsity}
+strata_method_vec <- c("stored", "null_rescaled", "raw", "donor_wls",
+                       "donor_wls@esvd_nofloor", "donor_wls@total", "deseq2")
+set_vec <- c(zeros_below_80 = "under 80% zeros",
+             zeros_80_to_95 = "80 to 95% zeros",
+             zeros_above_95 = "over 95% zeros",
+             rate_estimated = "rate estimated", rate_capped = "rate at the cap")
+out_df <- data.frame(method = paste0("`", strata_method_vec, "`"),
+                     stringsAsFactors = FALSE)
+for(gene_set in names(set_vec)){
+  out_df[[set_vec[[gene_set]]]] <- sapply(strata_method_vec, function(method){
+    mean(sapply(split_vec, function(split){
+      ag(method, gene_set, "score", split)
+    }))
+  })
+}
+count_vec <- sapply(names(set_vec), function(gene_set){
+  ag("stored", gene_set, "num_genes", "split1")
+})
+knitr::kable(out_df, digits = 2, row.names = FALSE,
+             caption = paste0("Table 4. The replicate score by gene stratum, mean of the two splits. Genes per stratum in split 1: ", paste0(set_vec, " ", count_vec, collapse = "; "), "."))
+```
+
+::: {.takeaway}
+The order of the simulated banks holds on Gabitto: `donor_wls` ahead of
+pseudobulk DESeq2, both far ahead of `stored`, and the unfloored fitted
+library at least as good as the floored one. The fitted library is not
+better than summed counts on this cohort, whose covariates are all
+donor-level.
+:::
+
+## Correlation over the nominated genes
+
+```{r fig_nominated, fig.width=7, fig.height=5.2, fig.cap="Figure 3. Correlation of the two halves' logFC over the genes that eSVD-DE's test nominates in at least one half (the same genes for every method); one point per split."}
+plot1 <- .plot_summary(summary_df, "esvd_pearson",
+                       "Correlation between the halves, genes nominated by eSVD-DE's test",
+                       method_vec)
+plot(plot1)
+```
+
+Over the genes eSVD-DE's test nominates, the highest mean correlation
+between the halves belongs to
+`r tick(best("esvd_pearson", bool_low = FALSE, num = 4, among = keep_vec))`.
+The two splits disagree on the order of the families: `raw` leads in
+split 1 (`r fmt(sm("raw", "esvd_pearson", "split1"))` against
+`r fmt(sm("donor_wls", "esvd_pearson", "split1"))` for `donor_wls`) and
+`donor_wls` in split 2 (`r fmt(sm("donor_wls", "esvd_pearson", "split2"))`
+against `r fmt(sm("raw", "esvd_pearson", "split2"))`). `stored`
+(`r both("stored", "esvd_pearson")`) is below both in each split, and
+`deseq2` (`r both("deseq2", "esvd_pearson")`) is below `donor_wls` in
+each split and above `raw` in split 2. Over
+the `r sm("stored", "deseq2_num_genes", "split1")` and
+`r sm("stored", "deseq2_num_genes", "split2")` genes DESeq2 nominates,
+`donor_wls` is again the highest of the three (`donor_wls` `r both("donor_wls", "deseq2_pearson")`,
+`stored` `r both("stored", "deseq2_pearson")`, `deseq2`
+`r both("deseq2", "deseq2_pearson")`).
+
+```{r tab_own}
+wide_table(c("own_num_half1", "own_num_half2", "own_num_both", "own_sign_rep",
+             "own_slope_rep"),
+           c("half 1", "half 2", "both", "sign_rep", "slope_rep"),
+           among = c("null_rescaled", "raw", "raw_null", "donor_wls",
+                     "donor_wls@esvd_nofloor", "donor_wls@total", "gap_trend",
+                     "embed_prior", "deseq2"))
+```
+
+Table 5. Each rule's own nominations (BH 5% on its Wald test): genes
+nominated per half and in both, the share of discoveries with the same
+sign in the other half, and the replication slope. A blank is fewer than
+five discoveries.
+
+A correlation over a rule's own nominations exists for few rules, because
+with 13 or 14 controls per half the calibrated rules nominate almost
+nothing: `donor_wls` `r sm("donor_wls", "own_num_genes", "split1")` and
+`r sm("donor_wls", "own_num_genes", "split2")` genes, `deseq2`
+`r sm("deseq2", "own_num_genes", "split1")` and
+`r sm("deseq2", "own_num_genes", "split2")`. The rules that nominate many
+are `null_rescaled` (`r sm("null_rescaled", "own_num_genes", "split1")`
+and `r sm("null_rescaled", "own_num_genes", "split2")` genes, sign kept
+`r both("null_rescaled", "own_sign_rep", bool_pct = TRUE)`), whose SE is
+too small, `raw` (sign kept `r both("raw", "own_sign_rep", bool_pct = TRUE)`)
+and `gap_trend` (`r sm("gap_trend", "own_num_genes", "split1")` and
+`r sm("gap_trend", "own_num_genes", "split2")` genes, sign kept
+`r both("gap_trend", "own_sign_rep", bool_pct = TRUE)`), whose SE the
+first loop found to depend on the estimated effect. Where a calibrated
+rule nominates five genes or more, the sign holds in at least
+`r pct(min(summary_df$own_sign_rep[summary_df$method %in% c("donor_wls", "donor_wls@total", "donor_wls@sf", "donor_wls@tmm", "embed_prior@total")], na.rm = TRUE))`
+of them.
+
+::: {.takeaway}
+On the genes nominated by eSVD-DE's test, `donor_wls` and its variants
+replicate better than the posterior-based `stored` and better than DESeq2
+in both splits. `raw` is first in one split and behind both `donor_wls`
+and DESeq2 in the other.
+:::
+
+## The SE against the disagreement between the halves
+
+```{r fig_zrms, fig.width=7, fig.height=5.2, fig.cap="Figure 4. Root mean square of the standardized difference between the halves; 1 (dashed) means the SEs explain the disagreement, below 1 that they are too large."}
+plot1 <- .plot_summary(summary_df, "all_z_rms",
+                       "RMS of (lfc1 - lfc2) / sqrt(se1^2 + se2^2)",
+                       method_vec, reference = 1)
+plot(plot1)
+```
+
+The `stored` SE gives a `z_rms` of `r both("stored", "all_z_rms")`, so it
+is `r fmt(1 / sm("stored", "all_z_rms", "split1"), 1)` and
+`r fmt(1 / sm("stored", "all_z_rms", "split2"), 1)` times the SE that
+would explain the disagreement between the halves, the same direction as
+the 3.4 to 5 measured against simulated replicate cohorts in the SE
+exploration and a smaller factor. `deshrunk`
+is as wide (`r both("deshrunk", "all_z_rms")`). `null_rescaled` is at
+`r both("null_rescaled", "all_z_rms")` over all genes and at
+`r ag_both("null_rescaled", "rate_capped", "z_rms")` for the genes at the
+nuisance cap, where its SE is too small. `raw` is at
+`r both("raw", "all_z_rms")` and `deseq2` at `r both("deseq2", "all_z_rms")`.
+`donor_wls@esvd_nofloor` is at `r both("donor_wls@esvd_nofloor", "all_z_rms")`,
+an SE about 10 to 15% larger than the disagreement requires. A shared
+true effect that differs between the halves' donors would push `z_rms`
+above 1, so a value below 1 is an SE that is too large and not an
+artifact of the split.
+
+::: {.takeaway}
+The stored SE is about 2.5 times too large on real data as well, and no
+rescaling by the empirical null repairs it for the capped genes.
+`donor_wls` errs on the conservative side by roughly a tenth.
+:::
+
+## Does a nominated gene keep its sign in the other half?
+
+```{r fig_sign, fig.width=7, fig.height=5.2, fig.cap="Figure 5. Share of the genes called by eSVD-DE's test in one half whose logFC, under each method, has the same sign in the other half; one point per split."}
+plot1 <- .plot_summary(summary_df, "esvd_sign_rep",
+                       "Same sign in the other half, genes nominated by eSVD-DE's test",
+                       method_vec, reference = 0.5)
+plot(plot1)
+```
+
+```{r tab_calls}
+show_df <- calls_df[, c("split", "group", "num_calls", "sign_rep",
+                        "sign_rep_wls", "slope_rep", "median_abs_lfc")]
+knitr::kable(show_df, digits = 2, row.names = FALSE,
+             caption = "Table 6. The genes eSVD-DE's test calls at 5% FDR in one half, by group. `sign_rep` uses the `stored` logFC of the two halves and `sign_rep_wls` that of `donor_wls@esvd_nofloor`; `slope_rep` is the replication slope of the `stored` logFC; the `donor_wls` p-value is the nominal Wald p of `donor_wls@esvd_nofloor` in the discovering half.")
+```
+
+Of the genes eSVD-DE's test calls in one half,
+`r cl_both("all calls", "sign_rep")` have a `stored` logFC of the same
+sign in the other half (Table 6), and every rule that keeps a signal is
+between `r pct(min(summary_df$esvd_sign_rep[summary_df$method %in% keep_vec]))`
+and `r pct(max(summary_df$esvd_sign_rep[summary_df$method %in% keep_vec]))`
+(Figure 5). The rule that supplies the logFC therefore matters little for
+the sign, and the calls matter more. A call whose gene has its nuisance
+rate at the cap keeps its sign `r cl_both("rate at the cap", "sign_rep")`
+of the time against `r cl_both("rate estimated", "sign_rep")` for the
+other calls. A call that `donor_wls@esvd_nofloor` supports at nominal
+$p < 0.05$ in the discovering half keeps its sign
+`r cl_both("donor_wls p < 0.05", "sign_rep")` of the time
+(`r cl_both("donor_wls p < 0.05", "sign_rep_wls")` under the rule's own
+logFC) against `r cl_both("donor_wls p >= 0.05", "sign_rep")` for the
+unsupported calls, and at $p < 0.01$ the share is
+`r cl_both("donor_wls p < 0.01", "sign_rep_wls")` under the rule's logFC.
+The replication slope of the calls is
+`r cl_both("all calls", "slope_rep", bool_pct = FALSE)`: a called gene's
+logFC reappears in the other half at a third to a half of its size, the
+winner's curse that Writeup49 measured between cohorts.
+
+A sign that flips is not by itself a false discovery, since a small true
+effect estimated from 40 donors can change sign by chance. The share is
+still informative as a bound: a null gene keeps its sign half the time,
+so a sign agreement of $a$ among the calls allows at most $2(1 - a)$ of
+them to be null, which is
+`r pct(2 * (1 - cl("all calls", "sign_rep", "split1")))` and
+`r pct(2 * (1 - cl("all calls", "sign_rep", "split2")))` here against a
+nominal 5%. The beyond-score study measured a false discovery proportion
+of 18 to 19% for the package's test on the two harder simulated banks.
+
+::: {.takeaway}
+The expectation that a nominated gene keeps its sign in the other half
+holds for about four calls in five in one split and two in three in the
+other, under any rule's logFC. In the second split the failures are
+concentrated in the calls at the nuisance cap and the calls without
+support from `donor_wls` in the discovering half, both of which keep
+their sign about half the time; in the first split the differences have
+the same direction and are small. A call with `donor_wls` $p < 0.01$
+keeps its sign about nine times in ten in both.
+:::
+
+# Recommendation
+
+**Which rule.** By the replicate score and the score against an
+independent DESeq2 estimate, the `donor_wls` family is first among the
+rules that retain a signal; by the correlation over nominated genes it is
+in the leading group in both splits; its SE is within 15% of the
+disagreement between the halves, on the conservative side. This is
+a consequence of the evidence above and agrees with the three simulated
+banks. Between the libraries, `@esvd_nofloor` is at least as good as the
+floored library in both splits and is kept; summed counts would serve
+equally on a cohort with donor-level covariates only, and the choice of
+the fitted library rests on the simulated cell-level confounders, which
+this cohort does not test.
+
+**Which rule not.** `state_adjusted` is not usable at `k = 30` on 40
+donors, and the replicate score must not be used alone to choose a rule
+(a consequence). `stored` should not be the reported SE (a consequence,
+third time measured). `raw` is a reasonable second, with an SE near 1 and
+a less stable correlation across the two splits.
+
+**How to read an eSVD-DE call.** Reporting, beside each call, whether the
+`donor_wls@esvd_nofloor` interval excludes zero and whether the gene's
+nuisance rate is at the cap identifies the calls that fail to keep their
+sign (a choice, supported by Table 6 on two splits of one cohort).
+
+::: {.recipe}
+1. Fit the cohort with `eSVD2::eSVD_helper()` as now.
+2. Rebuild the counts and the covariates of the fit and form the fitted
+   library without the posterior's floor, the exponential of the fit's
+   linear predictor over every covariate but the arm.
+3. Report the log2 fold change and its SE from `donor_wls@esvd_nofloor`.
+4. Beside each gene called by the package's test, report the Wald p-value
+   of that pair and the nuisance status of the gene; treat a call with
+   Wald $p \geq 0.05$ or a capped rate as provisional.
+5. Check on a split of the cohort's donors, as here, that the rule's two
+   halves correlate over the nominated genes. A rule whose halves do not
+   correlate has no signal at this rank and donor count, whatever its
+   score. If `state_adjusted` is wanted for the effect at fixed cell
+   state, run this check first and lower the rank until it passes.
+:::
+
+**What the autoresearch bank should add.** Four things on this cohort
+were outside what the banks could show.
+
+1. *Rank close to the number of donors.* The second loop's bank was
+   fitted at rank 5, and Gabitto's halves at rank 30 with 40 donors. A bank
+   factor for the fitted rank (5, and a rank near the donor count) would
+   have exposed `state_adjusted`.
+2. *A gate on retained signal.* The scorer's gates are on the SE of
+   strong-effect genes and on the slope of weak effects; a rule that
+   returns noise around zero with a matching SE can pass a truth-free
+   score. For banks with replicate cohorts (the third bank has them), a
+   gate that the replicate correlation of the true DEGs stays above that
+   of a reference rule would catch this failure, and on banks with a
+   truth the slope of the logFC on the truth for strong effects serves
+   the same purpose.
+3. *Few controls and unbalanced arms.* The halves have 13 or 14 controls
+   against 26 or 27 cases, and the banks' arms are balanced. Unbalanced
+   examples would test the Welch degrees of freedom and the moderation of
+   `donor_wls` where one arm is small.
+4. *Weak, dense effects with a real share of capped genes.* Here 17% of
+   genes are at the cap, the calibrated rules nominate almost nothing at
+   40 donors, and the package's test nominates hundreds with a sign
+   agreement that bounds its false discoveries at 38 to 69%. Examples
+   with many small effects, a capped share of 15 to 20% and effects
+   placed on capped genes would let the bank score the calls of each
+   rule's Wald test (discoveries, false discovery proportion, sign
+   errors) as well as the pair.
+
+# What we glossed over
+
+- **Two splits of one cohort.** The two splits share all 80 donors, and
+  `r sum(donor_df$split1 == donor_df$split2)` donors have the same half
+  label in both, so the splits are two looks at one data set and their
+  agreement is not independent confirmation. Several orders differ
+  between the splits (`raw` against `donor_wls` in section 4.3), and
+  differences of under 0.02 nats or 0.05 in a correlation are within that
+  variation. More splits would cost 40 minutes of fitting each.
+- **Shared bias is invisible to a split.** A bias common to both halves
+  (the depth adjustment, the half count for sparse genes, confounding by
+  an unmeasured donor covariate) cancels in the difference and raises the
+  correlation. The simulated banks, which have a truth, are the evidence
+  against such a bias for `donor_wls`; the cross score against DESeq2 is
+  a partial check here.
+- **The rules' own tests use a normal reference.** `donor_wls` moderates
+  its variance and has a $t$ reference with finite degrees of freedom,
+  which would nominate slightly fewer genes still.
+- **Each half has half the cohort's power.** The counts of nominated
+  genes and the sign agreement describe cohorts of 40 donors, not the
+  cohort of 80.
+- **Assay is not adjusted for**, as in Writeup45 (two assays, `10x3v3`
+  and `10xmultiome`), and neither split stratified on it, on PMI or on
+  age at death (Table 1 shows the realized means).
+- **The fits stopped after about 15 iterations per phase** at the default
+  tolerance, which is why each took about 37 minutes against the 4 hours
+  of the full cohort on the server. The loss decreased monotonically and
+  no line-search warning was raised.
+- **Why `state_adjusted` loses the signal was not dissected.** The rank
+  explanation in section 4.1 is the mechanism the rule's construction
+  suggests; a refit at a lower rank would test it.
+- **The package's p-value was not recomputed.** Whether the test should
+  follow the reported pair is open item 00A of `CLAUDE_kevin.md`.
+
+# Files
+
+All paths are relative to `additional_context/2026-11-15_gabitto/` unless
+they start with `OUT`, which is `out/2026-11-15_gabitto/` beside the
+repository clone (not in git).
+
+| File | What it is |
+|---|---|
+| `paths_claude.R` | the data file, the output folder and the design shared by every step |
+| `01_split-donors_claude.R` | the two stratified splits; writes `csv/split_donors.csv` (one row per donor), `csv/split_balance.csv` and `OUT/gabitto_splits.RData` |
+| `02_fit-esvd_claude.R <label>` | one eSVD-DE fit; writes `OUT/gabitto_<label>_esvd.RData` (the diet `eSVD` object) |
+| `03_apply-rules_claude.R <label>` | every rule, variant and DESeq2 on one fitted half; writes `OUT/gabitto_<label>_rules.RData` (genes x methods matrices of logFC and SE) |
+| `04_evaluate_claude.R` | the comparisons; writes `OUT/gabitto_evaluation.RData`, `OUT/figures/*.png` and the tables below |
+| `helpers_claude.R` | the replication statistics and the two figure functions, shared by step 4 and this document |
+| `csv/fits.csv` | one row per fit |
+| `csv/agreement.csv` | one row per split, method and gene set: score, `z_rms`, coverage, correlations, sign agreement |
+| `csv/discovery.csv` | one row per split, method and nomination: discoveries per half, `sign_rep`, `slope_rep`, share replicated at nominal p < 0.05 |
+| `csv/cross_score.csv` | one row per split and method: the score against the other half's DESeq2 |
+| `csv/esvd_calls.csv` | one row per split and group of eSVD-DE's calls: number of calls, sign agreement, replication slope |
+| `csv/summary.csv` | one row per split and method, the columns of the three tables above side by side |
+| `csv/rule_runs.csv` | one row per fit and method: error message (empty when the rule ran) and seconds |
+| `csv/gene_pairs.csv.gz` | one row per split, method and gene: the two halves' logFC and SE and the nominations; the figures of section 3 are drawn from it |
+| `run_after-fits_claude.sh` | waits for the four fits, then runs step 3 on each and step 4 |
+| `output/` | the logs of the four fits and of steps 3 and 4 |
+
+# References
+
+- Gabitto et al. (2024), *Integrated multimodal cell atlas of Alzheimer's
+  disease*, Nature Neuroscience, doi:10.1038/s41593-024-01774-5 (the
+  cohort). *Verify before citing.*
+- Lin, Qiu and Roeder (2024), *eSVD-DE*, BMC Bioinformatics 25:113,
+  doi:10.1186/s12859-024-05724-7.
+- Love, Huber and Anders (2014), DESeq2, Genome Biology 15:550,
+  doi:10.1186/s13059-014-0550-8.
+- `additional_context/2026-11-12_autoresearch_beyond-score_claude.Rmd`
+  (the rules on the three simulated banks).
+- `autoresearch_lfcse/notes/RUN_nov11_claude.md`,
+  `autoresearch_lfcse2/notes/RUN_nov11_claude.md` (the two loops).
+- `WAS2CODE_ANALYSIS_REPO`, `code/tati/Writeup45_gabitto_final-de/`
+  (the design) and `code/kevin/Writeup49_fig4-pseudobulk/` (the
+  split-half and replication-slope conventions).

@@ -1,0 +1,5 @@
+"fit","num_donors","num_case","num_control","num_cells","num_genes","fit_minutes","null_mean","null_sd","num_esvd_deg","num_deseq2_deg","share_capped","num_rule_errors"
+"split1_half1",214,139,75,41571,5256,83,-0.1102,0.5154,95,82,0.425,0
+"split1_half2",214,137,77,40054,5256,66,-0.05802,0.456,182,70,0.4353,0
+"split2_half1",214,138,76,40788,5256,82,-0.09843,0.5862,95,84,0.4304,0
+"split2_half2",214,138,76,40837,5256,67,-0.03899,0.4382,94,63,0.4338,0
